@@ -1,0 +1,84 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  GO_VERSION: "1.24.13"
+  GO_ALPINE_VERSION: "3.22"
+  GIT_STRATEGY: "none"
+  GIT_DEPTH: "1"
+  GIT_SUBMODULE_STRATEGY: "none"
+  GIT_FETCH_EXTRA_FLAGS: "--no-tags"
+  GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+  GOCACHE: "$CI_PROJECT_DIR/.go/cache"
+  DEPLOY_PORT: "22"
+
+default:
+  interruptible: true
+  tags:
+    - recorder
+
+workflow:
+  rules:
+    - if: "$CI_COMMIT_BRANCH"
+
+.go-job:
+  image: "golang:${GO_VERSION}-alpine${GO_ALPINE_VERSION}"
+  before_script:
+    - apk add --no-cache curl git tar
+    - 'find . -mindepth 1 -maxdepth 1 ! -name .go -exec rm -rf {} +'
+    - SOURCE_ARCHIVE_TOKEN="$(printf "%s" "${CI_SOURCE_ARCHIVE_TOKEN_B64}" | base64 -d)"
+    - 'curl --fail --location --http1.1 --ipv4 --connect-timeout 10 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 2 --retry-all-errors --silent --show-error --header "PRIVATE-TOKEN: ${SOURCE_ARCHIVE_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/archive.tar.gz?sha=${CI_COMMIT_SHA}" --output source.tar.gz'
+    - tar -xzf source.tar.gz --strip-components=1
+    - rm source.tar.gz
+    - unset SOURCE_ARCHIVE_TOKEN
+    - unset ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy
+    - export PATH="/usr/local/go/bin:$PATH"
+    - go version
+  cache:
+    key: "${CI_PROJECT_NAME}-go-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .go/pkg/mod
+      - .go/cache
+
+go-test:
+  extends: .go-job
+  stage: test
+  timeout: 30m
+  script:
+    - go test ./...
+
+go-build:
+  extends: .go-job
+  stage: build
+  timeout: 30m
+  needs:
+    - go-test
+  script:
+    - mkdir -p .build
+    - go build -o .build/api ./cmd/api
+    - go build -o .build/worker ./cmd/worker
+    - go build -o .build/cli ./cmd/cli
+    - go build -o .build/main ./cmd/main
+
+deploy-dev:
+  image: alpine:3.22
+  stage: deploy
+  timeout: 30m
+  needs:
+    - go-build
+  before_script:
+    - apk add --no-cache bash curl git openssh-client rsync sshpass tar
+    - 'find . -mindepth 1 -maxdepth 1 ! -name .go -exec rm -rf {} +'
+    - SOURCE_ARCHIVE_TOKEN="$(printf "%s" "${CI_SOURCE_ARCHIVE_TOKEN_B64}" | base64 -d)"
+    - 'curl --fail --location --http1.1 --ipv4 --connect-timeout 10 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 2 --retry-all-errors --silent --show-error --header "PRIVATE-TOKEN: ${SOURCE_ARCHIVE_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/archive.tar.gz?sha=${CI_COMMIT_SHA}" --output source.tar.gz'
+    - tar -xzf source.tar.gz --strip-components=1
+    - rm source.tar.gz
+    - unset SOURCE_ARCHIVE_TOKEN
+    - unset ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy
+  script:
+    - bash scripts/ci-deploy.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success

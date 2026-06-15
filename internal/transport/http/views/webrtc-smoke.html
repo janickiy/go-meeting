@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>go-recorder WebRTC smoke</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --border: #d9e1ee;
+      --text: #192334;
+      --muted: #65748a;
+      --blue: #2563eb;
+      --red: #cf7f7c;
+      --ink: #0f172a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    main {
+      width: min(1100px, calc(100vw - 32px));
+      margin: 28px auto;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 28px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(420px, 640px) minmax(320px, 420px);
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    video {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #111827;
+      border-radius: 7px;
+      object-fit: cover;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .stat {
+      min-height: 82px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      overflow-wrap: anywhere;
+    }
+    .stat .label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .stat .value {
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+    .form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    input, select {
+      width: 100%;
+      height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0 12px;
+      color: var(--text);
+      background: #fff;
+      font: inherit;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    button {
+      height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0 16px;
+      color: var(--text);
+      background: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button.primary { color: #fff; background: var(--blue); border-color: var(--blue); }
+    button.danger { color: #fff; background: var(--red); border-color: var(--red); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    pre {
+      min-height: 320px;
+      max-height: 560px;
+      overflow: auto;
+      margin: 16px 0 0;
+      padding: 18px;
+      color: #e7eefc;
+      background: #0f172a;
+      border-radius: 8px;
+      font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      white-space: pre-wrap;
+    }
+    .completed {
+      margin-top: 16px;
+    }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .completed-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .record-card {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .record-card img,
+    .record-placeholder {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      background: #111827;
+    }
+    .record-placeholder {
+      display: grid;
+      place-items: center;
+      color: #cbd5e1;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .record-body {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+    .record-title {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    .record-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .record-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .record-links a {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0 10px;
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .empty {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    @media (max-width: 900px) {
+      main { width: min(100% - 20px, 680px); margin: 16px auto; }
+      .grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .form { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>WebRTC smoke test</h1>
+    <p class="sub">Страница запускает запись, отправляет браузерный SDP offer и проверяет, что worker создал артефакты.</p>
+    <section class="grid">
+      <div class="panel">
+        <video id="preview" autoplay playsinline muted></video>
+        <div class="stats">
+          <div class="stat"><span class="label">recordId</span><span id="recordId" class="value">-</span></div>
+          <div class="stat"><span class="label">record status</span><span id="recordStatus" class="value">idle</span></div>
+          <div class="stat"><span class="label">peer state</span><span id="peerState" class="value">idle</span></div>
+          <div class="stat"><span class="label">segments</span><span id="segments" class="value">0</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="form">
+          <label>conferenceId<input id="conferenceId"></label>
+          <label>requestedBy<input id="requestedBy"></label>
+          <label>Источник
+            <select id="source">
+              <option value="camera">Камера и микрофон</option>
+              <option value="screen">Экран и микрофон</option>
+            </select>
+          </label>
+          <label>segmentDurationSec<input id="segmentDurationSec" type="number" min="2" value="5"></label>
+        </div>
+        <div class="actions">
+          <button id="start" class="primary">Start media-flow</button>
+          <button id="stop" class="danger" disabled>Stop</button>
+          <button id="refresh">Refresh status</button>
+          <button id="reset">Reset</button>
+        </div>
+      </div>
+    </section>
+    <section class="panel completed">
+      <div class="section-head">
+        <div>
+          <h2>Завершенные трансляции</h2>
+          <p class="sub">Готовые записи с preview.jpg и ссылкой на итоговый файл.</p>
+        </div>
+        <button id="refreshCompleted">Refresh list</button>
+      </div>
+      <div id="completedList" class="completed-grid">
+        <p class="empty">Загрузка...</p>
+      </div>
+    </section>
+    <pre id="log"></pre>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let pc = null;
+    let stream = null;
+    let currentRecordId = "";
+    let statusTimer = null;
+    let stopReadyTimer = null;
+    const DEFAULT_VIDEO = {
+      quality: "720p",
+      width: 1280,
+      height: 720,
+      frameRate: 30,
+      maxBitrateBps: 6000000
+    };
+    const DEFAULT_LOCAL_GATEWAY_BASE = "http://127.0.0.1:18080";
+
+    function now() {
+      return new Date().toLocaleTimeString("ru-RU", { hour12: false });
+    }
+    function log(message, payload) {
+      const line = "[" + now() + "] " + message + (payload === undefined ? "" : "\n" + JSON.stringify(payload, null, 2));
+      $("log").textContent += line + "\n\n";
+      $("log").scrollTop = $("log").scrollHeight;
+    }
+    function errorText(error) {
+      const parts = [];
+      if (error && error.name) parts.push(error.name);
+      if (error && error.message) parts.push(error.message);
+      if (error && error.code !== undefined) parts.push("code=" + error.code);
+      if (parts.length > 0) return parts.join(": ");
+      try { return JSON.stringify(error); } catch { return String(error); }
+    }
+    function clearStopReadyTimer() {
+      if (stopReadyTimer) {
+        clearTimeout(stopReadyTimer);
+        stopReadyTimer = null;
+      }
+      $("stop").textContent = "Stop";
+    }
+    function enableStopAfterSegmentWindow(segmentDurationSec) {
+      clearStopReadyTimer();
+      const seconds = Math.min(Math.max(Number(segmentDurationSec || 5), 2), 8);
+      const readyAt = Date.now() + seconds * 1000;
+      $("stop").disabled = true;
+      function tick() {
+        const remaining = Math.ceil((readyAt - Date.now()) / 1000);
+        if (remaining <= 0) {
+          $("stop").textContent = "Stop";
+          $("stop").disabled = false;
+          stopReadyTimer = null;
+          log("stop is available; first segment window has passed");
+          return;
+        }
+        $("stop").textContent = "Stop (" + remaining + "s)";
+        stopReadyTimer = setTimeout(tick, 250);
+      }
+      tick();
+    }
+    function setText(id, value) {
+      $(id).textContent = value || "-";
+    }
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+    function uuid() {
+      const browserCrypto = window.crypto || {};
+      if (typeof browserCrypto.randomUUID === "function") {
+        return browserCrypto.randomUUID();
+      }
+      const bytes = new Uint8Array(16);
+      if (typeof browserCrypto.getRandomValues === "function") {
+        browserCrypto.getRandomValues(bytes);
+      } else {
+        for (let index = 0; index < bytes.length; index += 1) {
+          bytes[index] = Math.floor(Math.random() * 256);
+        }
+      }
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+
+      return [
+        hex.slice(0, 4).join(""),
+        hex.slice(4, 6).join(""),
+        hex.slice(6, 8).join(""),
+        hex.slice(8, 10).join(""),
+        hex.slice(10, 16).join("")
+      ].join("-");
+    }
+    function refreshRequestIds() {
+      $("conferenceId").value = uuid();
+      $("requestedBy").value = uuid();
+    }
+    function isLocalOrigin() {
+      return ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+    }
+    function mediaCaptureBlockedMessage() {
+      return "Браузер блокирует камеру/микрофон на удаленном HTTP origin. Для smoke test откройте страницу через localhost SSH tunnel или HTTPS.";
+    }
+    function ensureMediaCaptureSupported() {
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
+        throw new Error(mediaCaptureBlockedMessage());
+      }
+    }
+    function gatewayBaseURL() {
+      const params = new URLSearchParams(location.search);
+      const queryValue = (params.get("gatewayBase") || "").trim();
+      if (queryValue) {
+        return queryValue.replace(/\/+$/, "");
+      }
+      const storageValue = (localStorage.getItem("goRecorderGatewayBase") || "").trim();
+      if (storageValue) {
+        return storageValue.replace(/\/+$/, "");
+      }
+      if (location.port === "18080") {
+        return "";
+      }
+      if (isLocalOrigin()) {
+        return DEFAULT_LOCAL_GATEWAY_BASE;
+      }
+      return location.origin;
+    }
+    const API_BASE_URL = gatewayBaseURL();
+    function gatewayEndpoint(path) {
+      if (/^https?:\/\//i.test(path)) {
+        return path;
+      }
+      if (path.startsWith("/api/") || path.startsWith("/debug/records/")) {
+        return API_BASE_URL + path;
+      }
+
+      return path;
+    }
+    async function api(path, options = {}) {
+      const response = await fetch(gatewayEndpoint(path), {
+        ...options,
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+      });
+      const text = await response.text();
+      let body = {};
+      try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; }
+      if (!response.ok) {
+        throw new Error((body && (body.message || body.error || body.code || body.status)) || body.raw || response.statusText || ("HTTP " + response.status));
+      }
+      return body;
+    }
+    function videoSettingsFrom(response) {
+      return { ...DEFAULT_VIDEO, ...((response.webrtc && response.webrtc.video) || {}) };
+    }
+    function videoConstraints(video, strict) {
+      if (strict) {
+        return {
+          width: { min: video.width, ideal: video.width },
+          height: { min: video.height, ideal: video.height },
+          frameRate: { min: Math.min(25, video.frameRate), ideal: video.frameRate, max: video.frameRate }
+        };
+      }
+      return {
+        width: { ideal: video.width },
+        height: { ideal: video.height },
+        frameRate: { ideal: video.frameRate }
+      };
+    }
+    async function acquireStream(video) {
+      ensureMediaCaptureSupported();
+      if ($("source").value === "screen") {
+        if (typeof navigator.mediaDevices.getDisplayMedia !== "function") {
+          throw new Error(mediaCaptureBlockedMessage());
+        }
+        const display = await navigator.mediaDevices.getDisplayMedia({ video: videoConstraints(video, false), audio: true });
+        const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }).catch(() => null);
+        if (mic) {
+          mic.getAudioTracks().forEach((track) => display.addTrack(track));
+        }
+        return display;
+      }
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints(video, true),
+          audio: true
+        });
+      } catch (error) {
+        log("camera strict 720p constraints failed, fallback to ideal constraints", { message: error.message });
+        return navigator.mediaDevices.getUserMedia({
+          video: videoConstraints(video, false),
+          audio: true
+        });
+      }
+    }
+    async function configureVideoSender(sender, video) {
+      if (!sender || !sender.track || sender.track.kind !== "video") {
+        return;
+      }
+      const maxBitrate = Number(video.maxBitrateBps || DEFAULT_VIDEO.maxBitrateBps);
+      const parameters = sender.getParameters();
+      if (!parameters.encodings || parameters.encodings.length === 0) {
+        parameters.encodings = [{}];
+      }
+      parameters.encodings[0].maxBitrate = maxBitrate;
+      parameters.encodings[0].maxFramerate = Number(video.frameRate || DEFAULT_VIDEO.frameRate);
+      parameters.encodings[0].scaleResolutionDownBy = 1;
+      parameters.degradationPreference = "maintain-resolution";
+      try {
+        await sender.setParameters(parameters);
+      } catch (error) {
+        delete parameters.degradationPreference;
+        try {
+          await sender.setParameters(parameters);
+        } catch (fallbackError) {
+          log("video sender configuration failed", { message: fallbackError.message });
+          return;
+        }
+      }
+      log("video sender configured", { maxBitrateBps: maxBitrate, scaleResolutionDownBy: 1 });
+    }
+    function waitIceGathering(peer) {
+      if (peer.iceGatheringState === "complete") {
+        return Promise.resolve("complete");
+      }
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          peer.removeEventListener("icegatheringstatechange", onChange);
+          resolve("timeout");
+        }, 10000);
+        function onChange() {
+          log("ICE gathering state: " + peer.iceGatheringState);
+          if (peer.iceGatheringState === "complete") {
+            clearTimeout(timeout);
+            peer.removeEventListener("icegatheringstatechange", onChange);
+            resolve("complete");
+          }
+        }
+        peer.addEventListener("icegatheringstatechange", onChange);
+      });
+    }
+    async function sendOfferWithRetry(offerUrl, payload) {
+      let lastError = null;
+      for (let attempt = 1; attempt <= 30; attempt++) {
+        try {
+          return await api(offerUrl, { method: "POST", body: JSON.stringify(payload) });
+        } catch (error) {
+          lastError = error;
+          log("offer attempt " + attempt + " failed", { message: errorText(error) });
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+      throw lastError;
+    }
+    async function startFlow() {
+      clearStopReadyTimer();
+      $("start").disabled = true;
+      $("stop").disabled = true;
+      setText("recordStatus", "starting");
+      setText("peerState", "starting");
+      try {
+        if (!$("conferenceId").value) {
+          $("conferenceId").value = uuid();
+        }
+        if (!$("requestedBy").value) {
+          $("requestedBy").value = uuid();
+        }
+        const startResponse = await api("/api/v1/records/start", {
+          method: "POST",
+          body: JSON.stringify({
+            conferenceId: $("conferenceId").value,
+            requestedBy: $("requestedBy").value,
+            qualityMode: "auto",
+            segmentDurationSec: Number($("segmentDurationSec").value || 5)
+          })
+        });
+        currentRecordId = startResponse.recordId;
+        setText("recordId", currentRecordId);
+        setText("recordStatus", startResponse.status);
+        log("record.start accepted", startResponse);
+        log("worker is ready");
+
+        const video = videoSettingsFrom(startResponse);
+        log("video defaults", video);
+        stream = await acquireStream(video);
+        $("preview").srcObject = stream;
+        log("browser media stream acquired", stream.getTracks().map((track) => ({
+          kind: track.kind,
+          label: track.label,
+          settings: typeof track.getSettings === "function" ? track.getSettings() : {}
+        })));
+
+        pc = new RTCPeerConnection({ iceServers: startResponse.webrtc?.iceServers || [{ urls: ["stun:stun.l.google.com:19302"] }] });
+        pc.onicecandidate = (event) => {
+          if (!event.candidate) return;
+          const c = event.candidate.candidate.split(" ");
+          log("local ICE candidate", { type: c[7], protocol: c[2], address: c[4], port: Number(c[5]) });
+        };
+        pc.oniceconnectionstatechange = () => {
+          setText("peerState", pc.iceConnectionState);
+          log("ICE state: " + pc.iceConnectionState);
+        };
+        pc.onconnectionstatechange = () => {
+          setText("peerState", pc.connectionState);
+          log("peer connection state: " + pc.connectionState);
+        };
+        const senders = stream.getTracks().map((track) => pc.addTrack(track, stream));
+        for (const sender of senders) {
+          await configureVideoSender(sender, video);
+        }
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        const iceReason = await waitIceGathering(pc);
+        log("local SDP offer is ready", { iceReason });
+        const answer = await sendOfferWithRetry(startResponse.webrtc?.offerUrl || ("/api/v1/records/" + currentRecordId + "/webrtc/offer"), {
+          type: "offer",
+          sdp: pc.localDescription.sdp
+        });
+        await pc.setRemoteDescription(answer);
+        log("remote SDP answer applied", { type: answer.type });
+        log("media-flow is running; keep it active for at least one segment duration, then press Stop");
+        enableStopAfterSegmentWindow(startResponse.segmentDurationSec || $("segmentDurationSec").value);
+        scheduleStatus();
+      } catch (error) {
+        clearStopReadyTimer();
+        $("start").disabled = false;
+        $("stop").disabled = true;
+        if (!currentRecordId) {
+          setText("recordStatus", "idle");
+          setText("peerState", "idle");
+        }
+        log("ERROR: " + errorText(error));
+      }
+    }
+    async function stopFlow() {
+      clearStopReadyTimer();
+      $("stop").disabled = true;
+      if (!currentRecordId) return;
+      try {
+        const response = await api("/api/v1/records/end", {
+          method: "POST",
+          body: JSON.stringify({ recordId: currentRecordId, reason: "client_stop" })
+        });
+        log("record.stop accepted", response);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        if (pc) {
+          pc.close();
+        }
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+        await refreshStatus();
+        await loadCompletedRecords();
+      } catch (error) {
+        log("ERROR: " + errorText(error));
+      } finally {
+        $("start").disabled = false;
+      }
+    }
+    async function refreshStatus() {
+      if (!currentRecordId) return;
+      const response = await api("/api/v1/records/" + currentRecordId);
+      const item = response.item || {};
+      setText("recordStatus", item.status);
+      setText("segments", Array.isArray(item.segments) ? String(item.segments.length) : "0");
+      log("record status", item);
+      if (item.status === "ready" || item.status === "partial_ready") {
+        if (statusTimer) {
+          clearInterval(statusTimer);
+          statusTimer = null;
+        }
+        await loadCompletedRecords();
+      }
+      if (item.status === "failed") {
+        if (statusTimer) {
+          clearInterval(statusTimer);
+          statusTimer = null;
+        }
+        $("start").disabled = false;
+        $("stop").disabled = true;
+      }
+    }
+    async function loadCompletedRecords() {
+      const list = $("completedList");
+      list.innerHTML = '<p class="empty">Загрузка...</p>';
+      try {
+        const response = await api("/debug/records/completed?limit=50", { headers: {} });
+        const completed = response.items || [];
+        if (completed.length === 0) {
+          list.innerHTML = '<p class="empty">Завершенных записей пока нет.</p>';
+          return;
+        }
+        list.innerHTML = completed.map(renderCompletedRecord).join("");
+      } catch (error) {
+        list.innerHTML = '<p class="empty">Не удалось загрузить список: ' + escapeHTML(error.message) + '</p>';
+      }
+    }
+    function renderCompletedRecord(item) {
+      const recordId = item.recordId || "";
+      const previewHTML = item.previewUrl
+        ? '<img src="' + escapeHTML(item.previewUrl) + '" alt="Preview ' + escapeHTML(recordId) + '" loading="lazy">'
+        : '<div class="record-placeholder">preview.jpg</div>';
+      const size = item.sizeBytes ? Math.round(item.sizeBytes / 1024) + " KB" : "size n/a";
+      const modified = item.lastModified ? new Date(item.lastModified).toLocaleString("ru-RU") : "date n/a";
+      const finalLink = item.finalUrl
+        ? '<a href="' + escapeHTML(item.finalUrl) + '" target="_blank" rel="noreferrer">final.mp4</a>'
+        : "";
+      const previewLink = item.previewUrl
+        ? '<a href="' + escapeHTML(item.previewUrl) + '" target="_blank" rel="noreferrer">preview.jpg</a>'
+        : "";
+      return [
+        '<article class="record-card">',
+        previewHTML,
+        '<div class="record-body">',
+        '<p class="record-title">' + escapeHTML(recordId) + '</p>',
+        '<div class="record-meta"><span>' + escapeHTML(item.status || "ready") + '</span><span>' + escapeHTML(modified) + '</span><span>' + escapeHTML(size) + '</span></div>',
+        '<div class="record-links">',
+        finalLink,
+        previewLink,
+        '</div>',
+        '</div>',
+        '</article>'
+      ].join("");
+    }
+    function scheduleStatus() {
+      if (statusTimer) clearInterval(statusTimer);
+      statusTimer = setInterval(() => refreshStatus().catch((error) => log("status refresh failed", { message: errorText(error) })), 3000);
+    }
+    function reset() {
+      if (statusTimer) {
+        clearInterval(statusTimer);
+        statusTimer = null;
+      }
+      clearStopReadyTimer();
+      if (pc) pc.close();
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+      pc = null;
+      stream = null;
+      currentRecordId = "";
+      $("preview").srcObject = null;
+      $("log").textContent = "";
+      setText("recordId", "-");
+      setText("recordStatus", "idle");
+      setText("peerState", "idle");
+      setText("segments", "0");
+      refreshRequestIds();
+      $("start").disabled = false;
+      $("stop").disabled = true;
+      log("new request IDs generated", {
+        conferenceId: $("conferenceId").value,
+        requestedBy: $("requestedBy").value
+      });
+    }
+    $("start").addEventListener("click", startFlow);
+    $("stop").addEventListener("click", stopFlow);
+    $("refresh").addEventListener("click", () => refreshStatus().catch((error) => log("ERROR: " + errorText(error))));
+    $("refreshCompleted").addEventListener("click", () => loadCompletedRecords().catch((error) => log("ERROR: " + errorText(error))));
+    $("reset").addEventListener("click", reset);
+    refreshRequestIds();
+    if (!window.isSecureContext && !isLocalOrigin()) {
+      log("WARNING: " + mediaCaptureBlockedMessage(), {
+        currentOrigin: location.origin,
+        localTunnelExample: "ssh -L 8080:127.0.0.1:18082 janickiy@192.168.90.201"
+      });
+    }
+    loadCompletedRecords().catch((error) => log("ERROR: " + errorText(error)));
+    log("smoke page version 2026-05-13.4");
+    log("gateway base", { baseUrl: API_BASE_URL || location.origin });
+  </script>
+</body>
+</html>
