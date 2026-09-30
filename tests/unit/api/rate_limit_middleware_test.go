@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/ratelimit"
-	httpmiddleware "git.svc-dev.net/board/go-recorder/internal/transport/http/middleware"
 	"github.com/gin-gonic/gin"
+	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
+	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 )
 
 func TestRateLimitDisabledSkipsLimiter(t *testing.T) {

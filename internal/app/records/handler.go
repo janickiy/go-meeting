@@ -3,8 +3,8 @@ package recordsapp
 import (
 	"context"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
-	workerinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/worker"
+	"github.com/janickiy/go-recorder/internal/domain/records"
+	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
 )
 
 // Service описывает use-case, который нужен HTTP handler-у записей.

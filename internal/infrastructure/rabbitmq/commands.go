@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/domain/records"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 

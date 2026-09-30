@@ -3,8 +3,8 @@ package httptransport
 import (
 	"net/http"
 
-	recordsapp "git.svc-dev.net/board/go-recorder/internal/app/records"
 	"github.com/gin-gonic/gin"
+	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
 )
 
 // APIV1Prefix задает основной префикс версионированного REST API.

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/domain/records"
 )
 
 type ingestFailureRepository interface {

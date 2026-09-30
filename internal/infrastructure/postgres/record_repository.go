@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/domain/records"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

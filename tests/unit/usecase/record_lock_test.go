@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
-	"git.svc-dev.net/board/go-recorder/internal/usecase/recorder"
+	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
 
 func TestStartReturnsConflictWhenConferenceLockExists(t *testing.T) {

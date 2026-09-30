@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	s3storage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/s3"
-	httptransport "git.svc-dev.net/board/go-recorder/internal/transport/http"
 	"github.com/gin-gonic/gin"
+	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
+	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 )
 
 func TestDebugCompletedRecordsReadsFromStorage(t *testing.T) {

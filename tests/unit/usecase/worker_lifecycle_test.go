@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
-	"git.svc-dev.net/board/go-recorder/internal/infrastructure/ffmpeg"
-	"git.svc-dev.net/board/go-recorder/internal/usecase/recorder"
+	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
+	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
 
 const workerTestRecordID = "22222222-2222-4222-8222-222222222222"

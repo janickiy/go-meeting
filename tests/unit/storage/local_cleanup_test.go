@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	localstorage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/local"
+	localstorage "github.com/janickiy/go-recorder/internal/infrastructure/storage/local"
 )
 
 func TestRemoveEmptyTreesDeletesEmptyRecordAndTmpDirs(t *testing.T) {

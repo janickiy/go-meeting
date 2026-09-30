@@ -12,15 +12,15 @@ import (
 	"strings"
 	"syscall"
 
-	"git.svc-dev.net/board/go-recorder/internal/config"
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
-	ffmpeginfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/ffmpeg"
-	postgresinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/postgres"
-	rabbitmqinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/rabbitmq"
-	redisinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/redis"
-	s3storage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/s3"
-	webrtcingest "git.svc-dev.net/board/go-recorder/internal/infrastructure/webrtc"
-	"git.svc-dev.net/board/go-recorder/internal/usecase/recorder"
+	"github.com/janickiy/go-recorder/internal/config"
+	"github.com/janickiy/go-recorder/internal/domain/records"
+	ffmpeginfra "github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
+	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
+	rabbitmqinfra "github.com/janickiy/go-recorder/internal/infrastructure/rabbitmq"
+	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
+	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
+	webrtcingest "github.com/janickiy/go-recorder/internal/infrastructure/webrtc"
+	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
 
 // RunWorker запускает recorder-worker.

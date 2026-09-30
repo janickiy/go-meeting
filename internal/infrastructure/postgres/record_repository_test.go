@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
 	"github.com/google/uuid"
+	"github.com/janickiy/go-recorder/internal/domain/records"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

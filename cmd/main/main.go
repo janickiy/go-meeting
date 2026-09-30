@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"git.svc-dev.net/board/go-recorder/internal/app"
+	"github.com/janickiy/go-recorder/internal/app"
 )
 
 // main запускает общий entrypoint приложения.

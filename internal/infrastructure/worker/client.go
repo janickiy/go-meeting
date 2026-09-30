@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/domain/records"
 )
 
 const defaultTimeout = 10 * time.Minute

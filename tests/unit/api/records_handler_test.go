@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	recordsapp "git.svc-dev.net/board/go-recorder/internal/app/records"
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
-	httptransport "git.svc-dev.net/board/go-recorder/internal/transport/http"
 	"github.com/gin-gonic/gin"
+	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
+	"github.com/janickiy/go-recorder/internal/domain/records"
+	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 )
 
 func TestRecordsStartValidationErrorResponse(t *testing.T) {

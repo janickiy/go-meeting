@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
 	"github.com/google/uuid"
+	"github.com/janickiy/go-recorder/internal/domain/records"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 	"github.com/pion/webrtc/v4/pkg/media/ivfreader"

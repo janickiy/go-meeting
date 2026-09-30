@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	ffmpeginfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/ffmpeg"
+	ffmpeginfra "github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
 )
 
 func TestPostProcessorFinalizeIgnoresEmptySegmentsAndNonSegmentFiles(t *testing.T) {

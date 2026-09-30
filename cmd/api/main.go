@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"git.svc-dev.net/board/go-recorder/internal/app"
+	"github.com/janickiy/go-recorder/internal/app"
 )
 
 // main запускает отдельный API binary.

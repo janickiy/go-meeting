@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
-	workerinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/worker"
+	"github.com/janickiy/go-recorder/internal/domain/records"
+	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
 )
 
 func TestClientSendsStartRecordCommand(t *testing.T) {

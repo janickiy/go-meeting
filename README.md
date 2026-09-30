@@ -4,6 +4,11 @@ REST API сервиса записи видеопотока на Go + Gin.
 
 API отвечает за управление задачами записи: создает запись в PostgreSQL, публикует команды `record.start` и `record.stop` в локальный RabbitMQ проекта и возвращает состояние записи через HTTP. Непосредственный захват видеопотока, склейку итогового видео, генерацию preview и загрузку артефактов в MinIO выполняет отдельный `worker`.
 
+Этап 1 платформы конференций добавляет пользователей, email/password-аутентификацию,
+часовой JWT, конференции, membership участников и права владельца. Контракты,
+миграции, ограничения совместимости и примеры запросов: [Stage 1 API](docs/stage-1-api.md).
+Новый API требует `JWT_SECRET`; существующий recorder pipeline не изменён.
+
 ## Структура проекта
 
 ```text
@@ -55,6 +60,12 @@ HTTP-вызов API -> worker сохранен только для WebRTC signal
 cp .env.example .env
 ```
 
+Перед запуском API сгенерируй `openssl rand -hex 32` и сохрани результат в
+`JWT_SECRET` внутри `.env`. Не коммить этот секрет. Без секрета длиной минимум
+32 байта API не запускается; worker и отдельная команда миграций его не требуют.
+`HTTP_TRUSTED_PROXIES` по умолчанию пуст: доверие к `X-Forwarded-For` разрешается
+только для явно указанных адресов/CIDR реального reverse proxy.
+
 Локальные подключения:
 
 ```text
@@ -102,6 +113,8 @@ Redis rate limit:
 RATE_LIMIT_ENABLED=true
 RATE_LIMIT_WINDOW=1m
 RATE_LIMIT_DEFAULT_RPM=240
+RATE_LIMIT_AUTH_LOGIN_IP_RPM=10
+RATE_LIMIT_AUTH_REGISTER_IP_RPM=5
 RATE_LIMIT_RECORD_START_CONFERENCE_RPM=12
 RATE_LIMIT_RECORD_START_IP_RPM=40
 RATE_LIMIT_RECORD_END_RECORD_RPM=40

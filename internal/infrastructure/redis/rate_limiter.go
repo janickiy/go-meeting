@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/ratelimit"
 	"github.com/google/uuid"
+	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
 	goredis "github.com/redis/go-redis/v9"
 )
 

@@ -42,6 +42,8 @@ type Config struct {
 	MinIOBucket        string
 	MinIOUseSSL        bool
 	MinIOPublicOrigin  string
+	JWTSecret          string
+	TrustedProxies     []string
 }
 
 // Load читает .env и переменные окружения.
@@ -53,6 +55,8 @@ func Load() (Config, error) {
 
 	cfg := Config{
 		AppEnv:             env("APP_ENV", "local"),
+		JWTSecret:          os.Getenv("JWT_SECRET"),
+		TrustedProxies:     envList("HTTP_TRUSTED_PROXIES"),
 		APIPort:            envInt("APP_PORT", 8085),
 		WorkerPort:         envInt("WORKER_PORT", 8090),
 		WorkerInternalURL:  env("WORKER_INTERNAL_URL", "http://worker:8090"),
@@ -74,6 +78,8 @@ func Load() (Config, error) {
 		RateLimitWindow:    envDuration("RATE_LIMIT_WINDOW", time.Minute),
 		RateLimit: RateLimitConfig{
 			DefaultRPM:               envInt("RATE_LIMIT_DEFAULT_RPM", 240),
+			AuthLoginIPRPM:           envInt("RATE_LIMIT_AUTH_LOGIN_IP_RPM", 10),
+			AuthRegisterIPRPM:        envInt("RATE_LIMIT_AUTH_REGISTER_IP_RPM", 5),
 			RecordStartConferenceRPM: envInt("RATE_LIMIT_RECORD_START_CONFERENCE_RPM", 12),
 			RecordStartIPRPM:         envInt("RATE_LIMIT_RECORD_START_IP_RPM", 40),
 			RecordEndRecordRPM:       envInt("RATE_LIMIT_RECORD_END_RECORD_RPM", 40),
@@ -101,6 +107,8 @@ func Load() (Config, error) {
 // RateLimitConfig содержит лимиты запросов API за одно окно.
 type RateLimitConfig struct {
 	DefaultRPM               int
+	AuthLoginIPRPM           int
+	AuthRegisterIPRPM        int
 	RecordStartConferenceRPM int
 	RecordStartIPRPM         int
 	RecordEndRecordRPM       int

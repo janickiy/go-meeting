@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	s3storage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/s3"
+	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
 
 	"github.com/gin-gonic/gin"
 )

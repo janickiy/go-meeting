@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/records"
-	"git.svc-dev.net/board/go-recorder/internal/infrastructure/ffmpeg"
-	localstorage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/local"
-	s3storage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/s3"
-	webrtcingest "git.svc-dev.net/board/go-recorder/internal/infrastructure/webrtc"
 	"github.com/google/uuid"
+	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
+	localstorage "github.com/janickiy/go-recorder/internal/infrastructure/storage/local"
+	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
+	webrtcingest "github.com/janickiy/go-recorder/internal/infrastructure/webrtc"
 )
 
 type apiRepository interface {

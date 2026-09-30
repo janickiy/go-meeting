@@ -4,16 +4,21 @@ import (
 	"context"
 	"fmt"
 
-	recordsapp "git.svc-dev.net/board/go-recorder/internal/app/records"
-	"git.svc-dev.net/board/go-recorder/internal/config"
-	postgresinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/postgres"
-	rabbitmqinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/rabbitmq"
-	redisinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/redis"
-	s3storage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/s3"
-	workerinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/worker"
-	httptransport "git.svc-dev.net/board/go-recorder/internal/transport/http"
-	httpmiddleware "git.svc-dev.net/board/go-recorder/internal/transport/http/middleware"
-	"git.svc-dev.net/board/go-recorder/internal/usecase/recorder"
+	authapp "github.com/janickiy/go-recorder/internal/app/auth"
+	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
+	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
+	"github.com/janickiy/go-recorder/internal/config"
+	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
+	rabbitmqinfra "github.com/janickiy/go-recorder/internal/infrastructure/rabbitmq"
+	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
+	"github.com/janickiy/go-recorder/internal/infrastructure/security"
+	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
+	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
+	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
+	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	authusecase "github.com/janickiy/go-recorder/internal/usecase/auth"
+	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
+	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
 
 // RunAPI запускает HTTP API.
@@ -21,6 +26,11 @@ import (
 // Возвращает: ошибку bootstrap или HTTP server-а.
 func RunAPI() error {
 	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	// Validate only in API bootstrap: recorder-worker/migrate do not issue JWTs.
+	tokens, err := security.NewTokenService(cfg.JWTSecret)
 	if err != nil {
 		return err
 	}
@@ -59,6 +69,16 @@ func RunAPI() error {
 	service := recorder.NewService(repository, commandPublisher, s3Client, conferenceLock)
 	handler := recordsapp.NewHandlerWithSignaler(service, workerSignaler)
 	router := httptransport.NewRouter(handler, cfg.IsLocal(), s3Client, httpmiddleware.RateLimit(rateLimiter, rateLimitConfig(cfg)))
+	if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		return fmt.Errorf("HTTP_TRUSTED_PROXIES: %w", err)
+	}
+	users := postgresinfra.NewUserRepository(db)
+	authService, err := authusecase.NewService(users, security.PasswordHasher{}, tokens)
+	if err != nil {
+		return err
+	}
+	conferenceService := conferenceusecase.NewService(postgresinfra.NewConferenceRepository(db), users, security.GenerateInviteCode)
+	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(tokens))
 
 	return router.Run(fmt.Sprintf(":%d", cfg.APIPort))
 }
@@ -77,6 +97,8 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 		return httptransport.APIV1Prefix + route
 	}
 	rules := []httpmiddleware.Rule{
+		{Method: "POST", Path: path("/auth/login"), Scope: "ip", Limit: limit(cfg.RateLimit.AuthLoginIPRPM), Window: window, Key: httpmiddleware.ClientIPKey},
+		{Method: "POST", Path: path("/auth/register"), Scope: "ip", Limit: limit(cfg.RateLimit.AuthRegisterIPRPM), Window: window, Key: httpmiddleware.ClientIPKey},
 		{
 			Method: "POST",
 			Path:   path("/records/start"),

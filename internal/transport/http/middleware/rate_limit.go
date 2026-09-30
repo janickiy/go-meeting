@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"git.svc-dev.net/board/go-recorder/internal/domain/ratelimit"
 	"github.com/gin-gonic/gin"
+	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
 )
 
 const parsedBodyKey = "rate_limit_json_body"
