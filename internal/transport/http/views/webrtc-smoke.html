@@ -656,6 +656,10 @@
           clearInterval(statusTimer);
           statusTimer = null;
         }
+        clearStopReadyTimer();
+        if (pc) pc.close();
+        if (stream) stream.getTracks().forEach((track) => track.stop());
+        $("preview").srcObject = null;
         $("start").disabled = false;
         $("stop").disabled = true;
       }

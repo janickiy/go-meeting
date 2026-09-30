@@ -94,11 +94,12 @@ func TestStartReleasesConferenceLockWhenWorkerPrepareFails(t *testing.T) {
 	}
 }
 
-func TestStopReleasesConferenceLockAfterStopCommand(t *testing.T) {
+func TestStopKeepsConferenceLockUntilWorkerStopsMedia(t *testing.T) {
 	repository := &fakeRepository{
 		record: records.Record{
 			UUID:         "22222222-2222-4222-8222-222222222222",
 			ConferenceID: "11111111-1111-4111-8111-111111111111",
+			Status:       records.StatusRecording,
 		},
 	}
 	worker := &fakeWorkerCommander{}
@@ -119,8 +120,59 @@ func TestStopReleasesConferenceLockAfterStopCommand(t *testing.T) {
 	if !worker.stopCalled {
 		t.Fatal("worker stop was not called")
 	}
-	if !locker.releaseCalled {
-		t.Fatal("lock was not released")
+	if locker.releaseCalled {
+		t.Fatal("lock was released before the worker stopped media")
+	}
+}
+
+func TestStopDoesNotReopenCompletedOrFinalizingRecord(t *testing.T) {
+	for _, status := range []string{records.StatusReady, records.StatusPartialReady, records.StatusFailed, records.StatusCancelled, records.StatusFinalizing, records.StatusUploading} {
+		t.Run(status, func(t *testing.T) {
+			repository := &fakeRepository{record: records.Record{UUID: "record-1", Status: status}}
+			worker := &fakeWorkerCommander{}
+			service := recorder.NewService(repository, worker, nil, nil)
+			if err := service.Stop(context.Background(), records.EndRequest{RecordID: "record-1", Reason: "retry"}); err != nil {
+				t.Fatal(err)
+			}
+			if repository.markStoppingCalled || worker.stopCalled {
+				t.Fatal("stop reopened a completed or finalizing record")
+			}
+		})
+	}
+}
+
+func TestStopRetriesPublishWithoutChangingStopMetadata(t *testing.T) {
+	repository := &fakeRepository{record: records.Record{UUID: "record-1", Status: records.StatusRecording}}
+	wantErr := errors.New("broker unavailable")
+	worker := &fakeWorkerCommander{stopErr: wantErr}
+	locker := &fakeConferenceLocker{}
+	service := recorder.NewService(repository, worker, nil, locker)
+	request := records.EndRequest{RecordID: "record-1", Reason: "client_stop"}
+	if err := service.Stop(context.Background(), request); !errors.Is(err, wantErr) {
+		t.Fatalf("Stop() = %v, want publish error", err)
+	}
+	if locker.releaseCalled {
+		t.Fatal("failed publication released lock")
+	}
+	repository.markStoppingCalled = false
+	worker.stopCalled, worker.stopErr = false, nil
+	if err := service.Stop(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if repository.markStoppingCalled || !worker.stopCalled || locker.releaseCalled {
+		t.Fatal("retry must only republish the stop command")
+	}
+}
+
+func TestStopIgnoresStaleState(t *testing.T) {
+	repository := &fakeRepository{record: records.Record{UUID: "record-1", Status: records.StatusRecording}, markStoppingErr: records.ErrRecordStateChanged}
+	worker := &fakeWorkerCommander{}
+	service := recorder.NewService(repository, worker, nil, nil)
+	if err := service.Stop(context.Background(), records.EndRequest{RecordID: "record-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if worker.stopCalled {
+		t.Fatal("stale request published a stop command")
 	}
 }
 
@@ -154,7 +206,7 @@ func TestCountByConferenceReturnsRecordsWithTimeFields(t *testing.T) {
 	}
 
 	if !repository.listDetailsByConferenceCalled {
-		t.Fatal("repository ListDetailsByConferenceIDs() was not called")
+		t.Fatal("repository ListSummaryDetailsByConferenceIDs() was not called")
 	}
 	if repository.listDetailsByConferenceStatus != records.StatusReady {
 		t.Fatalf("status = %q, want %q", repository.listDetailsByConferenceStatus, records.StatusReady)
@@ -180,6 +232,7 @@ type fakeRepository struct {
 	createCalled                    bool
 	markFailedCalled                bool
 	markStoppingCalled              bool
+	markStoppingErr                 error
 	listDetailsByConferenceCalled   bool
 	listDetailsByConferenceIDs      []string
 	listDetailsByConferenceStatus   string
@@ -208,8 +261,10 @@ func (r *fakeRepository) FindByUUID(_ context.Context, _ string) (records.Record
 
 func (r *fakeRepository) MarkStopping(_ context.Context, _ string, _ string) error {
 	r.markStoppingCalled = true
-
-	return nil
+	if r.markStoppingErr == nil {
+		r.record.Status = records.StatusStopping
+	}
+	return r.markStoppingErr
 }
 
 func (r *fakeRepository) MarkFailed(_ context.Context, _ string, _ error) error {
@@ -222,7 +277,7 @@ func (r *fakeRepository) ListDetails(_ context.Context, _ int, _ int) ([]records
 	return nil, nil
 }
 
-func (r *fakeRepository) ListDetailsByConferenceIDs(_ context.Context, conferenceIDs []string, status string) ([]records.RecordDetails, error) {
+func (r *fakeRepository) ListSummaryDetailsByConferenceIDs(_ context.Context, conferenceIDs []string, status string) ([]records.RecordDetails, error) {
 	r.listDetailsByConferenceCalled = true
 	r.listDetailsByConferenceIDs = conferenceIDs
 	r.listDetailsByConferenceStatus = status

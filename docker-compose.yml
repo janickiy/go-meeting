@@ -1,3 +1,12 @@
+# Keep all Compose clients on the project's broker, even with an old .env.
+x-rabbitmq-client: &rabbitmq-client
+  RABBIT_MQ_DSN: ""
+  RABBIT_MQ_HOST: rabbitmq
+  RABBIT_MQ_PORT: "5672"
+  RABBIT_MQ_USER: ${RABBIT_MQ_USER:-go_recorder}
+  RABBIT_MQ_PASSWORD: ${RABBIT_MQ_PASSWORD:-go_recorder_pass}
+  RABBIT_MQ_VHOST: ${RABBIT_MQ_VHOST:-/}
+
 services:
   api:
     image: go-recorder_api
@@ -8,6 +17,7 @@ services:
       target: runtime
     env_file:
       - .env
+    environment: *rabbitmq-client
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -17,11 +27,12 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "${APP_HOST_PORT:-8085}:${APP_PORT:-8085}"
     networks:
       app-network:
-      rabbit_mq_network:
       gateway_network:
         aliases:
           - record-api
@@ -48,6 +59,7 @@ services:
       target: debug
     env_file:
       - .env
+    environment: *rabbitmq-client
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -56,6 +68,8 @@ services:
       redis:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     ports:
       - "${APP_HOST_PORT:-8085}:${APP_PORT:-8085}"
@@ -68,7 +82,6 @@ services:
       app-network:
         aliases:
           - api
-      rabbit_mq_network:
 
   worker:
     image: go-recorder-worker
@@ -79,10 +92,15 @@ services:
       target: runtime
     env_file:
       - .env
+    environment: *rabbitmq-client
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       minio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     ports:
       - "${WORKER_HOST_PORT:-8090}:8090"
@@ -92,7 +110,6 @@ services:
       - ./dockers/storage/data:/storage
     networks:
       app-network:
-      rabbit_mq_network:
       gateway_network:
         aliases:
           - record-worker
@@ -106,10 +123,15 @@ services:
       target: debug
     env_file:
       - .env
+    environment: *rabbitmq-client
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       minio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     ports:
       - "${WORKER_HOST_PORT:-8090}:8090"
@@ -126,7 +148,28 @@ services:
       app-network:
         aliases:
           - worker
-      rabbit_mq_network:
+
+  rabbitmq:
+    image: rabbitmq:4.2.9-management
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_MQ_USER:-go_recorder}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_MQ_PASSWORD:-go_recorder_pass}
+      RABBITMQ_DEFAULT_VHOST: ${RABBIT_MQ_VHOST:-/}
+    ports:
+      - "127.0.0.1:${RABBIT_MQ_HOST_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBIT_MQ_MANAGEMENT_HOST_PORT:-15672}:15672"
+    volumes:
+      - ./dockers/rabbitmq/data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    networks:
+      - app-network
 
   postgres:
     restart: unless-stopped
@@ -167,7 +210,10 @@ services:
 
   minio:
     restart: unless-stopped
-    image: minio/minio:latest
+    image: go-recorder-minio:local
+    build:
+      context: .
+      dockerfile: dockers/minio/Dockerfile
     command: server /data --console-address ":9001"
     env_file:
       - .env
@@ -180,7 +226,7 @@ services:
     volumes:
       - ./dockers/minio/data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9000/minio/health/ready"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -190,9 +236,6 @@ services:
 networks:
   app-network:
     driver: bridge
-  rabbit_mq_network:
-    external: true
-    name: ${RABBIT_MQ_NETWORK:-infra_network}
   gateway_network:
     external: true
     name: ${GATEWAY_NETWORK:-gateway_default}

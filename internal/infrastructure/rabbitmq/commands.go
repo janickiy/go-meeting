@@ -13,7 +13,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Options содержит настройки подключения к централизованному RabbitMQ.
+// Options содержит настройки подключения к RabbitMQ проекта.
 type Options struct {
 	URL         string
 	Exchange    string
@@ -326,7 +326,7 @@ func dial(ctx context.Context, url string) (*amqp.Connection, error) {
 func normalizeOptions(options Options) Options {
 	options.URL = strings.TrimSpace(options.URL)
 	if options.URL == "" {
-		options.URL = "amqp://guest:guest@rabbitmq:5672/%2F"
+		options.URL = "amqp://go_recorder:go_recorder_pass@rabbitmq:5672/%2F"
 	}
 	options.Exchange = strings.TrimSpace(options.Exchange)
 	if options.Exchange == "" {

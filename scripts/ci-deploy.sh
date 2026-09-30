@@ -54,6 +54,7 @@ rsync -az --delete \
   --exclude 'dockers/https/certs/' \
   --exclude 'dockers/postgres/data/' \
   --exclude 'dockers/redis/data/' \
+  --exclude 'dockers/rabbitmq/data/' \
   --exclude 'dockers/minio/data/' \
   --exclude 'dockers/storage/data/' \
   -e "${rsync_ssh}" \
@@ -73,6 +74,6 @@ fi
 
 "${ssh_command[@]}" "${remote}" "cd '${DEPLOY_PATH}' && \
   if [ ! -f .env ]; then cp .env.example .env; fi && \
-  docker compose build api worker && \
+  docker compose build api worker minio && \
   docker compose up -d --remove-orphans && \
   docker compose ps"

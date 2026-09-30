@@ -17,6 +17,7 @@ import (
 	ffmpeginfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/ffmpeg"
 	postgresinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/postgres"
 	rabbitmqinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/rabbitmq"
+	redisinfra "git.svc-dev.net/board/go-recorder/internal/infrastructure/redis"
 	s3storage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/s3"
 	webrtcingest "git.svc-dev.net/board/go-recorder/internal/infrastructure/webrtc"
 	"git.svc-dev.net/board/go-recorder/internal/usecase/recorder"
@@ -47,6 +48,12 @@ func RunWorker() error {
 	}
 
 	repository := postgresinfra.NewRecordRepository(db)
+	redisClient, err := redisinfra.NewClient(ctx, cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	if err != nil {
+		return err
+	}
+	defer redisClient.Close()
+	conferenceLock := redisinfra.NewConferenceLock(redisClient, cfg.RecordLockTTL)
 	ingest, err := webrtcingest.NewManager(webrtcingest.Options{
 		StoragePath: cfg.StoragePath,
 		FFmpegPath:  cfg.FFmpegPath,
@@ -55,13 +62,13 @@ func RunWorker() error {
 		NATIPs:      cfg.WebRTCNATIPs,
 		Logger:      logger,
 		OnStarted: func(ctx context.Context, recordID string) {
-			if err := repository.MarkRecording(ctx, recordID, cfg.WorkerID); err != nil {
+			if err := repository.MarkRecording(ctx, recordID, cfg.WorkerID); err != nil && !errors.Is(err, records.ErrRecordStateChanged) {
 				logger.Printf("mark record %s recording failed: %v", recordID, err)
 			}
 		},
 		OnFailed: func(ctx context.Context, recordID string, cause error) {
-			if err := repository.MarkFailed(ctx, recordID, cause); err != nil {
-				logger.Printf("mark record %s failed failed: %v", recordID, err)
+			if err := recorder.FailIngest(ctx, repository, conferenceLock, recordID, cfg.WorkerID, cause); err != nil {
+				logger.Printf("handle ingest failure for record %s: %v", recordID, err)
 			}
 		},
 	})
@@ -69,7 +76,7 @@ func RunWorker() error {
 		return err
 	}
 	postProcessor := ffmpeginfra.NewPostProcessor(cfg.FFmpegPath)
-	service := recorder.NewWorkerService(repository, postProcessor, ingest, s3Client, cfg.StoragePath, cfg.WorkerID)
+	service := recorder.NewWorkerService(repository, postProcessor, ingest, s3Client, cfg.StoragePath, cfg.WorkerID, conferenceLock)
 	consumer, err := rabbitmqinfra.NewConsumer(ctx, rabbitmqinfra.Options{
 		URL:         cfg.RabbitMQURL,
 		Exchange:    cfg.RabbitMQExchange,

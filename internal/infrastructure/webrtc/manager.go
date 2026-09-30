@@ -140,8 +140,8 @@ func (m *Manager) Prepare(recordID string, segmentDurationSec int) error {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if existing, ok := m.sessions[recordID]; ok {
-		existing.segmentDurationSec = segmentDurationSec
+	if _, ok := m.sessions[recordID]; ok {
+		// Duplicate start commands must not mutate a live session's configuration.
 		return nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -223,6 +223,7 @@ type session struct {
 	processReady chan struct{}
 	startOnce    sync.Once
 	failOnce     sync.Once
+	failed       bool
 }
 
 func (s *session) handleOffer(ctx context.Context, request records.WebRTCOfferRequest) (records.WebRTCAnswerResponse, error) {
@@ -242,6 +243,11 @@ func (s *session) handleOffer(ctx context.Context, request records.WebRTCOfferRe
 	}
 
 	s.mu.Lock()
+	if s.failed {
+		s.mu.Unlock()
+		_ = pc.Close()
+		return records.WebRTCAnswerResponse{}, fmt.Errorf("WebRTC session has failed")
+	}
 	if s.pc != nil {
 		_ = s.pc.Close()
 	}
@@ -310,6 +316,10 @@ func (s *session) handleTrack(track *pionwebrtc.TrackRemote) {
 	}
 
 	s.mu.Lock()
+	if s.failed {
+		s.mu.Unlock()
+		return
+	}
 	s.tracks = append(s.tracks, ffTrack)
 	if s.received == nil {
 		s.received = make(map[string]int)
@@ -333,6 +343,10 @@ func (s *session) handleTrack(track *pionwebrtc.TrackRemote) {
 
 func (s *session) startFFmpeg() error {
 	s.mu.Lock()
+	if s.failed {
+		s.mu.Unlock()
+		return fmt.Errorf("WebRTC session has failed")
+	}
 	if s.process != nil {
 		s.mu.Unlock()
 		return nil
@@ -349,16 +363,21 @@ func (s *session) startFFmpeg() error {
 		return err
 	}
 	s.mu.Lock()
+	if s.failed {
+		s.mu.Unlock()
+		_ = process.Stop(time.Second)
+		return fmt.Errorf("WebRTC session has failed")
+	}
 	s.process = process
 	s.processSince = time.Now()
 	processReady := s.processReady
-	s.mu.Unlock()
 	if processReady != nil {
 		close(processReady)
 	}
 	if s.manager.onStarted != nil {
 		s.manager.onStarted(context.Background(), s.recordID)
 	}
+	s.mu.Unlock()
 
 	return nil
 }
@@ -525,6 +544,24 @@ func (s *session) stop() error {
 
 func (s *session) fail(err error) {
 	s.failOnce.Do(func() {
+		s.mu.Lock()
+		s.failed = true
+		pc := s.pc
+		if s.waitTimer != nil {
+			s.waitTimer.Stop()
+			s.waitTimer = nil
+		}
+		s.mu.Unlock()
+		// Stop media before releasing the conference lock in the failure callback.
+		s.cancel()
+		if pc != nil {
+			_ = pc.Close()
+		}
+		s.manager.mu.Lock()
+		if s.manager.sessions[s.recordID] == s {
+			delete(s.manager.sessions, s.recordID)
+		}
+		s.manager.mu.Unlock()
 		s.manager.logger.Printf("record %s ingest failed: %v", s.recordID, err)
 		if s.manager.onFailed != nil {
 			s.manager.onFailed(context.Background(), s.recordID, err)

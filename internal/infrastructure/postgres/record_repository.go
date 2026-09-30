@@ -111,13 +111,13 @@ func (r *RecordRepository) ListDetails(ctx context.Context, limit int, offset in
 	return result, nil
 }
 
-// ListDetailsByConferenceIDs возвращает записи выбранных конференций со связанными файлами, сегментами и событиями.
+// ListSummaryDetailsByConferenceIDs returns records with only final and preview files.
 // Параметры:
 // - ctx: контекст операции.
 // - conferenceIDs: список UUID конференций.
 // - status: optional фильтр по статусу записи.
 // Возвращает: список карточек данных, отсортированный от новых к старым, или ошибку БД.
-func (r *RecordRepository) ListDetailsByConferenceIDs(ctx context.Context, conferenceIDs []string, status string) ([]records.RecordDetails, error) {
+func (r *RecordRepository) ListSummaryDetailsByConferenceIDs(ctx context.Context, conferenceIDs []string, status string) ([]records.RecordDetails, error) {
 	if len(conferenceIDs) == 0 {
 		return []records.RecordDetails{}, nil
 	}
@@ -140,7 +140,7 @@ func (r *RecordRepository) ListDetailsByConferenceIDs(ctx context.Context, confe
 	for _, item := range items {
 		recordIDs = append(recordIDs, item.ID)
 	}
-	files, segments, events, err := r.relatedByRecordIDs(ctx, recordIDs)
+	files, err := r.filesByRecordIDs(ctx, recordIDs, records.FileTypeFinalMP4, records.FileTypePreviewJPG)
 	if err != nil {
 		return nil, err
 	}
@@ -148,10 +148,8 @@ func (r *RecordRepository) ListDetailsByConferenceIDs(ctx context.Context, confe
 	result := make([]records.RecordDetails, 0, len(items))
 	for _, item := range items {
 		result = append(result, records.RecordDetails{
-			Record:   item,
-			Files:    files[item.ID],
-			Segments: segments[item.ID],
-			Events:   events[item.ID],
+			Record: item,
+			Files:  files[item.ID],
 		})
 	}
 
@@ -189,13 +187,11 @@ func (r *RecordRepository) FindDetailsByUUID(ctx context.Context, uuid string) (
 // Возвращает: ошибку БД.
 func (r *RecordRepository) MarkRecording(ctx context.Context, uuid string, workerID string) error {
 	now := time.Now().UTC()
-	return r.db.WithContext(ctx).Model(&records.Record{}).
-		Where("uuid = ?", uuid).
-		Updates(map[string]any{
-			"status":     records.StatusRecording,
-			"worker_id":  workerID,
-			"started_at": now,
-		}).Error
+	return r.transition(ctx, uuid, []string{records.StatusStarting}, map[string]any{
+		"status":     records.StatusRecording,
+		"worker_id":  workerID,
+		"started_at": now,
+	})
 }
 
 // MarkStopping переводит запись в stopping.
@@ -206,13 +202,11 @@ func (r *RecordRepository) MarkRecording(ctx context.Context, uuid string, worke
 // Возвращает: ошибку БД.
 func (r *RecordRepository) MarkStopping(ctx context.Context, uuid string, reason string) error {
 	now := time.Now().UTC()
-	return r.db.WithContext(ctx).Model(&records.Record{}).
-		Where("uuid = ?", uuid).
-		Updates(map[string]any{
-			"status":       records.StatusStopping,
-			"stopped_at":   now,
-			"ended_reason": reason,
-		}).Error
+	return r.transition(ctx, uuid, []string{records.StatusStarting, records.StatusRecording, records.StatusDegraded}, map[string]any{
+		"status":       records.StatusStopping,
+		"stopped_at":   now,
+		"ended_reason": reason,
+	})
 }
 
 // MarkFinalizing переводит запись в finalizing.
@@ -221,7 +215,8 @@ func (r *RecordRepository) MarkStopping(ctx context.Context, uuid string, reason
 // - uuid: UUID записи.
 // Возвращает: ошибку БД.
 func (r *RecordRepository) MarkFinalizing(ctx context.Context, uuid string) error {
-	return r.updateStatus(ctx, uuid, records.StatusFinalizing)
+	// Uploading is allowed on retry: local artifacts remain until the DB commit.
+	return r.transition(ctx, uuid, []string{records.StatusStarting, records.StatusRecording, records.StatusDegraded, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}, map[string]any{"status": records.StatusFinalizing})
 }
 
 // MarkUploading переводит запись в uploading.
@@ -230,7 +225,7 @@ func (r *RecordRepository) MarkFinalizing(ctx context.Context, uuid string) erro
 // - uuid: UUID записи.
 // Возвращает: ошибку БД.
 func (r *RecordRepository) MarkUploading(ctx context.Context, uuid string) error {
-	return r.updateStatus(ctx, uuid, records.StatusUploading)
+	return r.transition(ctx, uuid, []string{records.StatusFinalizing, records.StatusUploading}, map[string]any{"status": records.StatusUploading})
 }
 
 // MarkFailed переводит запись в failed и сохраняет текст ошибки.
@@ -245,13 +240,11 @@ func (r *RecordRepository) MarkFailed(ctx context.Context, uuid string, cause er
 		message = cause.Error()
 	}
 	now := time.Now().UTC()
-	return r.db.WithContext(ctx).Model(&records.Record{}).
-		Where("uuid = ?", uuid).
-		Updates(map[string]any{
-			"status":        records.StatusFailed,
-			"error_message": message,
-			"ended_at":      now,
-		}).Error
+	return r.transition(ctx, uuid, []string{records.StatusStarting, records.StatusRecording, records.StatusDegraded, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}, map[string]any{
+		"status":        records.StatusFailed,
+		"error_message": message,
+		"ended_at":      now,
+	})
 }
 
 // SaveFinalArtifacts сохраняет record_file и обновляет record ссылками на MinIO.
@@ -266,6 +259,9 @@ func (r *RecordRepository) SaveFinalArtifacts(ctx context.Context, uuid string, 
 		var record records.Record
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ?", uuid).First(&record).Error; err != nil {
 			return err
+		}
+		if record.Status != records.StatusUploading {
+			return records.ErrRecordStateChanged
 		}
 
 		finalFile.RecordID = record.ID
@@ -327,26 +323,41 @@ func (r *RecordRepository) AddEvent(ctx context.Context, recordUUID string, even
 	return r.db.WithContext(ctx).Create(&event).Error
 }
 
-func (r *RecordRepository) updateStatus(ctx context.Context, uuid string, status string) error {
-	return r.db.WithContext(ctx).Model(&records.Record{}).Where("uuid = ?", uuid).Update("status", status).Error
+func (r *RecordRepository) transition(ctx context.Context, uuid string, from []string, updates map[string]any) error {
+	result := r.db.WithContext(ctx).Model(&records.Record{}).
+		Where("uuid = ? AND status IN ?", uuid, from).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return records.ErrRecordStateChanged
+	}
+	return nil
 }
 
-func (r *RecordRepository) relatedByRecordIDs(ctx context.Context, recordIDs []int64) (map[int64][]records.RecordFile, map[int64][]records.RecordSegment, map[int64][]records.RecordEvent, error) {
+func (r *RecordRepository) filesByRecordIDs(ctx context.Context, recordIDs []int64, fileTypes ...string) (map[int64][]records.RecordFile, error) {
 	filesByRecord := make(map[int64][]records.RecordFile, len(recordIDs))
-	segmentsByRecord := make(map[int64][]records.RecordSegment, len(recordIDs))
-	eventsByRecord := make(map[int64][]records.RecordEvent, len(recordIDs))
-
+	query := r.db.WithContext(ctx).Where("record_id IN ?", recordIDs)
+	if len(fileTypes) > 0 {
+		query = query.Where("file_type IN ?", fileTypes)
+	}
 	var files []records.RecordFile
-	if err := r.db.WithContext(ctx).
-		Where("record_id IN ?", recordIDs).
-		Order("file_type ASC").
-		Find(&files).
-		Error; err != nil {
-		return nil, nil, nil, err
+	if err := query.Order("file_type ASC").Find(&files).Error; err != nil {
+		return nil, err
 	}
 	for _, file := range files {
 		filesByRecord[file.RecordID] = append(filesByRecord[file.RecordID], file)
 	}
+	return filesByRecord, nil
+}
+
+func (r *RecordRepository) relatedByRecordIDs(ctx context.Context, recordIDs []int64) (map[int64][]records.RecordFile, map[int64][]records.RecordSegment, map[int64][]records.RecordEvent, error) {
+	filesByRecord, err := r.filesByRecordIDs(ctx, recordIDs)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	segmentsByRecord := make(map[int64][]records.RecordSegment, len(recordIDs))
+	eventsByRecord := make(map[int64][]records.RecordEvent, len(recordIDs))
 
 	var segments []records.RecordSegment
 	if err := r.db.WithContext(ctx).

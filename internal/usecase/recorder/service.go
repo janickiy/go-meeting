@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"git.svc-dev.net/board/go-recorder/internal/domain/records"
 	"git.svc-dev.net/board/go-recorder/internal/infrastructure/ffmpeg"
-	postgresrepo "git.svc-dev.net/board/go-recorder/internal/infrastructure/postgres"
 	localstorage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/local"
 	s3storage "git.svc-dev.net/board/go-recorder/internal/infrastructure/storage/s3"
 	webrtcingest "git.svc-dev.net/board/go-recorder/internal/infrastructure/webrtc"
@@ -23,7 +23,7 @@ type apiRepository interface {
 	MarkStopping(ctx context.Context, recordUUID string, reason string) error
 	MarkFailed(ctx context.Context, recordUUID string, cause error) error
 	ListDetails(ctx context.Context, limit int, offset int) ([]records.RecordDetails, error)
-	ListDetailsByConferenceIDs(ctx context.Context, conferenceIDs []string, status string) ([]records.RecordDetails, error)
+	ListSummaryDetailsByConferenceIDs(ctx context.Context, conferenceIDs []string, status string) ([]records.RecordDetails, error)
 	FindDetailsByUUID(ctx context.Context, recordUUID string) (records.RecordDetails, error)
 }
 
@@ -37,6 +37,19 @@ type conferenceLocker interface {
 	Release(ctx context.Context, conferenceID string, recordID string) error
 }
 
+type workerRepository interface {
+	ingestFailureRepository
+	MarkFinalizing(context.Context, string) error
+	MarkUploading(context.Context, string) error
+	SaveFinalArtifacts(context.Context, string, records.RecordFile, *records.RecordFile, []records.RecordSegment) error
+}
+
+type mediaIngest interface {
+	Prepare(string, int) error
+	Stop(string) error
+	HandleOffer(context.Context, string, records.WebRTCOfferRequest) (records.WebRTCAnswerResponse, error)
+}
+
 // Service содержит бизнес-логику API управления записью.
 type Service struct {
 	repository       apiRepository
@@ -47,12 +60,20 @@ type Service struct {
 
 // WorkerService содержит бизнес-логику recorder-worker.
 type WorkerService struct {
-	repository    *postgresrepo.RecordRepository
-	postProcessor *ffmpeg.PostProcessor
-	ingest        *webrtcingest.Manager
-	s3            *s3storage.Client
-	storagePath   string
-	workerID      string
+	repository       workerRepository
+	postProcessor    *ffmpeg.PostProcessor
+	ingest           mediaIngest
+	s3               *s3storage.Client
+	storagePath      string
+	workerID         string
+	conferenceLocker conferenceReleaser
+	commandsMu       sync.Mutex
+	commands         map[string]*recordCommandLock
+}
+
+type recordCommandLock struct {
+	mu   sync.Mutex
+	refs int
 }
 
 // NewService создает API use-case.
@@ -79,14 +100,15 @@ func NewService(repository apiRepository, workerCommander workerCommander, s3 *s
 // - storagePath: локальный storage volume.
 // - workerID: идентификатор worker-а.
 // Возвращает: WorkerService.
-func NewWorkerService(repository *postgresrepo.RecordRepository, postProcessor *ffmpeg.PostProcessor, ingest *webrtcingest.Manager, s3 *s3storage.Client, storagePath string, workerID string) *WorkerService {
+func NewWorkerService(repository workerRepository, postProcessor *ffmpeg.PostProcessor, ingest mediaIngest, s3 *s3storage.Client, storagePath string, workerID string, locker conferenceReleaser) *WorkerService {
 	return &WorkerService{
-		repository:    repository,
-		postProcessor: postProcessor,
-		ingest:        ingest,
-		s3:            s3,
-		storagePath:   storagePath,
-		workerID:      workerID,
+		repository:       repository,
+		postProcessor:    postProcessor,
+		ingest:           ingest,
+		s3:               s3,
+		storagePath:      storagePath,
+		workerID:         workerID,
+		conferenceLocker: locker,
 	}
 }
 
@@ -162,15 +184,20 @@ func (s *Service) Stop(ctx context.Context, request records.EndRequest) error {
 	if err != nil {
 		return err
 	}
-	if err := s.repository.MarkStopping(ctx, request.RecordID, request.Reason); err != nil {
-		return err
+	if records.IsTerminalStatus(record.Status) || record.Status == records.StatusFinalizing || record.Status == records.StatusUploading {
+		return nil
 	}
-
-	if err := s.workerCommander.StopRecord(ctx, request.RecordID, request.Reason); err != nil {
-		return err
+	if record.Status != records.StatusStopping {
+		if err := s.repository.MarkStopping(ctx, request.RecordID, request.Reason); err != nil {
+			if errors.Is(err, records.ErrRecordStateChanged) {
+				return nil
+			}
+			return err
+		}
 	}
-
-	return s.releaseConferenceLock(ctx, record.ConferenceID, request.RecordID)
+	// A retry in stopping must republish after a previous publish failure.
+	// Only the worker knows when media has actually stopped and can release the lock.
+	return s.workerCommander.StopRecord(ctx, request.RecordID, request.Reason)
 }
 
 // List возвращает список записей с файлами из MinIO и метаданными сегментов.
@@ -203,7 +230,7 @@ func (s *Service) List(ctx context.Context, limit int, offset int) ([]records.Re
 // - status: optional фильтр по статусу записи.
 // Возвращает: список conferenceId + recordsCount + records[] или ошибку БД/MinIO.
 func (s *Service) CountByConference(ctx context.Context, conferenceIDs []string, status string) ([]records.ConferenceRecordSummary, error) {
-	details, err := s.repository.ListDetailsByConferenceIDs(ctx, conferenceIDs, status)
+	details, err := s.repository.ListSummaryDetailsByConferenceIDs(ctx, conferenceIDs, status)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +238,9 @@ func (s *Service) CountByConference(ctx context.Context, conferenceIDs []string,
 	summaryIndexesByConference := make(map[string]int, len(conferenceIDs))
 	result := make([]records.ConferenceRecordSummary, 0, len(conferenceIDs))
 	for _, conferenceID := range conferenceIDs {
+		if _, exists := summaryIndexesByConference[conferenceID]; exists {
+			continue
+		}
 		summary := records.ConferenceRecordSummary{
 			ConferenceID: conferenceID,
 			Records:      []records.ConferenceRecordItem{},
@@ -224,12 +254,12 @@ func (s *Service) CountByConference(ctx context.Context, conferenceIDs []string,
 		if !ok {
 			continue
 		}
-		card, err := s.recordCard(ctx, item)
+		card, err := s.conferenceRecordItem(ctx, item)
 		if err != nil {
 			return nil, err
 		}
 		summary := &result[index]
-		summary.Records = append(summary.Records, conferenceRecordItem(card))
+		summary.Records = append(summary.Records, card)
 		summary.RecordsCount = int64(len(summary.Records))
 	}
 
@@ -284,17 +314,67 @@ func (s *Service) releaseConferenceLock(ctx context.Context, conferenceID string
 // - command: record.start или record.stop.
 // Возвращает: ошибку обработки команды.
 func (s *WorkerService) HandleCommand(ctx context.Context, command records.Command) error {
+	// Commands can arrive directly at the worker as well as through RabbitMQ.
+	// Validate before using recordId in any filesystem path.
+	id, err := uuid.Parse(command.RecordID)
+	if err != nil {
+		return fmt.Errorf("recordId must be valid UUID: %w", err)
+	}
+	command.RecordID = id.String()
+	unlock := s.lockCommand(command.RecordID)
+	defer unlock()
+	var commandErr error
 	switch command.Type {
 	case "record.start":
-		return s.handleStart(ctx, command)
+		commandErr = s.handleStart(ctx, command)
 	case "record.stop":
-		return s.handleStop(ctx, command)
+		commandErr = s.handleStop(ctx, command)
 	default:
 		return fmt.Errorf("unknown command type %q", command.Type)
+	}
+	if errors.Is(commandErr, records.ErrRecordStateChanged) {
+		return nil // A newer lifecycle transition has already superseded this command.
+	}
+	return commandErr
+}
+
+// RabbitMQ deliveries and legacy HTTP commands can overlap. Serialize commands
+// for the same record only, and discard locks once all callers have completed.
+func (s *WorkerService) lockCommand(recordID string) func() {
+	s.commandsMu.Lock()
+	if s.commands == nil {
+		s.commands = make(map[string]*recordCommandLock)
+	}
+	lock := s.commands[recordID]
+	if lock == nil {
+		lock = &recordCommandLock{}
+		s.commands[recordID] = lock
+	}
+	lock.refs++
+	s.commandsMu.Unlock()
+	lock.mu.Lock()
+	return func() {
+		lock.mu.Unlock()
+		s.commandsMu.Lock()
+		lock.refs--
+		if lock.refs == 0 {
+			delete(s.commands, recordID)
+		}
+		s.commandsMu.Unlock()
 	}
 }
 
 func (s *WorkerService) handleStart(ctx context.Context, command records.Command) error {
+	record, err := s.repository.FindByUUID(ctx, command.RecordID)
+	if err != nil {
+		return err
+	}
+	if record.Status != records.StatusStarting {
+		if records.IsTerminalStatus(record.Status) {
+			return releaseRecordLock(ctx, s.conferenceLocker, record)
+		}
+		return nil
+	}
 	recordDir := s.recordDir(command.RecordID)
 	if err := os.MkdirAll(recordDir, 0o755); err != nil {
 		return s.failWorkerRecord(ctx, command.RecordID, "record.worker.prepare.failed", err)
@@ -312,34 +392,34 @@ func (s *WorkerService) handleStart(ctx context.Context, command records.Command
 }
 
 func (s *WorkerService) failWorkerRecord(ctx context.Context, recordID string, eventType string, cause error) error {
-	if markErr := s.repository.MarkFailed(ctx, recordID, cause); markErr != nil {
-		return fmt.Errorf("%w; mark record failed: %v", cause, markErr)
-	}
-	if eventErr := s.repository.AddEvent(ctx, recordID, eventType, "worker", "error", cause.Error(), s.workerID); eventErr != nil {
-		return fmt.Errorf("%w; add failure event: %v", cause, eventErr)
-	}
-
-	return nil
+	err := failRecord(ctx, s.repository, s.conferenceLocker, recordID, s.workerID, eventType, cause)
+	s.cleanupEmptyLocalStorageAfterFailure(ctx, recordID)
+	return err
 }
 
 func (s *WorkerService) handleStop(ctx context.Context, command records.Command) error {
+	record, err := s.repository.FindByUUID(ctx, command.RecordID)
+	if err != nil {
+		return err
+	}
+	if records.IsTerminalStatus(record.Status) {
+		// Acknowledge duplicate deliveries without touching artifacts or terminal status.
+		return releaseRecordLock(ctx, s.conferenceLocker, record)
+	}
 	if s.ingest != nil {
 		if err := s.ingest.Stop(command.RecordID); err != nil && !errors.Is(err, webrtcingest.ErrNoMedia) {
-			_ = s.repository.MarkFailed(ctx, command.RecordID, err)
-			_ = s.repository.AddEvent(ctx, command.RecordID, "record.ingest.stop.failed", "worker", "error", err.Error(), s.workerID)
-			s.cleanupEmptyLocalStorageAfterFailure(ctx, command.RecordID)
-			return nil
+			return s.failWorkerRecord(ctx, command.RecordID, "record.ingest.stop.failed", err)
 		}
+	}
+	if err := releaseRecordLock(ctx, s.conferenceLocker, record); err != nil {
+		return err
 	}
 	if err := s.repository.MarkFinalizing(ctx, command.RecordID); err != nil {
 		return err
 	}
 	result, err := s.postProcessor.Finalize(ctx, s.recordDir(command.RecordID))
 	if err != nil {
-		_ = s.repository.MarkFailed(ctx, command.RecordID, err)
-		_ = s.repository.AddEvent(ctx, command.RecordID, "record.finalize.failed", "worker", "error", err.Error(), s.workerID)
-		s.cleanupEmptyLocalStorageAfterFailure(ctx, command.RecordID)
-		return nil
+		return s.failWorkerRecord(ctx, command.RecordID, "record.finalize.failed", err)
 	}
 
 	if err := s.repository.MarkUploading(ctx, command.RecordID); err != nil {
@@ -349,21 +429,14 @@ func (s *WorkerService) handleStop(ctx context.Context, command records.Command)
 	previewKey := filepath.ToSlash(filepath.Join("records", command.RecordID, "preview.jpg"))
 	finalUpload, err := s.s3.UploadFile(ctx, finalKey, result.FinalPath, "video/mp4")
 	if err != nil {
-		_ = s.repository.MarkFailed(ctx, command.RecordID, err)
-		s.cleanupEmptyLocalStorageAfterFailure(ctx, command.RecordID)
-		return nil
+		return s.failWorkerRecord(ctx, command.RecordID, "record.upload.failed", err)
 	}
 	previewUpload, err := s.s3.UploadFile(ctx, previewKey, result.PreviewPath, "image/jpeg")
 	if err != nil {
-		_ = s.repository.MarkFailed(ctx, command.RecordID, err)
-		s.cleanupEmptyLocalStorageAfterFailure(ctx, command.RecordID)
-		return nil
+		return s.failWorkerRecord(ctx, command.RecordID, "record.upload.failed", err)
 	}
 	if err := s.s3.RemovePrefix(ctx, filepath.ToSlash(filepath.Join("records", command.RecordID, "segments"))+"/"); err != nil {
-		_ = s.repository.MarkFailed(ctx, command.RecordID, err)
-		_ = s.repository.AddEvent(ctx, command.RecordID, "record.segments.cleanup.failed", "worker", "error", err.Error(), s.workerID)
-		s.cleanupEmptyLocalStorageAfterFailure(ctx, command.RecordID)
-		return nil
+		return s.failWorkerRecord(ctx, command.RecordID, "record.segments.cleanup.failed", err)
 	}
 	segments := segmentMetadata(result.Segments)
 
@@ -451,28 +524,36 @@ func (s *Service) recordCard(ctx context.Context, details records.RecordDetails)
 
 // conferenceRecordItem собирает краткую карточку записи для endpoint-а count-by-conference.
 // Параметры:
-// - card: полная карточка записи с файлами и presigned URL.
+// - details: запись с итоговым файлом и превью, без событий и сегментов.
 // Возвращает: recordId, ссылки на final/preview и временные поля записи.
-func conferenceRecordItem(card records.RecordCard) records.ConferenceRecordItem {
+func (s *Service) conferenceRecordItem(ctx context.Context, details records.RecordDetails) (records.ConferenceRecordItem, error) {
+	record := details.Record
 	result := records.ConferenceRecordItem{
-		RecordID:    card.UUID,
-		Status:      card.Status,
-		DurationSec: card.DurationSec,
-		StartedAt:   card.StartedAt,
-		StoppedAt:   card.StoppedAt,
-		EndedAt:     card.EndedAt,
-		CreatedAt:   card.CreatedAt,
+		RecordID:    record.UUID,
+		Status:      record.Status,
+		DurationSec: record.DurationSec,
+		StartedAt:   record.StartedAt,
+		StoppedAt:   record.StoppedAt,
+		EndedAt:     record.EndedAt,
+		CreatedAt:   record.CreatedAt,
 	}
-	for _, file := range card.Files {
+	for _, file := range details.Files {
+		if file.FileType != records.FileTypeFinalMP4 && file.FileType != records.FileTypePreviewJPG {
+			continue
+		}
+		url, err := s.presignedURL(ctx, file.ObjectKey)
+		if err != nil {
+			return records.ConferenceRecordItem{}, err
+		}
 		switch file.FileType {
 		case records.FileTypeFinalMP4:
-			result.FinalURL = file.URL
+			result.FinalURL = url
 		case records.FileTypePreviewJPG:
-			result.PreviewURL = file.URL
+			result.PreviewURL = url
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func (s *Service) presignedURL(ctx context.Context, objectKey string) (string, error) {
@@ -537,11 +618,4 @@ func (s *WorkerService) HandleOffer(ctx context.Context, recordID string, reques
 	}
 
 	return s.ingest.HandleOffer(ctx, recordID, request)
-}
-
-// Now возвращает текущее UTC-время; оставлено для будущих тестов worker-а.
-// Параметры: нет.
-// Возвращает: time.Now().UTC().
-func Now() time.Time {
-	return time.Now().UTC()
 }

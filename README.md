@@ -2,7 +2,7 @@
 
 REST API сервиса записи видеопотока на Go + Gin.
 
-API отвечает за управление задачами записи: создает запись в PostgreSQL, публикует команды `record.start` и `record.stop` в централизованный RabbitMQ и возвращает состояние записи через HTTP. Непосредственный захват видеопотока, склейку итогового видео, генерацию preview и загрузку артефактов в MinIO выполняет отдельный `worker`.
+API отвечает за управление задачами записи: создает запись в PostgreSQL, публикует команды `record.start` и `record.stop` в локальный RabbitMQ проекта и возвращает состояние записи через HTTP. Непосредственный захват видеопотока, склейку итогового видео, генерацию preview и загрузку артефактов в MinIO выполняет отдельный `worker`.
 
 ## Структура проекта
 
@@ -11,8 +11,7 @@ API отвечает за управление задачами записи: с
 ├── cmd/
 │   ├── main/                 # общий entrypoint: serve, migrate ...
 │   ├── api/                  # отдельный API binary
-│   ├── worker/               # отдельный recorder-worker binary
-│   └── cli/                  # отдельный CLI binary
+│   └── worker/               # отдельный recorder-worker binary
 ├── internal/
 │   ├── app/                  # bootstrap: config, DB, repositories, transport
 │   ├── config/               # env config
@@ -23,11 +22,8 @@ API отвечает за управление задачами записи: с
 │   │   ├── rabbitmq/         # RabbitMQ publisher/consumer команд записи
 │   │   ├── worker/           # внутренний HTTP-клиент API -> worker для WebRTC SDP
 │   │   └── storage/          # S3/MinIO storage clients
-│   ├── moduleconfig/         # loader/validator JSON-конфигов модулей
 │   └── transport/
-│       ├── cli/              # CLI transport wrapper
-│       ├── http/             # Gin HTTP routes
-│       └── ws/               # WebSocket handlers
+│       └── http/             # Gin HTTP routes
 ├── database/migrations/      # SQL-миграции DB
 ├── scripts/                  # cron/helper scripts
 ├── docs/                     # документация и Postman collection
@@ -45,7 +41,7 @@ API отвечает за управление задачами записи: с
 - `postgres` - PostgreSQL 16.
 - `redis` - Redis 7, используется для lock-а активной записи по `conferenceId` и HTTP rate limit.
 - `minio` - локальное S3-compatible хранилище итоговых артефактов записи.
-- `rabbitmq` - централизованный брокер из проекта `infra-main`, подключается через внешнюю Docker-сеть `infra_network`.
+- `rabbitmq` - собственный брокер RabbitMQ с management UI, запускается этим же Docker Compose в сети `app-network`.
 
 HTTP-вызов API -> worker сохранен только для WebRTC signaling endpoint-а, потому что браузерному `SDP offer` нужен синхронный `SDP answer`.
 
@@ -98,7 +94,7 @@ API ставит lock перед созданием записи. Если дл�
 }
 ```
 
-Lock снимается после успешного выполнения worker-команды `record.stop` при вызове `POST /api/v1/records/end`. Если запись не завершили вручную, Redis снимет lock по TTL.
+Lock снимает worker после фактической остановки WebRTC/FFmpeg, перед финализацией файлов, либо после ошибки подготовки/приёма потока. Публикация `record.stop` сама по себе lock не снимает. Повторный `end` для готовой/ошибочной записи ничего не меняет; в состоянии `stopping` команду можно отправить повторно после ошибки публикации. TTL остаётся аварийным ограничением и пока не продлевается автоматически.
 
 Redis rate limit:
 
@@ -133,6 +129,11 @@ RATE_LIMIT_ENABLED=false
 
 MinIO:
 
+Контейнер MinIO собирается локально из закрепленного официального релиза
+`RELEASE.2025-10-15T17-29-55Z` через `dockers/minio/Dockerfile`: ранее используемый
+`minio/minio:latest` недоступен в реестре. Первая сборка скачивает исходники и
+Go-зависимости. Источник: [официальный релиз MinIO](https://github.com/minio/minio/releases/tag/RELEASE.2025-10-15T17-29-55Z).
+
 ```text
 Internal endpoint: minio:9000
 Public endpoint:   https://localhost:18482
@@ -150,20 +151,47 @@ RabbitMQ:
 Host в Docker network: rabbitmq:5672
 Host с машины:        localhost:5672
 Management UI:        http://localhost:15672
-User:                 guest
-Password:             guest
+User:                 go_recorder
+Password:             go_recorder_pass
 Exchange:             go-recorder.commands
 Queue:                go-recorder.recording.commands
 Routing key:          record.commands
-Docker network:       infra_network
+Docker network:       app-network
+Data:                 ./dockers/rabbitmq/data
 ```
 
-Перед запуском `go-recorder` должен быть поднят централизованный брокер из `/Users/yanicki/htdocs/infra-main`:
+RabbitMQ запускается автоматически вместе с проектом. API, worker и их debug-варианты ждут успешного healthcheck брокера. Общий брокер и внешняя сеть `infra_network` больше не требуются. Существующая внешняя сеть gateway (`gateway_default` или `GATEWAY_NETWORK`) по-прежнему нужна для gateway-интеграции API и worker.
+
+AMQP и management UI публикуются только на `127.0.0.1`. Если порты заняты другим брокером, поменяй `RABBIT_MQ_HOST_PORT` и `RABBIT_MQ_MANAGEMENT_HOST_PORT` в `.env`; внутри контейнеров адрес остается `rabbitmq:5672`.
+
+Compose явно задает `RABBIT_MQ_HOST=rabbitmq`, `RABBIT_MQ_PORT=5672` и пустой `RABBIT_MQ_DSN` для API и worker, чтобы старый `.env` не направил их в общий брокер. `RABBIT_MQ_USER`, `RABBIT_MQ_PASSWORD` и `RABBIT_MQ_VHOST` одинаково передаются брокеру и клиентам. Для запуска Go-приложения вне Docker укажи `RABBIT_MQ_HOST=127.0.0.1` и опубликованный порт в `RABBIT_MQ_PORT`; явный `RABBIT_MQ_DSN` вне Compose по-прежнему поддерживается.
+
+Логин и пароль выше предназначены только для локальной разработки. Перед первым запуском на сервере задай собственные значения. Пользователь и vhost создаются только при инициализации пустого хранилища RabbitMQ: изменение `.env` не меняет пароль и права в уже существующем брокере. Данные сохраняются при пересоздании контейнера; deploy script исключает `dockers/rabbitmq/data/` из синхронизации с удалением.
+
+### Переход с общего брокера
+
+1. До переключения останови прием новых записей, заверши активные записи и дождись обработки всех команд старой очереди, включая неподтвержденные сообщения.
+2. В `.env` задай логин, пароль и vhost нового брокера. Удали устаревшие `RABBIT_MQ_NETWORK` и `RABBIT_MQ_DSN`, выстави `RABBIT_MQ_HOST=rabbitmq` и `RABBIT_MQ_PORT=5672`. При конфликте host-портов измени новые переменные публикации портов.
+3. Запусти локальный брокер и пересоздай API/worker:
 
 ```bash
-cd /Users/yanicki/htdocs/infra-main
-docker compose up -d
+docker compose up -d --wait rabbitmq
+docker compose up -d --build api worker
+docker compose exec -T rabbitmq rabbitmq-diagnostics -q check_port_connectivity
 ```
+
+Старая очередь и ее сообщения автоматически не переносятся. Общий брокер других проектов останавливать или очищать не нужно.
+
+Проверка обмена командами с запущенным локальным брокером (для стандартных локальных настроек):
+
+```bash
+RABBITMQ_TEST_URL='amqp://go_recorder:go_recorder_pass@127.0.0.1:5672/%2F' \
+  go test -race -count=1 -run TestCommandRoundTrip ./internal/infrastructure/rabbitmq
+```
+
+Тест создает собственные exchange/queue и удаляет их после проверки; рабочую очередь записей не затрагивает. Без `RABBITMQ_TEST_URL` он пропускается. При других порте, учетных данных или vhost укажи соответствующий URL.
+
+Параметры контейнера: [RabbitMQ Docker Official Image](https://hub.docker.com/_/rabbitmq/).
 
 Recorder worker:
 
@@ -184,13 +212,34 @@ Go:        1.24
 WEBRTC_NAT_IPS=203.0.113.10
 ```
 
-Для локальной разработки в браузере на этой же машине используй:
+Для Firefox используй LAN-адрес компьютера с Docker, даже если страница открыта
+на `localhost`. Например (замени адрес на свой):
 
 ```env
-WEBRTC_NAT_IPS=127.0.0.1
+WEBRTC_NAT_IPS=192.168.1.35
 ```
 
-Тогда browser ICE candidate будет указывать на host `127.0.0.1:50000`, а Docker пробросит ICE/RTP-пакеты в контейнер worker-а. Основной transport - UDP, TCP используется как fallback, если внешний контур блокирует UDP.
+Firefox по умолчанию отбрасывает loopback ICE-кандидаты (`127.0.0.1`), поэтому
+при таком адресе SDP-обмен может пройти, а медиапоток так и не подключится.
+Это поведение описано в [Mozilla Bugzilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1973521).
+На macOS адрес Wi-Fi-интерфейса можно узнать командой `ipconfig getifaddr en0`.
+После изменения `.env` пересоздай worker: `docker compose up -d worker`.
+Саму страницу на этом компьютере оставь на `http://localhost:8085`: менять
+адрес страницы на незащищенный LAN HTTP не нужно.
+
+Docker пробрасывает ICE/RTP на порт `50000` worker-а. Основной транспорт — UDP,
+TCP используется как fallback. Если LAN-адрес изменился, обнови `WEBRTC_NAT_IPS`.
+
+При ошибке WebRTC worker закрывает ingest-сессию, сохраняет `failed`, снимает
+Redis-блокировку только этой записи и добавляет событие `record.ingest.failed`.
+Тестовая страница при статусе `failed` останавливает локальные media tracks.
+
+Сквозной тест без камеры и микрофона доступен в `tests/integration`:
+задай `RECORDER_TEST_URL=http://127.0.0.1:8085` и `RECORDER_TEST_IVF` — путь к
+искусственному VP8-видео в IVF (25 fps, не менее 6 секунд), затем выполни
+`go test -count=1 -v ./tests/integration`. Он создает отдельную проверочную
+запись и оставляет ее готовые артефакты в локальном MinIO. Без этих переменных
+сквозной тест пропускается.
 
 ## Запуск
 
@@ -206,6 +255,23 @@ docker compose up -d
 ```bash
 make up
 ```
+
+Для автономного локального запуска без отдельного gateway в `.env` используй:
+
+```env
+WORKER_INTERNAL_URL=http://worker:8090
+MINIO_PUBLIC_ENDPOINT=http://localhost:9000
+```
+
+Внешняя Docker-сеть `gateway_default` должна существовать даже без процесса gateway;
+при первом запуске ее можно создать через `docker network create gateway_default`.
+Для HTTPS-контейнера предварительно создай локальные сертификаты командой
+`HTTPS_CERT_IP=127.0.0.1 sh scripts/generate-https-certs.sh` (не запускай ее поверх
+сертификатов, которые нужно сохранить). Доверие к локальному CA в систему автоматически не добавляется.
+
+При этих настройках открой [локальную тестовую страницу записи](http://localhost:8085/debug/webrtc-smoke?gatewayBase=http%3A%2F%2Flocalhost%3A8085).
+Параметр `gatewayBase` направляет браузер напрямую в API. Для HTTPS-страницы
+нужно вернуть `MINIO_PUBLIC_ENDPOINT=https://localhost:18482` и настроить доверие к локальному сертификату.
 
 Пересборка API и worker:
 
@@ -391,7 +457,21 @@ make test-run
 docker run --rm -v "$PWD:/src" -w /src golang:1.24-alpine3.22 go test ./...
 ```
 
-Go-тесты лежат в `tests/`: unit-тесты в `tests/unit`, функциональные smoke-тесты нужно добавлять в `tests/functional`. Интеграционный smoke выполняется через Docker Compose, PostgreSQL, Redis, FFmpeg и MinIO.
+Тесты находятся рядом с реализацией в `internal/`, в `tests/unit` и `tests/integration`.
+Обычный `go test ./...` не требует запущенных сервисов; внешние интеграционные проверки включаются переменными окружения.
+
+Проверка переходов статуса и количества SQL-запросов на локальной PostgreSQL:
+
+```bash
+RECORDER_TEST_POSTGRES_DSN='postgres://go_recorder:go_recorder_pass@127.0.0.1:5433/go_recorder?sslmode=disable' \
+  go test -race -count=1 -v ./internal/infrastructure/postgres
+```
+
+Для нестандартных локальных настроек укажи свои учётные данные и порт. Миграции должны быть применены.
+Тестовые строки создаются внутри транзакций и откатываются; существующие записи не меняются.
+Сквозной WebRTC-тест в `tests/integration` дополнительно проверяет повторную остановку готовой записи.
+
+Результаты ревизии кода и оставшиеся ограничения: [docs/code-review-2026-09-30.md](docs/code-review-2026-09-30.md).
 
 ## GitLab CI/CD
 

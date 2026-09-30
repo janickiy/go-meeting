@@ -15,11 +15,23 @@ const (
 	StatusReady        = "ready"
 	StatusPartialReady = "partial_ready"
 	StatusFailed       = "failed"
+	StatusCancelled    = "cancelled"
+	StatusDegraded     = "degraded"
 
 	FileTypeFinalMP4   = "final_mp4"
 	FileTypePreviewJPG = "preview_jpg"
 	FileTypeDebugLog   = "debug_log"
 )
+
+// IsTerminalStatus reports whether a record must no longer accept lifecycle updates.
+func IsTerminalStatus(status string) bool {
+	switch status {
+	case StatusReady, StatusPartialReady, StatusFailed, StatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
 
 // Record описывает задачу записи в таблице record.
 type Record struct {

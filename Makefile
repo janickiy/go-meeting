@@ -2,7 +2,7 @@ DOCKER_COMPOSE ?= docker compose
 GO_IMAGE ?= golang:1.24-alpine3.22
 APP_NETWORK ?= go-recorder_app-network
 
-.PHONY: serve api worker cli migrate doctor archive test up restart migrate-up test-run debug-api debug-worker debug-both debug-stop docker-build docker-up docker-down docker-restart
+.PHONY: serve api worker migrate doctor test up restart migrate-up test-run debug-api debug-worker debug-both debug-stop docker-build docker-up docker-down docker-restart
 
 serve:
 	go run ./cmd/main serve
@@ -13,19 +13,14 @@ api:
 worker:
 	go run ./cmd/worker
 
-cli:
-	go run ./cmd/cli
-
 migrate:
 	$(MAKE) migrate-up
 
 doctor:
 	$(DOCKER_COMPOSE) ps
+	$(DOCKER_COMPOSE) exec -T rabbitmq rabbitmq-diagnostics -q check_port_connectivity
 	$(DOCKER_COMPOSE) exec -T api wget -qO- http://127.0.0.1:8085/health
 	$(DOCKER_COMPOSE) exec -T worker wget -qO- http://127.0.0.1:8090/health
-
-archive:
-	@echo "archive command is not implemented yet"
 
 test:
 	$(MAKE) test-run
@@ -67,7 +62,7 @@ debug-stop:
 	$(DOCKER_COMPOSE) stop api-debug worker-debug
 
 docker-build:
-	$(DOCKER_COMPOSE) build api worker
+	$(DOCKER_COMPOSE) build api worker minio
 
 docker-up:
 	$(MAKE) up

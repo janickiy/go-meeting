@@ -1,7 +1,6 @@
 package ffmpeg
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -33,13 +32,12 @@ type SegmentRecorder struct {
 
 // SegmentProcess хранит процесс FFmpeg записи сегментов.
 type SegmentProcess struct {
-	cmd       *exec.Cmd
-	cancel    context.CancelFunc
-	done      chan error
-	stderr    bytes.Buffer
-	stdin     io.WriteCloser
-	outputDir string
-	logger    *log.Logger
+	cmd    *exec.Cmd
+	cancel context.CancelFunc
+	done   chan error
+	stderr logTail
+	stdin  io.WriteCloser
+	logger *log.Logger
 }
 
 // NewSegmentRecorder создает recorder FFmpeg-сегментов.
@@ -114,12 +112,11 @@ func (r *SegmentRecorder) Start(ctx context.Context, recordID string, tracks []R
 		return nil, fmt.Errorf("open ffmpeg stdin: %w", err)
 	}
 	process := &SegmentProcess{
-		cmd:       cmd,
-		cancel:    cancel,
-		done:      make(chan error, 1),
-		stdin:     stdin,
-		outputDir: outputDir,
-		logger:    r.logger,
+		cmd:    cmd,
+		cancel: cancel,
+		done:   make(chan error, 1),
+		stdin:  stdin,
+		logger: r.logger,
 	}
 	cmd.Stderr = &process.stderr
 	if err := cmd.Start(); err != nil {

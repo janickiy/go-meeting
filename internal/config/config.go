@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	neturl "net/url"
 	"os"
 	"strconv"
@@ -140,18 +141,20 @@ func rabbitMQURL() string {
 	if dsn := env("RABBIT_MQ_DSN", ""); dsn != "" {
 		return dsn
 	}
-	user := neturl.QueryEscape(env("RABBIT_MQ_USER", "guest"))
-	password := neturl.QueryEscape(env("RABBIT_MQ_PASSWORD", "guest"))
+	user := env("RABBIT_MQ_USER", "go_recorder")
+	password := env("RABBIT_MQ_PASSWORD", "go_recorder_pass")
 	host := env("RABBIT_MQ_HOST", "rabbitmq")
 	port := env("RABBIT_MQ_PORT", "5672")
-	vhost := strings.TrimPrefix(env("RABBIT_MQ_VHOST", "/"), "/")
-	if vhost == "" {
-		vhost = "%2F"
-	} else {
-		vhost = neturl.PathEscape(vhost)
+	vhost := env("RABBIT_MQ_VHOST", "/")
+	dsn := neturl.URL{
+		Scheme:  "amqp",
+		User:    neturl.UserPassword(user, password),
+		Host:    net.JoinHostPort(host, port),
+		Path:    "/" + vhost,
+		RawPath: "/" + neturl.PathEscape(vhost),
 	}
 
-	return fmt.Sprintf("amqp://%s:%s@%s:%s/%s", user, password, host, port, vhost)
+	return dsn.String()
 }
 
 func env(key string, fallback string) string {

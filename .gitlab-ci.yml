@@ -59,7 +59,6 @@ go-build:
     - mkdir -p .build
     - go build -o .build/api ./cmd/api
     - go build -o .build/worker ./cmd/worker
-    - go build -o .build/cli ./cmd/cli
     - go build -o .build/main ./cmd/main
 
 deploy-dev:
