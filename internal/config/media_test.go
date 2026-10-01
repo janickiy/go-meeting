@@ -8,7 +8,7 @@ import (
 
 func mediaTestEnvironment(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"MEDIA_TICKET_SECRET", "MEDIA_INTERNAL_SECRET", "WEBRTC_ICE_SERVERS_JSON", "MEDIA_ICE_SERVERS_JSON", "MEDIA_UDP_MIN_PORT", "MEDIA_UDP_MAX_PORT", "MEDIA_UDP_PORT", "MEDIA_NAT_IPS", "MEDIA_WORKER_INTERNAL_URL", "MEDIA_WORKER_ID", "MEDIA_MAX_PEERS", "MEDIA_MAX_PUBLISHED_TRACKS", "MEDIA_TICKET_TTL", "MEDIA_HEARTBEAT_INTERVAL", "MEDIA_WORKER_TTL", "MEDIA_OWNERSHIP_TTL"} {
+	for _, key := range []string{"MEDIA_TICKET_SECRET", "MEDIA_INTERNAL_SECRET", "WEBRTC_ICE_SERVERS_JSON", "MEDIA_ICE_SERVERS_JSON", "MEDIA_UDP_MIN_PORT", "MEDIA_UDP_MAX_PORT", "MEDIA_UDP_PORT", "MEDIA_NAT_IPS", "MEDIA_WORKER_INTERNAL_URL", "MEDIA_WORKER_ID", "MEDIA_MAX_PEERS", "MEDIA_MAX_PUBLISHED_TRACKS", "MEDIA_MAX_AUDIO_TRACKS", "MEDIA_MAX_VIDEO_TRACKS", "MEDIA_MAX_SCREEN_SHARERS", "MEDIA_EGRESS_QUEUE_SIZE", "MEDIA_TICKET_TTL", "MEDIA_HEARTBEAT_INTERVAL", "MEDIA_WORKER_TTL", "MEDIA_OWNERSHIP_TTL"} {
 		t.Setenv(key, "")
 	}
 	t.Setenv("APP_ENV", "local")
@@ -21,7 +21,7 @@ func TestMediaConfigDefaultsAndLocalKeySeparation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.MaxPeers != 10 || c.MaxPublishedTracks != 2 || c.VideoMaxWidth != 1280 || c.VideoMaxHeight != 720 || c.VideoMaxFPS != 30 || c.UDPPort == 50000 {
+	if c.MaxPeers != 10 || c.MaxPublishedTracks != 4 || c.MaxAudioTracks != 2 || c.MaxVideoTracks != 2 || c.MaxScreenSharers != 1 || c.VideoMaxWidth != 1280 || c.VideoMaxHeight != 720 || c.VideoMaxFPS != 30 || c.UDPPort == 50000 {
 		t.Fatalf("unexpected media defaults: peers=%d tracks=%d", c.MaxPeers, c.MaxPublishedTracks)
 	}
 	if c.TicketSecret == c.InternalSecret || c.TicketSecret == strings.Repeat("test-key-", 8) || len(c.TicketSecret) != 64 {
@@ -65,8 +65,8 @@ func TestMediaConfigRejectsUnsafeLimitsAndEndpoints(t *testing.T) {
 		{"worker lease", func(c *MediaConfig) { c.WorkerTTL = c.HeartbeatInterval }},
 		{"room flooding", func(c *MediaConfig) { c.MaxPeers = 100 }},
 		{"track flooding", func(c *MediaConfig) { c.MaxPublishedTracks = 100 }},
-		{"unsupported audio slots", func(c *MediaConfig) { c.MaxAudioTracks = 2 }},
-		{"unsupported video slots", func(c *MediaConfig) { c.MaxVideoTracks = 2 }},
+		{"unsupported audio slots", func(c *MediaConfig) { c.MaxAudioTracks = 3 }},
+		{"unsupported video slots", func(c *MediaConfig) { c.MaxVideoTracks = 3 }},
 		{"oversized video", func(c *MediaConfig) { c.VideoMaxWidth = 1920 }},
 		{"endpoint credentials", func(c *MediaConfig) { c.WorkerInternalURL = "http://user:secret@worker:8091" }},
 		{"endpoint query", func(c *MediaConfig) { c.WorkerInternalURL = "http://worker:8091/?secret=x" }},

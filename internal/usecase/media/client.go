@@ -32,7 +32,7 @@ func (c *HTTPClient) Call(ctx context.Context, action string, command domain.Com
 		return domain.Result{}, domain.ErrInvalid
 	}
 	switch action {
-	case "join", "offer", "ready", "ice", "leave", "unpublish":
+	case "join", "offer", "ready", "ice", "leave", "unpublish", "policy", "close":
 	default:
 		return domain.Result{}, domain.ErrInvalid
 	}
@@ -66,7 +66,7 @@ func (c *HTTPClient) Call(ctx context.Context, action string, command domain.Com
 		if code == "" {
 			code = failure.Error
 		}
-		for _, safe := range []error{domain.ErrInvalid, domain.ErrUnauthorized, domain.ErrOwnership, domain.ErrLimit, domain.ErrPeerNotFound, domain.ErrNegotiation} {
+		for _, safe := range []error{domain.ErrInvalid, domain.ErrUnauthorized, domain.ErrOwnership, domain.ErrLimit, domain.ErrPeerNotFound, domain.ErrNegotiation, domain.ErrScreenConflict, domain.ErrPolicy} {
 			if code == safe.Error() {
 				return domain.Result{}, safe
 			}

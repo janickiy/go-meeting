@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/janickiy/go-recorder/internal/config"
+	"github.com/janickiy/go-recorder/internal/domain/realtime"
 	"github.com/janickiy/go-recorder/internal/domain/records"
 	ffmpeginfra "github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
 	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
@@ -28,6 +29,18 @@ import (
 // Возвращает: ошибку bootstrap-а.
 func RunWorker() error {
 	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	mediaConfig, err := config.LoadMedia()
+	if err != nil {
+		return err
+	}
+	realtimeConfig, err := config.LoadRealtime()
+	if err != nil {
+		return err
+	}
+	compositeConfig, err := config.LoadComposite()
 	if err != nil {
 		return err
 	}
@@ -77,6 +90,23 @@ func RunWorker() error {
 	}
 	postProcessor := ffmpeginfra.NewPostProcessor(cfg.FFmpegPath)
 	service := recorder.NewWorkerService(repository, postProcessor, ingest, s3Client, cfg.StoragePath, cfg.WorkerID, conferenceLock)
+	store := redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace)
+	composites := recorder.NewCompositeService(recorder.CompositeOptions{
+		Repository: repository, Registry: redisinfra.NewMediaRegistry(redisClient, mediaConfig.Namespace), S3: s3Client,
+		StoragePath: cfg.StoragePath, FFmpegPath: cfg.FFmpegPath, WorkerID: cfg.WorkerID, InternalSecret: mediaConfig.InternalSecret,
+		Config: compositeConfig, ConferenceLock: conferenceLock, Logger: logger,
+		Publish: func(ctx context.Context, record records.Record, kind string) error {
+			status := record.Status
+			if status == records.StatusFinalizing || status == records.StatusUploading {
+				status = "processing"
+			}
+			event := realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": status, "mode": "composite", "error": record.ErrorMessage})
+			return store.Publish(ctx, realtime.Bus{Kind: "event", ConferenceID: record.ConferenceID, Event: &event})
+		},
+	})
+	service.SetComposite(composites)
+	composites.Start(ctx)
+	defer func() { stop(); composites.Wait() }()
 	consumer, err := rabbitmqinfra.NewConsumer(ctx, rabbitmqinfra.Options{
 		URL:         cfg.RabbitMQURL,
 		Exchange:    cfg.RabbitMQExchange,
@@ -139,6 +169,10 @@ func handleWorkerRecords(w http.ResponseWriter, r *http.Request, service *record
 		return
 	}
 	recordID := parts[1]
+	if err := service.ValidateLegacyRecord(r.Context(), recordID); err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	switch {
 	case len(parts) == 3 && parts[2] == "start":
 		handleWorkerCommand(w, r, service, logger, records.Command{Type: "record.start", RecordID: recordID})

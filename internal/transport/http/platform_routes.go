@@ -31,3 +31,9 @@ func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conferenc
 	invites.GET("/:code", conference.LookupInvite)
 	invites.POST("/:code/join", conference.JoinInvite)
 }
+
+func RegisterControlRoutes(router gin.IRouter, handler *conferencesapp.ControlHandler, authentication gin.HandlerFunc) {
+	routes := router.Group(APIV1Prefix+"/conferences", authentication)
+	routes.PUT("/:id/participants/me/media", handler.Media)
+	routes.POST("/:id/participants/:participantId/moderation", handler.Moderate)
+}

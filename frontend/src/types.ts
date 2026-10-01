@@ -29,6 +29,44 @@ export interface Participant {
   leftAt: string | null;
   createdAt: string;
   updatedAt: string;
+  microphoneEnabled?: boolean;
+  cameraEnabled?: boolean;
+  screenSharing?: boolean;
+  microphoneBlocked?: boolean;
+  cameraBlocked?: boolean;
+  screenBlocked?: boolean;
+  mediaPolicyVersion?: number;
+}
+export interface ParticipantMediaState {
+  connectionId: string;
+  sequence: number;
+  microphoneEnabled: boolean;
+  cameraEnabled: boolean;
+  screenSharing: boolean;
+}
+export interface ModerationAction {
+  action: "mute" | "camera" | "screen" | "kick" | "role";
+  blocked?: boolean;
+  role?: "co_host" | "participant";
+}
+export interface ConferenceRecording {
+  uuid: string;
+  conferenceId: string;
+  mode: "composite";
+  status:
+    | "starting"
+    | "recording"
+    | "stopping"
+    | "processing"
+    | "ready"
+    | "failed"
+    | "cancelled";
+  createdAt: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSec?: number;
+  errorMessage?: string;
+  files: { fileType: string; url?: string; sizeBytes?: number }[];
 }
 export interface Invite {
   id: string;

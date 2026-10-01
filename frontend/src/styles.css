@@ -1935,3 +1935,88 @@ textarea:disabled {
   padding: 5px 8px;
   font-size: 11px;
 }
+.media-tile-screen video {
+  transform: none;
+}
+.media-grid-sharing .media-tile-screen {
+  grid-column: 1 / -1;
+  order: -1;
+}
+.conference-media .meeting-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.conference-media .meeting-actions .button {
+  width: auto;
+}
+.media-devices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+.media-devices label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  flex: 1;
+  min-width: 180px;
+}
+.media-devices select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #dfe6f3;
+  border-radius: 8px;
+  background: white;
+  color: inherit;
+}
+.participant-row {
+  flex-wrap: wrap;
+}
+.participant-controls {
+  order: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-basis: 100%;
+  padding: 8px 0;
+}
+.participant-media-status {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.participant-controls .button {
+  font-size: 12px;
+  padding: 8px 10px;
+  min-height: 34px;
+}
+.recording-panel {
+  margin: 24px 0;
+}
+.recording-indicator {
+  color: #b4233c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.recording-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+.recording-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #e7ecf5;
+  padding-top: 12px;
+}
+.recording-row > div {
+  flex: 1;
+  min-width: 160px;
+}
+.recording-row p {
+  margin: 6px 0;
+}

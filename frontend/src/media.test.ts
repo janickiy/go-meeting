@@ -26,6 +26,12 @@ class FakeStream {
   getTracks() {
     return [...this.list];
   }
+  getAudioTracks() {
+    return this.list.filter((track) => track.kind === "audio");
+  }
+  getVideoTracks() {
+    return this.list.filter((track) => track.kind === "video");
+  }
   addTrack(track: FakeTrack) {
     this.list.push(track);
   }
@@ -51,6 +57,8 @@ class FakePeer {
     receiver: { track: { kind: string } };
     setCodecPreferences: ReturnType<typeof vi.fn>;
     direction: string;
+    mid: string;
+    sender: { replaceTrack: ReturnType<typeof vi.fn> };
   }[] = [];
   constructor(public config: RTCConfiguration) {
     FakePeer.instances.push(this);
@@ -58,9 +66,13 @@ class FakePeer {
   addTrack(track: FakeTrack) {
     this.addTransceiver(track.kind, { direction: "sendrecv" });
   }
-  addTransceiver(kind: string, options: { direction: string }) {
+  addTransceiver(track: string | FakeTrack, options: { direction: string }) {
     const item = {
-      receiver: { track: { kind } },
+      receiver: {
+        track: { kind: typeof track === "string" ? track : track.kind },
+      },
+      mid: String(this.transceivers.length),
+      sender: { replaceTrack: vi.fn(async (_track: unknown) => {}) },
       setCodecPreferences: vi.fn((_codecs: unknown[]) => {}),
       direction: options.direction,
     };
@@ -76,7 +88,8 @@ class FakePeer {
   }));
   setLocalDescription = vi.fn(async (sdp: RTCSessionDescriptionInit) => {
     this.localDescription = sdp;
-    this.signalingState = "have-local-offer";
+    this.signalingState =
+      sdp.type === "rollback" ? "stable" : "have-local-offer";
   });
   setRemoteDescription = vi.fn(async () => {
     this.signalingState = "stable";
@@ -170,6 +183,7 @@ describe("SFU media client", () => {
     const f = setup();
     expect(f.capture).not.toHaveBeenCalled();
     await joined(f);
+    expect(FakePeer.instances[0].config.bundlePolicy).toBe("max-bundle");
     expect(f.capture).toHaveBeenCalledOnce();
     expect(f.capture.mock.calls[0][0]).toMatchObject({
       video: {
@@ -182,7 +196,7 @@ describe("SFU media client", () => {
       FakePeer.instances[0].transceivers.filter(
         (t) => t.direction === "recvonly",
       ),
-    ).toHaveLength(18);
+    ).toHaveLength(38);
     expect(
       FakePeer.instances[0].transceivers.every(
         (t) => t.setCodecPreferences.mock.calls[0][0].length === 1,
@@ -223,6 +237,37 @@ describe("SFU media client", () => {
     );
     expect(f.client.snapshot().error).not.toContain("private");
     expect(f.send).not.toHaveBeenCalled();
+  });
+  it("joins receive-only without requesting devices and can enable a single source later", async () => {
+    const f = setup();
+    await f.client.start(false);
+    expect(f.capture).not.toHaveBeenCalled();
+    f.client.handle(
+      event(
+        "media.joined",
+        {
+          mediaPeerId: peerId,
+          workerId: "worker-test",
+          maxPeers: 10,
+          iceServers: [],
+          tracks: [],
+        },
+        f.send.mock.results[0].value,
+      ),
+    );
+    await vi.waitFor(() => expect(FakePeer.instances).toHaveLength(1));
+    const pc = FakePeer.instances[0];
+    expect(pc.transceivers.every((t) => t.direction === "recvonly")).toBe(true);
+    expect(f.client.snapshot().microphoneEnabled).toBe(false);
+    expect(f.client.snapshot().cameraEnabled).toBe(false);
+    f.capture.mockResolvedValue(
+      new FakeStream([new FakeTrack("audio", "mic-only")]),
+    );
+    await f.client.changeSource("microphone", true);
+    expect(f.capture.mock.calls[0][0]).toMatchObject({ video: false });
+    expect(f.client.snapshot().microphoneEnabled).toBe(true);
+    expect(f.client.snapshot().cameraEnabled).toBe(false);
+    f.client.stop();
   });
   it("cancels an in-flight media join with authenticated session cleanup", async () => {
     const f = setup();
@@ -629,5 +674,192 @@ describe("SFU media client", () => {
     f.localTracks.forEach((track) => expect(track.stop).toHaveBeenCalledOnce());
     await f.client.start();
     expect(f.capture).toHaveBeenCalledOnce();
+  });
+  it("toggles and replaces capture without creating a new peer or leaking tracks", async () => {
+    const f = setup();
+    const pc = await joined(f);
+    await f.client.changeSource("camera", false);
+    expect(f.localTracks[1].stop).toHaveBeenCalledOnce();
+    expect(f.client.snapshot().cameraEnabled).toBe(false);
+    const replacement = new FakeTrack("video", "replacement-camera");
+    f.capture.mockResolvedValueOnce(new FakeStream([replacement]));
+    await f.client.changeSource("camera", true, "device-b");
+    expect(f.capture).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        audio: false,
+        video: expect.objectContaining({ deviceId: { exact: "device-b" } }),
+      }),
+    );
+    expect(pc.transceivers[1].sender.replaceTrack).toHaveBeenLastCalledWith(
+      replacement,
+    );
+    expect(f.client.snapshot().cameraEnabled).toBe(true);
+    expect(FakePeer.instances).toHaveLength(1);
+    f.client.stop();
+    expect(replacement.stop).toHaveBeenCalledOnce();
+  });
+  it("blocks capture on moderator policy without automatically enabling hardware on unblock", async () => {
+    const f = setup();
+    await joined(f);
+    f.client.setPolicy({ microphoneBlocked: true, cameraBlocked: true });
+    await vi.waitFor(() =>
+      expect(f.client.snapshot().cameraEnabled).toBe(false),
+    );
+    expect(f.client.snapshot().microphoneEnabled).toBe(false);
+    await f.client.changeSource("camera", true);
+    expect(f.capture).toHaveBeenCalledOnce();
+    f.client.setPolicy({});
+    expect(f.client.snapshot().cameraEnabled).toBe(false);
+    f.client.stop();
+  });
+  it("keeps camera while screen shares and handles native screen end without requiring audio", async () => {
+    const f = setup();
+    await joined(f);
+    const screen = new FakeTrack("video", "screen-video");
+    Object.assign(navigator.mediaDevices, {
+      getDisplayMedia: vi.fn(async () => new FakeStream([screen])),
+    });
+    await f.client.startScreen();
+    expect(f.client.snapshot().screenSharing).toBe(true);
+    expect(f.client.snapshot().cameraEnabled).toBe(true);
+    expect(f.client.snapshot().localScreen?.getTracks()).toEqual([screen]);
+    screen.readyState = "ended";
+    screen.onended!();
+    await vi.waitFor(() =>
+      expect(f.client.snapshot().screenSharing).toBe(false),
+    );
+    expect(f.client.snapshot().localScreen).toBeNull();
+    expect(f.localTracks[1].stop).not.toHaveBeenCalled();
+    f.client.stop();
+  });
+  it("releases a screen capture that completes after leave", async () => {
+    const f = setup();
+    await joined(f);
+    const screen = new FakeTrack("video", "late-screen");
+    let resolve!: (stream: FakeStream) => void;
+    Object.assign(navigator.mediaDevices, {
+      getDisplayMedia: vi.fn(
+        () =>
+          new Promise<FakeStream>((r) => {
+            resolve = r;
+          }),
+      ),
+    });
+    const pending = f.client.startScreen();
+    f.client.stop();
+    resolve(new FakeStream([screen]));
+    await pending;
+    expect(screen.stop).toHaveBeenCalled();
+    expect(f.client.snapshot().localScreen).toBeNull();
+  });
+  it("rejects stale policy and stops screen audio on forced mute", async () => {
+    const f = setup();
+    await joined(f);
+    const video = new FakeTrack("video", "screen-v");
+    const audio = new FakeTrack("audio", "screen-a");
+    Object.assign(navigator.mediaDevices, {
+      getDisplayMedia: vi.fn(async () => new FakeStream([video, audio])),
+    });
+    await f.client.startScreen();
+    f.client.setPolicy({ version: 3, microphoneBlocked: true });
+    f.client.setPolicy({ version: 2, microphoneBlocked: false });
+    await vi.waitFor(() => expect(audio.stop).toHaveBeenCalled());
+    expect(video.stop).not.toHaveBeenCalled();
+    await f.client.changeSource("microphone", true);
+    expect(f.capture).toHaveBeenCalledOnce();
+    f.client.stop();
+  });
+  it("cleans partially installed screen capture if a second sender rejects", async () => {
+    const f = setup();
+    const pc = await joined(f);
+    const video = new FakeTrack("video", "screen-v");
+    const audio = new FakeTrack("audio", "screen-a");
+    Object.assign(navigator.mediaDevices, {
+      getDisplayMedia: vi.fn(async () => new FakeStream([video, audio])),
+    });
+    pc.transceivers[3].sender.replaceTrack.mockRejectedValueOnce(
+      new Error("replace failed"),
+    );
+    await f.client.startScreen();
+    expect(video.stop).toHaveBeenCalled();
+    expect(audio.stop).toHaveBeenCalled();
+    expect(f.client.snapshot().localScreen).toBeNull();
+    expect(f.client.snapshot().screenSharing).toBe(false);
+    expect(f.client.snapshot().cameraEnabled).toBe(true);
+    f.client.stop();
+  });
+  it("uses the newest receiver for a replaced publication and ignores old track end", async () => {
+    const f = setup();
+    const pc = await joined(f);
+    f.client.handle(
+      event("media.tracks", {
+        mediaPeerId: peerId,
+        revision: 1,
+        tracks: [
+          {
+            id: videoId,
+            streamId: remotePeer,
+            mediaPeerId: remotePeer,
+            participantId: remoteParticipant,
+            kind: "video",
+            source: "camera",
+          },
+        ],
+      }),
+    );
+    const old = new FakeTrack("video", "browser-track");
+    pc.ontrack!({ track: old, streams: [{ id: remotePeer }] });
+    await vi.waitFor(() =>
+      expect(f.client.snapshot().remoteStreams).toHaveLength(1),
+    );
+    const fresh = new FakeTrack("video", "browser-track");
+    pc.ontrack!({ track: fresh, streams: [{ id: remotePeer }] });
+    old.onended!();
+    expect(
+      f.client.snapshot().remoteStreams[0].stream.getVideoTracks(),
+    ).toEqual([fresh]);
+    f.client.stop();
+  });
+  it("keeps screen video if optional screen audio ends", async () => {
+    const f = setup();
+    await joined(f);
+    const video = new FakeTrack("video", "screen-v");
+    const audio = new FakeTrack("audio", "screen-a");
+    Object.assign(navigator.mediaDevices, {
+      getDisplayMedia: vi.fn(async () => new FakeStream([video, audio])),
+    });
+    await f.client.startScreen();
+    audio.readyState = "ended";
+    audio.onended!();
+    await vi.waitFor(() =>
+      expect(f.client.snapshot().localScreen?.getAudioTracks()).toHaveLength(0),
+    );
+    expect(f.client.snapshot().screenSharing).toBe(true);
+    expect(video.stop).not.toHaveBeenCalled();
+    f.client.stop();
+  });
+  it("preserves the peer as receive-only when a moderator policy races an offer", async () => {
+    const f = setup();
+    const pc = await joined(f);
+    const index = f.send.mock.calls.findIndex(
+      ([type]) => type === "media.offer",
+    );
+    f.client.handle(
+      event(
+        "error",
+        { code: "media_policy_blocked" },
+        f.send.mock.results[index].value,
+      ),
+    );
+    await vi.waitFor(() => expect(pc.createOffer).toHaveBeenCalledTimes(2));
+    expect(pc.close).not.toHaveBeenCalled();
+    expect(f.client.snapshot().active).toBe(true);
+    expect(f.client.snapshot().cameraEnabled).toBe(false);
+    expect(f.client.snapshot().microphoneEnabled).toBe(false);
+    expect(f.send).toHaveBeenLastCalledWith(
+      "media.offer",
+      expect.objectContaining({ publications: [] }),
+    );
+    f.client.stop();
   });
 });

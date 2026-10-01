@@ -8,6 +8,7 @@ var (
 	ErrForbidden    = errors.New("forbidden")
 	ErrNotFound     = errors.New("not found")
 	ErrConflict     = errors.New("conflict")
+	ErrUnavailable  = errors.New("unavailable")
 )
 
 // Error carries a safe application message, without exposing database errors.

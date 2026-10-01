@@ -43,7 +43,10 @@ type peer struct {
 	wg                   sync.WaitGroup
 	closeOnce            sync.Once
 	stopRequested        atomic.Bool
-	allowedKinds         map[media.Kind]bool
+	allowedSources       map[string]media.Source
+	receivers            map[string]*receiver
+	suspendedSources     map[string]string
+	offeredTrackIDs      map[string]string
 	pendingRemoteICE     []pion.ICECandidateInit // guarded by negotiation
 	remoteICECount       int                     // guarded by negotiation; bounded for this PeerConnection
 	ready                atomic.Bool
@@ -73,8 +76,8 @@ func (p *peer) start(fn func()) bool {
 func (p *peer) install() {
 	p.start(p.emitLoop)
 	p.start(p.negotiationNotifications)
-	p.pc.OnTrack(func(t *pion.TrackRemote, _ *pion.RTPReceiver) {
-		p.start(func() { p.manager.publish(p, t) })
+	p.pc.OnTrack(func(t *pion.TrackRemote, r *pion.RTPReceiver) {
+		p.start(func() { p.manager.receive(p, t, r) })
 	})
 	p.pc.OnICECandidate(func(candidate *pion.ICECandidate) {
 		var value *pion.ICECandidateInit
@@ -238,6 +241,10 @@ func (p *peer) close() {
 }
 
 func (m *Manager) Offer(ctx context.Context, id, negotiationID, raw string) (pion.SessionDescription, error) {
+	return m.OfferSources(ctx, id, negotiationID, raw, nil)
+}
+
+func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw string, publications []media.Publication) (pion.SessionDescription, error) {
 	if parsed, err := uuid.Parse(negotiationID); err != nil || parsed == uuid.Nil {
 		return pion.SessionDescription{}, media.ErrInvalid
 	}
@@ -245,7 +252,7 @@ func (m *Manager) Offer(ctx context.Context, id, negotiationID, raw string) (pio
 	if err != nil {
 		return pion.SessionDescription{}, err
 	}
-	active, err := validateOffer(raw, m.opts.MaxPeers)
+	sources, err := validateSourceOffer(raw, m.opts.MaxPeers, publications, m.opts.MaxPublishedTracks, m.opts.MaxAudioTracks, m.opts.MaxVideoTracks)
 	if err != nil {
 		return pion.SessionDescription{}, err
 	}
@@ -257,6 +264,17 @@ func (m *Manager) Offer(ctx context.Context, id, negotiationID, raw string) (pio
 	p.negotiation.Lock()
 	p.mu.Lock()
 	closed := p.closing
+	trackIDs := map[string]string{}
+	for _, publication := range publications {
+		trackIDs[publication.MID] = publication.TrackID
+	}
+	for mid, previousID := range p.suspendedSources {
+		if sources[mid] == "" || (trackIDs[mid] != "" && trackIDs[mid] != previousID) {
+			delete(p.suspendedSources, mid)
+		} else {
+			delete(sources, mid)
+		}
+	}
 	p.mu.Unlock()
 	if closed {
 		p.negotiation.Unlock()
@@ -265,6 +283,10 @@ func (m *Manager) Offer(ctx context.Context, id, negotiationID, raw string) (pio
 	if p.pc.SignalingState() != pion.SignalingStateStable {
 		p.negotiation.Unlock()
 		return pion.SessionDescription{}, media.ErrNegotiation
+	}
+	if err = p.reserveSources(sources); err != nil {
+		p.negotiation.Unlock()
+		return pion.SessionDescription{}, err
 	}
 	p.forwarding.Lock()
 	p.mu.Lock()
@@ -277,7 +299,8 @@ func (m *Manager) Offer(ctx context.Context, id, negotiationID, raw string) (pio
 	}
 	p.negotiationID = negotiationID
 	p.pendingReadyAt = time.Now()
-	p.allowedKinds = map[media.Kind]bool{media.KindAudio: active["audio"], media.KindVideo: active["video"]}
+	p.allowedSources = sources
+	p.offeredTrackIDs = trackIDs
 	p.mu.Unlock()
 	p.forwarding.Unlock()
 	if err = p.pc.SetRemoteDescription(pion.SessionDescription{Type: pion.SDPTypeOffer, SDP: raw}); err != nil {
@@ -336,7 +359,7 @@ func (m *Manager) Offer(ctx context.Context, id, negotiationID, raw string) (pio
 	p.mu.Lock()
 	retire := []*publishedTrack{}
 	for _, t := range p.publications {
-		if !p.allowedKinds[t.metadata.Kind] {
+		if p.allowedSources[t.receiver.mid] != t.metadata.Source {
 			retire = append(retire, t)
 		}
 	}
@@ -478,6 +501,13 @@ func (m *Manager) Unpublish(ctx context.Context, id, trackID string) error {
 	}
 	p.mu.Lock()
 	track := p.publications[trackID]
+	if track != nil {
+		delete(p.allowedSources, track.receiver.mid)
+		if p.suspendedSources == nil {
+			p.suspendedSources = map[string]string{}
+		}
+		p.suspendedSources[track.receiver.mid] = p.offeredTrackIDs[track.receiver.mid]
+	}
 	p.mu.Unlock()
 	if track != nil {
 		m.unpublish(track)
@@ -486,6 +516,18 @@ func (m *Manager) Unpublish(ctx context.Context, id, trackID string) error {
 }
 
 func validateOffer(raw string, maxPeers int) (map[string]bool, error) {
+	sources, err := validateSourceOffer(raw, maxPeers, nil, 2, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	active := map[string]bool{}
+	for _, source := range sources {
+		active[string(media.SourceKind(source))] = true
+	}
+	return active, nil
+}
+
+func validateSourceOffer(raw string, maxPeers int, publications []media.Publication, maxTracks, maxAudio, maxVideo int) (map[string]media.Source, error) {
 	if len(raw) == 0 || len(raw) > 49152 {
 		return nil, media.ErrInvalid
 	}
@@ -493,7 +535,11 @@ func validateOffer(raw string, maxPeers int) (map[string]bool, error) {
 	if err := description.UnmarshalString(raw); err != nil {
 		return nil, media.ErrInvalid
 	}
-	if len(description.MediaDescriptions) == 0 || len(description.MediaDescriptions) > 2*maxPeers {
+	slotLimit := 4 * maxPeers
+	if publications == nil {
+		slotLimit = 2 * maxPeers
+	}
+	if len(description.MediaDescriptions) == 0 || len(description.MediaDescriptions) > slotLimit {
 		return nil, media.ErrLimit
 	}
 	// Validate embedded candidates before passing untrusted SDP into Pion
@@ -523,7 +569,20 @@ func validateOffer(raw string, maxPeers int) (map[string]bool, error) {
 			}
 		}
 	}
-	active := map[string]bool{}
+	declared := map[string]media.Source{}
+	uniqueSources := map[media.Source]bool{}
+	for _, publication := range publications {
+		if publication.MID == "" || len(publication.MID) > 64 || strings.ContainsAny(publication.MID, "\r\n\x00 ") || len(publication.TrackID) > 128 || strings.ContainsAny(publication.TrackID, "\r\n\x00") || media.SourceKind(publication.Source) == "" || declared[publication.MID] != "" || uniqueSources[publication.Source] {
+			return nil, media.ErrInvalid
+		}
+		declared[publication.MID] = publication.Source
+		uniqueSources[publication.Source] = true
+	}
+	if len(publications) > maxTracks || (uniqueSources[media.SourceAudioScreen] && !uniqueSources[media.SourceVideoScreen]) {
+		return nil, media.ErrLimit
+	}
+	active := map[string]media.Source{}
+	kinds := map[string]int{}
 	for _, section := range description.MediaDescriptions {
 		kind := section.MediaName.Media
 		if kind != "audio" && kind != "video" {
@@ -546,7 +605,24 @@ func validateOffer(raw string, maxPeers int) (map[string]bool, error) {
 		if direction != "sendonly" && direction != "sendrecv" {
 			continue
 		}
-		if active[kind] {
+		mid, _ := section.Attribute("mid")
+		if mid == "" || len(mid) > 64 || active[mid] != "" {
+			return nil, media.ErrInvalid
+		}
+		source := declared[mid]
+		if publications == nil {
+			if kinds[kind] > 0 {
+				return nil, media.ErrLimit
+			}
+			source = media.SourceMicrophone
+			if kind == "video" {
+				source = media.SourceCamera
+			}
+		} else if source == "" || string(media.SourceKind(source)) != kind {
+			return nil, media.ErrInvalid
+		}
+		kinds[kind]++
+		if (kind == "audio" && kinds[kind] > maxAudio) || (kind == "video" && kinds[kind] > maxVideo) || len(active) >= maxTracks {
 			return nil, media.ErrLimit
 		}
 		supported := false
@@ -561,7 +637,10 @@ func validateOffer(raw string, maxPeers int) (map[string]bool, error) {
 		if !supported {
 			return nil, media.ErrInvalid
 		}
-		active[kind] = true
+		active[mid] = source
+	}
+	if publications != nil && len(active) != len(publications) {
+		return nil, media.ErrInvalid
 	}
 	return active, nil
 }

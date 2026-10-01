@@ -24,6 +24,8 @@ func Fail(c *gin.Context, err error) {
 		status, message = http.StatusNotFound, "not found"
 	case errors.Is(err, apperrors.ErrConflict):
 		status, message = http.StatusConflict, "conflict"
+	case errors.Is(err, apperrors.ErrUnavailable):
+		status, message = http.StatusServiceUnavailable, "service temporarily unavailable"
 	}
 	var applicationError *apperrors.Error
 	if status != http.StatusInternalServerError && errors.As(err, &applicationError) {

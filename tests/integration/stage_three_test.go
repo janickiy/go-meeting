@@ -28,7 +28,9 @@ import (
 	"github.com/janickiy/go-recorder/internal/transport/mediaworker"
 	wstransport "github.com/janickiy/go-recorder/internal/transport/websocket"
 	authusecase "github.com/janickiy/go-recorder/internal/usecase/auth"
+	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
 	mediausecase "github.com/janickiy/go-recorder/internal/usecase/media"
+	realtimeusecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 )
@@ -39,16 +41,21 @@ const stageThreeInternalSecret = "stage-three-isolated-internal-http-secret"
 // startStageThreeMedia uses the real Redis lease, signed ticket, protected HTTP
 // worker and both API WebSocket instances. It never touches the running app DB.
 func startStageThreeMedia(t *testing.T, f *stageTwoFixture) (*sfu.Manager, config.MediaConfig) {
+	return startMediaWithLimits(t, f, 2, 1, 1)
+}
+
+func startMediaWithLimits(t *testing.T, f *stageTwoFixture, published, audio, video int) (*sfu.Manager, config.MediaConfig) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	worker := httptest.NewUnstartedServer(nil)
 	cfg := config.MediaConfig{WorkerID: "stage3-test-worker", WorkerInternalURL: "http://" + worker.Listener.Addr().String(), Namespace: f.config.Namespace + ":media", TicketSecret: stageThreeTicketSecret, InternalSecret: stageThreeInternalSecret, TicketTTL: 45 * time.Second, OperationTimeout: 5 * time.Second, HeartbeatInterval: 200 * time.Millisecond, WorkerTTL: 3 * time.Second, OwnershipTTL: 3 * time.Second, SessionCheckInterval: 150 * time.Millisecond, MaxPeers: 10, MaxRooms: 10, MaxPublishedTracks: 2, MaxAudioTracks: 1, MaxVideoTracks: 1, VideoMaxWidth: 1280, VideoMaxHeight: 720, VideoMaxFPS: 30, ICE: realtime.ICEConfig{ICEServers: []realtime.ICEServer{}}}
+	cfg.MaxPublishedTracks, cfg.MaxAudioTracks, cfg.MaxVideoTracks = published, audio, video
 	registry := redisinfra.NewMediaRegistry(f.redis, cfg.Namespace)
 	tickets, err := security.NewMediaTickets(cfg.TicketSecret, cfg.TicketTTL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	engine, err := sfu.NewManager(sfu.Options{WorkerID: cfg.WorkerID, MaxPeers: cfg.MaxPeers, MaxRooms: cfg.MaxRooms, Logger: logger, Emit: func(binding mediadomain.Binding, kind string, data any) {
+	engine, err := sfu.NewManager(sfu.Options{WorkerID: cfg.WorkerID, MaxPeers: cfg.MaxPeers, MaxRooms: cfg.MaxRooms, MaxPublishedTracks: published, MaxAudioTracks: audio, MaxVideoTracks: video, Logger: logger, Emit: func(binding mediadomain.Binding, kind string, data any) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		event := realtime.Event(kind, binding.ConferenceID, data)
@@ -69,7 +76,11 @@ func startStageThreeMedia(t *testing.T, f *stageTwoFixture) (*sfu.Manager, confi
 	for i, hub := range f.hubs {
 		f.servers[i].Close()
 		controller := mediausecase.NewController(registry, tickets, mediausecase.NewHTTPClient(cfg.InternalSecret, cfg.OperationTimeout), hub, f.store, cfg, f.config)
-		hub.SetDisconnectObserver(controller)
+		conferenceRepository := pg.NewConferenceRepository(f.db)
+		controller.SetPolicyProvider(conferenceRepository)
+		control := conferenceusecase.NewControlService(conferenceRepository, controller, hub)
+		go control.Run(ctx)
+		hub.SetDisconnectObserver(realtimeusecase.DisconnectObservers{control, controller})
 		router := gin.New()
 		router.Use(gin.Recovery())
 		auth, authErr := authusecase.NewService(pg.NewUserRepository(f.db), security.PasswordHasher{}, f.tokens)
@@ -77,6 +88,7 @@ func startStageThreeMedia(t *testing.T, f *stageTwoFixture) (*sfu.Manager, confi
 			t.Fatal(authErr)
 		}
 		httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(auth), conferencesapp.NewHandler(f.service), httpmiddleware.Authenticate(f.tokens))
+		httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(control), httpmiddleware.Authenticate(f.tokens))
 		wstransport.NewHandler(hub, f.tokens, f.store, redisinfra.NewRateLimiter(f.redis), f.config).SetMedia(controller).RegisterRoutes(router)
 		f.servers[i] = httptest.NewServer(router)
 	}
@@ -110,9 +122,16 @@ type mediaTestPeer struct {
 	joined       chan struct{}
 	local        []*webrtc.TrackLocalStaticRTP
 	senders      []*webrtc.RTPSender
+	sources      map[string]mediadomain.Source
 }
 
 func newMediaTestPeer(t *testing.T, f *stageTwoFixture, instance int, token string) *mediaTestPeer {
+	return newMediaTestPeerWithPublisher(t, f, instance, token, nil)
+}
+
+// The Stage 4 recording test supplies valid encoded fixtures while Stage 3
+// forwarding tests retain their lightweight payload generator.
+func newMediaTestPeerWithPublisher(t *testing.T, f *stageTwoFixture, instance int, token string, publisher func(*mediaTestPeer)) *mediaTestPeer {
 	t.Helper()
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
@@ -180,7 +199,11 @@ func newMediaTestPeer(t *testing.T, f *stageTwoFixture, instance int, token stri
 	})
 	p.wg.Add(2)
 	go p.events()
-	go p.publish()
+	if publisher == nil {
+		go p.publish()
+	} else {
+		go publisher(p)
+	}
 	t.Cleanup(p.close)
 	p.send("media.join", map[string]any{})
 	select {
@@ -233,7 +256,28 @@ func (p *mediaTestPeer) events() {
 		}
 		pending = uuid.NewString()
 		dirty = false
-		p.send("media.offer", map[string]any{"mediaPeerId": p.id(), "negotiationId": pending, "sdp": o.SDP})
+		payload := map[string]any{"mediaPeerId": p.id(), "negotiationId": pending, "sdp": o.SDP}
+		p.mu.Lock()
+		if p.sources != nil {
+			publications := []mediadomain.Publication{}
+			for _, transceiver := range p.pc.GetTransceivers() {
+				if transceiver.Sender() == nil || transceiver.Sender().Track() == nil {
+					continue
+				}
+				track := transceiver.Sender().Track()
+				source := p.sources[track.ID()]
+				if source == "" {
+					source = mediadomain.SourceCamera
+					if track.Kind() == webrtc.RTPCodecTypeAudio {
+						source = mediadomain.SourceMicrophone
+					}
+				}
+				publications = append(publications, mediadomain.Publication{MID: transceiver.Mid(), Source: source})
+			}
+			payload["publications"] = publications
+		}
+		p.mu.Unlock()
+		p.send("media.offer", payload)
 	}
 	for {
 		select {

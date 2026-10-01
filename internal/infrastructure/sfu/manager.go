@@ -24,6 +24,7 @@ type Options struct {
 	UDPPort, UDPMinPort, UDPMaxPort, TCPPort                                           int
 	NATIPs                                                                             []string
 	MaxPeers, MaxRooms, MaxPublishedTracks, MaxAudioTracks, MaxVideoTracks, QueueSize  int
+	MaxScreenSharers, EgressQueueSize                                                  int
 	ICEDisconnectedTimeout, ICEFailedTimeout, ICEKeepaliveInterval, NegotiationTimeout time.Duration
 	Logger                                                                             *slog.Logger
 	// Emit must have a bounded implementation. It runs without SFU locks from
@@ -34,15 +35,17 @@ type Options struct {
 }
 
 type Stats struct {
-	Rooms           int    `json:"roomsActive"`
-	Peers           int    `json:"mediaPeersActive"`
-	Tracks          int    `json:"tracksPublished"`
-	Subscriptions   int    `json:"subscriptions"`
-	PeerConnections uint64 `json:"peerConnectionTotal"`
-	Failures        uint64 `json:"peerConnectionFailures"`
-	Packets         uint64 `json:"packetsForwarded"`
-	Bytes           uint64 `json:"bytesForwarded"`
-	Dropped         uint64 `json:"packetsDropped"`
+	Rooms            int    `json:"roomsActive"`
+	Peers            int    `json:"mediaPeersActive"`
+	Tracks           int    `json:"tracksPublished"`
+	Subscriptions    int    `json:"subscriptions"`
+	PeerConnections  uint64 `json:"peerConnectionTotal"`
+	Failures         uint64 `json:"peerConnectionFailures"`
+	Packets          uint64 `json:"packetsForwarded"`
+	Bytes            uint64 `json:"bytesForwarded"`
+	Dropped          uint64 `json:"packetsDropped"`
+	RecordingOutputs int    `json:"recordingOutputs"`
+	RecordingDrops   uint64 `json:"recordingDrops"`
 }
 
 type Manager struct {
@@ -60,13 +63,17 @@ type Manager struct {
 	udp                                      net.PacketConn
 	tcp                                      net.Listener
 	total, failures, packets, bytes, dropped atomic.Uint64
+	egressDropped                            atomic.Uint64
 }
 
 type room struct {
-	id     string
-	mu     sync.Mutex
-	peers  map[string]*peer
-	tracks map[string]*publishedTrack
+	id       string
+	mu       sync.Mutex
+	peers    map[string]*peer
+	tracks   map[string]*publishedTrack
+	policies map[string]media.ParticipantPolicy
+	screens  map[string]bool
+	egresses map[string]*egress
 }
 
 func defaults(o Options) Options {
@@ -77,13 +84,19 @@ func defaults(o Options) Options {
 		o.MaxRooms = 100
 	}
 	if o.MaxPublishedTracks == 0 {
-		o.MaxPublishedTracks = 2
+		o.MaxPublishedTracks = 4
 	}
 	if o.MaxAudioTracks == 0 {
-		o.MaxAudioTracks = 1
+		o.MaxAudioTracks = 2
 	}
 	if o.MaxVideoTracks == 0 {
-		o.MaxVideoTracks = 1
+		o.MaxVideoTracks = 2
+	}
+	if o.MaxScreenSharers == 0 {
+		o.MaxScreenSharers = 1
+	}
+	if o.EgressQueueSize == 0 {
+		o.EgressQueueSize = 2048
 	}
 	if o.QueueSize == 0 {
 		o.QueueSize = 128
@@ -109,7 +122,8 @@ func defaults(o Options) Options {
 func NewManager(options Options) (*Manager, error) {
 	o := defaults(options)
 	if o.MaxPeers < 2 || o.MaxPeers > 100 || o.MaxRooms < 1 || o.MaxRooms > 10000 ||
-		o.MaxPublishedTracks < 1 || o.MaxPublishedTracks > 2 || o.MaxAudioTracks != 1 || o.MaxVideoTracks != 1 ||
+		o.MaxPublishedTracks < 1 || o.MaxPublishedTracks > 4 || o.MaxAudioTracks < 1 || o.MaxAudioTracks > 2 || o.MaxVideoTracks < 1 || o.MaxVideoTracks > 2 ||
+		o.MaxScreenSharers < 1 || o.MaxScreenSharers > 4 || o.EgressQueueSize < 1 || o.EgressQueueSize > 8192 ||
 		o.QueueSize < 1 || o.QueueSize > 4096 || o.NegotiationTimeout < 100*time.Millisecond ||
 		o.UDPPort < 0 || o.UDPPort > 65535 || o.TCPPort < 0 || o.TCPPort > 65535 ||
 		o.UDPMinPort < 0 || o.UDPMaxPort > 65535 || o.UDPMinPort > o.UDPMaxPort ||
@@ -217,7 +231,7 @@ func (m *Manager) Join(ctx context.Context, binding media.Binding) (media.PeerVi
 	}
 	ctxPeer, cancel := context.WithCancel(context.Background())
 	p := &peer{id: uuid.NewString(), binding: binding, manager: m, pc: pc, ctx: ctxPeer, cancel: cancel,
-		publications: map[string]*publishedTrack{}, subscriptions: map[string]*subscription{},
+		publications: map[string]*publishedTrack{}, subscriptions: map[string]*subscription{}, receivers: map[string]*receiver{},
 		events: make(chan outboundEvent, 128), notify: make(chan struct{}, 1)}
 	m.mu.Lock()
 	if old := m.connections[binding.ConnectionID]; old != nil {
@@ -243,10 +257,17 @@ func (m *Manager) Join(ctx context.Context, binding media.Binding) (media.PeerVi
 			_ = pc.Close()
 			return media.PeerView{}, media.ErrLimit
 		}
-		r = &room{id: binding.ConferenceID, peers: map[string]*peer{}, tracks: map[string]*publishedTrack{}}
+		r = newRoom(binding.ConferenceID)
 		m.rooms[r.id] = r
 	}
 	r.mu.Lock()
+	if r.policies[binding.ParticipantID].Kicked {
+		r.mu.Unlock()
+		m.mu.Unlock()
+		cancel()
+		_ = pc.Close()
+		return media.PeerView{}, media.ErrPolicy
+	}
 	if len(r.peers) >= m.opts.MaxPeers {
 		r.mu.Unlock()
 		m.mu.Unlock()
@@ -327,7 +348,8 @@ func (m *Manager) detachLocked(p *peer) {
 	delete(m.connections, p.binding.ConnectionID)
 	p.room.mu.Lock()
 	delete(p.room.peers, p.id)
-	empty := len(p.room.peers) == 0
+	delete(p.room.screens, p.id)
+	empty := len(p.room.peers) == 0 && len(p.room.egresses) == 0
 	p.room.mu.Unlock()
 	p.mu.Unlock()
 	if empty {
@@ -361,6 +383,17 @@ func (m *Manager) CloseConference(ctx context.Context, id string) error {
 		return waitClosed(ctx, done)
 	}
 	peers := []*peer{}
+	if r := m.rooms[id]; r != nil {
+		r.mu.Lock()
+		for _, e := range r.egresses {
+			e.fail(media.ErrUnavailable)
+		}
+		r.egresses = map[string]*egress{}
+		if len(r.peers) == 0 {
+			delete(m.rooms, id)
+		}
+		r.mu.Unlock()
+	}
 	for _, p := range m.peers {
 		if p.binding.ConferenceID == id {
 			peers = append(peers, p)
@@ -399,6 +432,17 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 	m.shutdownOnce.Do(func() {
 		m.mu.Lock()
 		m.closing = true
+		for _, r := range m.rooms {
+			r.mu.Lock()
+			for _, e := range r.egresses {
+				e.fail(media.ErrUnavailable)
+			}
+			r.egresses = map[string]*egress{}
+			if len(r.peers) == 0 {
+				delete(m.rooms, r.id)
+			}
+			r.mu.Unlock()
+		}
 		peers := make([]*peer, 0, len(m.peers))
 		for _, p := range m.peers {
 			peers = append(peers, p)
@@ -444,6 +488,7 @@ func (m *Manager) Snapshot() Stats {
 	m.mu.Unlock()
 	for _, r := range rooms {
 		r.mu.Lock()
+		s.RecordingOutputs += len(r.egresses)
 		sources := make([]*publishedTrack, 0, len(r.tracks))
 		for _, t := range r.tracks {
 			sources = append(sources, t)
@@ -461,7 +506,18 @@ func (m *Manager) Snapshot() Stats {
 	s.Packets = m.packets.Load()
 	s.Bytes = m.bytes.Load()
 	s.Dropped = m.dropped.Load()
+	s.RecordingDrops = m.egressDropped.Load()
 	return s
+}
+
+func newRoom(id string) *room {
+	return &room{id: id, peers: map[string]*peer{}, tracks: map[string]*publishedTrack{}, policies: map[string]media.ParticipantPolicy{}, screens: map[string]bool{}, egresses: map[string]*egress{}}
+}
+
+func (m *Manager) HasConference(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.rooms[id] != nil
 }
 
 func (m *Manager) log(p *peer, event string, fields []any) {

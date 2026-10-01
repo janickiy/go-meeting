@@ -18,6 +18,19 @@ end
 return 0
 `)
 
+var acquireLockScript = goredis.NewScript(`
+local owner = redis.call("GET", KEYS[1])
+if owner == ARGV[1] then
+    redis.call("PEXPIRE", KEYS[1], ARGV[2])
+    return 1
+end
+if not owner then
+    redis.call("SET", KEYS[1], ARGV[1], "PX", ARGV[2])
+    return 1
+end
+return 0
+`)
+
 // ConferenceLock запрещает параллельный record.start для одного conferenceId.
 type ConferenceLock struct {
 	client *goredis.Client
@@ -47,12 +60,12 @@ func (l *ConferenceLock) Acquire(ctx context.Context, conferenceID string, recor
 	if ttl <= 0 {
 		ttl = 6 * time.Hour
 	}
-	ok, err := l.client.SetNX(ctx, lockKey(conferenceID), recordID, ttl).Result()
+	result, err := acquireLockScript.Run(ctx, l.client, []string{lockKey(conferenceID)}, recordID, ttl.Milliseconds()).Int()
 	if err != nil {
 		return false, fmt.Errorf("acquire conference record lock: %w", err)
 	}
 
-	return ok, nil
+	return result == 1, nil
 }
 
 // Release снимает lock только если им владеет текущая запись.

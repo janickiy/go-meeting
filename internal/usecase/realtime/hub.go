@@ -40,6 +40,19 @@ type Socket interface {
 type DisconnectObserver interface {
 	Disconnected(context.Context, domain.Session)
 }
+
+// DisconnectObservers composes bounded cleanup hooks without making one
+// subsystem responsible for another subsystem's lifecycle.
+type DisconnectObservers []DisconnectObserver
+
+func (observers DisconnectObservers) Disconnected(ctx context.Context, session domain.Session) {
+	for _, observer := range observers {
+		if observer != nil {
+			observer.Disconnected(ctx, session)
+		}
+	}
+}
+
 type localSocket struct {
 	session domain.Session
 	socket  Socket
@@ -172,9 +185,6 @@ func (h *Hub) Unregister(session domain.Session) {
 	defer h.sockets.Done()
 	ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
 	defer c()
-	if observer != nil {
-		observer.Disconnected(ctx, session)
-	}
 	seen := session.LastSeenAt
 	if live, err := h.store.Get(ctx, session.ConnectionID); err == nil {
 		seen = live.LastSeenAt
@@ -184,6 +194,11 @@ func (h *Hub) Unregister(session domain.Session) {
 	}
 	if err := h.repo.Close(ctx, session.ConnectionID, seen); err != nil {
 		h.log(session, "history_cleanup_failed")
+	}
+	// Observers see the session already closed. In particular, two tabs closing
+	// together cannot both mistake the other tab for the last active session.
+	if observer != nil {
+		observer.Disconnected(ctx, session)
 	}
 	h.log(session, "disconnected")
 }
@@ -296,6 +311,12 @@ func (h *Hub) deliver(bus domain.Bus) {
 	defer c()
 	if bus.Kind == "expired" && bus.Session != nil {
 		_ = h.repo.Close(ctx, bus.Session.ConnectionID, bus.Session.LastSeenAt)
+		h.mu.Lock()
+		observer := h.disconnectObserver
+		h.mu.Unlock()
+		if observer != nil {
+			observer.Disconnected(ctx, *bus.Session)
+		}
 	}
 	entries := h.entries(bus.ConferenceID)
 	if bus.Kind == "event" && bus.Event != nil {

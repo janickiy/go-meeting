@@ -64,6 +64,17 @@ func NewPostProcessor(ffmpegPath string) *PostProcessor {
 // - recordDir: директория записи в локальном volume.
 // Возвращает: Result с путями/размерами/checksum или ошибку FFmpeg.
 func (p *PostProcessor) Finalize(ctx context.Context, recordDir string) (Result, error) {
+	return p.finalize(ctx, recordDir, false)
+}
+
+// FinalizeComposite reuses artifact validation, preview and checksums while
+// copying the uniformly encoded H.264/AAC composition chunks without a second
+// lossy video encode.
+func (p *PostProcessor) FinalizeComposite(ctx context.Context, recordDir string) (Result, error) {
+	return p.finalize(ctx, recordDir, true)
+}
+
+func (p *PostProcessor) finalize(ctx context.Context, recordDir string, composite bool) (Result, error) {
 	segments, err := findSegments(recordDir)
 	if err != nil {
 		return Result{}, err
@@ -80,8 +91,19 @@ func (p *PostProcessor) Finalize(ctx context.Context, recordDir string) (Result,
 
 	finalPath := filepath.Join(recordDir, "final.mp4")
 	previewPath := filepath.Join(recordDir, "preview.jpg")
-	if err := p.concat(ctx, listPath, finalPath); err != nil {
-		return Result{}, err
+	var concatErr error
+	if composite {
+		concatErr = p.concatComposite(ctx, listPath, finalPath)
+	} else {
+		concatErr = p.concat(ctx, listPath, finalPath)
+	}
+	if concatErr != nil {
+		return Result{}, concatErr
+	}
+	if composite {
+		if _, err := p.ValidateOutput(ctx, finalPath, true); err != nil {
+			return Result{}, err
+		}
 	}
 	if err := p.preview(ctx, finalPath, previewPath); err != nil {
 		return Result{}, err
@@ -185,6 +207,9 @@ func (p *PostProcessor) previewAt(ctx context.Context, finalPath string, preview
 	if err != nil {
 		return fmt.Errorf("create preview: %w; ffmpeg=%s", err, strings.TrimSpace(string(output)))
 	}
+	if info, err := os.Stat(previewPath); err != nil || info.Size() == 0 {
+		return fmt.Errorf("preview frame was not produced at %s seconds", second)
+	}
 
 	return nil
 }
@@ -249,6 +274,9 @@ func findSegments(recordDir string) ([]string, error) {
 
 	segments := make([]string, 0, len(matches))
 	for _, path := range matches {
+		if strings.Contains(filepath.Base(path), ".partial") {
+			continue
+		}
 		info, err := os.Stat(path)
 		if err != nil {
 			return nil, fmt.Errorf("stat segment %s: %w", path, err)

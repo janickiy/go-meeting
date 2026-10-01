@@ -138,10 +138,11 @@ func (h *Handler) Routes() http.Handler {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /internal/media/metrics", h.auth(func(w http.ResponseWriter, _ *http.Request) { h.json(w, http.StatusOK, h.metrics()) }))
-	for _, operation := range []string{"join", "offer", "ready", "ice", "leave", "unpublish"} {
+	for _, operation := range []string{"join", "offer", "ready", "ice", "leave", "unpublish", "policy", "close"} {
 		op := operation
 		mux.HandleFunc("POST /internal/media/"+op, h.auth(func(w http.ResponseWriter, r *http.Request) { h.command(w, r, op) }))
 	}
+	mux.HandleFunc("POST /internal/media/egress", h.auth(h.egress))
 	return mux
 }
 
@@ -218,6 +219,10 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 		return
 	}
 	w.Header().Set("X-Request-ID", cmd.RequestID)
+	if operation == "policy" || operation == "close" {
+		h.serviceCommand(w, r, operation, cmd)
+		return
+	}
 	for _, id := range []string{cmd.Binding.ConferenceID, cmd.Binding.ParticipantID, cmd.Binding.SessionID, cmd.Binding.ConnectionID, cmd.Binding.UserID, cmd.Route.LeaseID} {
 		if !validUUID(id) {
 			h.fail(w, media.ErrInvalid)
@@ -274,6 +279,10 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 		return
 	}
 	if operation == "join" {
+		if cmd.Policy != nil && (cmd.Policy.Version < 0 || cmd.Policy.Kicked) {
+			h.fail(w, media.ErrPolicy)
+			return
+		}
 		binding, route, err := h.tickets.Verify(cmd.Ticket)
 		if err != nil || !sameBinding(binding, cmd.Binding) || !sameRoute(route, cmd.Route) {
 			h.fail(w, media.ErrUnauthorized)
@@ -302,10 +311,40 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			h.fail(w, media.ErrUnavailable)
 			return
 		}
+		// A legitimate leave/rejoin carries a newer persisted policy. Apply it
+		// to an existing room before admission, then again for a newly made room.
+		if cmd.Policy != nil {
+			engine, ok := h.engine.(interface {
+				SetPolicy(context.Context, string, string, media.ParticipantPolicy) error
+			})
+			if !ok {
+				h.fail(w, media.ErrUnavailable)
+				return
+			}
+			if err = engine.SetPolicy(ctx, binding.ConferenceID, binding.ParticipantID, *cmd.Policy); err != nil {
+				h.fail(w, err)
+				return
+			}
+		}
 		peer, err := h.engine.Join(ctx, binding)
 		if err != nil {
 			h.fail(w, err)
 			return
+		}
+		if cmd.Policy != nil {
+			if policyEngine, ok := h.engine.(interface {
+				SetPolicy(context.Context, string, string, media.ParticipantPolicy) error
+			}); ok {
+				if err = policyEngine.SetPolicy(ctx, binding.ConferenceID, binding.ParticipantID, *cmd.Policy); err != nil {
+					_ = h.engine.Leave(ctx, peer.MediaPeerID)
+					h.fail(w, err)
+					return
+				}
+			} else {
+				_ = h.engine.Leave(ctx, peer.MediaPeerID)
+				h.fail(w, media.ErrUnavailable)
+				return
+			}
 		}
 		if !h.leaseValid(binding.ConferenceID, route) {
 			_ = h.engine.Leave(ctx, peer.MediaPeerID)
@@ -313,7 +352,15 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			return
 		}
 		h.logger.Info("media peer admitted", "conference_id", binding.ConferenceID, "participant_id", binding.ParticipantID, "session_id", binding.SessionID, "media_peer_id", peer.MediaPeerID, "worker_id", h.cfg.WorkerID, "request_id", cmd.RequestID)
-		h.json(w, http.StatusOK, media.Result{MediaPeerID: peer.MediaPeerID, WorkerID: h.cfg.WorkerID, MaxPeers: h.cfg.MaxPeers, ICEServers: h.cfg.ICE.ICEServers, Tracks: h.engine.Tracks(peer.MediaPeerID), VideoCapture: media.VideoCaptureTarget{MaxWidth: h.cfg.VideoMaxWidth, MaxHeight: h.cfg.VideoMaxHeight, MaxFrameRate: h.cfg.VideoMaxFPS}})
+		policy := cmd.Policy
+		if provider, ok := h.engine.(interface {
+			ParticipantPolicy(string, string) (media.ParticipantPolicy, bool)
+		}); ok {
+			if current, exists := provider.ParticipantPolicy(binding.ConferenceID, binding.ParticipantID); exists {
+				policy = &current
+			}
+		}
+		h.json(w, http.StatusOK, media.Result{MediaPeerID: peer.MediaPeerID, WorkerID: h.cfg.WorkerID, MaxPeers: h.cfg.MaxPeers, ICEServers: h.cfg.ICE.ICEServers, Tracks: h.engine.Tracks(peer.MediaPeerID), Policy: policy, VideoCapture: media.VideoCaptureTarget{MaxWidth: h.cfg.VideoMaxWidth, MaxHeight: h.cfg.VideoMaxHeight, MaxFrameRate: h.cfg.VideoMaxFPS}})
 		return
 	}
 	binding, ok := h.engine.PeerBinding(cmd.MediaPeerID)
@@ -332,6 +379,23 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			h.fail(w, media.ErrInvalid)
 			return
 		}
+		if cmd.Policy != nil {
+			policyEngine, ok := h.engine.(interface {
+				SetPolicy(context.Context, string, string, media.ParticipantPolicy) error
+			})
+			if !ok {
+				h.fail(w, media.ErrUnavailable)
+				return
+			}
+			if err = policyEngine.SetPolicy(ctx, binding.ConferenceID, binding.ParticipantID, *cmd.Policy); err != nil {
+				h.fail(w, err)
+				return
+			}
+			if cmd.Policy.Kicked {
+				h.fail(w, media.ErrPolicy)
+				return
+			}
+		}
 		h.mu.Lock()
 		cache := h.offers[cmd.MediaPeerID]
 		if cache == nil {
@@ -340,7 +404,8 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 		}
 		h.mu.Unlock()
 		cache.mu.Lock()
-		hash := sha256.Sum256([]byte(cmd.SDP))
+		metadata, _ := json.Marshal(cmd.Publications)
+		hash := sha256.Sum256(append(append([]byte(cmd.SDP), 0), metadata...))
 		if cache.id == cmd.NegotiationID {
 			if cache.hash != hash {
 				err = media.ErrNegotiation
@@ -349,7 +414,15 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			}
 		} else {
 			var answer webrtc.SessionDescription
-			answer, err = h.engine.Offer(ctx, cmd.MediaPeerID, cmd.NegotiationID, cmd.SDP)
+			if engine, ok := h.engine.(interface {
+				OfferSources(context.Context, string, string, string, []media.Publication) (webrtc.SessionDescription, error)
+			}); ok {
+				answer, err = engine.OfferSources(ctx, cmd.MediaPeerID, cmd.NegotiationID, cmd.SDP, cmd.Publications)
+			} else if cmd.Publications != nil {
+				err = media.ErrInvalid
+			} else {
+				answer, err = h.engine.Offer(ctx, cmd.MediaPeerID, cmd.NegotiationID, cmd.SDP)
+			}
 			if err == nil {
 				result.SDP = answer.SDP
 				cache.id, cache.hash, cache.answer = cmd.NegotiationID, hash, answer.SDP
@@ -413,8 +486,10 @@ func (h *Handler) fail(w http.ResponseWriter, err error) {
 		status = http.StatusTooManyRequests
 	case errors.Is(err, media.ErrPeerNotFound):
 		status = http.StatusNotFound
-	case errors.Is(err, media.ErrOwnership), errors.Is(err, media.ErrNegotiation):
+	case errors.Is(err, media.ErrOwnership), errors.Is(err, media.ErrNegotiation), errors.Is(err, media.ErrScreenConflict):
 		status = http.StatusConflict
+	case errors.Is(err, media.ErrPolicy):
+		status = http.StatusForbidden
 	case errors.Is(err, media.ErrUnavailable):
 		status = http.StatusServiceUnavailable
 	}
@@ -530,10 +605,13 @@ func (h *Handler) fence(ctx context.Context, reason string) {
 	h.fencing = true
 	h.ready.Store(false)
 	h.workerDeadline = time.Time{}
+	rooms := make(map[string]bool)
+	for id := range h.leases {
+		rooms[id] = true
+	}
 	h.leases = make(map[string]roomLease)
 	h.mu.Unlock()
 	h.logger.Warn("media worker fenced", "worker_id", h.cfg.WorkerID, "event_type", reason)
-	rooms := make(map[string]bool)
 	for _, binding := range h.engine.Bindings() {
 		rooms[binding.ConferenceID] = true
 	}
@@ -650,6 +728,9 @@ func (h *Handler) releaseEmpty(ctx context.Context) {
 			return
 		}
 		active := false
+		if engine, ok := h.engine.(interface{ HasConference(string) bool }); ok {
+			active = engine.HasConference(id)
+		}
 		for _, binding := range h.engine.Bindings() {
 			if binding.ConferenceID == id {
 				active = true

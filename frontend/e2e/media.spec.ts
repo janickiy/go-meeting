@@ -24,6 +24,37 @@ test("two browsers exchange audio/video through the SFU and recreate media after
   const password = process.env.MEET_MEDIA_PASSWORD || "stage-one-test-password";
   const diagnostics: Record<string, unknown>[][] = [[], []];
   for (const [index, page] of [alice, bob].entries()) {
+    // The isolated media harness focuses on live controls; storage/recording
+    // routes are covered by the real RabbitMQ/MinIO recording integration test.
+    await page.route("**/api/v1/conferences/*/recordings", (route) =>
+      route.fulfill({ json: { status: "success", items: [] } }),
+    );
+    if (process.env.MEET_STAGE4)
+      await page.addInitScript(() => {
+        navigator.mediaDevices.getDisplayMedia = async () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 640;
+          canvas.height = 360;
+          const paint = () => {
+            const ctx = canvas.getContext("2d")!;
+            ctx.fillStyle = "#1766eb";
+            ctx.fillRect(0, 0, 640, 360);
+            ctx.fillStyle = "white";
+            ctx.font = "36px sans-serif";
+            ctx.fillText(`Screen ${Date.now()}`, 25, 170);
+          };
+          paint();
+          const timer = setInterval(paint, 60);
+          const stream = canvas.captureStream(15);
+          const track = stream.getVideoTracks()[0];
+          track.addEventListener("ended", () => clearInterval(timer));
+          (window as unknown as { __endShare: () => void }).__endShare = () => {
+            track.stop();
+            track.dispatchEvent(new Event("ended"));
+          };
+          return stream;
+        };
+      });
     await page.addInitScript(() => {
       const target = window as unknown as { __mediaTrackTrace: unknown[] };
       target.__mediaTrackTrace = [];
@@ -123,6 +154,101 @@ test("two browsers exchange audio/video through the SFU and recreate media after
         )
         .toBe(true);
     }
+    if (process.env.MEET_STAGE4) {
+      await bob
+        .getByRole("button", { name: "Выключить камеру", exact: true })
+        .click();
+      await expect(
+        alice.getByTestId("remote-media").locator("video"),
+      ).toHaveCount(0);
+      await bob
+        .getByRole("button", { name: "Выключить микрофон", exact: true })
+        .click();
+      await expect(alice.getByTestId("remote-media")).toHaveCount(0);
+      await bob
+        .getByRole("button", { name: "Включить камеру", exact: true })
+        .click();
+      await bob
+        .getByRole("button", { name: "Включить микрофон", exact: true })
+        .click();
+      await expect(
+        alice.getByTestId("remote-media").locator("video"),
+      ).toHaveCount(1);
+      await bob.getByLabel("Выбор камеры").selectOption({ index: 1 });
+      await expect
+        .poll(() =>
+          alice
+            .getByTestId("remote-media")
+            .locator("video")
+            .evaluate((v) => (v as HTMLVideoElement).videoWidth),
+        )
+        .toBeGreaterThan(0);
+      await bob
+        .getByRole("button", { name: "Показать экран", exact: true })
+        .click();
+      await expect(alice.getByTestId("remote-media")).toHaveCount(2);
+      await expect(alice.locator(".media-tile-screen video")).toHaveCount(1);
+      await expect
+        .poll(() =>
+          alice
+            .locator(".media-tile-screen video")
+            .evaluate((v) => (v as HTMLVideoElement).videoWidth),
+        )
+        .toBeGreaterThan(0);
+      await alice.screenshot({
+        path: info.outputPath("stage4-screen.png"),
+        fullPage: true,
+      });
+      await alice
+        .getByRole("button", { name: "Показать экран", exact: true })
+        .click();
+      await expect(
+        alice.getByText("Экран уже показывает другой участник", {
+          exact: false,
+        }),
+      ).toBeVisible();
+      await expect(alice.getByTestId("local-media")).toHaveCount(1);
+      await expect(alice.getByTestId("media-status")).toHaveText(
+        "Медиасвязь подключена",
+      );
+      await bob.evaluate(() =>
+        (window as unknown as { __endShare: () => void }).__endShare(),
+      );
+      await expect(alice.getByTestId("remote-media")).toHaveCount(1);
+      await bob
+        .getByRole("button", { name: "Показать экран", exact: true })
+        .click();
+      await expect(alice.getByTestId("remote-media")).toHaveCount(2);
+      await alice
+        .getByRole("button", { name: "Отключить экран", exact: true })
+        .click();
+      await expect(alice.getByTestId("remote-media")).toHaveCount(1);
+      await expect(
+        bob.getByRole("button", { name: "Показать экран", exact: true }),
+      ).toBeDisabled();
+      await alice
+        .getByRole("button", { name: "Разрешить экран", exact: true })
+        .click();
+      await expect(
+        bob.getByRole("button", { name: "Показать экран", exact: true }),
+      ).toBeEnabled();
+      await expect(alice.getByTestId("remote-media")).toHaveCount(1);
+      await alice
+        .getByRole("button", { name: "Отключить микрофон", exact: true })
+        .click();
+      await expect(
+        bob.getByRole("button", { name: "Включить микрофон", exact: true }),
+      ).toBeDisabled();
+      await alice
+        .getByRole("button", { name: "Разрешить микрофон", exact: true })
+        .click();
+      await expect(
+        bob.getByRole("button", { name: "Включить микрофон", exact: true }),
+      ).toBeEnabled();
+      await bob
+        .getByRole("button", { name: "Включить микрофон", exact: true })
+        .click();
+    }
     await bob.getByText("Состояние медиасвязи", { exact: true }).click();
     const previousPeer = await bob.getByTestId("media-peer-id").textContent();
     await bob
@@ -158,6 +284,31 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       timeout: 10000,
     });
     await expect(bob.getByTestId("connection-id")).toBeVisible();
+    if (process.env.MEET_STAGE4) {
+      await bob
+        .getByRole("button", {
+          name: "Подключиться без камеры и микрофона",
+          exact: true,
+        })
+        .click();
+      await expect(bob.getByTestId("media-status")).toHaveText(
+        "Медиасвязь подключена",
+      );
+      await expect(bob.getByTestId("local-media")).toHaveCount(0);
+      await expect(bob.getByTestId("remote-media")).toHaveCount(1);
+      await bob
+        .getByRole("button", { name: "Включить микрофон", exact: true })
+        .click();
+      await expect(
+        alice.getByTestId("remote-media").locator("audio"),
+      ).toHaveCount(1);
+      await expect(
+        alice.getByTestId("remote-media").locator("video"),
+      ).toHaveCount(0);
+      await bob
+        .getByRole("button", { name: "Отключить медиа", exact: true })
+        .click();
+    }
   } catch (error) {
     console.error("Safe media diagnostics:", JSON.stringify(diagnostics));
     console.error(

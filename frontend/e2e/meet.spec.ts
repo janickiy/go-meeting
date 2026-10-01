@@ -119,6 +119,8 @@ async function mockApi(
     }
     if (path === `/conferences/${conference.id}`)
       return respond({ status: "success", item: conference });
+    if (path === `/conferences/${conference.id}/recordings` && !post)
+      return respond({ status: "success", items: [] });
     if (path.endsWith("/participants")) {
       const offset = Number(url.searchParams.get("offset") || 0);
       return respond({

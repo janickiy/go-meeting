@@ -26,6 +26,16 @@ type publishedTrack struct {
 	lastPLI     time.Time
 	pli         chan struct{}
 	stopOnce    sync.Once
+	receiver    *receiver
+	permitted   atomic.Bool
+}
+
+// A transport receiver outlives a publication. Pausing a source drains RTP but
+// removes it from the room; resuming/replaceTrack can reuse the negotiated SSRC.
+type receiver struct {
+	mid         string
+	remote      *pion.TrackRemote
+	publication *publishedTrack // guarded by publisher.mu
 }
 
 type subscription struct {
@@ -40,69 +50,61 @@ type subscription struct {
 	ready    atomic.Bool
 }
 
-func (m *Manager) publish(p *peer, remote *pion.TrackRemote) {
+func (m *Manager) receive(p *peer, remote *pion.TrackRemote, transport *pion.RTPReceiver) {
 	if !supported(remote) || remote.RID() != "" {
 		p.emit("media.error", map[string]string{"mediaPeerId": p.id, "code": "unsupported_codec_or_simulcast"})
 		p.stopAsync()
 		return
 	}
-	kind, source := media.KindAudio, media.SourceMicrophone
-	if remote.Kind() == pion.RTPCodecTypeVideo {
-		kind, source = media.KindVideo, media.SourceCamera
-	}
-	ctx, cancel := context.WithCancel(p.ctx)
-	t := &publishedTrack{metadata: media.Track{ID: uuid.NewString(), StreamID: p.id, MediaPeerID: p.id, ParticipantID: p.binding.ParticipantID, Kind: kind, Source: source},
-		publisher: p, remote: remote, ctx: ctx, cancel: cancel, active: true, subscribers: map[string]*subscription{}, pli: make(chan struct{}, 1)}
-	p.mu.Lock()
-	if p.closing || !p.allowedKinds[kind] {
-		p.mu.Unlock()
-		cancel()
-		return
-	}
-	count := 0
-	for _, old := range p.publications {
-		if old.metadata.Kind == kind {
-			count++
+	mid := ""
+	for _, transceiver := range p.pc.GetTransceivers() {
+		if transceiver.Receiver() == transport {
+			mid = transceiver.Mid()
+			break
 		}
 	}
-	if p.closing || len(p.publications) >= m.opts.MaxPublishedTracks || count >= 1 {
-		p.mu.Unlock()
-		cancel()
-		p.emit("media.error", map[string]string{"mediaPeerId": p.id, "code": "media_limit_exceeded"})
+	if mid == "" {
 		p.stopAsync()
 		return
 	}
-	p.publications[t.metadata.ID] = t
-	// Publication registration and the closing snapshot share the peer lock.
-	// Keep it until BOTH registries are updated, otherwise unpublish can run
-	// between the writes and a delayed room insert creates an inactive zombie.
-	// Lock order is peer.mu -> room.mu; no room->peer nested acquisition exists.
-	p.room.mu.Lock()
-	p.room.tracks[t.metadata.ID] = t
-	peers := make([]*peer, 0, len(p.room.peers))
-	for _, target := range p.room.peers {
-		peers = append(peers, target)
+	r := &receiver{mid: mid, remote: remote}
+	p.mu.Lock()
+	if p.closing {
+		p.mu.Unlock()
+		return
 	}
-	p.room.mu.Unlock()
+	previous := p.receivers[mid]
+	p.receivers[mid] = r
+	var old *publishedTrack
+	if previous != nil {
+		old = previous.publication
+	}
 	p.mu.Unlock()
-	if kind == media.KindVideo {
-		p.start(t.keyframes)
+	if old != nil {
+		m.unpublish(old)
 	}
-	m.log(p, "track_published", []any{"track_id", t.metadata.ID, "kind", kind, "source", source})
-	p.emit("media.published", map[string]any{"mediaPeerId": p.id, "track": t.metadata})
-	for _, target := range peers {
-		m.subscribe(t, target)
+	if previous != nil && previous.remote != remote {
+		_ = previous.remote.SetReadDeadline(time.Now())
 	}
-	defer m.unpublish(t)
+	defer func() {
+		p.mu.Lock()
+		t := r.publication
+		if p.receivers[mid] == r {
+			delete(p.receivers, mid)
+		}
+		p.mu.Unlock()
+		if t != nil {
+			m.unpublish(t)
+		}
+	}()
 	for {
 		packet, _, err := remote.ReadRTP()
-		if err != nil {
+		if err != nil || p.ctx.Err() != nil {
 			return
 		}
-		select {
-		case <-ctx.Done():
-			return
-		default:
+		t := m.activate(p, r)
+		if t == nil || !t.permitted.Load() {
+			continue
 		}
 		// An SFU must not copy publisher-specific MID/RID/TWCC extension IDs
 		// into a differently negotiated subscriber transport. Pion rewrites
@@ -114,6 +116,7 @@ func (m *Manager) publish(p *peer, remote *pion.TrackRemote) {
 			m.dropped.Add(1)
 			continue
 		}
+		m.recordPacket(t, packet)
 		t.mu.Lock()
 		subscriptions := make([]*subscription, 0, len(t.subscribers))
 		for _, sub := range t.subscribers {
@@ -137,6 +140,79 @@ func (m *Manager) publish(p *peer, remote *pion.TrackRemote) {
 			}
 		}
 	}
+}
+
+func (m *Manager) activate(p *peer, r *receiver) *publishedTrack {
+	p.mu.Lock()
+	if p.closing || p.receivers[r.mid] != r {
+		p.mu.Unlock()
+		return nil
+	}
+	if t := r.publication; t != nil {
+		p.mu.Unlock()
+		return t
+	}
+	source := p.allowedSources[r.mid]
+	kind := media.SourceKind(source)
+	if kind == "" || string(kind) != r.remote.Kind().String() {
+		p.mu.Unlock()
+		return nil
+	}
+	p.room.mu.Lock()
+	if !p.room.policies[p.binding.ParticipantID].Allows(source) ||
+		((source == media.SourceVideoScreen || source == media.SourceAudioScreen) && !p.room.screens[p.id]) {
+		p.room.mu.Unlock()
+		p.mu.Unlock()
+		return nil
+	}
+	count := 0
+	for _, old := range p.publications {
+		if old.metadata.Source == source {
+			p.room.mu.Unlock()
+			p.mu.Unlock()
+			return nil
+		}
+		if old.metadata.Kind == kind {
+			count++
+		}
+	}
+	limit := m.opts.MaxAudioTracks
+	if kind == media.KindVideo {
+		limit = m.opts.MaxVideoTracks
+	}
+	if len(p.publications) >= m.opts.MaxPublishedTracks || count >= limit {
+		p.room.mu.Unlock()
+		p.mu.Unlock()
+		return nil
+	}
+	streamID := p.id
+	if source == media.SourceVideoScreen || source == media.SourceAudioScreen {
+		streamID += "-screen"
+	}
+	ctx, cancel := context.WithCancel(p.ctx)
+	t := &publishedTrack{metadata: media.Track{ID: uuid.NewString(), StreamID: streamID, MediaPeerID: p.id, ParticipantID: p.binding.ParticipantID, Kind: kind, Source: source}, publisher: p, remote: r.remote, receiver: r, ctx: ctx, cancel: cancel, active: true, subscribers: map[string]*subscription{}, pli: make(chan struct{}, 1)}
+	t.permitted.Store(true)
+	r.publication = t
+	p.publications[t.metadata.ID] = t
+	p.room.tracks[t.metadata.ID] = t
+	peers := make([]*peer, 0, len(p.room.peers))
+	for _, target := range p.room.peers {
+		peers = append(peers, target)
+	}
+	for _, e := range p.room.egresses {
+		e.addTrack(t)
+	}
+	p.room.mu.Unlock()
+	p.mu.Unlock()
+	if kind == media.KindVideo {
+		p.start(t.keyframes)
+	}
+	m.log(p, "track_published", []any{"track_id", t.metadata.ID, "kind", kind, "source", source})
+	p.emit("media.published", map[string]any{"mediaPeerId": p.id, "track": t.metadata})
+	for _, target := range peers {
+		m.subscribe(t, target)
+	}
+	return t
 }
 
 func (m *Manager) syncPeer(p *peer) {
@@ -214,7 +290,7 @@ func (s *subscription) forward() {
 				return
 			}
 			s.peer.forwarding.RLock()
-			if s.ctx.Err() != nil || !s.peer.ready.Load() || !s.ready.Load() {
+			if s.ctx.Err() != nil || !s.source.permitted.Load() || !s.peer.ready.Load() || !s.ready.Load() {
 				s.peer.forwarding.RUnlock()
 				continue
 			}
@@ -315,6 +391,7 @@ func (m *Manager) unsubscribe(s *subscription) {
 
 func (m *Manager) unpublish(t *publishedTrack) {
 	t.stopOnce.Do(func() {
+		t.permitted.Store(false)
 		t.mu.Lock()
 		t.active = false
 		subs := make([]*subscription, 0, len(t.subscribers))
@@ -323,13 +400,45 @@ func (m *Manager) unpublish(t *publishedTrack) {
 		}
 		t.mu.Unlock()
 		t.cancel()
-		_ = t.remote.SetReadDeadline(time.Now())
 		t.publisher.mu.Lock()
 		delete(t.publisher.publications, t.metadata.ID)
-		t.publisher.mu.Unlock()
+		if t.receiver.publication == t {
+			t.receiver.publication = nil
+		}
 		t.publisher.room.mu.Lock()
 		delete(t.publisher.room.tracks, t.metadata.ID)
+		for _, e := range t.publisher.room.egresses {
+			e.endTrack(t)
+		}
+		otherScreens := []*publishedTrack{}
+		replacementScreen := false
+		for mid, source := range t.publisher.allowedSources {
+			if source == media.SourceVideoScreen && mid != t.receiver.mid {
+				replacementScreen = true
+			}
+		}
+		if t.metadata.Source == media.SourceVideoScreen && !replacementScreen && (t.publisher.receivers[t.receiver.mid] == nil || t.publisher.receivers[t.receiver.mid] == t.receiver) {
+			delete(t.publisher.room.screens, t.publisher.id)
+			for mid, source := range t.publisher.allowedSources {
+				if source == media.SourceVideoScreen || source == media.SourceAudioScreen {
+					if t.publisher.suspendedSources == nil {
+						t.publisher.suspendedSources = map[string]string{}
+					}
+					t.publisher.suspendedSources[mid] = t.publisher.offeredTrackIDs[mid]
+					delete(t.publisher.allowedSources, mid)
+				}
+			}
+			for _, sibling := range t.publisher.publications {
+				if sibling.metadata.Source == media.SourceAudioScreen {
+					otherScreens = append(otherScreens, sibling)
+				}
+			}
+		}
 		t.publisher.room.mu.Unlock()
+		t.publisher.mu.Unlock()
+		for _, sibling := range otherScreens {
+			m.unpublish(sibling)
+		}
 		for _, sub := range subs {
 			m.unsubscribe(sub)
 		}

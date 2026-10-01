@@ -103,6 +103,15 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
           // Show only event names; never display full SDP/ICE/tickets.
           setEvents((old) => [e.type, ...old].slice(0, 8));
           if (
+            e.type.startsWith("participant.") &&
+            !["participant.connected", "participant.disconnected"].includes(
+              e.type,
+            )
+          )
+            invalidate();
+          if (e.type.startsWith("recording."))
+            void queryClient.invalidateQueries({ queryKey: ["recordings"] });
+          if (
             [
               "conference.state",
               "participant.connected",
@@ -118,7 +127,12 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
               retry = 0;
               const key =
                 next.status +
-                next.participants.map((p) => `${p.id}:${p.status}`).join(",");
+                next.participants
+                  .map(
+                    (p) =>
+                      `${p.id}:${p.status}:${p.role}:${p.mediaPolicyVersion}`,
+                  )
+                  .join(",");
               if (key !== rosterKey) {
                 rosterKey = key;
                 invalidate();

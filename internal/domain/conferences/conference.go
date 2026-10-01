@@ -50,16 +50,23 @@ type Conference struct {
 func (Conference) TableName() string { return "conferences" }
 
 type Participant struct {
-	ID           string  `gorm:"type:uuid;primaryKey"`
-	ConferenceID string  `gorm:"column:conference_id;type:uuid"`
-	UserID       *string `gorm:"column:user_id;type:uuid"`
-	DisplayName  string
-	Role         Role
-	Status       ParticipantStatus
-	JoinedAt     *time.Time
-	LeftAt       *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                 string  `gorm:"type:uuid;primaryKey"`
+	ConferenceID       string  `gorm:"column:conference_id;type:uuid"`
+	UserID             *string `gorm:"column:user_id;type:uuid"`
+	DisplayName        string
+	Role               Role
+	Status             ParticipantStatus
+	JoinedAt           *time.Time
+	LeftAt             *time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	MicrophoneEnabled  bool
+	CameraEnabled      bool
+	ScreenSharing      bool
+	MicrophoneBlocked  bool
+	CameraBlocked      bool
+	ScreenBlocked      bool
+	MediaPolicyVersion int64 `gorm:"default:1"`
 }
 
 func (Participant) TableName() string { return "conference_participants" }
@@ -90,22 +97,31 @@ type InviteView struct {
 }
 
 type ParticipantView struct {
-	ID           string            `json:"id"`
-	ConferenceID string            `json:"conferenceId"`
-	UserID       *string           `json:"userId"`
-	DisplayName  string            `json:"displayName"`
-	Role         Role              `json:"role"`
-	Status       ParticipantStatus `json:"status"`
-	JoinedAt     *time.Time        `json:"joinedAt"`
-	LeftAt       *time.Time        `json:"leftAt"`
-	CreatedAt    time.Time         `json:"createdAt"`
-	UpdatedAt    time.Time         `json:"updatedAt"`
+	ID                 string            `json:"id"`
+	ConferenceID       string            `json:"conferenceId"`
+	UserID             *string           `json:"userId"`
+	DisplayName        string            `json:"displayName"`
+	Role               Role              `json:"role"`
+	Status             ParticipantStatus `json:"status"`
+	JoinedAt           *time.Time        `json:"joinedAt"`
+	LeftAt             *time.Time        `json:"leftAt"`
+	CreatedAt          time.Time         `json:"createdAt"`
+	UpdatedAt          time.Time         `json:"updatedAt"`
+	MicrophoneEnabled  bool              `json:"microphoneEnabled"`
+	CameraEnabled      bool              `json:"cameraEnabled"`
+	ScreenSharing      bool              `json:"screenSharing"`
+	MicrophoneBlocked  bool              `json:"microphoneBlocked"`
+	CameraBlocked      bool              `json:"cameraBlocked"`
+	ScreenBlocked      bool              `json:"screenBlocked"`
+	MediaPolicyVersion int64             `json:"mediaPolicyVersion"`
 }
 
 func (p Participant) View() ParticipantView {
 	return ParticipantView{ID: p.ID, ConferenceID: p.ConferenceID, UserID: p.UserID,
 		DisplayName: p.DisplayName, Role: p.Role, Status: p.Status, JoinedAt: p.JoinedAt,
-		LeftAt: p.LeftAt, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt}
+		LeftAt: p.LeftAt, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+		MicrophoneEnabled: p.MicrophoneEnabled, CameraEnabled: p.CameraEnabled, ScreenSharing: p.ScreenSharing,
+		MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, MediaPolicyVersion: p.MediaPolicyVersion}
 }
 
 type CreateRequest struct {

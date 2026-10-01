@@ -14,6 +14,7 @@ import (
 
 	authapp "github.com/janickiy/go-recorder/internal/app/auth"
 	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
+	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
 	"github.com/janickiy/go-recorder/internal/config"
 	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
@@ -30,6 +31,7 @@ import (
 	mediausecase "github.com/janickiy/go-recorder/internal/usecase/media"
 	realtimeusecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
+	recordingsusecase "github.com/janickiy/go-recorder/internal/usecase/recordings"
 )
 
 // RunAPI запускает HTTP API.
@@ -103,7 +105,8 @@ func RunAPI() error {
 	if err != nil {
 		return err
 	}
-	conferenceService := conferenceusecase.NewService(postgresinfra.NewConferenceRepository(db), users, security.GenerateInviteCode)
+	conferenceRepository := postgresinfra.NewConferenceRepository(db)
+	conferenceService := conferenceusecase.NewService(conferenceRepository, users, security.GenerateInviteCode)
 	store := redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace)
 	hub, err := realtimeusecase.NewHub(postgresinfra.NewSessionRepository(db), store, realtimeConfig.SessionTTL, logger)
 	if err != nil {
@@ -117,13 +120,20 @@ func RunAPI() error {
 	mediaClient := mediausecase.NewHTTPClient(mediaConfig.InternalSecret, mediaConfig.OperationTimeout)
 	defer mediaClient.Close()
 	mediaController := mediausecase.NewController(redisinfra.NewMediaRegistry(redisClient, mediaConfig.Namespace), mediaTickets, mediaClient, hub, store, mediaConfig, realtimeConfig)
-	hub.SetDisconnectObserver(mediaController)
+	mediaController.SetPolicyProvider(conferenceRepository)
+	controlService := conferenceusecase.NewControlService(conferenceRepository, mediaController, hub)
+	recordingService := recordingsusecase.NewConferenceService(postgresinfra.NewConferenceRecordingRepository(db), service, commandPublisher, conferenceLock, hub)
+	hub.SetDisconnectObserver(realtimeusecase.DisconnectObservers{controlService, mediaController})
 	conferenceService.SetObserver(hub)
 	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(tokens))
+	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(controlService), httpmiddleware.Authenticate(tokens))
+	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(tokens))
 	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	go controlService.Run(ctx)
+	go recordingService.Run(ctx)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.APIPort))
 	if err != nil {
 		return err

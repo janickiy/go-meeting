@@ -34,6 +34,9 @@ type Sessions interface {
 type Publisher interface {
 	Publish(context.Context, realtime.Bus) error
 }
+type PolicyProvider interface {
+	MediaPolicy(context.Context, string, string) (domain.ParticipantPolicy, error)
+}
 type endpoint struct {
 	binding domain.Binding
 	route   domain.Route
@@ -41,15 +44,65 @@ type endpoint struct {
 }
 
 type Controller struct {
-	registry  Registry
-	tickets   Tickets
-	transport Transport
-	sessions  Sessions
-	publisher Publisher
-	cfg       config.MediaConfig
-	limits    config.RealtimeConfig
-	mu        sync.Mutex
-	peers     map[string]endpoint
+	registry       Registry
+	tickets        Tickets
+	transport      Transport
+	sessions       Sessions
+	publisher      Publisher
+	cfg            config.MediaConfig
+	limits         config.RealtimeConfig
+	mu             sync.Mutex
+	peers          map[string]endpoint
+	policyProvider PolicyProvider
+}
+
+// Configure before serving requests. The provider reads authoritative persisted
+// membership/moderation state; client media state cannot relax this policy.
+func (c *Controller) SetPolicyProvider(provider PolicyProvider) { c.policyProvider = provider }
+
+func (c *Controller) policy(ctx context.Context, binding domain.Binding) (*domain.ParticipantPolicy, error) {
+	if c.policyProvider == nil {
+		return nil, nil
+	}
+	policy, err := c.policyProvider.MediaPolicy(ctx, binding.ConferenceID, binding.ParticipantID)
+	if err != nil {
+		return nil, domain.ErrUnauthorized
+	}
+	return &policy, nil
+}
+
+func (c *Controller) SetParticipantPolicy(ctx context.Context, conferenceID, participantID string, policy domain.ParticipantPolicy) error {
+	if !validUUID(conferenceID) || !validUUID(participantID) || policy.Version < 0 {
+		return domain.ErrInvalid
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.OperationTimeout)
+	defer cancel()
+	route, err := c.registry.GetOwner(ctx, conferenceID)
+	if errors.Is(err, domain.ErrOwnership) {
+		return nil
+	}
+	if err != nil {
+		return domain.ErrUnavailable
+	}
+	_, err = c.transport.Call(ctx, "policy", domain.Command{RequestID: uuid.NewString(), ConferenceID: conferenceID, ParticipantID: participantID, Route: route, Policy: &policy})
+	return err
+}
+
+func (c *Controller) CloseConference(ctx context.Context, conferenceID string) error {
+	if !validUUID(conferenceID) {
+		return domain.ErrInvalid
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.OperationTimeout)
+	defer cancel()
+	route, err := c.registry.GetOwner(ctx, conferenceID)
+	if errors.Is(err, domain.ErrOwnership) {
+		return nil
+	}
+	if err != nil {
+		return domain.ErrUnavailable
+	}
+	_, err = c.transport.Call(ctx, "close", domain.Command{RequestID: uuid.NewString(), ConferenceID: conferenceID, Route: route})
+	return err
 }
 
 func NewController(registry Registry, tickets Tickets, transport Transport, sessions Sessions, publisher Publisher, cfg config.MediaConfig, limits config.RealtimeConfig) *Controller {
@@ -95,6 +148,13 @@ func (c *Controller) Handle(ctx context.Context, session realtime.Session, expir
 		return domain.ErrOwnership
 	}
 	command := domain.Command{RequestID: event.ID, Binding: peer.binding, Route: peer.route, MediaPeerID: peer.peerID, NegotiationID: signal.NegotiationID, SDP: signal.SDP, Candidate: signal.Candidate, TrackID: signal.TrackID}
+	command.Publications = signal.Publications
+	if event.Type == "media.offer" {
+		command.Policy, err = c.policy(ctx, binding)
+		if err != nil {
+			return err
+		}
+	}
 	action := strings.TrimPrefix(event.Type, "media.")
 	result, err := c.transport.Call(ctx, action, command)
 	if err != nil {
@@ -116,6 +176,13 @@ func (c *Controller) Handle(ctx context.Context, session realtime.Session, expir
 }
 
 func (c *Controller) join(ctx context.Context, binding domain.Binding, requestID string) error {
+	policy, err := c.policy(ctx, binding)
+	if err != nil {
+		return err
+	}
+	if policy != nil && policy.Kicked {
+		return domain.ErrPolicy
+	}
 	workers, err := c.registry.Workers(ctx)
 	if err != nil || len(workers) == 0 {
 		return domain.ErrUnavailable
@@ -132,7 +199,7 @@ func (c *Controller) join(ctx context.Context, binding domain.Binding, requestID
 	if err != nil {
 		return domain.ErrUnauthorized
 	}
-	result, err := c.transport.Call(ctx, "join", domain.Command{RequestID: requestID, Binding: binding, Route: route, Ticket: ticket})
+	result, err := c.transport.Call(ctx, "join", domain.Command{RequestID: requestID, Binding: binding, Route: route, Ticket: ticket, Policy: policy})
 	if err != nil {
 		return err
 	}
@@ -158,7 +225,7 @@ func (c *Controller) join(ctx context.Context, binding domain.Binding, requestID
 	if result.ICEServers == nil {
 		result.ICEServers = []realtime.ICEServer{}
 	}
-	err = c.emit(ctx, binding, "media.joined", requestID, map[string]any{"mediaPeerId": result.MediaPeerID, "workerId": result.WorkerID, "maxPeers": result.MaxPeers, "iceServers": result.ICEServers, "tracks": result.Tracks, "videoCapture": result.VideoCapture})
+	err = c.emit(ctx, binding, "media.joined", requestID, map[string]any{"mediaPeerId": result.MediaPeerID, "workerId": result.WorkerID, "maxPeers": result.MaxPeers, "iceServers": result.ICEServers, "tracks": result.Tracks, "videoCapture": result.VideoCapture, "policy": result.Policy})
 	if err != nil {
 		c.Disconnected(context.Background(), realtime.Session{ConnectionID: binding.ConnectionID})
 	}
@@ -218,6 +285,9 @@ func (c *Controller) decode(kind string, raw json.RawMessage) (domain.Signal, er
 	if strictDecode(raw, &signal) != nil {
 		return signal, domain.ErrInvalid
 	}
+	if kind != "media.offer" && signal.Publications != nil {
+		return signal, domain.ErrInvalid
+	}
 	if kind == "media.join" {
 		if signal.MediaPeerID != "" || signal.NegotiationID != "" || signal.SDP != "" || len(signal.Candidate) != 0 || signal.TrackID != "" {
 			return signal, domain.ErrInvalid
@@ -231,6 +301,18 @@ func (c *Controller) decode(kind string, raw json.RawMessage) (domain.Signal, er
 	case "media.offer":
 		if !validUUID(signal.NegotiationID) || signal.SDP == "" || len(signal.SDP) > c.limits.SDPBytes || len(signal.Candidate) != 0 || signal.TrackID != "" {
 			return signal, domain.ErrInvalid
+		}
+		if len(signal.Publications) > 4 {
+			return signal, domain.ErrLimit
+		}
+		mids := map[string]bool{}
+		sources := map[domain.Source]bool{}
+		for _, pub := range signal.Publications {
+			if pub.MID == "" || len(pub.MID) > 64 || strings.ContainsAny(pub.MID, "\r\n\x00 ") || len(pub.TrackID) > 128 || strings.ContainsAny(pub.TrackID, "\r\n\x00") || domain.SourceKind(pub.Source) == "" || mids[pub.MID] || sources[pub.Source] {
+				return signal, domain.ErrInvalid
+			}
+			mids[pub.MID] = true
+			sources[pub.Source] = true
 		}
 	case "media.ready":
 		if !validUUID(signal.NegotiationID) || signal.SDP != "" || len(signal.Candidate) != 0 || signal.TrackID != "" {

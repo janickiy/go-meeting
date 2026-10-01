@@ -76,6 +76,7 @@ func RunMediaWorker() error {
 	}
 	engine, err = sfu.NewManager(sfu.Options{WorkerID: cfg.WorkerID, ICE: ice, UDPPort: cfg.UDPPort, UDPMinPort: cfg.UDPMinPort, UDPMaxPort: cfg.UDPMaxPort, TCPPort: cfg.TCPPort, NATIPs: cfg.NATIPs,
 		MaxPeers: cfg.MaxPeers, MaxRooms: cfg.MaxRooms, MaxPublishedTracks: cfg.MaxPublishedTracks, MaxAudioTracks: cfg.MaxAudioTracks, MaxVideoTracks: cfg.MaxVideoTracks, QueueSize: 128,
+		MaxScreenSharers: cfg.MaxScreenSharers, EgressQueueSize: cfg.EgressQueueSize,
 		ICEDisconnectedTimeout: cfg.ICEDisconnectedTimeout, ICEFailedTimeout: cfg.ICEFailedTimeout, ICEKeepaliveInterval: cfg.ICEKeepaliveInterval, NegotiationTimeout: cfg.NegotiationTimeout, Logger: logger, Emit: emit})
 	if err != nil {
 		return err
@@ -128,5 +129,8 @@ func RunMediaWorker() error {
 	<-done
 	shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
-	return server.Shutdown(shutdown)
+	// Long-lived recording egress must close before HTTP waits for active
+	// requests; otherwise shutdown always consumes its entire deadline.
+	mediaErr := handler.Stop(shutdown)
+	return errors.Join(mediaErr, server.Shutdown(shutdown))
 }

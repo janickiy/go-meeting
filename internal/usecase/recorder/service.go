@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/records"
 	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
 	localstorage "github.com/janickiy/go-recorder/internal/infrastructure/storage/local"
@@ -69,6 +70,24 @@ type WorkerService struct {
 	conferenceLocker conferenceReleaser
 	commandsMu       sync.Mutex
 	commands         map[string]*recordCommandLock
+	composite        *CompositeService
+}
+
+// SetComposite enables the conference-only recording pipeline. Legacy browser
+// ingest retains its existing command and artifact behavior.
+func (s *WorkerService) SetComposite(service *CompositeService) { s.composite = service }
+
+// ValidateLegacyRecord prevents the historical unauthenticated worker HTTP
+// endpoints from controlling an authenticated conference recording.
+func (s *WorkerService) ValidateLegacyRecord(ctx context.Context, id string) error {
+	record, err := s.repository.FindByUUID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if records.IsComposite(record) {
+		return records.ErrRecordStateChanged
+	}
+	return nil
 }
 
 type recordCommandLock struct {
@@ -118,6 +137,13 @@ func NewWorkerService(repository workerRepository, postProcessor *ffmpeg.PostPro
 // - request: параметры записи.
 // Возвращает: response с recordId или ошибку.
 func (s *Service) Start(ctx context.Context, request records.StartRequest) (records.StartResponse, error) {
+	if guard, ok := s.repository.(interface {
+		LegacyConferenceAllowed(context.Context, string) error
+	}); ok {
+		if err := guard.LegacyConferenceAllowed(ctx, request.ConferenceID); err != nil {
+			return records.StartResponse{}, err
+		}
+	}
 	request = records.NormalizeStartRequest(request)
 	if request.SegmentDurationSec <= 0 {
 		request.SegmentDurationSec = 5
@@ -184,6 +210,9 @@ func (s *Service) Stop(ctx context.Context, request records.EndRequest) error {
 	if err != nil {
 		return err
 	}
+	if records.IsComposite(record) {
+		return apperrors.ErrNotFound
+	}
 	if records.IsTerminalStatus(record.Status) || record.Status == records.StatusFinalizing || record.Status == records.StatusUploading {
 		return nil
 	}
@@ -213,6 +242,9 @@ func (s *Service) List(ctx context.Context, limit int, offset int) ([]records.Re
 	}
 	result := make([]records.RecordCard, 0, len(details))
 	for _, item := range details {
+		if records.IsComposite(item.Record) {
+			continue
+		}
 		card, err := s.recordCard(ctx, item)
 		if err != nil {
 			return nil, err
@@ -250,6 +282,9 @@ func (s *Service) CountByConference(ctx context.Context, conferenceIDs []string,
 	}
 
 	for _, item := range details {
+		if records.IsComposite(item.Record) {
+			continue
+		}
 		index, ok := summaryIndexesByConference[item.Record.ConferenceID]
 		if !ok {
 			continue
@@ -275,6 +310,9 @@ func (s *Service) Read(ctx context.Context, uuid string) (records.RecordCard, er
 	details, err := s.repository.FindDetailsByUUID(ctx, uuid)
 	if err != nil {
 		return records.RecordCard{}, err
+	}
+	if records.IsComposite(details.Record) {
+		return records.RecordCard{}, apperrors.ErrNotFound
 	}
 
 	return s.recordCard(ctx, details)
@@ -321,6 +359,15 @@ func (s *WorkerService) HandleCommand(ctx context.Context, command records.Comma
 		return fmt.Errorf("recordId must be valid UUID: %w", err)
 	}
 	command.RecordID = id.String()
+	if s.composite != nil {
+		record, err := s.repository.FindByUUID(ctx, command.RecordID)
+		if err != nil {
+			return err
+		}
+		if records.IsComposite(record) {
+			return s.composite.HandleCommand(ctx, command, record)
+		}
+	}
 	unlock := s.lockCommand(command.RecordID)
 	defer unlock()
 	var commandErr error
@@ -613,6 +660,13 @@ func (s *WorkerService) cleanupEmptyLocalStorageAfterFailure(ctx context.Context
 // - request: SDP offer.
 // Возвращает: SDP answer или ошибку signaling.
 func (s *WorkerService) HandleOffer(ctx context.Context, recordID string, request records.WebRTCOfferRequest) (records.WebRTCAnswerResponse, error) {
+	record, err := s.repository.FindByUUID(ctx, recordID)
+	if err != nil {
+		return records.WebRTCAnswerResponse{}, err
+	}
+	if records.IsComposite(record) {
+		return records.WebRTCAnswerResponse{}, records.ErrRecordStateChanged
+	}
 	if s.ingest == nil {
 		return records.WebRTCAnswerResponse{}, fmt.Errorf("webrtc ingest is not configured")
 	}

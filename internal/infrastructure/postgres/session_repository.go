@@ -52,8 +52,21 @@ func (r *SessionRepository) Open(ctx context.Context, session realtime.Session) 
 }
 func (r *SessionRepository) Close(ctx context.Context, connectionID string, seen time.Time) error {
 	// Idempotent; PostgreSQL is updated only on open/close, not on every pong.
-	return r.db.WithContext(ctx).Model(&realtime.Session{}).Where("connection_id = ? AND status = 'connected'", connectionID).
-		Updates(map[string]any{"status": "disconnected", "last_seen_at": gorm.Expr("GREATEST(connected_at, ?)", seen), "disconnected_at": gorm.Expr("GREATEST(connected_at, ?, NOW())", seen)}).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var session realtime.Session
+		if err := tx.Where("connection_id = ?", connectionID).Take(&session).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		// Same lock order as media state updates, Open, kick and finish.
+		if _, err := findConference(tx, session.ConferenceID, true); err != nil {
+			return err
+		}
+		return tx.Model(&realtime.Session{}).Where("connection_id = ? AND status = 'connected'", connectionID).
+			Updates(map[string]any{"status": "disconnected", "microphone_enabled": false, "camera_enabled": false, "screen_sharing": false, "last_seen_at": gorm.Expr("GREATEST(connected_at, ?)", seen), "disconnected_at": gorm.Expr("GREATEST(connected_at, ?, NOW())", seen)}).Error
+	})
 }
 func (r *SessionRepository) Stale(ctx context.Context, before time.Time, cursor string) ([]realtime.Session, error) {
 	var rows []realtime.Session

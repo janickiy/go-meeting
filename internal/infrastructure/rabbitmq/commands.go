@@ -56,6 +56,11 @@ func NewPublisher(ctx context.Context, options Options) (*Publisher, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := channel.Confirm(false); err != nil {
+		_ = channel.Close()
+		_ = conn.Close()
+		return nil, fmt.Errorf("rabbitmq publisher confirms: %w", err)
+	}
 
 	return &Publisher{
 		conn:       conn,
@@ -101,6 +106,8 @@ func (p *Publisher) Close() {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.channel != nil {
 		_ = p.channel.Close()
 	}
@@ -110,7 +117,9 @@ func (p *Publisher) Close() {
 }
 
 func (p *Publisher) publish(ctx context.Context, command records.Command) error {
-	if p == nil || p.channel == nil {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if p == nil {
 		return fmt.Errorf("rabbitmq publisher is not configured")
 	}
 	body, err := json.Marshal(command)
@@ -135,13 +144,27 @@ func (p *Publisher) publishLocked(ctx context.Context, body []byte, commandType 
 		return fmt.Errorf("rabbitmq channel is not configured")
 	}
 
-	return p.channel.PublishWithContext(ctx, p.exchange, p.routingKey, false, false, amqp.Publishing{
+	confirmation, err := p.channel.PublishWithDeferredConfirmWithContext(ctx, p.exchange, p.routingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
 		Timestamp:    time.Now().UTC(),
 		Type:         commandType,
 		Body:         body,
 	})
+	if err != nil {
+		return err
+	}
+	if confirmation == nil {
+		return fmt.Errorf("rabbitmq publisher confirmation unavailable")
+	}
+	acked, err := confirmation.WaitContext(ctx)
+	if err != nil {
+		return err
+	}
+	if !acked {
+		return fmt.Errorf("rabbitmq broker rejected command")
+	}
+	return nil
 }
 
 func (p *Publisher) reconnectLocked(ctx context.Context) error {
@@ -156,6 +179,11 @@ func (p *Publisher) reconnectLocked(ctx context.Context) error {
 	conn, channel, err := openDeclaredChannel(ctx, p.options)
 	if err != nil {
 		return err
+	}
+	if err := channel.Confirm(false); err != nil {
+		_ = channel.Close()
+		_ = conn.Close()
+		return fmt.Errorf("rabbitmq publisher confirms: %w", err)
 	}
 	p.conn = conn
 	p.channel = channel

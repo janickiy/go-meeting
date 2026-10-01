@@ -66,6 +66,7 @@ func (r *RecordRepository) List(ctx context.Context, limit int, offset int) ([]r
 
 	var result []records.Record
 	err := r.db.WithContext(ctx).
+		Where("mode <> 'composite'").
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -123,7 +124,7 @@ func (r *RecordRepository) ListSummaryDetailsByConferenceIDs(ctx context.Context
 	}
 
 	query := r.db.WithContext(ctx).
-		Where("conference_id IN ?", conferenceIDs)
+		Where("conference_id IN ? AND mode <> 'composite'", conferenceIDs)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}

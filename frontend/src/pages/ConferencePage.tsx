@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { api } from "../api";
 import { RealtimePanel } from "../components/RealtimePanel";
+import { RecordingPanel } from "../components/RecordingPanel";
+import type { ModerationAction } from "../types";
 import { useAuth } from "../auth";
 import { useConference, useParticipants } from "../queries";
 import { formatDate, initials, inviteLink } from "../utils";
@@ -66,6 +68,18 @@ export function ConferencePage() {
     },
     onSuccess: () => setConfirm(null),
   });
+  const moderation = useMutation({
+    mutationFn: ({
+      participantId,
+      action,
+    }: {
+      participantId: string;
+      action: ModerationAction;
+    }) => api.moderate(id, participantId, action),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ["participants"] });
+    },
+  });
   if (query.isPending) return <Loading />;
   if (query.isError || !query.data)
     return (
@@ -111,6 +125,7 @@ export function ConferencePage() {
         <StatusBadge status={conference.status} />
       </section>
       <ErrorNotice error={mutation.error} />
+      <ErrorNotice error={moderation.error} />
       <div className="conference-grid">
         <section className="content-card meeting-card">
           <div className="meeting-card-symbol">
@@ -131,7 +146,7 @@ export function ConferencePage() {
                 : "Присоединитесь к встрече, когда будете готовы."}
           </p>
           <div className="meeting-actions">
-            {!closed && (
+            {!closed && membership?.status !== "kicked" && (
               <Button
                 busy={mutation.isPending}
                 variant={
@@ -202,7 +217,7 @@ export function ConferencePage() {
             <Info size={18} />
             <span>
               После присоединения можно включить камеру и микрофон в блоке
-              медиасвязи. Запись конференции пока недоступна.
+              медиасвязи. Организатор может включить общую запись встречи.
             </span>
           </div>
           {conference.startedAt && (
@@ -237,8 +252,15 @@ export function ConferencePage() {
         </aside>
       </div>
       {membership?.status === "joined" && !closed && (
-        <RealtimePanel conferenceId={id} />
+        <RealtimePanel conferenceId={id} membership={membership} />
       )}
+      {membership?.status === "kicked" && (
+        <ErrorNotice>
+          Организатор исключил вас из конференции. Повторное присоединение
+          недоступно.
+        </ErrorNotice>
+      )}
+      <RecordingPanel conference={conference} membership={membership} />
       <section className="content-card participants-card">
         <div className="section-heading">
           <h2>
@@ -263,6 +285,85 @@ export function ConferencePage() {
                 >
                   {initials(person.displayName)}
                 </span>
+                {!closed &&
+                  membership?.status === "joined" &&
+                  person.id !== membership.id &&
+                  person.role !== "owner" &&
+                  person.status !== "kicked" &&
+                  (membership.role === "owner" ||
+                    (membership.role === "co_host" &&
+                      person.role === "participant")) && (
+                    <div
+                      className="participant-controls"
+                      aria-label={`Управление: ${person.displayName}`}
+                    >
+                      {(
+                        [
+                          ["mute", "микрофон", !!person.microphoneBlocked],
+                          ["camera", "видео", !!person.cameraBlocked],
+                          ["screen", "экран", !!person.screenBlocked],
+                        ] as const
+                      )
+                        .filter(
+                          ([action]) =>
+                            action !== "camera" || membership.role === "owner",
+                        )
+                        .map(([action, label, blocked]) => (
+                          <Button
+                            key={action}
+                            variant="secondary"
+                            disabled={moderation.isPending}
+                            onClick={() =>
+                              moderation.mutate({
+                                participantId: person.id,
+                                action: { action, blocked: !blocked },
+                              })
+                            }
+                          >
+                            {blocked ? "Разрешить" : "Отключить"} {label}
+                          </Button>
+                        ))}
+                      {membership.role === "owner" && (
+                        <Button
+                          variant="outline"
+                          disabled={moderation.isPending}
+                          onClick={() =>
+                            moderation.mutate({
+                              participantId: person.id,
+                              action: {
+                                action: "role",
+                                role:
+                                  person.role === "co_host"
+                                    ? "participant"
+                                    : "co_host",
+                              },
+                            })
+                          }
+                        >
+                          {person.role === "co_host"
+                            ? "Убрать соорганизатора"
+                            : "Назначить соорганизатором"}
+                        </Button>
+                      )}
+                      <Button
+                        variant="danger"
+                        disabled={moderation.isPending}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Исключить ${person.displayName}? Повторное присоединение будет запрещено.`,
+                            )
+                          )
+                            moderation.mutate({
+                              participantId: person.id,
+                              action: { action: "kick" },
+                            });
+                        }}
+                      >
+                        Исключить
+                      </Button>
+                    </div>
+                  )}
                 <div className="participant-name">
                   <strong>
                     {person.displayName}
@@ -271,6 +372,22 @@ export function ConferencePage() {
                     )}
                   </strong>
                   <span>{roleNames[person.role]}</span>
+                  {person.status === "joined" && (
+                    <span className="participant-media-status">
+                      {person.microphoneBlocked
+                        ? "Звук запрещён"
+                        : person.microphoneEnabled
+                          ? "Микрофон включён"
+                          : "Микрофон выключен"}
+                      {" · "}
+                      {person.cameraBlocked
+                        ? "Видео запрещено"
+                        : person.cameraEnabled
+                          ? "Камера включена"
+                          : "Камера выключена"}
+                      {person.screenSharing ? " · Показывает экран" : ""}
+                    </span>
+                  )}
                 </div>
                 <span
                   className={`participant-status ${person.status === "joined" ? "participant-joined" : ""}`}
@@ -313,6 +430,8 @@ export function ConferencePage() {
           <p className="modal-description">
             После этого участники не смогут присоединиться. Это действие нельзя
             отменить.
+            {confirm === "finish" &&
+              " Текущая запись остановится и будет обработана в фоне."}
           </p>
           <ErrorNotice error={mutation.error} />
           <Button

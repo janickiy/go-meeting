@@ -34,6 +34,8 @@ type MediaConfig struct {
 	MaxPublishedTracks     int
 	MaxAudioTracks         int
 	MaxVideoTracks         int
+	MaxScreenSharers       int
+	EgressQueueSize        int
 	VideoMaxWidth          int
 	VideoMaxHeight         int
 	VideoMaxFPS            int
@@ -65,9 +67,11 @@ func LoadMedia() (MediaConfig, error) {
 		SessionCheckInterval:   envDuration("MEDIA_SESSION_CHECK_INTERVAL", 2*time.Second),
 		MaxPeers:               envInt("MEDIA_MAX_PEERS", 10),
 		MaxRooms:               envInt("MEDIA_MAX_ROOMS", 100),
-		MaxPublishedTracks:     envInt("MEDIA_MAX_PUBLISHED_TRACKS", 2),
-		MaxAudioTracks:         envInt("MEDIA_MAX_AUDIO_TRACKS", 1),
-		MaxVideoTracks:         envInt("MEDIA_MAX_VIDEO_TRACKS", 1),
+		MaxPublishedTracks:     envInt("MEDIA_MAX_PUBLISHED_TRACKS", 4),
+		MaxAudioTracks:         envInt("MEDIA_MAX_AUDIO_TRACKS", 2),
+		MaxVideoTracks:         envInt("MEDIA_MAX_VIDEO_TRACKS", 2),
+		MaxScreenSharers:       envInt("MEDIA_MAX_SCREEN_SHARERS", 1),
+		EgressQueueSize:        envInt("MEDIA_EGRESS_QUEUE_SIZE", 2048),
 		VideoMaxWidth:          envInt("MEDIA_VIDEO_MAX_WIDTH", 1280),
 		VideoMaxHeight:         envInt("MEDIA_VIDEO_MAX_HEIGHT", 720),
 		VideoMaxFPS:            envInt("MEDIA_VIDEO_MAX_FPS", 30),
@@ -137,8 +141,8 @@ func (c MediaConfig) Validate() error {
 		return fmt.Errorf("invalid media ticket TTL, heartbeat, ownership or ICE timeouts")
 	}
 	if c.MaxPeers < 2 || c.MaxPeers > 32 || c.MaxRooms < 1 || c.MaxRooms > 10000 ||
-		c.MaxPublishedTracks < 1 || c.MaxPublishedTracks > 2 || c.MaxAudioTracks != 1 ||
-		c.MaxVideoTracks != 1 ||
+		c.MaxPublishedTracks < 1 || c.MaxPublishedTracks > 4 || c.MaxAudioTracks < 1 || c.MaxAudioTracks > 2 ||
+		c.MaxVideoTracks < 1 || c.MaxVideoTracks > 2 || c.MaxScreenSharers < 1 || c.MaxScreenSharers > 4 || c.EgressQueueSize < 128 || c.EgressQueueSize > 8192 ||
 		c.VideoMaxWidth < 160 || c.VideoMaxWidth > 1280 || c.VideoMaxHeight < 90 || c.VideoMaxHeight > 720 || c.VideoMaxFPS < 1 || c.VideoMaxFPS > 30 {
 		return fmt.Errorf("invalid media room, track or video limits")
 	}

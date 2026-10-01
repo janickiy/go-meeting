@@ -46,6 +46,8 @@ type testPeer struct {
 	wg                       sync.WaitGroup
 	closed                   bool
 	publishingPaused         atomic.Bool
+	sourceDeclarations       map[string]media.Source // guarded by neg; nil keeps legacy offers
+	declarationGeneration    string                  // test capture generation, guarded by neg
 }
 
 func harness(t *testing.T, maxPeers int, configured ...Options) *pionHarness {
@@ -264,7 +266,16 @@ func (p *testPeer) negotiate() error {
 		return errors.New("client ICE gathering timeout")
 	}
 	negotiationID := uuid.NewString()
-	answer, err := p.harness.manager.Offer(p.ctx, p.id, negotiationID, p.pc.LocalDescription().SDP)
+	var publications []media.Publication
+	if p.sourceDeclarations != nil {
+		publications = []media.Publication{}
+		for _, tr := range p.pc.GetTransceivers() {
+			if sender := tr.Sender(); sender != nil && sender.Track() != nil {
+				publications = append(publications, media.Publication{MID: tr.Mid(), Source: p.sourceDeclarations[sender.Track().ID()], TrackID: sender.Track().ID() + p.declarationGeneration})
+			}
+		}
+	}
+	answer, err := p.harness.manager.OfferSources(p.ctx, p.id, negotiationID, p.pc.LocalDescription().SDP, publications)
 	if err != nil {
 		return err
 	}

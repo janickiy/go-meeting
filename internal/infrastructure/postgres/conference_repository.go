@@ -88,9 +88,12 @@ func (r *ConferenceRepository) Transition(ctx context.Context, id, userID string
 			return err
 		}
 		if target == conferences.Finished || target == conferences.Cancelled {
+			if err := stopConferenceRecordings(tx, id); err != nil {
+				return err
+			}
 			if err := tx.Model(&conferences.Participant{}).
 				Where("conference_id = ? AND status = ?", id, conferences.Joined).
-				Updates(map[string]any{"status": conferences.Left, "left_at": now}).Error; err != nil {
+				Updates(map[string]any{"status": conferences.Left, "left_at": now, "microphone_enabled": false, "camera_enabled": false, "screen_sharing": false, "media_policy_version": gorm.Expr("media_policy_version + 1")}).Error; err != nil {
 				return err
 			}
 		}
@@ -121,6 +124,9 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 		if !missing && participant.Status == conferences.Joined {
 			return nil
 		}
+		if !missing && (participant.Status == conferences.Kicked || participant.Status == conferences.Rejected) {
+			return apperrors.New(apperrors.ErrForbidden, "this membership cannot rejoin the conference")
+		}
 		now := time.Now().UTC()
 		if missing {
 			userID := user.ID
@@ -128,7 +134,7 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 				DisplayName: user.ParticipantName(), Role: conferences.ParticipantRole, Status: conferences.Joined, JoinedAt: &now}
 			return tx.Create(&participant).Error
 		}
-		if err := tx.Model(&participant).Updates(map[string]any{"status": conferences.Joined, "joined_at": now, "left_at": nil}).Error; err != nil {
+		if err := tx.Model(&participant).Updates(map[string]any{"status": conferences.Joined, "joined_at": now, "left_at": nil, "media_policy_version": gorm.Expr("media_policy_version + 1")}).Error; err != nil {
 			return err
 		}
 		participant, err = findMembership(tx, id, user.ID)
@@ -154,7 +160,7 @@ func (r *ConferenceRepository) Leave(ctx context.Context, id, userID string) (co
 		if participant.Status != conferences.Joined {
 			return nil
 		}
-		if err := tx.Model(&participant).Updates(map[string]any{"status": conferences.Left, "left_at": time.Now().UTC()}).Error; err != nil {
+		if err := tx.Model(&participant).Updates(map[string]any{"status": conferences.Left, "left_at": time.Now().UTC(), "microphone_enabled": false, "camera_enabled": false, "screen_sharing": false, "media_policy_version": gorm.Expr("media_policy_version + 1")}).Error; err != nil {
 			return err
 		}
 		participant, err = findMembership(tx, id, userID)

@@ -7,6 +7,9 @@ import type {
   LoginResponse,
   Participant,
   User,
+  ParticipantMediaState,
+  ModerationAction,
+  ConferenceRecording,
 } from "./types";
 
 let accessToken: string | null = null;
@@ -128,6 +131,31 @@ export const api = {
     request<Items<Participant>>(
       `/conferences/${encodeURIComponent(id)}/participants?limit=100&offset=${offset}`,
       { signal },
+    ),
+  setMediaState: (id: string, state: ParticipantMediaState) =>
+    request<Item<Participant>>(
+      `/conferences/${encodeURIComponent(id)}/participants/me/media`,
+      { method: "PUT", body: state },
+    ),
+  moderate: (id: string, participantId: string, action: ModerationAction) =>
+    request<Item<Participant>>(
+      `/conferences/${encodeURIComponent(id)}/participants/${encodeURIComponent(participantId)}/moderation`,
+      { method: "POST", body: action },
+    ),
+  recordings: (id: string, signal?: AbortSignal) =>
+    request<Items<ConferenceRecording>>(
+      `/conferences/${encodeURIComponent(id)}/recordings`,
+      { signal },
+    ),
+  startRecording: (id: string) =>
+    request<Item<ConferenceRecording>>(
+      `/conferences/${encodeURIComponent(id)}/recordings`,
+      { method: "POST", body: { segmentDurationSec: 5 } },
+    ),
+  stopRecording: (id: string, recordingId: string) =>
+    request<Item<ConferenceRecording>>(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/stop`,
+      { method: "POST", body: {} },
     ),
   create: (title: string) =>
     request<Item<Conference>>("/conferences", {
