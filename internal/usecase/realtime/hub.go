@@ -37,24 +37,28 @@ type Socket interface {
 	Offer(domain.Envelope) bool
 	Stop(string)
 }
+type DisconnectObserver interface {
+	Disconnected(context.Context, domain.Session)
+}
 type localSocket struct {
 	session domain.Session
 	socket  Socket
 	ready   bool
 }
 type Hub struct {
-	repo    Repository
-	store   Store
-	ttl     time.Duration
-	logger  *slog.Logger
-	ctx     context.Context
-	cancel  context.CancelFunc
-	sub     domain.Subscription
-	mu      sync.Mutex
-	closing bool
-	local   map[string]*localSocket
-	sockets sync.WaitGroup
-	workers sync.WaitGroup
+	repo               Repository
+	store              Store
+	ttl                time.Duration
+	logger             *slog.Logger
+	ctx                context.Context
+	cancel             context.CancelFunc
+	sub                domain.Subscription
+	mu                 sync.Mutex
+	closing            bool
+	local              map[string]*localSocket
+	sockets            sync.WaitGroup
+	workers            sync.WaitGroup
+	disconnectObserver DisconnectObserver
 }
 
 func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger) (*Hub, error) {
@@ -78,6 +82,28 @@ func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger
 }
 func (h *Hub) Authorize(ctx context.Context, conferenceID, userID string) (conferences.Participant, error) {
 	return h.repo.Authorize(ctx, conferenceID, userID)
+}
+func (h *Hub) SetDisconnectObserver(observer DisconnectObserver) {
+	h.mu.Lock()
+	h.disconnectObserver = observer
+	h.mu.Unlock()
+}
+
+// ValidateSession binds media commands to a still-authorized, live physical
+// WebSocket connection instead of trusting identifiers from a browser payload.
+func (h *Hub) ValidateSession(ctx context.Context, session domain.Session) error {
+	p, err := h.repo.Authorize(ctx, session.ConferenceID, session.UserID)
+	if err != nil {
+		return err
+	}
+	live, err := h.store.Get(ctx, session.ConnectionID)
+	if err != nil {
+		return err
+	}
+	if p.ID != session.ParticipantID || live.ID != session.ID || live.ConferenceID != session.ConferenceID || live.ParticipantID != session.ParticipantID || live.UserID != session.UserID || live.ConnectionID != session.ConnectionID || live.Status != "connected" {
+		return apperrors.ErrForbidden
+	}
+	return nil
 }
 func (h *Hub) Prepare(ctx context.Context, conferenceID, userID string) (domain.Session, error) {
 	h.mu.Lock()
@@ -138,6 +164,7 @@ func (h *Hub) Unregister(session domain.Session) {
 	h.mu.Lock()
 	_, exists := h.local[session.ConnectionID]
 	delete(h.local, session.ConnectionID)
+	observer := h.disconnectObserver
 	h.mu.Unlock()
 	if !exists {
 		return
@@ -145,6 +172,9 @@ func (h *Hub) Unregister(session domain.Session) {
 	defer h.sockets.Done()
 	ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
 	defer c()
+	if observer != nil {
+		observer.Disconnected(ctx, session)
+	}
 	seen := session.LastSeenAt
 	if live, err := h.store.Get(ctx, session.ConnectionID); err == nil {
 		seen = live.LastSeenAt

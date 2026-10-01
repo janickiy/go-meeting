@@ -14,6 +14,12 @@ signaling между участниками. Протокол, настройк�
 [Stage 2 Realtime](docs/stage-2-realtime.md). SFU и передача аудио/видео на сервере
 в этот этап не входят.
 
+Этап 3 добавляет отдельный `media-worker` на Pion и серверную SFU-передачу Opus/VP8.
+После join камера и микрофон включаются по кнопке; RTP проходит через worker,
+а сигнализация — через защищённый API и существующий WebSocket.
+Архитектура, Docker/NAT, тесты и ограничения: [Stage 3 SFU](docs/stage-3-media.md).
+Конференционная запись и screen sharing в этот этап не входят.
+
 В `frontend/` добавлен интерфейс **Meet** на React + TypeScript + Vite по макету:
 регистрация/вход, личный кабинет, конференции, приглашения и участники.
 Запуск, тесты и ограничения: [Frontend](docs/frontend.md).
@@ -26,7 +32,8 @@ signaling между участниками. Протокол, настройк�
 ├── cmd/
 │   ├── main/                 # общий entrypoint: serve, migrate ...
 │   ├── api/                  # отдельный API binary
-│   └── worker/               # отдельный recorder-worker binary
+│   ├── worker/               # отдельный recorder-worker binary
+│   └── media-worker/         # отдельный SFU binary, без FFmpeg/DB/MinIO
 ├── internal/
 │   ├── app/                  # bootstrap: config, DB, repositories, transport
 │   ├── config/               # env config
@@ -55,12 +62,14 @@ signaling между участниками. Протокол, настройк�
 - `api` - Go + Gin REST API.
 - `frontend` - production-сборка Meet, Nginx и same-origin proxy к API.
 - `worker` - Go recorder-worker: читает команды из RabbitMQ, поднимает WebRTC ingest через Pion и управляет FFmpeg.
+- `media-worker` - SFU: Room/Peer/Track, RTP/RTCP, ICE; внутренний HTTP 8091 не публикуется.
 - `postgres` - PostgreSQL 16.
 - `redis` - Redis 7, используется для lock-а активной записи по `conferenceId` и HTTP rate limit.
 - `minio` - локальное S3-compatible хранилище итоговых артефактов записи.
 - `rabbitmq` - собственный брокер RabbitMQ с management UI, запускается этим же Docker Compose в сети `app-network`.
 
-HTTP-вызов API -> worker сохранен только для WebRTC signaling endpoint-а, потому что браузерному `SDP offer` нужен синхронный `SDP answer`.
+HTTP API → recorder-worker обслуживает прежний recording ingest. Отдельный защищённый
+HTTP API → media-worker обслуживает conference media signaling; RTP не проксируется API.
 
 Данные локальных контейнеров проекта хранятся в `dockers/`.
 
@@ -75,6 +84,10 @@ cp .env.example .env
 Перед запуском API сгенерируй `openssl rand -hex 32` и сохрани результат в
 `JWT_SECRET` внутри `.env`. Не коммить этот секрет. Без секрета длиной минимум
 32 байта API не запускается; worker и отдельная команда миграций его не требуют.
+Для Stage 3 нужны `MEDIA_TICKET_SECRET` и `MEDIA_INTERNAL_SECRET`, два разных случайных
+секрета от 32 байт. В local/dev при пустых значениях используются разные производные
+`JWT_SECRET`; в production отдельные значения обязательны. Для Docker Desktop/Firefox
+укажите LAN IP компьютера в `MEDIA_NAT_IPS`. Подробнее — в инструкции этапа 3.
 `HTTP_TRUSTED_PROXIES` по умолчанию пуст: доверие к `X-Forwarded-For` разрешается
 только для явно указанных адресов/CIDR реального reverse proxy.
 

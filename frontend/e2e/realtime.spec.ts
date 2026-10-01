@@ -3,7 +3,7 @@ test.skip(
   !process.env.MEET_REALTIME_CONFERENCE,
   "requires the isolated Stage 2 Go harness",
 );
-test("two browsers: presence, two tabs, reconnect and real DataChannel signaling without media", async ({
+test("two browsers: presence, two tabs and reconnect without opening camera or microphone", async ({
   browser,
 }) => {
   const alice = await browser.newContext();
@@ -50,18 +50,12 @@ test("two browsers: presence, two tabs, reconnect and real DataChannel signaling
       .getByRole("button", { name: "Переподключиться", exact: true })
       .click();
     await expect(b.getByTestId("connection-id")).not.toHaveText(oldID!);
-    const bobID = (await b.getByTestId("connection-id").textContent())!;
-    await a.getByText("Проверка signaling и P2P", { exact: true }).click();
-    await a.getByLabel("Подключение участника").selectOption(bobID);
-    await a.getByRole("button", { name: "Проверить P2P-соединение" }).click();
-    await expect(
-      a.getByRole("status").filter({ hasText: "P2P DataChannel работает" }),
-    ).toBeVisible({ timeout: 25000 });
-    await b.getByText("Проверка signaling и P2P", { exact: true }).click();
-    await expect(
-      b.getByRole("status").filter({ hasText: "P2P DataChannel работает" }),
-    ).toBeVisible();
-    // Test never grants camera/microphone permissions and application never requests them.
+    await expect(a.getByTestId("local-media")).toHaveCount(0);
+    await expect(b.getByTestId("local-media")).toHaveCount(0);
+    await expect(a.getByTestId("media-status")).toHaveText(
+      "Камера и микрофон выключены",
+    );
+    // Test never grants media permissions or clicks the explicit media start action.
     await b.close();
     await expect(bobPresence).toContainText("Не в сети");
   } finally {

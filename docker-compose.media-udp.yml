@@ -1,0 +1,7 @@
+# Optional UDP-only SFU override. Requires Docker Compose with !override support.
+services:
+  media-worker:
+    environment:
+      MEDIA_TCP_PORT: "0"
+    ports: !override
+      - "${MEDIA_UDP_PORT:-50010}:${MEDIA_UDP_PORT:-50010}/udp"

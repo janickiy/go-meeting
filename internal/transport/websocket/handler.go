@@ -21,6 +21,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/app/httpresponse"
 	"github.com/janickiy/go-recorder/internal/config"
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
+	mediadomain "github.com/janickiy/go-recorder/internal/domain/media"
 	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
 	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
 	usecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
@@ -42,11 +43,16 @@ type Handler struct {
 	tickets  Tickets
 	limiter  Limiter
 	cfg      config.RealtimeConfig
+	media    MediaController
+}
+type MediaController interface {
+	Handle(context.Context, domain.Session, time.Time, domain.Envelope) error
 }
 
 func NewHandler(hub *usecase.Hub, verifier Verifier, tickets Tickets, limiter Limiter, cfg config.RealtimeConfig) *Handler {
-	return &Handler{hub, verifier, tickets, limiter, cfg}
+	return &Handler{hub: hub, verifier: verifier, tickets: tickets, limiter: limiter, cfg: cfg}
 }
+func (h *Handler) SetMedia(controller MediaController) *Handler { h.media = controller; return h }
 func (h *Handler) RegisterRoutes(router gin.IRouter) {
 	router.GET("/api/v1/conferences/:id/ws", h.Connect)
 	router.POST("/api/v1/conferences/:id/ws-ticket", h.Ticket)
@@ -369,6 +375,19 @@ func (c *client) read() {
 		}
 		if parsed, err := uuid.Parse(event.ID); err != nil || parsed == uuid.Nil || event.Version != 1 || event.ConferenceID != c.session.ConferenceID || event.Timestamp.IsZero() || event.ReplyTo != "" {
 			c.failure(event.ID, "invalid_envelope")
+			continue
+		}
+		if strings.HasPrefix(event.Type, "media.") {
+			if c.handler.media == nil {
+				c.failure(event.ID, "media_unavailable")
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			err := c.handler.media.Handle(ctx, c.session, c.expiresAt, event)
+			cancel()
+			if err != nil {
+				c.failure(event.ID, mediadomain.ErrorCode(err))
+			}
 			continue
 		}
 		if event.Type != "webrtc.offer" && event.Type != "webrtc.answer" && event.Type != "webrtc.ice" {

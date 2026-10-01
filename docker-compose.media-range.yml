@@ -1,0 +1,10 @@
+# Alternative to the shared UDP socket: a bounded ephemeral UDP range.
+services:
+  media-worker:
+    environment:
+      MEDIA_UDP_PORT: "0"
+      MEDIA_TCP_PORT: "0"
+      MEDIA_UDP_MIN_PORT: "${MEDIA_RANGE_MIN:-50100}"
+      MEDIA_UDP_MAX_PORT: "${MEDIA_RANGE_MAX:-50200}"
+    ports: !override
+      - "${MEDIA_RANGE_MIN:-50100}-${MEDIA_RANGE_MAX:-50200}:${MEDIA_RANGE_MIN:-50100}-${MEDIA_RANGE_MAX:-50200}/udp"

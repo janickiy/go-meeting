@@ -27,6 +27,7 @@ import (
 	wstransport "github.com/janickiy/go-recorder/internal/transport/websocket"
 	authusecase "github.com/janickiy/go-recorder/internal/usecase/auth"
 	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
+	mediausecase "github.com/janickiy/go-recorder/internal/usecase/media"
 	realtimeusecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
@@ -45,6 +46,10 @@ func RunAPI() error {
 		return err
 	}
 	realtimeConfig, err := config.LoadRealtime()
+	if err != nil {
+		return err
+	}
+	mediaConfig, err := config.LoadMedia()
 	if err != nil {
 		return err
 	}
@@ -105,9 +110,17 @@ func RunAPI() error {
 		return err
 	}
 	defer hub.Shutdown()
+	mediaTickets, err := security.NewMediaTickets(mediaConfig.TicketSecret, mediaConfig.TicketTTL)
+	if err != nil {
+		return err
+	}
+	mediaClient := mediausecase.NewHTTPClient(mediaConfig.InternalSecret, mediaConfig.OperationTimeout)
+	defer mediaClient.Close()
+	mediaController := mediausecase.NewController(redisinfra.NewMediaRegistry(redisClient, mediaConfig.Namespace), mediaTickets, mediaClient, hub, store, mediaConfig, realtimeConfig)
+	hub.SetDisconnectObserver(mediaController)
 	conferenceService.SetObserver(hub)
 	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(tokens))
-	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).RegisterRoutes(router)
+	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

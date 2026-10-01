@@ -17,10 +17,14 @@ services:
       target: runtime
     env_file:
       - .env
-    environment: *rabbitmq-client
+    environment:
+      <<: *rabbitmq-client
+      MEDIA_WORKER_INTERNAL_URL: "http://media-worker:8091"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      media-worker:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -75,10 +79,14 @@ services:
       target: debug
     env_file:
       - .env
-    environment: *rabbitmq-client
+    environment:
+      <<: *rabbitmq-client
+      MEDIA_WORKER_INTERNAL_URL: "http://media-worker:8091"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      media-worker:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -98,6 +106,41 @@ services:
       app-network:
         aliases:
           - api
+
+  media-worker:
+    image: go-recorder-media-worker:local
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: dockers/media-worker/Dockerfile
+      target: runtime
+    env_file:
+      - .env
+    environment:
+      MEDIA_HTTP_PORT: "8091"
+      MEDIA_WORKER_INTERNAL_URL: "http://media-worker:8091"
+      # Dedicated SFU sockets, independent from recorder-worker's port 50000.
+      MEDIA_UDP_PORT: "${MEDIA_UDP_PORT:-50010}"
+      MEDIA_TCP_PORT: "${MEDIA_TCP_PORT:-50010}"
+      MEDIA_UDP_MIN_PORT: "0"
+      MEDIA_UDP_MAX_PORT: "0"
+      MEDIA_NAT_IPS: "${MEDIA_NAT_IPS:-127.0.0.1}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Internal HTTP is not published to the host or gateway network.
+    expose:
+      - "8091"
+    ports:
+      - "${MEDIA_UDP_PORT:-50010}:${MEDIA_UDP_PORT:-50010}/udp"
+      - "${MEDIA_TCP_PORT:-50010}:${MEDIA_TCP_PORT:-50010}/tcp"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8091/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app-network
 
   worker:
     image: go-recorder-worker

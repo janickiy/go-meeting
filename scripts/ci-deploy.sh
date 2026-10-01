@@ -74,6 +74,6 @@ fi
 
 "${ssh_command[@]}" "${remote}" "cd '${DEPLOY_PATH}' && \
   if [ ! -f .env ]; then cp .env.example .env; fi && \
-  docker compose build api worker minio && \
+  docker compose build api worker media-worker frontend minio && \
   docker compose up -d --remove-orphans && \
   docker compose ps"

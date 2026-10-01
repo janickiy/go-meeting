@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./api";
-import type { RealtimeEvent, RealtimeState, Signal } from "./types";
+import type { RealtimeEvent, RealtimeState } from "./types";
+
+export type ClientRealtimeType =
+  | "webrtc.offer"
+  | "webrtc.answer"
+  | "webrtc.ice"
+  | "media.join"
+  | "media.offer"
+  | "media.answer"
+  | "media.ready"
+  | "media.ice"
+  | "media.leave"
+  | "media.unpublish";
 
 export function websocketURL(
   conferenceId: string,
@@ -180,10 +192,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
       }
     };
   }, [conferenceId, enabled, generation, queryClient]);
-  const send = (
-    type: "webrtc.offer" | "webrtc.answer" | "webrtc.ice",
-    data: Signal,
-  ) => {
+  const send = (type: ClientRealtimeType, data: unknown) => {
     const ws = socket.current;
     if (!ws || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 131072)
       throw new Error("Realtime-соединение недоступно или перегружено.");
@@ -196,6 +205,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
       data,
     };
     ws.send(JSON.stringify(e));
+    return e.id;
   };
   return {
     state,
