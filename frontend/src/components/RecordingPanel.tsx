@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { Conference, Participant } from "../types";
 import { Button, ErrorNotice } from "./ui";
 import { formatDate } from "../utils";
+import { isAdmitted } from "../collaboration";
 
 const labels = {
   starting: "Запись запускается",
@@ -25,7 +26,7 @@ export function RecordingPanel({
   const query = useQuery({
     queryKey: ["recordings", conference.id],
     queryFn: ({ signal }) => api.recordings(conference.id, signal),
-    enabled: !!membership && membership.status !== "kicked",
+    enabled: isAdmitted(membership),
     refetchInterval: 3000,
   });
   const items = query.data?.items || [];
@@ -46,7 +47,7 @@ export function RecordingPanel({
     },
   });
   const owner = membership?.role === "owner" && membership.status === "joined";
-  if (!membership || membership.status === "kicked") return null;
+  if (!membership || !isAdmitted(membership)) return null;
   return (
     <section
       className="content-card recording-panel"

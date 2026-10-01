@@ -13,7 +13,10 @@ import (
 	"time"
 
 	authapp "github.com/janickiy/go-recorder/internal/app/auth"
+	chatapp "github.com/janickiy/go-recorder/internal/app/chat"
 	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
+	engagementapp "github.com/janickiy/go-recorder/internal/app/engagement"
+	notificationsapp "github.com/janickiy/go-recorder/internal/app/notifications"
 	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
 	"github.com/janickiy/go-recorder/internal/config"
@@ -27,8 +30,10 @@ import (
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 	wstransport "github.com/janickiy/go-recorder/internal/transport/websocket"
 	authusecase "github.com/janickiy/go-recorder/internal/usecase/auth"
+	chatusecase "github.com/janickiy/go-recorder/internal/usecase/chat"
 	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
 	mediausecase "github.com/janickiy/go-recorder/internal/usecase/media"
+	notificationsusecase "github.com/janickiy/go-recorder/internal/usecase/notifications"
 	realtimeusecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 	recordingsusecase "github.com/janickiy/go-recorder/internal/usecase/recordings"
@@ -113,6 +118,15 @@ func RunAPI() error {
 		return err
 	}
 	defer hub.Shutdown()
+	hands := redisinfra.NewHands(redisClient, realtimeConfig.Namespace)
+	hub.SetHands(hands)
+	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hands, hub)
+	notificationBus := redisinfra.NewNotificationBus(redisClient, realtimeConfig.Namespace)
+	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db), notificationBus)
+	chatService, err := chatusecase.NewService(context.Background(), postgresinfra.NewChatRepository(db), s3Client, hub)
+	if err != nil {
+		return fmt.Errorf("chat initialization: %w", err)
+	}
 	mediaTickets, err := security.NewMediaTickets(mediaConfig.TicketSecret, mediaConfig.TicketTTL)
 	if err != nil {
 		return err
@@ -128,17 +142,22 @@ func RunAPI() error {
 	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(tokens))
 	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(controlService), httpmiddleware.Authenticate(tokens))
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(tokens))
+	httptransport.RegisterChatRoutes(router, chatapp.NewHandler(chatService), httpmiddleware.Authenticate(tokens), rateLimiter)
+	httptransport.RegisterNotificationRoutes(router, notificationsapp.NewHandler(notificationService, notificationBus, tokens, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(tokens))
+	httptransport.RegisterEngagementRoutes(router, engagementapp.NewHandler(engagementService, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(tokens))
 	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	go controlService.Run(ctx)
 	go recordingService.Run(ctx)
+	go chatService.Run(ctx)
+	go notificationService.Run(ctx)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.APIPort))
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Handler: router, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	server := &http.Server{Handler: router, BaseContext: func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	failed := make(chan error, 1)
 	go func() { failed <- server.Serve(listener) }()
 	select {

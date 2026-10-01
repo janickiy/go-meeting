@@ -33,7 +33,7 @@ func (r *ConferenceRecordingRepository) Start(ctx context.Context, userID, confe
 		if err != nil {
 			return membershipError(err)
 		}
-		if conference.OwnerID != userID || actor.Role != conferences.Owner || actor.Status != conferences.Joined {
+		if conference.OwnerID != userID || actor.Role != conferences.Owner || !actor.CanParticipate() {
 			return apperrors.ErrForbidden
 		}
 		if conference.Status != conferences.Active {
@@ -70,7 +70,7 @@ func (r *ConferenceRecordingRepository) Stop(ctx context.Context, userID, confer
 		if err != nil {
 			return membershipError(err)
 		}
-		if conference.OwnerID != userID || actor.Role != conferences.Owner {
+		if conference.OwnerID != userID || actor.Role != conferences.Owner || !actor.CanReadHistory() {
 			return apperrors.ErrForbidden
 		}
 		if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ? AND platform_conference_id = ? AND mode = 'composite'", recordID, conferenceID).Take(&record).Error; err != nil {
@@ -112,7 +112,7 @@ func (r *ConferenceRecordingRepository) authorizeRead(ctx context.Context, userI
 	if err != nil {
 		return membershipError(err)
 	}
-	if participant.Status == conferences.Kicked || participant.Status == conferences.Rejected {
+	if !participant.CanReadHistory() {
 		return apperrors.ErrForbidden
 	}
 	return nil

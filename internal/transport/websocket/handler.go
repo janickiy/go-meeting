@@ -216,6 +216,7 @@ type client struct {
 	session   domain.Session
 	expiresAt time.Time
 	out       chan domain.Envelope
+	low       chan domain.Envelope
 	controls  chan control
 	done      chan struct{}
 	once      sync.Once
@@ -223,7 +224,7 @@ type client struct {
 }
 
 func newClient(conn *ws.Conn, h *Handler, s domain.Session, expiry time.Time) *client {
-	return &client{conn: conn, handler: h, session: s, expiresAt: expiry, out: make(chan domain.Envelope, h.cfg.QueueSize), controls: make(chan control, 8), done: make(chan struct{})}
+	return &client{conn: conn, handler: h, session: s, expiresAt: expiry, out: make(chan domain.Envelope, h.cfg.QueueSize), low: make(chan domain.Envelope, 8), controls: make(chan control, 8), done: make(chan struct{})}
 }
 func (c *client) Offer(event domain.Envelope) bool {
 	if limit := c.handler.cfg.OutboundBytes; limit > 0 && len(event.Data) > limit {
@@ -234,6 +235,13 @@ func (c *client) Offer(event domain.Envelope) bool {
 	case <-c.done:
 		return false
 	default:
+	}
+	if domain.LowPriorityEvent(event.Type) {
+		select {
+		case c.low <- event:
+		default:
+		}
+		return true // Dropping recoverable events must not close media sockets.
 	}
 	select {
 	case c.out <- event:
@@ -286,6 +294,18 @@ func (c *client) write() {
 				return
 			}
 		case event := <-c.out:
+			raw, err := json.Marshal(event)
+			if err != nil || !write(ws.TextMessage, raw) {
+				c.Stop("write_failed")
+				return
+			}
+		case event := <-c.low:
+			// If both queues are ready, always write the critical event first.
+			// The selected low-priority event may be dropped, like queue overflow.
+			select {
+			case event = <-c.out:
+			default:
+			}
 			raw, err := json.Marshal(event)
 			if err != nil || !write(ws.TextMessage, raw) {
 				c.Stop("write_failed")

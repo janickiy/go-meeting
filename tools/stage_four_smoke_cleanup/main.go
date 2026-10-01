@@ -48,8 +48,15 @@ func run() error {
 		return err
 	}
 	var fixture manifest
-	if json.Unmarshal(raw, &fixture) != nil || !strings.HasPrefix(fixture.RunID, "stage4-docker-") || !canonical(strings.TrimPrefix(fixture.RunID, "stage4-docker-")) || len(fixture.UserIDs) > 3 {
+	if json.Unmarshal(raw, &fixture) != nil || len(fixture.UserIDs) > 3 {
 		return fmt.Errorf("invalid smoke fixture manifest")
+	}
+	prefix := "stage4-docker-"
+	if strings.HasPrefix(fixture.RunID, "stage5-docker-") {
+		prefix = "stage5-docker-"
+	}
+	if !strings.HasPrefix(fixture.RunID, prefix) || !canonical(strings.TrimPrefix(fixture.RunID, prefix)) {
+		return fmt.Errorf("invalid smoke fixture marker")
 	}
 	if fixture.ConferenceID != "" && !canonical(fixture.ConferenceID) {
 		return fmt.Errorf("invalid conference UUID")
@@ -85,7 +92,7 @@ func run() error {
 		if conference != fixture.RunID {
 			return fmt.Errorf("conference marker does not match this acceptance fixture")
 		}
-		active, err := sql(ctx, "SELECT count(*) FROM record WHERE conference_id='"+fixture.ConferenceID+"' AND (mode <> 'composite' OR status NOT IN ('ready','failed','cancelled'));")
+		active, err := sql(ctx, "SELECT count(*) FROM record WHERE conference_id='"+fixture.ConferenceID+"' AND (mode <> 'composite' OR status NOT IN ('ready','partial_ready','failed','cancelled'));")
 		if err != nil {
 			return err
 		}
@@ -121,14 +128,24 @@ func run() error {
 		if err = storage.RemovePrefix(ctx, "recordings/"+fixture.ConferenceID+"/"); err != nil {
 			return err
 		}
+		if err = storage.RemovePrefix(ctx, "attachments/"+fixture.ConferenceID+"/"); err != nil {
+			return err
+		}
 	}
 	query := "BEGIN;\n"
 	if fixture.ConferenceID != "" {
+		query += "DELETE FROM notification_jobs WHERE conference_id='" + fixture.ConferenceID + "';\n"
+		query += "DELETE FROM chat_read_states WHERE conference_id='" + fixture.ConferenceID + "';\n"
+		query += "DELETE FROM chat_attachments WHERE conference_id='" + fixture.ConferenceID + "';\n"
+		query += "DELETE FROM chat_messages WHERE conference_id='" + fixture.ConferenceID + "';\n"
 		query += "DELETE FROM conference_moderation_audit WHERE conference_id='" + fixture.ConferenceID + "';\n"
 		query += "DELETE FROM record WHERE platform_conference_id='" + fixture.ConferenceID + "' AND mode='composite';\n"
+		query += "DELETE FROM participant_sessions WHERE conference_id='" + fixture.ConferenceID + "';\n"
+		query += "DELETE FROM conference_participants WHERE conference_id='" + fixture.ConferenceID + "';\n"
 		query += "DELETE FROM conferences WHERE id='" + fixture.ConferenceID + "' AND title='" + fixture.RunID + "';\n"
 	}
 	if userSet != "" {
+		query += "DELETE FROM notifications WHERE user_id IN (" + userSet + ");\n"
 		query += "DELETE FROM users WHERE id IN (" + userSet + ") AND email LIKE '" + fixture.RunID + "-%@smoke.invalid';\n"
 	}
 	query += "COMMIT;"

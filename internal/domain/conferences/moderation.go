@@ -24,7 +24,13 @@ func CanModerate(actor, target Participant, action string) bool {
 	default:
 		return false
 	}
-	if actor.Status != Joined || actor.ConferenceID != target.ConferenceID || target.Role == Owner || actor.ID == target.ID {
+	if !actor.CanParticipate() || actor.ConferenceID != target.ConferenceID || target.Role == Owner || actor.ID == target.ID {
+		return false
+	}
+	// Pending people are private to the waiting room and must be handled via
+	// admit/reject. General moderation events are visible to the admitted room.
+	// Preserve idempotency for a retry of an already-applied kick.
+	if !target.CanReadHistory() && !(action == "kick" && target.Status == Kicked) {
 		return false
 	}
 	if actor.Role == Owner {

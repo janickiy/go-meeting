@@ -55,6 +55,7 @@ type State struct {
 	ParticipantID string             `json:"participantId"`
 	Status        conferences.Status `json:"status"`
 	Participants  []Presence         `json:"participants"`
+	Hands         []Hand             `json:"hands"`
 }
 type Signal struct {
 	TargetConnectionID  string          `json:"targetConnectionId"`

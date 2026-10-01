@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   ArrowRight,
   CalendarDays,
@@ -13,6 +13,8 @@ import { useConferences } from "../queries";
 import { formatDate } from "../utils";
 import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
 import { CreateConference, JoinByLink } from "../components/ConferenceModals";
+import type { ConferenceFilters } from "../types";
+import { localDayEnd, localSchedule } from "../collaboration";
 
 export function Dashboard({
   all = false,
@@ -22,19 +24,28 @@ export function Dashboard({
   create?: boolean;
 }) {
   const { user } = useAuth();
-  const query = useConferences();
-  const [tab, setTab] = useState("created");
+  const [params, setParams] = useSearchParams();
+  const tab: NonNullable<ConferenceFilters["view"]> =
+    params.get("view") === "active"
+      ? "active"
+      : params.get("view") === "past"
+        ? "past"
+        : "upcoming";
+  const [scope, setScope] =
+    useState<NonNullable<ConferenceFilters["scope"]>>("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const query = useConferences({
+    view: tab,
+    scope,
+    from: from ? localSchedule(`${from}T00:00`) || undefined : undefined,
+    to: to ? localDayEnd(to) || undefined : undefined,
+  });
   const [search, setSearch] = useState("");
   const [joining, setJoining] = useState(false);
   const conferences = query.data?.pages.flatMap((page) => page.items) || [];
-  const filtered = conferences.filter(
-    (item) =>
-      (tab === "finished"
-        ? item.status === "finished" || item.status === "cancelled"
-        : item.status === tab) &&
-      item.title
-        .toLocaleLowerCase("ru")
-        .includes(search.toLocaleLowerCase("ru")),
+  const filtered = conferences.filter((item) =>
+    item.title.toLocaleLowerCase("ru").includes(search.toLocaleLowerCase("ru")),
   );
   const visible = all ? filtered : filtered.slice(0, 3);
   return (
@@ -44,7 +55,9 @@ export function Dashboard({
           <span className="eyebrow">ВАШ ЛИЧНЫЙ КАБИНЕТ</span>
           <h1>
             {all
-              ? "Мои конференции"
+              ? tab === "past"
+                ? "История встреч"
+                : "Мои конференции"
               : `Добро пожаловать${user?.displayName ? `, ${user.displayName}` : ""}!`}
           </h1>
           <p>
@@ -79,9 +92,9 @@ export function Dashboard({
         <div className="list-toolbar">
           <div className="tabs" role="tablist" aria-label="Статус конференций">
             {[
-              { id: "created", label: "Предстоящие" },
+              { id: "upcoming", label: "Предстоящие" },
               { id: "active", label: "Активные" },
-              { id: "finished", label: "Завершённые" },
+              { id: "past", label: "Завершённые" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -90,7 +103,7 @@ export function Dashboard({
                 role="tab"
                 aria-selected={tab === item.id}
                 aria-controls="conference-list"
-                onClick={() => setTab(item.id)}
+                onClick={() => setParams({ view: item.id })}
               >
                 {item.label}
               </button>
@@ -101,13 +114,55 @@ export function Dashboard({
               <Search size={17} />
               <input
                 aria-label="Поиск конференции по названию"
-                placeholder="Найти встречу"
+                placeholder="Найти среди загруженных"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
           )}
         </div>
+        {all && (
+          <div className="conference-filters">
+            <label className="field">
+              Показывать
+              <select
+                aria-label="Моё участие"
+                value={scope}
+                onChange={(event) =>
+                  setScope(
+                    event.target.value as NonNullable<
+                      ConferenceFilters["scope"]
+                    >,
+                  )
+                }
+              >
+                <option value="all">Все мои встречи</option>
+                <option value="owned">Я организатор</option>
+                <option value="participating">Я участник</option>
+              </select>
+            </label>
+            <label className="field">
+              С даты
+              <input
+                type="date"
+                aria-label="Встречи с даты"
+                value={from}
+                max={to || undefined}
+                onChange={(event) => setFrom(event.target.value)}
+              />
+            </label>
+            <label className="field">
+              По дату
+              <input
+                type="date"
+                aria-label="Встречи по дату"
+                value={to}
+                min={from || undefined}
+                onChange={(event) => setTo(event.target.value)}
+              />
+            </label>
+          </div>
+        )}
         <ErrorNotice error={query.error} />
         {query.isError && (
           <Button
@@ -146,13 +201,18 @@ export function Dashboard({
                   <div className="conference-row-copy">
                     <h3>{item.title}</h3>
                     <p>
-                      {item.status === "created"
-                        ? "Создана "
-                        : item.status === "active"
-                          ? "Начало: "
-                          : "Завершение: "}
+                      {item.status === "scheduled"
+                        ? "Запланировано: "
+                        : item.status === "created"
+                          ? "Создана "
+                          : item.status === "active"
+                            ? "Начало: "
+                            : "Завершение: "}
                       {formatDate(
-                        item.finishedAt || item.startedAt || item.createdAt,
+                        item.finishedAt ||
+                          item.startedAt ||
+                          item.scheduledAt ||
+                          item.createdAt,
                       )}
                     </p>
                   </div>
@@ -170,7 +230,7 @@ export function Dashboard({
                 <h3>
                   {search
                     ? "Встречи не найдены"
-                    : tab === "created"
+                    : tab === "upcoming"
                       ? "Самое время для первой встречи"
                       : tab === "active"
                         ? "Сейчас нет активных встреч"
@@ -179,11 +239,11 @@ export function Dashboard({
                 <p>
                   {search
                     ? "Попробуйте другое название."
-                    : tab === "created"
+                    : tab === "upcoming"
                       ? "Создайте конференцию и пригласите коллег по ссылке."
                       : "Конференции появятся здесь, когда изменится их статус."}
                 </p>
-                {tab === "created" && !search && (
+                {tab === "upcoming" && !search && (
                   <Link to="/conferences/new" className="text-link">
                     <Plus size={16} />
                     Создать конференцию

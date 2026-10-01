@@ -25,6 +25,11 @@ func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conferenc
 	conferenceRoutes.POST("/:id/join", conference.Join)
 	conferenceRoutes.POST("/:id/leave", conference.Leave)
 	conferenceRoutes.GET("/:id/participants", conference.Participants)
+	conferenceRoutes.GET("/:id/participants/me", conference.Self)
+	conferenceRoutes.POST("/:id/participants/:participantId/admission", conference.Admission)
+	conferenceRoutes.PUT("/:id/schedule", conference.Schedule)
+	conferenceRoutes.GET("/:id/history", conference.History)
+	router.GET(APIV1Prefix+"/me/conferences", authentication, conference.Timeline)
 
 	// A separate prefix avoids :id/:inviteCode wildcard conflicts and exposes only a limited view.
 	invites := router.Group(APIV1Prefix+"/conference-invites", authentication)

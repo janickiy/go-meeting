@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CalendarDays,
@@ -19,7 +19,13 @@ import { RealtimePanel } from "../components/RealtimePanel";
 import { RecordingPanel } from "../components/RecordingPanel";
 import type { ModerationAction } from "../types";
 import { useAuth } from "../auth";
-import { useConference, useParticipants } from "../queries";
+import { useConference, useParticipants, useMembership } from "../queries";
+import { isAdmitted } from "../collaboration";
+import { useRealtime } from "../realtime";
+import { WaitingRoomPanel } from "../components/WaitingRoomPanel";
+import { ChatPanel } from "../components/ChatPanel";
+import { HandReactionsPanel } from "../components/HandReactionsPanel";
+import { EditSchedule } from "../components/ConferenceModals";
 import { formatDate, initials, inviteLink } from "../utils";
 import {
   Button,
@@ -35,27 +41,25 @@ export function ConferencePage() {
   const { user } = useAuth();
   const client = useQueryClient();
   const query = useConference(id);
-  const participants = useParticipants(id);
+  const self = useMembership(id);
+  const membership = self.data || undefined;
+  const admitted = isAdmitted(membership);
+  const participants = useParticipants(id, admitted);
   const people = participants.data?.pages.flatMap((page) => page.items) || [];
-  const membership = people.find((item) => item.userId === user?.id);
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = participants;
-  useEffect(() => {
-    // The current user's membership can be outside the first API page.
-    if (
-      !membership &&
-      hasNextPage &&
-      !isFetchingNextPage &&
-      !participants.isError
-    )
-      void fetchNextPage();
-  }, [
-    membership,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-    participants.isError,
-  ]);
+  const closed = ["finished", "cancelled"].includes(
+    query.data?.item.status || "",
+  );
+  const live = useRealtime(
+    id,
+    admitted && membership?.status === "joined" && !closed,
+  );
+  const history = useQuery({
+    queryKey: ["history", user?.id, id],
+    queryFn: ({ signal }) => api.history(id, signal),
+    enabled: admitted && closed,
+  });
   const [confirm, setConfirm] = useState<"finish" | "cancel" | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState(false);
   const mutation = useMutation({
     mutationFn: (action: "start" | "finish" | "cancel" | "join" | "leave") =>
       action === "join" || action === "leave"
@@ -65,6 +69,8 @@ export function ConferencePage() {
       void client.invalidateQueries({ queryKey: ["conference"] });
       void client.invalidateQueries({ queryKey: ["conferences"] });
       void client.invalidateQueries({ queryKey: ["participants"] });
+      void client.invalidateQueries({ queryKey: ["membership"] });
+      void client.invalidateQueries({ queryKey: ["history"] });
     },
     onSuccess: () => setConfirm(null),
   });
@@ -78,6 +84,7 @@ export function ConferencePage() {
     }) => api.moderate(id, participantId, action),
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ["participants"] });
+      void client.invalidateQueries({ queryKey: ["membership"] });
     },
   });
   if (query.isPending) return <Loading />;
@@ -92,8 +99,6 @@ export function ConferencePage() {
     );
   const conference = query.data.item;
   const owner = conference.ownerId === user?.id;
-  const closed =
-    conference.status === "finished" || conference.status === "cancelled";
   const roleNames = {
     owner: "Организатор",
     co_host: "Соорганизатор",
@@ -121,11 +126,20 @@ export function ConferencePage() {
             <CalendarDays size={15} />
             Создана {formatDate(conference.createdAt)}
           </p>
+          {conference.scheduledAt && (
+            <p>
+              Запланирована: {formatDate(conference.scheduledAt)}
+              {conference.plannedDurationMin
+                ? ` · ${conference.plannedDurationMin} мин`
+                : ""}
+            </p>
+          )}
         </div>
         <StatusBadge status={conference.status} />
       </section>
       <ErrorNotice error={mutation.error} />
       <ErrorNotice error={moderation.error} />
+      <ErrorNotice error={self.error} />
       <div className="conference-grid">
         <section className="content-card meeting-card">
           <div className="meeting-card-symbol">
@@ -146,37 +160,37 @@ export function ConferencePage() {
                 : "Присоединитесь к встрече, когда будете готовы."}
           </p>
           <div className="meeting-actions">
-            {!closed && membership?.status !== "kicked" && (
-              <Button
-                busy={mutation.isPending}
-                variant={
-                  membership?.status === "joined" ? "secondary" : "primary"
-                }
-                onClick={() =>
-                  mutation.mutate(
-                    membership?.status === "joined" ? "leave" : "join",
-                  )
-                }
-                disabled={
-                  participants.isPending ||
-                  participants.isError ||
-                  (!membership && !!participants.hasNextPage)
-                }
-              >
-                {membership?.status === "joined" ? (
-                  <>
-                    <LogOut size={18} />
-                    Покинуть конференцию
-                  </>
-                ) : (
-                  <>
-                    <LogIn size={18} />
-                    Присоединиться
-                  </>
-                )}
-              </Button>
-            )}
-            {owner && conference.status === "created" && (
+            {!closed &&
+              conference.status !== "scheduled" &&
+              !["kicked", "waiting", "rejected"].includes(
+                membership?.status || "",
+              ) && (
+                <Button
+                  busy={mutation.isPending}
+                  variant={
+                    membership?.status === "joined" ? "secondary" : "primary"
+                  }
+                  onClick={() =>
+                    mutation.mutate(
+                      membership?.status === "joined" ? "leave" : "join",
+                    )
+                  }
+                  disabled={self.isPending || self.isError}
+                >
+                  {membership?.status === "joined" ? (
+                    <>
+                      <LogOut size={18} />
+                      Покинуть конференцию
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={18} />
+                      Присоединиться
+                    </>
+                  )}
+                </Button>
+              )}
+            {owner && ["created", "scheduled"].includes(conference.status) && (
               <>
                 <Button
                   variant="outline"
@@ -194,6 +208,15 @@ export function ConferencePage() {
                   <X size={17} />
                   Отменить конференцию
                 </Button>
+                {conference.status === "scheduled" && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setEditingSchedule(true)}
+                    disabled={mutation.isPending}
+                  >
+                    Изменить расписание
+                  </Button>
+                )}
               </>
             )}
             {owner && conference.status === "active" && (
@@ -213,6 +236,16 @@ export function ConferencePage() {
               Вы присоединились к конференции
             </p>
           )}
+          {conference.status === "scheduled" &&
+            (admitted || membership?.admissionState === "waiting") && (
+              <p className="membership-note">
+                <Check size={15} />
+                Встреча добавлена в ваш список.{" "}
+                {admitted
+                  ? "Войти можно после её начала."
+                  : "Организатор рассмотрит запрос на вход после начала встречи."}
+              </p>
+            )}
           <div className="video-notice">
             <Info size={18} />
             <span>
@@ -231,29 +264,48 @@ export function ConferencePage() {
             </p>
           )}
         </section>
-        <aside className="content-card invitation-card">
-          <span className="eyebrow">ПРИГЛАСИТЕ КОЛЛЕГ</span>
-          <h2>
-            Встреча начинается
-            <br />с приглашения
-          </h2>
-          <p className="muted">
-            Отправьте ссылку тем, с кем хотите встретиться.
-          </p>
-          <CopyLink value={inviteLink(conference.inviteCode)} />
-          <div className="invite-code">
-            <span>Код приглашения</span>
-            <code>{conference.inviteCode}</code>
-          </div>
-          <p className="field-hint">
-            Для присоединения нужен аккаунт Meet.
-            {closed ? " Эта конференция уже закрыта." : ""}
-          </p>
-        </aside>
+        {admitted && (
+          <aside className="content-card invitation-card">
+            <span className="eyebrow">ПРИГЛАСИТЕ КОЛЛЕГ</span>
+            <h2>
+              Встреча начинается
+              <br />с приглашения
+            </h2>
+            <p className="muted">
+              Отправьте ссылку тем, с кем хотите встретиться.
+            </p>
+            <CopyLink value={inviteLink(conference.inviteCode)} />
+            <div className="invite-code">
+              <span>Код приглашения</span>
+              <code>{conference.inviteCode}</code>
+            </div>
+            <p className="field-hint">
+              Для присоединения нужен аккаунт Meet.
+              {closed ? " Эта конференция уже закрыта." : ""}
+            </p>
+          </aside>
+        )}
       </div>
-      {membership?.status === "joined" && !closed && (
-        <RealtimePanel conferenceId={id} membership={membership} />
+      <WaitingRoomPanel
+        conferenceId={id}
+        membership={membership}
+        participants={people}
+        active={conference.status === "active"}
+        closed={closed}
+      />
+      {admitted && membership?.status === "joined" && !closed && (
+        <RealtimePanel conferenceId={id} membership={membership} live={live} />
       )}
+      {admitted &&
+        membership?.status === "joined" &&
+        conference.status === "active" && (
+          <HandReactionsPanel
+            conferenceId={id}
+            membership={membership}
+            participants={people}
+            live={live}
+          />
+        )}
       {membership?.status === "kicked" && (
         <ErrorNotice>
           Организатор исключил вас из конференции. Повторное присоединение
@@ -261,161 +313,229 @@ export function ConferencePage() {
         </ErrorNotice>
       )}
       <RecordingPanel conference={conference} membership={membership} />
-      <section className="content-card participants-card">
-        <div className="section-heading">
-          <h2>
-            <Users size={20} />
-            Участники{" "}
-            <span className="count-badge">
-              {people.length}
-              {participants.hasNextPage ? "+" : ""}
-            </span>
-          </h2>
-          <span className="muted small">Обновляется автоматически</span>
-        </div>
-        <ErrorNotice error={participants.error} />
-        {participants.isPending ? (
-          <Loading />
-        ) : (
-          <div className="participant-list">
-            {people.map((person) => (
-              <div className="participant-row" key={person.id}>
-                <span
-                  className={`avatar ${person.role === "owner" ? "avatar-owner" : ""}`}
-                >
-                  {initials(person.displayName)}
-                </span>
-                {!closed &&
-                  membership?.status === "joined" &&
-                  person.id !== membership.id &&
-                  person.role !== "owner" &&
-                  person.status !== "kicked" &&
-                  (membership.role === "owner" ||
-                    (membership.role === "co_host" &&
-                      person.role === "participant")) && (
-                    <div
-                      className="participant-controls"
-                      aria-label={`Управление: ${person.displayName}`}
-                    >
-                      {(
-                        [
-                          ["mute", "микрофон", !!person.microphoneBlocked],
-                          ["camera", "видео", !!person.cameraBlocked],
-                          ["screen", "экран", !!person.screenBlocked],
-                        ] as const
-                      )
-                        .filter(
-                          ([action]) =>
-                            action !== "camera" || membership.role === "owner",
+      {admitted && membership && (
+        <ChatPanel
+          conferenceId={id}
+          membership={membership}
+          readOnly={
+            conference.status !== "active" || membership.status !== "joined"
+          }
+          readOnlyReason={
+            closed
+              ? undefined
+              : "Присоединитесь к активной встрече, чтобы отправлять сообщения."
+          }
+        />
+      )}
+      {admitted && closed && (
+        <section
+          className="content-card history-summary"
+          aria-label="История встречи"
+        >
+          <h2>Итоги встречи</h2>
+          <ErrorNotice error={history.error} />
+          {history.isPending ? (
+            <Loading />
+          ) : (
+            history.data && (
+              <dl>
+                <div>
+                  <dt>Организатор</dt>
+                  <dd>
+                    {history.data.item.owner.displayName ||
+                      "Организатор встречи"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Длительность</dt>
+                  <dd>
+                    {history.data.item.durationSec === null
+                      ? "—"
+                      : `${Math.max(1, Math.round(history.data.item.durationSec / 60))} мин`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Участников</dt>
+                  <dd>{history.data.item.participantCount}</dd>
+                </div>
+                <div>
+                  <dt>Записи</dt>
+                  <dd>
+                    {history.data.item.recordings.ready} готово ·{" "}
+                    {history.data.item.recordings.processing} обрабатывается
+                  </dd>
+                </div>
+              </dl>
+            )
+          )}
+        </section>
+      )}
+      {admitted && (
+        <section className="content-card participants-card">
+          <div className="section-heading">
+            <h2>
+              <Users size={20} />
+              Участники{" "}
+              <span className="count-badge">
+                {people.length}
+                {participants.hasNextPage ? "+" : ""}
+              </span>
+            </h2>
+            <span className="muted small">Обновляется автоматически</span>
+          </div>
+          <ErrorNotice error={participants.error} />
+          {participants.isPending ? (
+            <Loading />
+          ) : (
+            <div className="participant-list">
+              {people.map((person) => (
+                <div className="participant-row" key={person.id}>
+                  <span
+                    className={`avatar ${person.role === "owner" ? "avatar-owner" : ""}`}
+                  >
+                    {initials(person.displayName)}
+                  </span>
+                  {!closed &&
+                    membership?.status === "joined" &&
+                    person.id !== membership.id &&
+                    person.role !== "owner" &&
+                    isAdmitted(person) &&
+                    person.status !== "kicked" &&
+                    (membership.role === "owner" ||
+                      (membership.role === "co_host" &&
+                        person.role === "participant")) && (
+                      <div
+                        className="participant-controls"
+                        aria-label={`Управление: ${person.displayName}`}
+                      >
+                        {(
+                          [
+                            ["mute", "микрофон", !!person.microphoneBlocked],
+                            ["camera", "видео", !!person.cameraBlocked],
+                            ["screen", "экран", !!person.screenBlocked],
+                          ] as const
                         )
-                        .map(([action, label, blocked]) => (
+                          .filter(
+                            ([action]) =>
+                              action !== "camera" ||
+                              membership.role === "owner",
+                          )
+                          .map(([action, label, blocked]) => (
+                            <Button
+                              key={action}
+                              variant="secondary"
+                              disabled={moderation.isPending}
+                              onClick={() =>
+                                moderation.mutate({
+                                  participantId: person.id,
+                                  action: { action, blocked: !blocked },
+                                })
+                              }
+                            >
+                              {blocked ? "Разрешить" : "Отключить"} {label}
+                            </Button>
+                          ))}
+                        {membership.role === "owner" && (
                           <Button
-                            key={action}
-                            variant="secondary"
+                            variant="outline"
                             disabled={moderation.isPending}
                             onClick={() =>
                               moderation.mutate({
                                 participantId: person.id,
-                                action: { action, blocked: !blocked },
+                                action: {
+                                  action: "role",
+                                  role:
+                                    person.role === "co_host"
+                                      ? "participant"
+                                      : "co_host",
+                                },
                               })
                             }
                           >
-                            {blocked ? "Разрешить" : "Отключить"} {label}
+                            {person.role === "co_host"
+                              ? "Убрать соорганизатора"
+                              : "Назначить соорганизатором"}
                           </Button>
-                        ))}
-                      {membership.role === "owner" && (
+                        )}
                         <Button
-                          variant="outline"
+                          variant="danger"
                           disabled={moderation.isPending}
-                          onClick={() =>
-                            moderation.mutate({
-                              participantId: person.id,
-                              action: {
-                                action: "role",
-                                role:
-                                  person.role === "co_host"
-                                    ? "participant"
-                                    : "co_host",
-                              },
-                            })
-                          }
-                        >
-                          {person.role === "co_host"
-                            ? "Убрать соорганизатора"
-                            : "Назначить соорганизатором"}
-                        </Button>
-                      )}
-                      <Button
-                        variant="danger"
-                        disabled={moderation.isPending}
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Исключить ${person.displayName}? Повторное присоединение будет запрещено.`,
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Исключить ${person.displayName}? Повторное присоединение будет запрещено.`,
+                              )
                             )
-                          )
-                            moderation.mutate({
-                              participantId: person.id,
-                              action: { action: "kick" },
-                            });
-                        }}
-                      >
-                        Исключить
-                      </Button>
-                    </div>
-                  )}
-                <div className="participant-name">
-                  <strong>
-                    {person.displayName}
-                    {person.userId === user?.id && (
-                      <span className="muted"> (вы)</span>
+                              moderation.mutate({
+                                participantId: person.id,
+                                action: { action: "kick" },
+                              });
+                          }}
+                        >
+                          Исключить
+                        </Button>
+                      </div>
                     )}
-                  </strong>
-                  <span>{roleNames[person.role]}</span>
-                  {person.status === "joined" && (
-                    <span className="participant-media-status">
-                      {person.microphoneBlocked
-                        ? "Звук запрещён"
-                        : person.microphoneEnabled
-                          ? "Микрофон включён"
-                          : "Микрофон выключен"}
-                      {" · "}
-                      {person.cameraBlocked
-                        ? "Видео запрещено"
-                        : person.cameraEnabled
-                          ? "Камера включена"
-                          : "Камера выключена"}
-                      {person.screenSharing ? " · Показывает экран" : ""}
-                    </span>
-                  )}
+                  <div className="participant-name">
+                    <strong>
+                      {person.displayName}
+                      {person.userId === user?.id && (
+                        <span className="muted"> (вы)</span>
+                      )}
+                    </strong>
+                    <span>{roleNames[person.role]}</span>
+                    {person.status === "joined" && (
+                      <span className="participant-media-status">
+                        {person.microphoneBlocked
+                          ? "Звук запрещён"
+                          : person.microphoneEnabled
+                            ? "Микрофон включён"
+                            : "Микрофон выключен"}
+                        {" · "}
+                        {person.cameraBlocked
+                          ? "Видео запрещено"
+                          : person.cameraEnabled
+                            ? "Камера включена"
+                            : "Камера выключена"}
+                        {person.screenSharing ? " · Показывает экран" : ""}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`participant-status ${person.status === "joined" ? "participant-joined" : ""}`}
+                  >
+                    <span className="presence-dot" />
+                    {person.joinedAt ||
+                    ["waiting", "rejected", "kicked"].includes(person.status)
+                      ? presence[person.status]
+                      : "Ещё не присоединялся"}
+                  </span>
                 </div>
-                <span
-                  className={`participant-status ${person.status === "joined" ? "participant-joined" : ""}`}
-                >
-                  <span className="presence-dot" />
-                  {person.joinedAt
-                    ? presence[person.status]
-                    : "Ещё не присоединялся"}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        {participants.hasNextPage && (
-          <Button
-            variant="outline"
-            busy={participants.isFetchingNextPage}
-            onClick={() => {
-              void participants.fetchNextPage();
-            }}
-          >
-            Загрузить ещё участников
-          </Button>
-        )}
-        <p className="field-hint">
-          Статус отражает join/leave, а не подключение к видеосвязи.
-        </p>
-      </section>
+              ))}
+            </div>
+          )}
+          {participants.hasNextPage && (
+            <Button
+              variant="outline"
+              busy={participants.isFetchingNextPage}
+              onClick={() => {
+                void participants.fetchNextPage();
+              }}
+            >
+              Загрузить ещё участников
+            </Button>
+          )}
+          <p className="field-hint">
+            Статус отражает join/leave, а не подключение к видеосвязи.
+          </p>
+        </section>
+      )}
+      {editingSchedule && (
+        <EditSchedule
+          conference={conference}
+          onClose={() => setEditingSchedule(false)}
+        />
+      )}
       {confirm && (
         <Modal
           title={

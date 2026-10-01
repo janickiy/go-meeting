@@ -9,7 +9,7 @@ import {
   VideoOff,
   Volume2,
 } from "lucide-react";
-import { useRealtime } from "../realtime";
+import type { useRealtime } from "../realtime";
 import { useMedia } from "../useMedia";
 import { Button, ErrorNotice } from "./ui";
 import type { Participant } from "../types";
@@ -97,11 +97,12 @@ function MediaTile({
 export function RealtimePanel({
   conferenceId,
   membership,
+  live,
 }: {
   conferenceId: string;
   membership: Participant;
+  live: ReturnType<typeof useRealtime>;
 }) {
-  const live = useRealtime(conferenceId, true);
   const media = useMedia(live, conferenceId, {
     ...membership,
     version: membership.mediaPolicyVersion,

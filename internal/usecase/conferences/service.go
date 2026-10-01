@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	domain "github.com/janickiy/go-recorder/internal/domain/conferences"
+	"github.com/janickiy/go-recorder/internal/domain/realtime"
 	"github.com/janickiy/go-recorder/internal/domain/users"
 )
 
@@ -50,6 +52,9 @@ func (s *Service) changed(ctx context.Context, id string) {
 }
 
 func (s *Service) Create(ctx context.Context, userID string, request domain.CreateRequest) (domain.View, error) {
+	if err := domain.ValidateSchedule(request.ScheduledAt, request.PlannedDurationMin, time.Now()); err != nil {
+		return domain.View{}, err
+	}
 	title, err := domain.NormalizeTitle(request.Title)
 	if err != nil {
 		return domain.View{}, err
@@ -66,10 +71,16 @@ func (s *Service) Create(ctx context.Context, userID string, request domain.Crea
 		if !validInvite(code) {
 			return domain.View{}, fmt.Errorf("invalid generated invite code")
 		}
-		conference := domain.Conference{ID: uuid.NewString(), OwnerID: user.ID, Title: title, InviteCode: code, Status: domain.Created}
+		conference := domain.Conference{ID: uuid.NewString(), OwnerID: user.ID, Title: title, InviteCode: code, Status: domain.Created,
+			WaitingRoomEnabled: request.WaitingRoomEnabled, ScheduledAt: request.ScheduledAt, PlannedDurationMin: request.PlannedDurationMin}
+		if conference.ScheduledAt != nil {
+			at := conference.ScheduledAt.UTC()
+			conference.ScheduledAt = &at
+			conference.Status = domain.Scheduled
+		}
 		ownerID := user.ID
 		owner := domain.Participant{ID: uuid.NewString(), ConferenceID: conference.ID, UserID: &ownerID,
-			DisplayName: user.ParticipantName(), Role: domain.Owner, Status: domain.Left}
+			DisplayName: user.ParticipantName(), Role: domain.Owner, Status: domain.Left, AdmissionState: domain.AdmissionAdmitted}
 		created, err := s.repository.Create(ctx, conference, owner)
 		if errors.Is(err, domain.ErrInviteCollision) {
 			continue
@@ -89,7 +100,9 @@ func (s *Service) List(ctx context.Context, userID string, limit, offset int) ([
 	}
 	views := make([]domain.View, 0, len(items))
 	for _, item := range items {
-		views = append(views, item.View())
+		view := item.View()
+		view.InviteCode, view.InviteURL = "", ""
+		views = append(views, view)
 	}
 	return views, nil
 }
@@ -99,10 +112,18 @@ func (s *Service) Read(ctx context.Context, userID, id string) (domain.View, err
 	if err != nil {
 		return domain.View{}, err
 	}
-	if err := s.requireMembership(ctx, id, userID); err != nil {
+	p, err := s.repository.Membership(ctx, id, userID)
+	if errors.Is(err, apperrors.ErrNotFound) {
+		err = apperrors.ErrForbidden
+	}
+	if err != nil {
 		return domain.View{}, err
 	}
-	return conference.View(), nil
+	view := conference.View()
+	if !p.CanReadHistory() {
+		view.InviteCode, view.InviteURL = "", ""
+	}
+	return view, nil
 }
 
 func (s *Service) Transition(ctx context.Context, userID, id string, target domain.Status) (domain.View, error) {
@@ -118,15 +139,32 @@ func (s *Service) Participants(ctx context.Context, userID, id string, limit, of
 	if _, err := s.repository.Get(ctx, id); err != nil {
 		return nil, err
 	}
-	if err := s.requireMembership(ctx, id, userID); err != nil {
+	actor, err := s.repository.Membership(ctx, id, userID)
+	if errors.Is(err, apperrors.ErrNotFound) {
+		err = apperrors.ErrForbidden
+	}
+	if err != nil {
 		return nil, err
 	}
-	items, err := s.repository.Participants(ctx, id, limit, offset)
+	if !actor.CanReadHistory() {
+		return nil, apperrors.ErrForbidden
+	}
+	var items []domain.Participant
+	if repo, ok := s.repository.(interface {
+		ParticipantsVisible(context.Context, string, string, int, int) ([]domain.Participant, error)
+	}); ok {
+		items, err = repo.ParticipantsVisible(ctx, id, userID, limit, offset)
+	} else {
+		items, err = s.repository.Participants(ctx, id, limit, offset)
+	}
 	if err != nil {
 		return nil, err
 	}
 	views := make([]domain.ParticipantView, 0, len(items))
 	for _, item := range items {
+		if !item.IsAdmitted() && actor.Role != domain.Owner && actor.Role != domain.CoHost {
+			continue
+		}
 		views = append(views, item.View())
 	}
 	return views, nil
@@ -145,6 +183,9 @@ func (s *Service) Join(ctx context.Context, userID, id string, request domain.Jo
 		return domain.ParticipantView{}, err
 	}
 	s.changed(ctx, id)
+	if participant.Status == domain.Waiting {
+		s.event(ctx, "participant.waiting", id, participant)
+	}
 	return participant.View(), nil
 }
 
@@ -165,7 +206,7 @@ func (s *Service) LookupInvite(ctx context.Context, code string) (domain.InviteV
 	if err != nil {
 		return domain.InviteView{}, err
 	}
-	return domain.InviteView{ID: conference.ID, Title: conference.Title, Status: conference.Status}, nil
+	return domain.InviteView{ID: conference.ID, Title: conference.Title, Status: conference.Status, WaitingRoomEnabled: conference.WaitingRoomEnabled, ScheduledAt: conference.ScheduledAt}, nil
 }
 
 func (s *Service) JoinInvite(ctx context.Context, userID, code string) (domain.ParticipantView, error) {
@@ -184,12 +225,12 @@ func (s *Service) currentUser(ctx context.Context, id string) (users.User, error
 	return user, err
 }
 
-func (s *Service) requireMembership(ctx context.Context, id, userID string) error {
-	_, err := s.repository.Membership(ctx, id, userID)
-	if errors.Is(err, apperrors.ErrNotFound) {
-		return apperrors.ErrForbidden
+func (s *Service) event(ctx context.Context, kind, id string, participant domain.Participant) {
+	if events, ok := s.observer.(interface {
+		Broadcast(context.Context, realtime.Envelope) error
+	}); ok {
+		_ = events.Broadcast(ctx, realtime.Event(kind, id, map[string]any{"participant": participant.View()}))
 	}
-	return err
 }
 
 func validInvite(code string) bool {

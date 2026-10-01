@@ -47,7 +47,7 @@ func (r *ConferenceRepository) ListForUser(ctx context.Context, userID string, l
 	items := []conferences.Conference{}
 	err := r.db.WithContext(ctx).Model(&conferences.Conference{}).
 		Joins("JOIN conference_participants p ON p.conference_id = conferences.id").
-		Where("p.user_id = ?", userID).Order("conferences.created_at DESC, conferences.id").
+		Where("p.user_id = ? AND p.admission_state IN ('admitted','waiting')", userID).Order("conferences.created_at DESC, conferences.id").
 		Limit(limit).Offset(offset).Find(&items).Error
 	return items, err
 }
@@ -110,7 +110,7 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 		if err != nil {
 			return err
 		}
-		if conference.Status != conferences.Created && conference.Status != conferences.Active {
+		if conference.Status != conferences.Created && conference.Status != conferences.Active && conference.Status != conferences.Scheduled {
 			return apperrors.New(apperrors.ErrConflict, "conference is closed")
 		}
 		participant, err = findMembership(tx, id, user.ID)
@@ -121,18 +121,33 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 		if missing && subtle.ConstantTimeCompare([]byte(inviteCode), []byte(conference.InviteCode)) != 1 {
 			return apperrors.New(apperrors.ErrForbidden, "inviteCode is required for a new membership")
 		}
-		if !missing && participant.Status == conferences.Joined {
+		if !missing && participant.CanParticipate() {
 			return nil
 		}
-		if !missing && (participant.Status == conferences.Kicked || participant.Status == conferences.Rejected) {
+		if !missing && (participant.Status == conferences.Kicked || participant.Status == conferences.Rejected || participant.AdmissionState == conferences.AdmissionKicked || participant.AdmissionState == conferences.AdmissionRejected) {
 			return apperrors.New(apperrors.ErrForbidden, "this membership cannot rejoin the conference")
 		}
 		now := time.Now().UTC()
 		if missing {
 			userID := user.ID
 			participant = conferences.Participant{ID: uuid.NewString(), ConferenceID: id, UserID: &userID,
-				DisplayName: user.ParticipantName(), Role: conferences.ParticipantRole, Status: conferences.Joined, JoinedAt: &now}
+				DisplayName: user.ParticipantName(), Role: conferences.ParticipantRole, Status: conferences.Joined, JoinedAt: &now, AdmissionState: conferences.AdmissionAdmitted}
+			if conference.WaitingRoomEnabled {
+				participant.Status, participant.AdmissionState, participant.JoinedAt = conferences.Waiting, conferences.AdmissionWaiting, nil
+			} else if conference.Status == conferences.Scheduled {
+				participant.Status, participant.JoinedAt = conferences.Left, nil
+			}
 			return tx.Create(&participant).Error
+		}
+		// Repeated invites cannot change admission; scheduled joins are enrollment.
+		if participant.AdmissionState == conferences.AdmissionWaiting {
+			if participant.Status == conferences.Waiting {
+				return nil
+			}
+			return tx.Model(&participant).Update("status", conferences.Waiting).Error
+		}
+		if conference.Status == conferences.Scheduled {
+			return nil
 		}
 		if err := tx.Model(&participant).Updates(map[string]any{"status": conferences.Joined, "joined_at": now, "left_at": nil, "media_policy_version": gorm.Expr("media_policy_version + 1")}).Error; err != nil {
 			return err
@@ -156,6 +171,9 @@ func (r *ConferenceRepository) Leave(ctx context.Context, id, userID string) (co
 		}
 		if err != nil {
 			return err
+		}
+		if participant.Status == conferences.Waiting {
+			return tx.Model(&participant).Update("status", conferences.Left).Error
 		}
 		if participant.Status != conferences.Joined {
 			return nil

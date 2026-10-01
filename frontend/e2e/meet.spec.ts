@@ -100,17 +100,35 @@ async function mockApi(
     if (path === "/auth/logout") return respond({ status: "success" });
     if (path === "/conferences" && post) {
       const body = request.postDataJSON();
-      if (Object.keys(body).join(",") !== "title")
+      if (
+        Object.keys(body).some(
+          (key) =>
+            ![
+              "title",
+              "waitingRoomEnabled",
+              "scheduledAt",
+              "plannedDurationMin",
+            ].includes(key),
+        )
+      )
         return respond({ message: "invalid JSON" }, 400);
       conference = { ...conference, title: body.title };
       list = [conference];
       return respond({ status: "success", item: conference }, 201);
     }
-    if (path === "/conferences") {
+    if (path === "/notifications")
+      return respond({
+        status: "success",
+        items: [],
+        nextCursor: null,
+        unreadCount: 0,
+      });
+    if (path === "/conferences" || path === "/me/conferences") {
       if (options.failList)
         return respond({ message: "postgres: secret database error" }, 500);
       return respond({
         status: "success",
+        nextCursor: null,
         items: list.slice(
           Number(url.searchParams.get("offset") || 0),
           Number(url.searchParams.get("offset") || 0) + 20,
@@ -121,6 +139,39 @@ async function mockApi(
       return respond({ status: "success", item: conference });
     if (path === `/conferences/${conference.id}/recordings` && !post)
       return respond({ status: "success", items: [] });
+    if (path.endsWith("/participants/me")) {
+      const own = participants.find((item) => item.userId === current.id);
+      return own
+        ? respond({ status: "success", item: own })
+        : respond({ message: "forbidden" }, 403);
+    }
+    if (path.endsWith("/messages"))
+      return respond({
+        status: "success",
+        items: [],
+        nextCursor: null,
+        unreadCount: 0,
+        lastReadMessageId: null,
+      });
+    if (path.endsWith("/chat/read"))
+      return respond({
+        status: "success",
+        item: { unreadCount: 0, lastReadMessageId: null },
+      });
+    if (path.endsWith("/history"))
+      return respond({
+        status: "success",
+        item: {
+          conference,
+          owner: { id: user.id, displayName: user.displayName },
+          durationSec: 60,
+          participantCount: participants.length,
+          participants,
+          recordings: { total: 0, ready: 0, processing: 0, failed: 0 },
+          chatAvailable: true,
+          chatReadOnly: true,
+        },
+      });
     if (path.endsWith("/participants")) {
       const offset = Number(url.searchParams.get("offset") || 0);
       return respond({
@@ -254,7 +305,7 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", async ({
   const title = page.getByLabel("Название конференции");
   await expect(title).toBeFocused();
   await title.fill("Демо React интерфейса");
-  await expect(page.getByLabel(/Описание/)).toBeDisabled();
+  await expect(page.getByLabel(/Зал ожидания/)).toBeEnabled();
   await page.screenshot({
     path: info.outputPath("06-create.png"),
     fullPage: true,
@@ -268,6 +319,7 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", async ({
   );
   expect(writes.find((item) => item.path === "/conferences")?.body).toEqual({
     title: "Демо React интерфейса",
+    waitingRoomEnabled: false,
   });
   await page.screenshot({
     path: info.outputPath("07-share.png"),
@@ -338,6 +390,7 @@ test("finds current membership after the first 100 participants", async ({
   await expect(
     page.getByRole("button", { name: "Покинуть конференцию" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Загрузить ещё участников" }).click();
   await expect(page.getByText("Участники 101")).toBeVisible();
 });
 

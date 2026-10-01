@@ -27,10 +27,10 @@ func authorizeSession(db *gorm.DB, conferenceID, userID string, locked bool) (co
 	if err != nil {
 		return p, err
 	}
-	if c.Status == conferences.Finished || c.Status == conferences.Cancelled {
+	if c.Status != conferences.Created && c.Status != conferences.Active {
 		return p, apperrors.New(apperrors.ErrConflict, "conference is closed")
 	}
-	if p.Status != conferences.Joined {
+	if !p.CanParticipate() {
 		return p, apperrors.New(apperrors.ErrForbidden, "join the conference before connecting")
 	}
 	return p, nil

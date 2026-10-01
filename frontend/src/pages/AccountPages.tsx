@@ -2,6 +2,8 @@ import { CalendarDays, Clapperboard, Mail, UserRound } from "lucide-react";
 import { Link } from "react-router";
 import { useAuth } from "../auth";
 import { formatDate } from "../utils";
+import { useConferences } from "../queries";
+import { Button, ErrorNotice, Loading } from "../components/ui";
 
 export function SettingsPage() {
   const { user } = useAuth();
@@ -46,6 +48,8 @@ export function SettingsPage() {
   );
 }
 export function RecordingsPage() {
+  const query = useConferences({ view: "past" });
+  const conferences = query.data?.pages.flatMap((page) => page.items) || [];
   return (
     <>
       <section className="page-heading">
@@ -55,20 +59,52 @@ export function RecordingsPage() {
           <p>Важные моменты ваших конференций.</p>
         </div>
       </section>
-      <section className="content-card empty-state">
+      <section className="content-card">
         <span className="empty-icon">
           <Clapperboard size={32} />
         </span>
-        <h2>Раздел пока недоступен</h2>
-        <p>
-          Записи появятся здесь после подключения записи конференций
-          <br className="desktop-only" /> и разграничения доступа к файлам.
-        </p>
+        <h2>Записи в истории встреч</h2>
         <p className="field-hint">
-          Существующий recorder работает отдельно и не изменён.
+          Откройте завершённую встречу, чтобы увидеть её записи, статус
+          обработки и приватные ссылки на скачивание.
         </p>
-        <Link className="button button-primary" to="/conferences">
-          Мои конференции
+        <ErrorNotice error={query.error} />
+        {query.isPending ? (
+          <Loading />
+        ) : (
+          <div className="conference-list">
+            {conferences.map((item) => (
+              <Link
+                className="conference-row"
+                key={item.id}
+                to={`/conferences/${item.id}`}
+              >
+                <Clapperboard size={22} />
+                <div>
+                  <strong>{item.title}</strong>
+                  <p className="field-hint">
+                    {formatDate(item.finishedAt || item.createdAt)}
+                  </p>
+                </div>
+                <span className="text-link">История и записи</span>
+              </Link>
+            ))}
+          </div>
+        )}
+        {!query.isPending && !query.isError && !conferences.length && (
+          <p className="compact-empty muted">Завершённых встреч пока нет.</p>
+        )}
+        {query.hasNextPage && (
+          <Button
+            variant="outline"
+            busy={query.isFetchingNextPage}
+            onClick={() => void query.fetchNextPage()}
+          >
+            Ещё встречи
+          </Button>
+        )}
+        <Link className="text-link" to="/conferences?view=past">
+          Вся история встреч
         </Link>
       </section>
     </>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "./api";
 import type { RealtimeEvent, RealtimeState } from "./types";
@@ -58,6 +58,13 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
   const [generation, setGeneration] = useState(0);
   const socket = useRef<WebSocket | null>(null);
   const listener = useRef<(event: RealtimeEvent) => void>(() => {});
+  const subscribers = useRef(new Set<(event: RealtimeEvent) => void>());
+  const subscribe = useCallback((callback: (event: RealtimeEvent) => void) => {
+    subscribers.current.add(callback);
+    return () => {
+      subscribers.current.delete(callback);
+    };
+  }, []);
   useEffect(() => {
     setState(null);
     setError(null);
@@ -70,6 +77,26 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
     let retry = 0;
     let rosterKey = "";
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let chatTimer: ReturnType<typeof setTimeout> | undefined;
+    let chatDirty = false;
+    const refreshChat = (messages: boolean) => {
+      chatDirty ||= messages;
+      if (chatTimer) return;
+      chatTimer = setTimeout(() => {
+        chatTimer = undefined;
+        if (disposed) return;
+        if (chatDirty)
+          void queryClient.invalidateQueries(
+            { queryKey: ["chat", conferenceId] },
+            { cancelRefetch: false },
+          );
+        chatDirty = false;
+        void queryClient.invalidateQueries(
+          { queryKey: ["chat-read", conferenceId] },
+          { cancelRefetch: false },
+        );
+      }, 200);
+    };
     const abort = new AbortController();
     const invalidate = () => {
       void queryClient.invalidateQueries({
@@ -78,6 +105,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
       void queryClient.invalidateQueries({
         queryKey: ["participants"],
       });
+      void queryClient.invalidateQueries({ queryKey: ["membership"] });
     };
     const connect = async () => {
       if (disposed) return;
@@ -94,6 +122,15 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
           if (!disposed) {
             setStatus("Подключено");
             setError(null);
+            void queryClient.invalidateQueries({
+              queryKey: ["chat", conferenceId],
+            });
+            void queryClient.invalidateQueries({
+              queryKey: ["chat-read", conferenceId],
+            });
+            void queryClient.invalidateQueries({
+              queryKey: ["hands", conferenceId],
+            });
           }
         };
         ws.onmessage = (message) => {
@@ -101,7 +138,8 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
           const e = parseRealtime(message.data, conferenceId);
           if (!e) return;
           // Show only event names; never display full SDP/ICE/tickets.
-          setEvents((old) => [e.type, ...old].slice(0, 8));
+          if (e.type !== "reaction.created" && !e.type.startsWith("chat."))
+            setEvents((old) => [e.type, ...old].slice(0, 8));
           if (
             e.type.startsWith("participant.") &&
             !["participant.connected", "participant.disconnected"].includes(
@@ -111,6 +149,9 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
             invalidate();
           if (e.type.startsWith("recording."))
             void queryClient.invalidateQueries({ queryKey: ["recordings"] });
+          if (e.type.startsWith("chat.")) {
+            refreshChat(e.type !== "chat.read.updated");
+          }
           if (
             [
               "conference.state",
@@ -140,6 +181,13 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
             }
           }
           listener.current(e);
+          for (const subscriber of subscribers.current) {
+            try {
+              subscriber(e);
+            } catch {
+              /* Noncritical UI listeners cannot break signaling delivery. */
+            }
+          }
         };
         ws.onerror = () => {
           if (!disposed)
@@ -195,6 +243,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
       disposed = true;
       abort.abort();
       clearTimeout(timer);
+      clearTimeout(chatTimer);
       const ws = socket.current;
       socket.current = null;
       if (ws) {
@@ -228,6 +277,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
     events,
     send,
     onEvent: listener,
+    subscribe,
     reconnect: () => setGeneration((n) => n + 1),
   };
 }

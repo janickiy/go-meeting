@@ -4,6 +4,7 @@ import { ArrowLeft, LogIn, Video } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
+import { formatDate } from "../utils";
 
 export function InvitePage() {
   const { code = "" } = useParams();
@@ -43,6 +44,15 @@ export function InvitePage() {
       <span className="eyebrow">ВАС ПРИГЛАСИЛИ НА ВСТРЕЧУ</span>
       <h1>{conference.title}</h1>
       <StatusBadge status={conference.status} />
+      {conference.scheduledAt && (
+        <p>Начало: {formatDate(conference.scheduledAt)}</p>
+      )}
+      {conference.waitingRoomEnabled && (
+        <p className="field-hint">
+          Во встрече включён зал ожидания. Организатор подтвердит вход после
+          начала.
+        </p>
+      )}
       <p>
         {closed
           ? "Организатор уже закрыл эту конференцию."
@@ -52,7 +62,9 @@ export function InvitePage() {
       {!closed && (
         <Button busy={mutation.isPending} onClick={() => mutation.mutate()}>
           <LogIn size={18} />
-          Присоединиться к конференции
+          {conference.status === "scheduled"
+            ? "Добавить в мои встречи"
+            : "Присоединиться к конференции"}
         </Button>
       )}
       <Link className="text-link" to="/app">

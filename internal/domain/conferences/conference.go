@@ -12,39 +12,48 @@ import (
 type Status string
 type Role string
 type ParticipantStatus string
+type AdmissionState string
 
 const (
-	Created         Status            = "created"
-	Active          Status            = "active"
-	Finished        Status            = "finished"
-	Cancelled       Status            = "cancelled"
-	Owner           Role              = "owner"
-	CoHost          Role              = "co_host"
-	ParticipantRole Role              = "participant"
-	Guest           Role              = "guest"
-	Joined          ParticipantStatus = "joined"
-	Left            ParticipantStatus = "left"
-	Waiting         ParticipantStatus = "waiting"
-	Rejected        ParticipantStatus = "rejected"
-	Kicked          ParticipantStatus = "kicked"
+	Created           Status            = "created"
+	Scheduled         Status            = "scheduled"
+	Active            Status            = "active"
+	Finished          Status            = "finished"
+	Cancelled         Status            = "cancelled"
+	Owner             Role              = "owner"
+	CoHost            Role              = "co_host"
+	ParticipantRole   Role              = "participant"
+	Guest             Role              = "guest"
+	Joined            ParticipantStatus = "joined"
+	Left              ParticipantStatus = "left"
+	Waiting           ParticipantStatus = "waiting"
+	Rejected          ParticipantStatus = "rejected"
+	Kicked            ParticipantStatus = "kicked"
+	AdmissionWaiting  AdmissionState    = "waiting"
+	AdmissionAdmitted AdmissionState    = "admitted"
+	AdmissionRejected AdmissionState    = "rejected"
+	AdmissionKicked   AdmissionState    = "kicked"
 )
 
 var ErrInviteCollision = errors.New("invite code collision")
 
 func CanTransition(from, to Status) bool {
-	return (from == Created && (to == Active || to == Cancelled)) || (from == Active && to == Finished)
+	return ((from == Created || from == Scheduled) && (to == Active || to == Cancelled)) || (from == Active && to == Finished)
 }
 
 type Conference struct {
-	ID         string `gorm:"type:uuid;primaryKey"`
-	OwnerID    string `gorm:"column:owner_id;type:uuid"`
-	Title      string
-	InviteCode string `gorm:"column:invite_code"`
-	Status     Status
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	StartedAt  *time.Time
-	FinishedAt *time.Time
+	ID                 string `gorm:"type:uuid;primaryKey"`
+	OwnerID            string `gorm:"column:owner_id;type:uuid"`
+	Title              string
+	InviteCode         string `gorm:"column:invite_code"`
+	Status             Status
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	StartedAt          *time.Time
+	FinishedAt         *time.Time
+	WaitingRoomEnabled bool
+	ScheduledAt        *time.Time
+	PlannedDurationMin *int
 }
 
 func (Conference) TableName() string { return "conferences" }
@@ -66,34 +75,43 @@ type Participant struct {
 	MicrophoneBlocked  bool
 	CameraBlocked      bool
 	ScreenBlocked      bool
-	MediaPolicyVersion int64 `gorm:"default:1"`
+	MediaPolicyVersion int64          `gorm:"default:1"`
+	AdmissionState     AdmissionState `gorm:"default:admitted"`
+	AdmissionDecidedAt *time.Time
+	AdmissionVersion   int64 `gorm:"default:1"`
 }
 
 func (Participant) TableName() string { return "conference_participants" }
 
 type View struct {
-	ID         string     `json:"id"`
-	OwnerID    string     `json:"ownerId"`
-	Title      string     `json:"title"`
-	InviteCode string     `json:"inviteCode"`
-	InviteURL  string     `json:"inviteUrl"`
-	Status     Status     `json:"status"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
-	StartedAt  *time.Time `json:"startedAt"`
-	FinishedAt *time.Time `json:"finishedAt"`
+	ID                 string     `json:"id"`
+	OwnerID            string     `json:"ownerId"`
+	Title              string     `json:"title"`
+	InviteCode         string     `json:"inviteCode"`
+	InviteURL          string     `json:"inviteUrl"`
+	Status             Status     `json:"status"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	UpdatedAt          time.Time  `json:"updatedAt"`
+	StartedAt          *time.Time `json:"startedAt"`
+	FinishedAt         *time.Time `json:"finishedAt"`
+	WaitingRoomEnabled bool       `json:"waitingRoomEnabled"`
+	ScheduledAt        *time.Time `json:"scheduledAt"`
+	PlannedDurationMin *int       `json:"plannedDurationMin"`
 }
 
 func (c Conference) View() View {
 	return View{ID: c.ID, OwnerID: c.OwnerID, Title: c.Title, InviteCode: c.InviteCode,
 		InviteURL: "/api/v1/conference-invites/" + c.InviteCode, Status: c.Status,
-		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, StartedAt: c.StartedAt, FinishedAt: c.FinishedAt}
+		CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, StartedAt: c.StartedAt, FinishedAt: c.FinishedAt,
+		WaitingRoomEnabled: c.WaitingRoomEnabled, ScheduledAt: c.ScheduledAt, PlannedDurationMin: c.PlannedDurationMin}
 }
 
 type InviteView struct {
-	ID     string `json:"id"`
-	Title  string `json:"title"`
-	Status Status `json:"status"`
+	ID                 string     `json:"id"`
+	Title              string     `json:"title"`
+	Status             Status     `json:"status"`
+	WaitingRoomEnabled bool       `json:"waitingRoomEnabled,omitempty"`
+	ScheduledAt        *time.Time `json:"scheduledAt,omitempty"`
 }
 
 type ParticipantView struct {
@@ -114,6 +132,9 @@ type ParticipantView struct {
 	CameraBlocked      bool              `json:"cameraBlocked"`
 	ScreenBlocked      bool              `json:"screenBlocked"`
 	MediaPolicyVersion int64             `json:"mediaPolicyVersion"`
+	AdmissionState     AdmissionState    `json:"admissionState"`
+	AdmissionDecidedAt *time.Time        `json:"admissionDecidedAt"`
+	AdmissionVersion   int64             `json:"admissionVersion"`
 }
 
 func (p Participant) View() ParticipantView {
@@ -121,11 +142,15 @@ func (p Participant) View() ParticipantView {
 		DisplayName: p.DisplayName, Role: p.Role, Status: p.Status, JoinedAt: p.JoinedAt,
 		LeftAt: p.LeftAt, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 		MicrophoneEnabled: p.MicrophoneEnabled, CameraEnabled: p.CameraEnabled, ScreenSharing: p.ScreenSharing,
-		MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, MediaPolicyVersion: p.MediaPolicyVersion}
+		MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, MediaPolicyVersion: p.MediaPolicyVersion,
+		AdmissionState: p.AdmissionState, AdmissionDecidedAt: p.AdmissionDecidedAt, AdmissionVersion: p.AdmissionVersion}
 }
 
 type CreateRequest struct {
-	Title string `json:"title"`
+	Title              string     `json:"title"`
+	WaitingRoomEnabled bool       `json:"waitingRoomEnabled"`
+	ScheduledAt        *time.Time `json:"scheduledAt"`
+	PlannedDurationMin *int       `json:"plannedDurationMin"`
 }
 type JoinRequest struct {
 	InviteCode string `json:"inviteCode"`

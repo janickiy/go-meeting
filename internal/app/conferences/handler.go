@@ -22,6 +22,11 @@ type Service interface {
 	Leave(context.Context, string, string) (conferences.ParticipantView, error)
 	LookupInvite(context.Context, string) (conferences.InviteView, error)
 	JoinInvite(context.Context, string, string) (conferences.ParticipantView, error)
+	Self(context.Context, string, string) (conferences.ParticipantView, error)
+	Admission(context.Context, string, string, string, conferences.AdmissionRequest) (conferences.ParticipantView, error)
+	Schedule(context.Context, string, string, conferences.ScheduleRequest) (conferences.View, error)
+	Timeline(context.Context, string, conferences.TimelineQuery) (conferences.TimelinePage, error)
+	History(context.Context, string, string) (conferences.HistoryView, error)
 }
 
 type Handler struct{ service Service }

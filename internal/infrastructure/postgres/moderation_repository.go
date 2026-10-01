@@ -64,6 +64,9 @@ func (r *ConferenceRepository) Moderate(ctx context.Context, conferenceID, userI
 		case "kick":
 			if target.Status != conferences.Kicked {
 				updates["status"] = conferences.Kicked
+				updates["admission_state"] = conferences.AdmissionKicked
+				updates["admission_decided_at"] = time.Now().UTC()
+				updates["admission_version"] = gorm.Expr("admission_version + 1")
 				if target.JoinedAt != nil {
 					updates["left_at"] = time.Now().UTC()
 				}
@@ -138,7 +141,7 @@ func (r *ConferenceRepository) UpdateMediaState(ctx context.Context, conferenceI
 		if err != nil {
 			return membershipError(err)
 		}
-		if participant.Status != conferences.Joined {
+		if !participant.CanParticipate() {
 			return apperrors.ErrForbidden
 		}
 		var session struct{ MediaSequence int64 }
@@ -170,11 +173,19 @@ func (r *ConferenceRepository) MediaPolicy(ctx context.Context, conferenceID, pa
 	if err != nil {
 		return media.ParticipantPolicy{}, mapNotFound(err)
 	}
-	return ParticipantPolicy(participant), nil
+	conference, err := findConference(r.db.WithContext(ctx), conferenceID, false)
+	if err != nil {
+		return media.ParticipantPolicy{}, err
+	}
+	policy := ParticipantPolicy(participant)
+	if conference.Status != conferences.Active && conference.Status != conferences.Created {
+		policy.Kicked = true
+	}
+	return policy, nil
 }
 
 func ParticipantPolicy(p conferences.Participant) media.ParticipantPolicy {
-	return media.ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: p.Status != conferences.Joined}
+	return media.ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: !p.CanParticipate()}
 }
 
 // Includes kicked memberships while a conference is live, so failed immediate
@@ -217,9 +228,9 @@ func aggregateParticipantMedia(tx *gorm.DB, p *conferences.Participant) (bool, e
 	if err := tx.Table("participant_sessions").Select("COALESCE(bool_or(microphone_enabled), false) AS microphone_enabled, COALESCE(bool_or(camera_enabled), false) AS camera_enabled, COALESCE(bool_or(screen_sharing), false) AS screen_sharing").Where("participant_id = ? AND status = 'connected'", p.ID).Scan(&aggregate).Error; err != nil {
 		return false, err
 	}
-	aggregate.MicrophoneEnabled = aggregate.MicrophoneEnabled && !p.MicrophoneBlocked && p.Status == conferences.Joined
-	aggregate.CameraEnabled = aggregate.CameraEnabled && !p.CameraBlocked && p.Status == conferences.Joined
-	aggregate.ScreenSharing = aggregate.ScreenSharing && !p.ScreenBlocked && !p.CameraBlocked && p.Status == conferences.Joined
+	aggregate.MicrophoneEnabled = aggregate.MicrophoneEnabled && !p.MicrophoneBlocked && p.CanParticipate()
+	aggregate.CameraEnabled = aggregate.CameraEnabled && !p.CameraBlocked && p.CanParticipate()
+	aggregate.ScreenSharing = aggregate.ScreenSharing && !p.ScreenBlocked && !p.CameraBlocked && p.CanParticipate()
 	if p.MicrophoneEnabled == aggregate.MicrophoneEnabled && p.CameraEnabled == aggregate.CameraEnabled && p.ScreenSharing == aggregate.ScreenSharing {
 		return false, nil
 	}

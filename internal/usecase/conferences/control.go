@@ -86,7 +86,7 @@ func (s *ControlService) Disconnected(ctx context.Context, session realtime.Sess
 }
 
 func policy(p domain.Participant) media.ParticipantPolicy {
-	return media.ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: p.Status != domain.Joined}
+	return media.ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: !p.CanParticipate()}
 }
 
 // Repairs a committed policy after a transient worker/Redis failure. Every API

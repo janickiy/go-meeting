@@ -2,9 +2,11 @@ package realtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -72,6 +74,8 @@ type Hub struct {
 	sockets            sync.WaitGroup
 	workers            sync.WaitGroup
 	disconnectObserver DisconnectObserver
+	hands              HandStore
+	lowEvents          chan domain.Bus
 }
 
 func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger) (*Hub, error) {
@@ -79,7 +83,7 @@ func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger
 	if logger == nil {
 		logger = slog.Default()
 	}
-	h := &Hub{repo: repo, store: store, ttl: ttl, logger: logger, ctx: ctx, cancel: cancel, local: map[string]*localSocket{}}
+	h := &Hub{repo: repo, store: store, ttl: ttl, logger: logger, ctx: ctx, cancel: cancel, local: map[string]*localSocket{}, lowEvents: make(chan domain.Bus, 128)}
 	op, c := context.WithTimeout(ctx, 5*time.Second)
 	defer c()
 	sub, err := store.Subscribe(op)
@@ -88,8 +92,9 @@ func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger
 		return nil, err
 	}
 	h.sub = sub
-	h.workers.Add(2)
+	h.workers.Add(3)
 	go h.receive()
+	go h.receiveLowPriority()
 	go h.janitor()
 	return h, nil
 }
@@ -101,6 +106,7 @@ func (h *Hub) SetDisconnectObserver(observer DisconnectObserver) {
 	h.disconnectObserver = observer
 	h.mu.Unlock()
 }
+func (h *Hub) SetHands(store HandStore) { h.mu.Lock(); h.hands = store; h.mu.Unlock() }
 
 // ValidateSession binds media commands to a still-authorized, live physical
 // WebSocket connection instead of trusting identifiers from a browser payload.
@@ -158,7 +164,10 @@ func (h *Hub) Register(ctx context.Context, session domain.Session, socket Socke
 		return err
 	}
 	state, err := h.state(ctx, session)
-	if err != nil || !socket.Offer(domain.Event("conference.state", session.ConferenceID, state)) {
+	if err == nil && !stateAllows(state, session.ParticipantID) {
+		err = apperrors.ErrForbidden
+	}
+	if err != nil || !socket.Offer(domain.Event("conference.state", session.ConferenceID, stateFor(state, session))) {
 		h.Unregister(session)
 		if err != nil {
 			return err
@@ -267,10 +276,12 @@ func (h *Hub) state(ctx context.Context, session domain.Session) (domain.State, 
 	for _, s := range active {
 		byParticipant[s.ParticipantID] = append(byParticipant[s.ParticipantID], s.ConnectionID)
 	}
-	state := domain.State{ConnectionID: session.ConnectionID, ParticipantID: session.ParticipantID, Status: status, Participants: make([]domain.Presence, 0, len(roster))}
+	state := domain.State{ConnectionID: session.ConnectionID, ParticipantID: session.ParticipantID, Status: status, Participants: make([]domain.Presence, 0, len(roster)), Hands: []domain.Hand{}}
+	eligible := map[string]bool{}
 	for _, p := range roster {
+		eligible[p.ID] = p.CanParticipate()
 		ids := byParticipant[p.ID]
-		if p.Status != conferences.Joined {
+		if !p.CanParticipate() {
 			ids = nil
 		}
 		if ids == nil {
@@ -279,7 +290,55 @@ func (h *Hub) state(ctx context.Context, session domain.Session) (domain.State, 
 		sort.Strings(ids)
 		state.Participants = append(state.Participants, domain.Presence{ParticipantView: p.View(), Online: len(ids) > 0, Connections: len(ids), ConnectionIDs: ids})
 	}
+	h.mu.Lock()
+	hands := h.hands
+	h.mu.Unlock()
+	if hands != nil && status == conferences.Active {
+		items, err := hands.List(ctx, session.ConferenceID)
+		if err != nil {
+			return domain.State{}, err
+		}
+		for _, hand := range items {
+			if eligible[hand.ParticipantID] {
+				state.Hands = append(state.Hands, hand)
+			}
+		}
+	}
 	return state, nil
+}
+
+// Build recipient-specific views from one canonical snapshot. Sharing an
+// owner's state with an ordinary participant would leak the waiting queue.
+func stateFor(state domain.State, session domain.Session) domain.State {
+	state.ConnectionID, state.ParticipantID = session.ConnectionID, session.ParticipantID
+	moderator := false
+	for _, p := range state.Participants {
+		if p.ID == session.ParticipantID {
+			moderator = p.Role == conferences.Owner || p.Role == conferences.CoHost
+			break
+		}
+	}
+	if !moderator {
+		visible := make([]domain.Presence, 0, len(state.Participants))
+		for _, p := range state.Participants {
+			if (p.AdmissionState == conferences.AdmissionAdmitted || p.AdmissionState == "") && (p.Status == conferences.Joined || p.Status == conferences.Left) {
+				visible = append(visible, p)
+			}
+		}
+		state.Participants = visible
+	}
+	return state
+}
+func stateAllows(state domain.State, participantID string) bool {
+	if state.Status != conferences.Created && state.Status != conferences.Active {
+		return false
+	}
+	for _, p := range state.Participants {
+		if p.ID == participantID {
+			return p.Status == conferences.Joined && (p.AdmissionState == conferences.AdmissionAdmitted || p.AdmissionState == "")
+		}
+	}
+	return false
 }
 func (h *Hub) receive() {
 	defer h.workers.Done()
@@ -292,7 +351,25 @@ func (h *Hub) receive() {
 			}
 			return // Fail closed: never silently keep sockets on a broken broker.
 		}
-		h.deliver(bus)
+		if bus.Kind == "event" && bus.Event != nil && domain.LowPriorityEvent(bus.Event.Type) {
+			select {
+			case h.lowEvents <- bus:
+			default:
+			} // Durable history repairs overflow.
+		} else {
+			h.deliver(bus)
+		}
+	}
+}
+func (h *Hub) receiveLowPriority() {
+	defer h.workers.Done()
+	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		case bus := <-h.lowEvents:
+			h.deliver(bus)
+		}
 	}
 }
 func (h *Hub) entries(conferenceID string) []*localSocket {
@@ -319,9 +396,49 @@ func (h *Hub) deliver(bus domain.Bus) {
 		}
 	}
 	entries := h.entries(bus.ConferenceID)
+	if len(entries) == 0 {
+		return
+	}
 	if bus.Kind == "event" && bus.Event != nil {
+		// Revalidate recipients from current durable membership, not the socket's
+		// cached identity. A kick/finish can commit before its changed event arrives.
+		kind := bus.Event.Type
+		restricted := strings.HasPrefix(kind, "chat.") || strings.HasPrefix(kind, "recording.") || strings.HasPrefix(kind, "hand.") || strings.HasPrefix(kind, "reaction.") || strings.HasPrefix(kind, "participant.")
+		allowed := map[string]bool{}
+		if restricted {
+			status, roster, err := h.repo.Roster(ctx, bus.ConferenceID)
+			if err != nil {
+				return
+			}
+			for _, p := range roster {
+				ok := p.CanParticipate()
+				if status == conferences.Finished || status == conferences.Cancelled {
+					ok = false
+				}
+				if kind == "participant.waiting" || kind == "participant.rejected" {
+					ok = ok && p.CanAdmit()
+				}
+				allowed[p.ID] = ok
+			}
+		}
+		if kind == "hand.raised" || kind == "hand.lowered" {
+			h.mu.Lock()
+			hands := h.hands
+			h.mu.Unlock()
+			if hands != nil {
+				current, err := hands.List(ctx, bus.ConferenceID)
+				if err != nil {
+					return
+				}
+				event := currentHandEvent(*bus.Event, current, allowed)
+				bus.Event = &event
+			}
+		}
 		for _, entry := range entries {
 			s := entry.session
+			if restricted && !allowed[s.ParticipantID] {
+				continue
+			}
 			if (bus.ConnectionID == "" || bus.ConnectionID == s.ConnectionID) && (bus.ParticipantID == "" || bus.ParticipantID == s.ParticipantID) {
 				if !entry.socket.Offer(*bus.Event) {
 					entry.socket.Stop("slow_client")
@@ -343,25 +460,46 @@ func (h *Hub) deliver(bus domain.Bus) {
 	}
 	joined := map[string]bool{}
 	for _, p := range state.Participants {
-		joined[p.ID] = p.Status == conferences.Joined
+		joined[p.ID] = p.Status == conferences.Joined && (p.AdmissionState == conferences.AdmissionAdmitted || p.AdmissionState == "")
 	}
 	for _, entry := range entries {
 		if state.Status == conferences.Finished || state.Status == conferences.Cancelled || !joined[entry.session.ParticipantID] {
 			entry.socket.Stop("membership_closed")
 			continue
 		}
-		state.ConnectionID = entry.session.ConnectionID
-		state.ParticipantID = entry.session.ParticipantID
 		kind := "conference.state"
 		if bus.Kind == "connected" {
 			kind = "participant.connected"
 		} else if bus.Kind == "disconnected" || bus.Kind == "expired" {
 			kind = "participant.disconnected"
 		}
-		if !entry.socket.Offer(domain.Event(kind, bus.ConferenceID, state)) {
+		if !entry.socket.Offer(domain.Event(kind, bus.ConferenceID, stateFor(state, entry.session))) {
 			entry.socket.Stop("slow_client")
 		}
 	}
+}
+
+// Concurrent Redis mutations can publish in a different order. Resolve each
+// hand hint against current state instead of replaying a stale raise/lower.
+func currentHandEvent(event domain.Envelope, hands []domain.Hand, allowed map[string]bool) domain.Envelope {
+	var target struct {
+		ParticipantID string `json:"participantId"`
+	}
+	if json.Unmarshal(event.Data, &target) != nil {
+		return event
+	}
+	event.Type = "hand.lowered"
+	event.Data, _ = json.Marshal(target)
+	if allowed[target.ParticipantID] {
+		for _, hand := range hands {
+			if hand.ParticipantID == target.ParticipantID {
+				event.Type = "hand.raised"
+				event.Data, _ = json.Marshal(hand)
+				break
+			}
+		}
+	}
+	return event
 }
 func (h *Hub) janitor() {
 	defer h.workers.Done()

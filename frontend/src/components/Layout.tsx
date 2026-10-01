@@ -12,9 +12,12 @@ import {
 import { useAuth } from "../auth";
 import { initials } from "../utils";
 import { Brand } from "./ui";
+import { NotificationBell } from "./NotificationBell";
+import { useNotificationStream } from "../notifications";
 
 export function Layout() {
   const { user, logout } = useAuth();
+  useNotificationStream(user?.id);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -154,6 +157,7 @@ export function Layout() {
           </button>
           <span>Ваше пространство для встреч</span>
           <span className="workspace-account">
+            <NotificationBell />
             <span className="online-dot" />
             {user?.displayName || "Личный кабинет"}
           </span>

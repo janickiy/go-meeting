@@ -2,11 +2,13 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleHelp, Info, Link as LinkIcon, Mail, Video } from "lucide-react";
+import { Info, Link as LinkIcon, Mail, Video } from "lucide-react";
 import { api } from "../api";
 import type { Conference } from "../types";
 import { inviteCode, inviteLink } from "../utils";
 import { Button, CopyLink, ErrorNotice, Modal, SuccessMark } from "./ui";
+import { ScheduleFields } from "./ScheduleFields";
+import { localSchedule, toLocalInput } from "../collaboration";
 
 export function ShareConference({
   conference,
@@ -53,8 +55,24 @@ export function CreateConference() {
   const [title, setTitle] = useState("");
   const [validation, setValidation] = useState("");
   const [created, setCreated] = useState<Conference | null>(null);
+  const [waitingRoom, setWaitingRoom] = useState(false);
+  const [planned, setPlanned] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState(() =>
+    toLocalInput(new Date(Date.now() + 3600000).toISOString()),
+  );
+  const [duration, setDuration] = useState("");
   const mutation = useMutation({
-    mutationFn: () => api.create(title.trim()),
+    mutationFn: () =>
+      api.create({
+        title: title.trim(),
+        waitingRoomEnabled: waitingRoom,
+        ...(planned
+          ? {
+              scheduledAt: localSchedule(scheduledAt),
+              plannedDurationMin: duration ? Number(duration) : null,
+            }
+          : {}),
+      }),
     onSuccess: ({ item }) => {
       void client.invalidateQueries({ queryKey: ["conferences"] });
       setCreated(item);
@@ -68,6 +86,24 @@ export function CreateConference() {
     setValidation("");
     if (!title.trim() || Array.from(title.trim()).length > 200) {
       setValidation("Название должно содержать от 1 до 200 символов.");
+      return;
+    }
+    if (
+      planned &&
+      (!localSchedule(scheduledAt) ||
+        new Date(localSchedule(scheduledAt)!).getTime() <= Date.now())
+    ) {
+      setValidation("Выберите корректную дату и время в будущем.");
+      return;
+    }
+    if (
+      planned &&
+      duration &&
+      (!Number.isInteger(Number(duration)) ||
+        Number(duration) < 1 ||
+        Number(duration) > 1440)
+    ) {
+      setValidation("Длительность — целое число от 1 до 1440 минут.");
       return;
     }
     mutation.mutate();
@@ -90,23 +126,43 @@ export function CreateConference() {
             disabled={mutation.isPending}
           />
         </label>
-        <label className="field unavailable-field" htmlFor="description">
-          Описание <span className="muted">(пока недоступно)</span>
-          <textarea
-            id="description"
-            placeholder="О чём будете встречаться?"
-            disabled
-            rows={3}
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={waitingRoom}
+            onChange={(event) => setWaitingRoom(event.target.checked)}
+            disabled={mutation.isPending}
           />
+          <span>
+            <strong>Зал ожидания</strong>
+            <small>Организатор приглашает участников войти во встречу.</small>
+          </span>
         </label>
-        <div className="unavailable-feature">
-          <span className="disabled-switch" aria-hidden="true" />
-          <div>
-            <strong>Запись встречи</strong>
-            <p>Автоматическая запись будет добавлена отдельно.</p>
-          </div>
-          <CircleHelp size={17} />
-        </div>
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={planned}
+            onChange={(event) => setPlanned(event.target.checked)}
+            disabled={mutation.isPending}
+          />
+          <span>
+            <strong>Запланировать встречу</strong>
+            <small>Выбрать дату и время заранее.</small>
+          </span>
+        </label>
+        {planned && (
+          <ScheduleFields
+            value={scheduledAt}
+            onChange={setScheduledAt}
+            duration={duration}
+            onDuration={setDuration}
+            disabled={mutation.isPending}
+          />
+        )}
+        <p className="field-hint">
+          Запись можно включить после начала встречи. Встречу запускает
+          организатор — она не начнётся автоматически.
+        </p>
         <ErrorNotice error={mutation.error}>{validation || null}</ErrorNotice>
         <Button type="submit" busy={mutation.isPending} className="full-width">
           Создать конференцию
@@ -119,6 +175,77 @@ export function CreateConference() {
           className="full-width"
         >
           Отмена
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+export function EditSchedule({
+  conference,
+  onClose,
+}: {
+  conference: Conference;
+  onClose: () => void;
+}) {
+  const client = useQueryClient();
+  const [date, setDate] = useState(() =>
+    toLocalInput(conference.scheduledAt || ""),
+  );
+  const [duration, setDuration] = useState(
+    String(conference.plannedDurationMin || ""),
+  );
+  const [validation, setValidation] = useState("");
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.schedule(
+        conference.id,
+        localSchedule(date)!,
+        duration ? Number(duration) : null,
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["conference"] });
+      void client.invalidateQueries({ queryKey: ["conferences"] });
+      onClose();
+    },
+  });
+  return (
+    <Modal
+      title="Изменить расписание"
+      onClose={() => {
+        if (!mutation.isPending) onClose();
+      }}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          setValidation("");
+          const utc = localSchedule(date);
+          if (!utc || new Date(utc).getTime() <= Date.now()) {
+            setValidation("Укажите время в будущем.");
+            return;
+          }
+          if (
+            duration &&
+            (!Number.isInteger(Number(duration)) ||
+              Number(duration) < 1 ||
+              Number(duration) > 1440)
+          ) {
+            setValidation("Длительность — от 1 до 1440 минут.");
+            return;
+          }
+          mutation.mutate();
+        }}
+      >
+        <ScheduleFields
+          value={date}
+          onChange={setDate}
+          duration={duration}
+          onDuration={setDuration}
+          disabled={mutation.isPending}
+        />
+        <ErrorNotice error={mutation.error}>{validation || null}</ErrorNotice>
+        <Button type="submit" busy={mutation.isPending}>
+          Сохранить расписание
         </Button>
       </form>
     </Modal>
