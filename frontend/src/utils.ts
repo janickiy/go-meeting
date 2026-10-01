@@ -1,8 +1,21 @@
 export const SESSION_KEY = "meet.session.v1";
+/**
+ * Session связывает сохранённый токен, пользователя и сведения клиентской авторизации.
+ *
+ * Состав:
+ *   - token — токен текущей авторизации; null отключает авторизованные запросы.
+ *   - expiresAt — поле или операция этого контракта.
+ */
 export interface Session {
   token: string;
   expiresAt: number;
 }
+/**
+ * readSession читает и проверяет сохранённую клиентскую сессию и отвергает повреждённое значение.
+ *
+ *
+ * @returns Session | null — вычисленное значение: data as Session; null.
+ */
 export function readSession(): Session | null {
   try {
     const data: unknown = JSON.parse(
@@ -32,6 +45,14 @@ export function readSession(): Session | null {
   }
   return null;
 }
+/**
+ * saveSession сохраняет либо удаляет сессию в локальном хранилище браузера.
+ *
+ * @parameters:
+ *   - session (Session | null) — проверенная клиентская сессия либо null для удаления.
+ *
+ * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 export function saveSession(session: Session | null) {
   try {
     if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -40,6 +61,14 @@ export function saveSession(session: Session | null) {
     /* Do not persist credentials elsewhere. */
   }
 }
+/**
+ * safeNext проверяет локальный путь возврата после авторизации и исключает внешний переход.
+ *
+ * @parameters:
+ *   - value (string | null) — значение для проверки, преобразования или отображения.
+ *
+ * @returns string — вычисленное значение: "/app"; url.pathname + url.search.
+ */
 export function safeNext(value: string | null): string {
   if (
     !value ||
@@ -63,6 +92,14 @@ export function safeNext(value: string | null): string {
     return "/app";
   }
 }
+/**
+ * inviteCode извлекает допустимый код приглашения из кода или ссылки.
+ *
+ * @parameters:
+ *   - value (string) — значение для проверки, преобразования или отображения.
+ *
+ * @returns string | null — вычисленное значение: trimmed; null; match?.[1] || null.
+ */
 export function inviteCode(value: string): string | null {
   const trimmed = value.trim();
   if (/^[A-Za-z0-9_-]{32}$/.test(trimmed)) return trimmed;
@@ -77,15 +114,55 @@ export function inviteCode(value: string): string | null {
     return null;
   }
 }
+/**
+ * inviteLink строит ссылку приглашения для текущего адреса приложения.
+ *
+ * @parameters:
+ *   - code (string) — проверенный код приглашения.
+ *
+ * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+ */
 export const inviteLink = (code: string) =>
   `${window.location.origin}/i/${encodeURIComponent(code)}`;
+/**
+ * formatDate форматирует временную отметку для отображения даты и времени встречи.
+ *
+ * @parameters:
+ *   - value (string) — значение для проверки, преобразования или отображения.
+ *
+ * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+ */
 export const formatDate = (value: string) =>
   new Intl.DateTimeFormat("ru-RU", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+/**
+ * utf8Bytes считает длину строки в байтах UTF-8.
+ *
+ * @parameters:
+ *   - value (string) — значение для проверки, преобразования или отображения.
+ *
+ * @returns вычисленное значение: new TextEncoder().encode(value).length.
+ */
 export const utf8Bytes = (value: string) =>
   new TextEncoder().encode(value).length;
+/**
+ * passwordLength считает символы Unicode пароля без привязки к числу байтов.
+ *
+ * @parameters:
+ *   - value (string) — значение для проверки, преобразования или отображения.
+ *
+ * @returns вычисленное значение: Array.from(value).length.
+ */
 export const passwordLength = (value: string) => Array.from(value).length;
+/**
+ * initials выбирает инициалы имени для аватара участника.
+ *
+ * @parameters:
+ *   - name (string) — отображаемое имя пользователя для инициалов.
+ *
+ * @returns вычисленное значение: Array.from(name.trim())[0]?.toUpperCase() || "М".
+ */
 export const initials = (name: string) =>
   Array.from(name.trim())[0]?.toUpperCase() || "М";

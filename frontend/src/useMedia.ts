@@ -4,6 +4,16 @@ import type { MediaPolicy } from "./media";
 import { api } from "./api";
 import type { useRealtime } from "./realtime";
 
+/**
+ * useMedia связывает состояние React с клиентом WebRTC и освобождает медиа при смене конференции или отключении.
+ *
+ * @parameters:
+ *   - live (ReturnType<typeof useRealtime>) — входное значение live текущего шага обработки.
+ *   - conferenceId (string) — идентификатор конференции и области данных.
+ *   - policy (MediaPolicy) — актуальные ограничения модерации источников.
+ *
+ * @returns состояние, данные или действия React-хука; ресурсы освобождаются при изменении зависимостей.
+ */
 export function useMedia(
   live: ReturnType<typeof useRealtime>,
   conferenceId: string,
@@ -20,63 +30,161 @@ export function useMedia(
   const mediaSequence = useRef(0);
   policyRef.current = policy;
   liveRef.current = live;
+  /**
+   * stop закрывает WebRTC, останавливает принадлежащие клиенту дорожки и очищает таймеры и состояние.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   const stop = () => {
     controller.current?.stop();
     controller.current = null;
     setRunning(false);
   };
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      controller.current?.stop();
-      controller.current = null;
-    };
-  }, []);
-  useEffect(() => {
-    stop();
-    setView(emptyMediaView());
-  }, [live.state?.connectionId]);
-  useEffect(() => {
-    controller.current?.setPolicy(policy);
-  }, [
-    policy.version,
-    policy.microphoneBlocked,
-    policy.cameraBlocked,
-    policy.screenBlocked,
-  ]);
-  useEffect(() => {
-    const connectionId = live.state?.connectionId;
-    if (!connectionId) return;
-    const snapshot = {
-      connectionId,
-      sequence: ++mediaSequence.current,
-      microphoneEnabled: view.microphoneEnabled,
-      cameraEnabled: view.cameraEnabled,
-      screenSharing: view.screenSharing,
-    };
-    const timer = setTimeout(() => {
-      void api.setMediaState(conferenceId, snapshot).catch(() => {});
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [
-    conferenceId,
-    live.state?.connectionId,
-    view.microphoneEnabled,
-    view.cameraEnabled,
-    view.screenSharing,
-  ]);
-  live.onEvent.current = (event) => controller.current?.handle(event);
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      mounted.current = true;
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      return () => {
+        mounted.current = false;
+        controller.current?.stop();
+        controller.current = null;
+      };
+    },
+    [],
+  );
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      stop();
+      setView(emptyMediaView());
+    },
+    [live.state?.connectionId],
+  );
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      controller.current?.setPolicy(policy);
+    },
+    [
+      policy.version,
+      policy.microphoneBlocked,
+      policy.cameraBlocked,
+      policy.screenBlocked,
+    ],
+  );
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      const connectionId = live.state?.connectionId;
+      if (!connectionId) return;
+      const snapshot = {
+        connectionId,
+        sequence: ++mediaSequence.current,
+        microphoneEnabled: view.microphoneEnabled,
+        cameraEnabled: view.cameraEnabled,
+        screenSharing: view.screenSharing,
+      };
+      const timer = setTimeout(
+        /**
+         * Обработчик setTimeout выполняет отложенную либо периодическую часть операции.
+         *
+         *
+         * @returns следующее состояние, рассчитанное из предыдущего значения.
+         */ () => {
+          void api.setMediaState(conferenceId, snapshot).catch(
+            /**
+             * Обработчик catch выполняет переданный шаг вызова catch в состоянии связи и WebRTC-медиа.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ () => {},
+          );
+        },
+        100,
+      );
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns вычисленное значение: clearTimeout(timer).
+       */
+      return () => clearTimeout(timer);
+    },
+    [
+      conferenceId,
+      live.state?.connectionId,
+      view.microphoneEnabled,
+      view.cameraEnabled,
+      view.screenSharing,
+    ],
+  );
+  live.onEvent.current =
+    /**
+     * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+     *
+     * @parameters:
+     *   - event — проверенный конверт события комнаты.
+     *
+     * @returns вычисленное значение: controller.current?.handle(event).
+     */ (event) => controller.current?.handle(event);
+  /**
+   * start подготавливает медиа-соединение и при явном разрешении захватывает устройства пользователя.
+   *
+   * @parameters:
+   *   - captureDevices — разрешает первоначальный захват устройств после явного действия пользователя (по умолчанию true).
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   const start = (captureDevices = true) => {
     const connectionId = liveRef.current.state?.connectionId;
     if (!connectionId) return;
     stop();
     const next = new ConferenceMediaClient(
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       * @parameters:
+       *   - type — машинный тип события.
+       *   - data — нагрузка события, проверяемая перед чтением.
+       *
+       * @returns вычисленное значение: liveRef.current.send(type, data).
+       */
       (type, data) => {
         if (liveRef.current.state?.connectionId !== connectionId)
           throw new Error("connection_changed");
         return liveRef.current.send(type, data);
       },
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       * @parameters:
+       *   - state — новое состояние источников медиа.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
       (state) => {
         if (mounted.current && controller.current === next) {
           setView(state);
@@ -94,11 +202,41 @@ export function useMedia(
     running,
     start,
     stop,
+    /**
+     * microphone меняет активность или устройство микрофона.
+     *
+     * @parameters:
+     *   - enabled (boolean) — разрешает выполнение запроса или подключение при выполненных условиях доступа.
+     *   - deviceId (string) — идентификатор выбранного пользователем устройства (необязательный параметр).
+     *
+     * @returns вычисленное значение: controller.current?.changeSource("microphone", enabled, deviceId).
+     */
     microphone: (enabled: boolean, deviceId?: string) =>
       controller.current?.changeSource("microphone", enabled, deviceId),
+    /**
+     * camera меняет активность или устройство камеры.
+     *
+     * @parameters:
+     *   - enabled (boolean) — разрешает выполнение запроса или подключение при выполненных условиях доступа.
+     *   - deviceId (string) — идентификатор выбранного пользователем устройства (необязательный параметр).
+     *
+     * @returns вычисленное значение: controller.current?.changeSource("camera", enabled, deviceId).
+     */
     camera: (enabled: boolean, deviceId?: string) =>
       controller.current?.changeSource("camera", enabled, deviceId),
+    /**
+     * startScreen по действию пользователя запрашивает демонстрацию экрана и публикует разрешённые дорожки.
+     *
+     *
+     * @returns вычисленное значение: controller.current?.startScreen().
+     */
     startScreen: () => controller.current?.startScreen(),
+    /**
+     * stopScreen останавливает принадлежащие клиенту дорожки экрана и согласует снятие публикации.
+     *
+     *
+     * @returns вычисленное значение: controller.current?.stopScreen().
+     */
     stopScreen: () => controller.current?.stopScreen(),
   };
 }

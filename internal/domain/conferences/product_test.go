@@ -7,6 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// TestAdmissionAuthorization проверяет сценарий «допуск авторизация», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAdmissionAuthorization(t *testing.T) {
 	for _, state := range []AdmissionState{AdmissionWaiting, AdmissionAdmitted, AdmissionRejected, AdmissionKicked} {
 		for _, status := range []ParticipantStatus{Joined, Left, Waiting, Rejected, Kicked} {
@@ -46,6 +50,10 @@ func TestAdmissionAuthorization(t *testing.T) {
 	}
 }
 
+// TestScheduleAndTimelineValidation проверяет сценарий «расписание и Timeline проверка входных данных», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestScheduleAndTimelineValidation(t *testing.T) {
 	for _, target := range []Status{Active, Cancelled} {
 		if !CanTransition(Scheduled, target) {

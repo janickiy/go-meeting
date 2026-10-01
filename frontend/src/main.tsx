@@ -19,6 +19,15 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 10000,
+      /**
+       * retry решает, допустим ли повтор запроса с учётом ошибки и числа отказов.
+       *
+       * @parameters:
+       *   - count — число уже выполненных попыток.
+       *   - error — пойманная ошибка API или сети.
+       *
+       * @returns вычисленное значение: !( error instanceof ApiError && error.status >= 400 && error.status < 500 ) && count < 1.
+       */
       retry: (count, error) =>
         !(
           error instanceof ApiError &&

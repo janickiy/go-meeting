@@ -2,6 +2,10 @@ package conferences
 
 import "testing"
 
+// TestModerationPermissionMatrix проверяет сценарий «Moderation Permission Matrix», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestModerationPermissionMatrix(t *testing.T) {
 	roles := []Role{Owner, CoHost, ParticipantRole, Guest}
 	actions := []string{"mute", "camera", "screen", "kick", "role"}
@@ -27,6 +31,10 @@ func TestModerationPermissionMatrix(t *testing.T) {
 	}
 }
 
+// TestModerationInputRejectsAmbiguousOrPrivilegedRole проверяет сценарий «Moderation вход Rejects Ambiguous Or Privileged Role», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestModerationInputRejectsAmbiguousOrPrivilegedRole(t *testing.T) {
 	b := true
 	for _, request := range []ModerationRequest{{Action: "role", Role: Owner}, {Action: "role", Role: CoHost, Blocked: &b}, {Action: "mute"}, {Action: "kick", Blocked: &b}, {Action: "invented"}} {

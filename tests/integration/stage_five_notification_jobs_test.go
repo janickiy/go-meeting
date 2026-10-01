@@ -16,6 +16,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate проверяет сценарий «этап пять уведомление задания захват Every Decision и Deduplicate», фиксируя ошибки поведения как регрессию.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -51,12 +56,18 @@ func TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate(t *testing.
 		t.Fatal("rapid decisions lost/duplicated", count, err)
 	}
 	rollback := errors.New("rollback test mutation")
-	err = f.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("UPDATE conference_participants SET admission_version=admission_version+1,admission_decided_at=now() WHERE id=?", p.ID).Error; err != nil {
-			return err
-		}
-		return rollback
-	})
+	err = f.db.Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			if err := tx.Exec("UPDATE conference_participants SET admission_version=admission_version+1,admission_decided_at=now() WHERE id=?", p.ID).Error; err != nil {
+				return err
+			}
+			return rollback
+		})
 	if !errors.Is(err, rollback) {
 		t.Fatal(err)
 	}
@@ -99,7 +110,11 @@ func TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate(t *testing.
 	}
 	nrepo := pg.NewNotificationRepository(f.db)
 	errs := make([]error, 8)
-	runConcurrent(len(errs), func(i int) { errs[i] = nrepo.Generate(ctx) })
+	runConcurrent(len(errs), /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - i (int): значение i типа int, используемое согласно назначению этой операции.
+		*/func(i int) { errs[i] = nrepo.Generate(ctx) })
 	for _, err := range errs {
 		if err != nil {
 			t.Fatal(err)
@@ -135,6 +150,11 @@ func TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate(t *testing.
 	}
 }
 
+// TestStageFiveRecordingNotificationFanoutBoundedAndAtomic проверяет сценарий «этап пять запись уведомление рассылка ограниченный и Atomic», фиксируя ошибки поведения как регрессию.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveRecordingNotificationFanoutBoundedAndAtomic(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -152,6 +172,13 @@ func TestStageFiveRecordingNotificationFanoutBoundedAndAtomic(t *testing.T) {
 	if err := f.db.CreateInBatches(ps, 100).Error; err != nil {
 		t.Fatal(err)
 	}
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - waiting (bool): логический признак waiting, управляющий соответствующей веткой обработки.
+	//
+	// @return:
+	//   - результат 1 (conferences.Participant): значение, подготовленное операцией для вызывающей стороны.
 	createAttendee := func(waiting bool) conferences.Participant {
 		u := users.User{ID: uuid.NewString(), Email: uuid.NewString() + "@notification.example", PasswordHash: f.owner.PasswordHash}
 		if err := f.db.Create(&u).Error; err != nil {
@@ -179,12 +206,18 @@ func TestStageFiveRecordingNotificationFanoutBoundedAndAtomic(t *testing.T) {
 	}
 	lateCreated := createAttendee(false)
 	rollback := errors.New("rollback generation")
-	err = f.db.Transaction(func(tx *gorm.DB) error {
-		if err := pg.NewNotificationRepository(tx).Generate(ctx); err != nil {
-			return err
-		}
-		return rollback
-	})
+	err = f.db.Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			if err := pg.NewNotificationRepository(tx).Generate(ctx); err != nil {
+				return err
+			}
+			return rollback
+		})
 	if !errors.Is(err, rollback) {
 		t.Fatal(err)
 	}
@@ -239,6 +272,11 @@ func TestStageFiveRecordingNotificationFanoutBoundedAndAtomic(t *testing.T) {
 	}
 }
 
+// TestStageFiveSoonNotificationDedupAcrossSessionTimezones проверяет сценарий «этап пять Soon уведомление дедупликация Across сессия Timezones», фиксируя ошибки поведения как регрессию.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveSoonNotificationDedupAcrossSessionTimezones(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -251,12 +289,18 @@ func TestStageFiveSoonNotificationDedupAcrossSessionTimezones(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, zone := range []string{"Pacific/Honolulu", "Europe/Moscow", "UTC"} {
-		err = f.db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Exec("SELECT set_config('TimeZone',?,true)", zone).Error; err != nil {
-				return err
-			}
-			return pg.NewNotificationRepository(tx).Generate(ctx)
-		})
+		err = f.db.Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+			@parameters:
+			  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+			@return:
+			  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+				if err := tx.Exec("SELECT set_config('TimeZone',?,true)", zone).Error; err != nil {
+					return err
+				}
+				return pg.NewNotificationRepository(tx).Generate(ctx)
+			})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,6 +311,10 @@ func TestStageFiveSoonNotificationDedupAcrossSessionTimezones(t *testing.T) {
 	}
 }
 
+// TestStageFiveNotificationReadyDoesNotInvertConferenceLock проверяет сценарий «этап пять уведомление готовность выполняет не Invert конференция Lock», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveNotificationReadyDoesNotInvertConferenceLock(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()

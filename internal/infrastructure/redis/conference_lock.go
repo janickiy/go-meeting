@@ -31,27 +31,29 @@ end
 return 0
 `)
 
-// ConferenceLock запрещает параллельный record.start для одного conferenceId.
+// ConferenceLock управляет Redis-блокировкой одной активной записи на конференцию.
+//   - client: клиент внешнего сервиса или транспорта компонента.
+//   - ttl: срок жизни сохраняемого значения или выданного разрешения.
 type ConferenceLock struct {
 	client *goredis.Client
 	ttl    time.Duration
 }
 
 // NewConferenceLock создает Redis lock для conferenceId.
-// Параметры:
+// @parameters:
 // - client: Redis client.
 // - ttl: срок жизни lock-а.
-// Возвращает: ConferenceLock.
+// @return ConferenceLock.
 func NewConferenceLock(client *goredis.Client, ttl time.Duration) *ConferenceLock {
 	return &ConferenceLock{client: client, ttl: ttl}
 }
 
 // Acquire пытается поставить lock conferenceId со значением recordId.
-// Параметры:
+// @parameters:
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID записи-владельца lock-а.
-// Возвращает: true, если lock успешно установлен.
+// @return true, если lock успешно установлен.
 func (l *ConferenceLock) Acquire(ctx context.Context, conferenceID string, recordID string) (bool, error) {
 	if l == nil || l.client == nil {
 		return true, nil
@@ -69,11 +71,11 @@ func (l *ConferenceLock) Acquire(ctx context.Context, conferenceID string, recor
 }
 
 // Release снимает lock только если им владеет текущая запись.
-// Параметры:
+// @parameters:
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID записи-владельца lock-а.
-// Возвращает: ошибку Redis.
+// @return ошибку Redis.
 func (l *ConferenceLock) Release(ctx context.Context, conferenceID string, recordID string) error {
 	if l == nil || l.client == nil || strings.TrimSpace(conferenceID) == "" || strings.TrimSpace(recordID) == "" {
 		return nil
@@ -85,6 +87,13 @@ func (l *ConferenceLock) Release(ctx context.Context, conferenceID string, recor
 	return nil
 }
 
+// lockKey строит Redis-ключ блокировки одной конференции.
+//
+// @parameters:
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func lockKey(conferenceID string) string {
 	return conferenceLockPrefix + strings.TrimSpace(conferenceID) + ":lock"
 }

@@ -4,8 +4,8 @@ stages:
   - deploy
 
 variables:
-  GO_VERSION: "1.24.13"
-  GO_ALPINE_VERSION: "3.22"
+  GO_VERSION: "1.26.6"
+  GO_ALPINE_VERSION: "3.23"
   GIT_STRATEGY: "none"
   GIT_DEPTH: "1"
   GIT_SUBMODULE_STRATEGY: "none"
@@ -26,8 +26,9 @@ workflow:
 .go-job:
   image: "golang:${GO_VERSION}-alpine${GO_ALPINE_VERSION}"
   before_script:
-    - apk add --no-cache curl git tar
-    - 'find . -mindepth 1 -maxdepth 1 ! -name .go -exec rm -rf {} +'
+    - apk add --no-cache curl git tar build-base
+    - SOURCE_WORK_DIR="$(mktemp -d)"
+    - cd "$SOURCE_WORK_DIR"
     - SOURCE_ARCHIVE_TOKEN="$(printf "%s" "${CI_SOURCE_ARCHIVE_TOKEN_B64}" | base64 -d)"
     - 'curl --fail --location --http1.1 --ipv4 --connect-timeout 10 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 2 --retry-all-errors --silent --show-error --header "PRIVATE-TOKEN: ${SOURCE_ARCHIVE_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/archive.tar.gz?sha=${CI_COMMIT_SHA}" --output source.tar.gz'
     - tar -xzf source.tar.gz --strip-components=1
@@ -35,7 +36,7 @@ workflow:
     - unset SOURCE_ARCHIVE_TOKEN
     - unset ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy
     - export PATH="/usr/local/go/bin:$PATH"
-    - go version
+    - 'if command -v go >/dev/null 2>&1; then go version; fi'
   cache:
     key: "${CI_PROJECT_NAME}-go-${CI_COMMIT_REF_SLUG}"
     paths:
@@ -47,7 +48,11 @@ go-test:
   stage: test
   timeout: 30m
   script:
+    - test -z "$(gofmt -l $(find cmd internal tests tools -name '*.go'))"
+    - go vet ./...
     - go test ./...
+    - go test -race ./...
+    - go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
 go-build:
   extends: .go-job
@@ -61,6 +66,31 @@ go-build:
     - go build -o .build/worker ./cmd/worker
     - go build -o .build/media-worker ./cmd/media-worker
     - go build -o .build/main ./cmd/main
+
+frontend-check:
+  extends: .go-job
+  image: node:24-alpine
+  stage: test
+  timeout: 10m
+  script:
+    - cd frontend
+    - npm ci
+    - npm run typecheck
+    - npm test
+    - npm run build
+    - npm audit --omit=dev
+
+media-soak-manual:
+  extends: .go-job
+  stage: test
+  timeout: 40m
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - when: manual
+  script:
+    - RECORDER_MEDIA_LOAD=true go test -v ./internal/infrastructure/sfu -run '^TestStageSixMediaLoad$' -timeout 5m
+    - RECORDER_SOAK_DURATION=30m go test -v ./internal/infrastructure/sfu -run '^TestStageSixSoak$' -timeout 35m
 
 deploy-dev:
   image: alpine:3.22

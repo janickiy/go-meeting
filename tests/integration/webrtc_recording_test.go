@@ -20,8 +20,10 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media/ivfreader"
 )
 
-// This opt-in test creates a synthetic recording in the local running stack.
-// It never accesses a browser, camera, microphone, or an existing recording.
+// TestSyntheticWebRTCRecording проверяет сценарий «Synthetic Web RTC запись», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSyntheticWebRTCRecording(t *testing.T) {
 	base, fixture := os.Getenv("RECORDER_TEST_URL"), os.Getenv("RECORDER_TEST_IVF")
 	if base == "" || fixture == "" {
@@ -45,7 +47,9 @@ func TestSyntheticWebRTCRecording(t *testing.T) {
 	api.json(t, "POST", "/api/v1/records/start", records.StartRequest{ConferenceID: uuid.NewString(), QualityMode: "auto", SegmentDurationSec: 2}, &start)
 	t.Logf("synthetic record: %s", start.RecordID)
 	stopped := false
-	defer func() {
+	defer /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		if !stopped {
 			api.json(t, "POST", "/api/v1/records/end", records.EndRequest{RecordID: start.RecordID, Reason: "synthetic_test_cleanup"}, nil)
 		}
@@ -66,12 +70,16 @@ func TestSyntheticWebRTCRecording(t *testing.T) {
 	}
 	defer pc.Close()
 	states := make(chan webrtc.PeerConnectionState, 8)
-	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		select {
-		case states <- state:
-		default:
-		}
-	})
+	pc.OnConnectionStateChange( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - state (webrtc.PeerConnectionState): значение state типа webrtc.PeerConnectionState, используемое согласно назначению этой операции.
+		*/func(state webrtc.PeerConnectionState) {
+			select {
+			case states <- state:
+			default:
+			}
+		})
 	track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "synthetic-video", "synthetic-stream")
 	if err != nil {
 		t.Fatal(err)
@@ -80,7 +88,9 @@ func TestSyntheticWebRTCRecording(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		buf := make([]byte, 1500)
 		for {
 			if _, _, err := sender.Read(buf); err != nil {
@@ -210,11 +220,23 @@ connected:
 	}
 }
 
+// localAPI хранит изолированное состояние тестового компонента «локальный API».
+// Состав:
+//   - base: значение base типа string, используемое согласно назначению этой операции.
+//   - client: клиент внешнего сервиса или транспорта компонента.
 type localAPI struct {
 	base   string
 	client *http.Client
 }
 
+// record подготавливает или проверяет часть тестового сценария «запись».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 (records.RecordCard): значение, подготовленное операцией для вызывающей стороны.
 func (a *localAPI) record(t *testing.T, id string) records.RecordCard {
 	t.Helper()
 	var result struct {
@@ -224,6 +246,14 @@ func (a *localAPI) record(t *testing.T, id string) records.RecordCard {
 	return result.Item
 }
 
+// json сериализует данные и записывает JSON-ответ с заданным HTTP-статусом.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - method (string): значение method типа string, используемое согласно назначению этой операции.
+//   - path (string): путь к локальному файлу или каталогу операции.
+//   - payload (any): типизированная нагрузка события или ссылочные сведения уведомления.
+//   - result (any): результат проверки или обработки, передаваемый следующему шагу.
 func (a *localAPI) json(t *testing.T, method, path string, payload, result any) {
 	t.Helper()
 	body, err := json.Marshal(payload)

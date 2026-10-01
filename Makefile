@@ -1,5 +1,5 @@
 DOCKER_COMPOSE ?= docker compose
-GO_IMAGE ?= golang:1.24-alpine3.22
+GO_IMAGE ?= golang:1.26.6-alpine3.23
 APP_NETWORK ?= go-recorder_app-network
 
 .PHONY: serve api worker media-worker migrate doctor test up restart migrate-up test-run debug-api debug-worker debug-both debug-stop docker-build docker-up docker-down docker-restart
@@ -75,3 +75,14 @@ docker-down:
 
 docker-restart:
 	$(MAKE) restart
+
+.PHONY: stage6-up stage6-failure stage6-load stage6-soak
+stage6-up:
+	$(DOCKER_COMPOSE) -p recorder-stage6 -f docker-compose.stage6.yml up -d --build
+stage6-failure:
+	RECORDER_STAGE6_FAILURE=true go run ./tools/stage_six_failure
+stage6-load:
+	go run ./tools/stage_six_load
+	RECORDER_MEDIA_LOAD=true go test -v ./internal/infrastructure/sfu -run '^TestStageSixMediaLoad$$' -timeout 5m
+stage6-soak:
+	RECORDER_SOAK_DURATION=30m go test -v ./internal/infrastructure/sfu -run '^TestStageSixSoak$$' -timeout 35m

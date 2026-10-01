@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine3.22 AS build
+FROM golang:1.26.6-alpine3.23 AS build
 
 WORKDIR /src
 
@@ -28,7 +28,7 @@ EXPOSE 8090
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-FROM golang:1.24-alpine3.22 AS debug
+FROM golang:1.26.6-alpine3.23 AS debug
 
 RUN apk add --no-cache ca-certificates ffmpeg git \
 	&& go install github.com/go-delve/delve/cmd/dlv@latest \

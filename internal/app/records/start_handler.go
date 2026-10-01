@@ -9,9 +9,9 @@ import (
 )
 
 // Start запускает запись.
-// Параметры:
+// @parameters:
 // - c: Gin context HTTP-запроса.
-// Возвращает: JSON response.
+// @return JSON response.
 func (h *Handler) Start(c *gin.Context) {
 	var request records.StartRequest
 	if err := c.ShouldBindJSON(&request); err != nil {

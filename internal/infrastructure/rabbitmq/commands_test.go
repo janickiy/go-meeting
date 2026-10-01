@@ -10,6 +10,10 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/records"
 )
 
+// TestNormalizeOptionsLocalBroker проверяет сценарий «нормализация Options локальный Broker», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestNormalizeOptionsLocalBroker(t *testing.T) {
 	got := normalizeOptions(Options{})
 	if got.URL != "amqp://go_recorder:go_recorder_pass@rabbitmq:5672/%2F" {
@@ -20,8 +24,10 @@ func TestNormalizeOptionsLocalBroker(t *testing.T) {
 	}
 }
 
-// TestCommandRoundTrip runs only with an explicitly supplied test broker.
-// It creates and removes its own isolated exchange and queue.
+// TestCommandRoundTrip проверяет сценарий «Command Round Trip», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCommandRoundTrip(t *testing.T) {
 	dsn := os.Getenv("RABBITMQ_TEST_URL")
 	if dsn == "" {
@@ -40,7 +46,9 @@ func TestCommandRoundTrip(t *testing.T) {
 		t.Fatalf("connect publisher: %v", err)
 	}
 	defer publisher.Close()
-	defer func() {
+	defer /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		if _, err := publisher.channel.QueueDelete(options.Queue, false, false, false); err != nil {
 			t.Errorf("delete test queue: %v", err)
 		}
@@ -55,13 +63,24 @@ func TestCommandRoundTrip(t *testing.T) {
 	defer consumer.Close()
 	received := make(chan records.Command, 2)
 	done := make(chan error, 1)
-	go func() {
-		done <- consumer.Consume(ctx, func(_ context.Context, command records.Command) error {
-			received <- command
-			return nil
-		})
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
+		done <- consumer.Consume(ctx, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+			  - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
+
+			@return:
+			  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(_ context.Context, command records.Command) error {
+				received <- command
+				return nil
+			})
 	}()
-	defer func() {
+	defer /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		cancel()
 		select {
 		case err := <-done:

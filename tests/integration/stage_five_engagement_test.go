@@ -31,6 +31,10 @@ import (
 	realtimecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 )
 
+// TestStageFiveHandsReactionsAndReconnect проверяет сценарий «этап пять Hands Reactions и переподключение», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveHandsReactionsAndReconnect(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -49,7 +53,13 @@ func TestStageFiveHandsReactionsAndReconnect(t *testing.T) {
 	if err != nil || !again.RaisedAt.Equal(raised.RaisedAt) {
 		t.Fatal("duplicate raise changed order", err)
 	}
-	owner.wait(t, func(e domain.Envelope) bool { return e.Type == "hand.raised" })
+	owner.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.Type == "hand.raised" })
 	another := f.connect(t, 0, f.memberToken, f.conference.ID)
 	if len(another.state.Hands) != 1 || another.state.Hands[0].ParticipantID != member.state.ParticipantID {
 		t.Fatal("reconnect lost hands")
@@ -71,7 +81,13 @@ func TestStageFiveHandsReactionsAndReconnect(t *testing.T) {
 	}
 	api.expect(t, "POST", "/conferences/"+f.conference.ID+"/reactions", f.memberToken, map[string]string{"emoji": "👍"}, 429, nil)
 	signalID := owner.signal(t, "webrtc.offer", member.state.ConnectionID, map[string]any{"sdp": "v=0\r\n"})
-	member.wait(t, func(e domain.Envelope) bool { return e.ID == signalID || e.Type == "webrtc.offer" })
+	member.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.ID == signalID || e.Type == "webrtc.offer" })
 	if _, err := f.service.Transition(ctx, f.owner.ID, f.conference.ID, conferences.Finished); err != nil {
 		t.Fatal(err)
 	}
@@ -80,6 +96,10 @@ func TestStageFiveHandsReactionsAndReconnect(t *testing.T) {
 	}
 }
 
+// TestStageFiveNotificationDedupAuthorizationAndSSE проверяет сценарий «этап пять уведомление дедупликация авторизация и SSE», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveNotificationDedupAuthorizationAndSSE(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -124,7 +144,9 @@ func TestStageFiveNotificationDedupAuthorizationAndSSE(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			if err := service.Tick(ctx); err != nil {
 				t.Error(err)
@@ -158,7 +180,9 @@ func TestStageFiveNotificationDedupAuthorizationAndSSE(t *testing.T) {
 	}
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			n, err := service.Read(ctx, f.member.ID, item.ID)
 			if err != nil || n.ReadAt == nil || n.Payload.ConferenceID == "" {
@@ -188,12 +212,18 @@ func TestStageFiveNotificationDedupAuthorizationAndSSE(t *testing.T) {
 	}
 }
 
+// TestStageFiveRealtimeBurstPreservesSignaling проверяет сценарий «этап пять события реального времени Burst Preserves сигнализация», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveRealtimeBurstPreservesSignaling(t *testing.T) {
 	f := stageTwo(t)
 	owner := f.connect(t, 0, f.ownerToken, f.conference.ID)
 	member := f.connect(t, 1, f.memberToken, f.conference.ID)
 	finished := make(chan struct{})
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer close(finished)
 		for i := 0; i < 1500; i++ {
 			kind := "reaction.created"
@@ -207,11 +237,24 @@ func TestStageFiveRealtimeBurstPreservesSignaling(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		start := time.Now()
 		owner.signal(t, "webrtc.offer", member.state.ConnectionID, map[string]any{"sdp": "v=0\r\n"})
-		member.wait(t, func(event domain.Envelope) bool { return event.Type == "webrtc.offer" })
+		member.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - event (domain.Envelope): конверт входящего или публикуемого события.
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(event domain.Envelope) bool { return event.Type == "webrtc.offer" })
 		latencies = append(latencies, time.Since(start))
 	}
 	<-finished
-	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
+	sort.Slice(latencies, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - i (int): значение i типа int, используемое согласно назначению этой операции.
+		  - j (int): значение j типа int, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(i, j int) bool { return latencies[i] < latencies[j] })
 	t.Logf("1500 collaboration events + 20 signaling exchanges: p50=%s p95=%s max=%s", latencies[10], latencies[18], latencies[19])
 	if latencies[19] > 2*time.Second {
 		t.Fatal("critical signaling starved by collaboration")
@@ -221,6 +264,10 @@ func TestStageFiveRealtimeBurstPreservesSignaling(t *testing.T) {
 	}
 }
 
+// TestStageFiveNotificationStreamExpiresWithJWT проверяет сценарий «этап пять уведомление Stream Expires с JWT», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveNotificationStreamExpiresWithJWT(t *testing.T) {
 	f := stageTwo(t)
 	bus := redisinfra.NewNotificationBus(f.redis, f.config.Namespace)
@@ -254,6 +301,10 @@ func TestStageFiveNotificationStreamExpiresWithJWT(t *testing.T) {
 	}
 }
 
+// TestStageFiveEngagementAdmissionPrecedesSharedLimit проверяет сценарий «этап пять Engagement допуск Precedes Shared лимит», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveEngagementAdmissionPrecedesSharedLimit(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()

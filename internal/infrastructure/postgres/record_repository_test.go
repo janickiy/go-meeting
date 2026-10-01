@@ -15,7 +15,14 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// These opt-in tests use a local, migrated database and roll back all test rows.
+// testRepository подготавливает или проверяет часть тестового сценария «проверка Repository».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//
+// @return:
+//   - результат 1 (*RecordRepository): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (*gorm.DB): значение, подготовленное операцией для вызывающей стороны.
 func testRepository(t *testing.T) (*RecordRepository, *gorm.DB) {
 	t.Helper()
 	dsn := os.Getenv("RECORDER_TEST_POSTGRES_DSN")
@@ -34,15 +41,28 @@ func testRepository(t *testing.T) (*RecordRepository, *gorm.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = sqlDB.Close() })
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() { _ = sqlDB.Close() })
 	tx := db.Begin()
 	if tx.Error != nil {
 		t.Fatal(tx.Error)
 	}
-	t.Cleanup(func() { _ = tx.Rollback().Error })
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() { _ = tx.Rollback().Error })
 	return NewRecordRepository(tx), tx
 }
 
+// createTestRecord подготавливает или проверяет часть тестового сценария «создание проверка запись».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - repo (*RecordRepository): хранилище постоянных данных прикладного сценария.
+//   - status (string): состояние ресурса, ответа или фильтра выборки.
+//
+// @return:
+//   - результат 1 (records.Record): значение, подготовленное операцией для вызывающей стороны.
 func createTestRecord(t *testing.T, repo *RecordRepository, status string) records.Record {
 	t.Helper()
 	record, err := repo.Create(context.Background(), records.Record{
@@ -55,35 +75,71 @@ func createTestRecord(t *testing.T, repo *RecordRepository, status string) recor
 	return record
 }
 
+// TestTerminalRecordCannotBeOverwritten проверяет сценарий «Terminal запись Cannot Be Overwritten», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestTerminalRecordCannotBeOverwritten(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
 	for _, status := range []string{records.StatusReady, records.StatusPartialReady, records.StatusFailed, records.StatusCancelled} {
-		t.Run(status, func(t *testing.T) {
-			record := createTestRecord(t, repo, status)
-			for name, transition := range map[string]func() error{
-				"recording":  func() error { return repo.MarkRecording(ctx, record.UUID, "late-worker") },
-				"stopping":   func() error { return repo.MarkStopping(ctx, record.UUID, "duplicate") },
-				"finalizing": func() error { return repo.MarkFinalizing(ctx, record.UUID) },
-				"uploading":  func() error { return repo.MarkUploading(ctx, record.UUID) },
-				"failed":     func() error { return repo.MarkFailed(ctx, record.UUID, errors.New("late error")) },
-				"ready":      func() error { return repo.SaveFinalArtifacts(ctx, record.UUID, records.RecordFile{}, nil, nil) },
-			} {
-				if err := transition(); !errors.Is(err, records.ErrRecordStateChanged) {
-					t.Fatalf("%s returned %v", name, err)
+		t.Run(status, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+			@parameters:
+			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+			*/func(t *testing.T) {
+				record := createTestRecord(t, repo, status)
+				for name, transition := range map[string]func() error{
+					"recording":/* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func() error { return repo.MarkRecording(ctx, record.UUID, "late-worker") },
+					"stopping":/* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func() error { return repo.MarkStopping(ctx, record.UUID, "duplicate") },
+					"finalizing":/* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func() error { return repo.MarkFinalizing(ctx, record.UUID) },
+					"uploading":/* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func() error { return repo.MarkUploading(ctx, record.UUID) },
+					"failed":/* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func() error { return repo.MarkFailed(ctx, record.UUID, errors.New("late error")) },
+					"ready":/* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func() error { return repo.SaveFinalArtifacts(ctx, record.UUID, records.RecordFile{}, nil, nil) },
+				} {
+					if err := transition(); !errors.Is(err, records.ErrRecordStateChanged) {
+						t.Fatalf("%s returned %v", name, err)
+					}
 				}
-			}
-			got, err := repo.FindByUUID(ctx, record.UUID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got.Status != status || !got.UpdatedAt.Equal(record.UpdatedAt) || got.EndedAt != nil {
-				t.Fatalf("terminal record changed: %+v", got)
-			}
-		})
+				got, err := repo.FindByUUID(ctx, record.UUID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got.Status != status || !got.UpdatedAt.Equal(record.UpdatedAt) || got.EndedAt != nil {
+					t.Fatalf("terminal record changed: %+v", got)
+				}
+			})
 	}
 }
 
+// TestStopMetadataSurvivesLateStartAndDuplicateStop проверяет сценарий «остановка Metadata Survives Late запуск и повторный остановка», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStopMetadataSurvivesLateStartAndDuplicateStop(t *testing.T) {
 	repo, _ := testRepository(t)
 	ctx := context.Background()
@@ -123,6 +179,10 @@ func TestStopMetadataSurvivesLateStartAndDuplicateStop(t *testing.T) {
 	}
 }
 
+// TestSummaryLoadsOnlyFinalFilesWithTwoQueries проверяет сценарий «Summary Loads только итоговый файлы с два Queries», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSummaryLoadsOnlyFinalFilesWithTwoQueries(t *testing.T) {
 	repo, tx := testRepository(t)
 	ctx := context.Background()
@@ -166,11 +226,22 @@ func TestSummaryLoadsOnlyFinalFilesWithTwoQueries(t *testing.T) {
 	}
 }
 
+// queryCounter хранит изолированное состояние тестового компонента «query Counter».
+// Состав:
+//   - logger.Interface: встроенный тип, добавляющий свой контракт или данные.
+//   - queries: значение queries типа atomic.Int32, используемое согласно назначению этой операции.
 type queryCounter struct {
 	logger.Interface
 	queries atomic.Int32
 }
 
+// Trace подготавливает или проверяет часть тестового сценария «Trace».
+//
+// @parameters:
+//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - аргумент 2 (time.Time): значение для проверки, нормализации или преобразования.
+//   - аргумент 3 (func() (string, int64)): значение для проверки, нормализации или преобразования.
+//   - аргумент 4 (error): значение для проверки, нормализации или преобразования.
 func (l *queryCounter) Trace(context.Context, time.Time, func() (string, int64), error) {
 	l.queries.Add(1)
 }

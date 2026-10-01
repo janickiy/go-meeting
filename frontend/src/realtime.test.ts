@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { parseRealtime, websocketURL } from "./realtime";
-describe("Realtime protocol", () => {
-  it("uses a short ticket and wss for HTTPS, never a JWT query parameter", () => {
+describe("Realtime protocol", /**
+ * Проверка: Realtime protocol выполняет тестовый сценарий «Realtime protocol» и проверяет ожидаемые результаты.
+ *
+ *
+ * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ () => {
+  it("uses a short ticket and wss for HTTPS, never a JWT query parameter", /**
+   * Проверка: uses a short ticket and wss for HTTPS, never a JWT query parameter выполняет тестовый сценарий «uses a short ticket and wss for HTTPS, never a JWT query parameter» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ () => {
     const url = new URL(
       websocketURL(
         "conference-id",
@@ -13,7 +23,12 @@ describe("Realtime protocol", () => {
     expect(url.pathname).toBe("/api/v1/conferences/conference-id/ws");
     expect([...url.searchParams.keys()]).toEqual(["ticket"]);
   });
-  it("rejects foreign conference/version/malformed data", () => {
+  it("rejects foreign conference/version/malformed data", /**
+   * Проверка: rejects foreign conference/version/malformed data выполняет тестовый сценарий «rejects foreign conference/version/malformed data» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ () => {
     const event = {
       version: 1,
       id: "id",

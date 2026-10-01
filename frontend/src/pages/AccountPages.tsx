@@ -5,6 +5,12 @@ import { formatDate } from "../utils";
 import { useConferences } from "../queries";
 import { Button, ErrorNotice, Loading } from "../components/ui";
 
+/**
+ * SettingsPage показывает доступные сведения и настройки текущей учётной записи.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function SettingsPage() {
   const { user } = useAuth();
   return (
@@ -47,9 +53,25 @@ export function SettingsPage() {
     </>
   );
 }
+/**
+ * RecordingsPage собирает доступные записи завершённых встреч и разрешённые ссылки просмотра.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function RecordingsPage() {
   const query = useConferences({ view: "past" });
-  const conferences = query.data?.pages.flatMap((page) => page.items) || [];
+  const conferences =
+    query.data?.pages.flatMap(
+      /**
+       * Обработчик flatMap преобразует текущий элемент в данные или представление результирующего списка.
+       *
+       * @parameters:
+       *   - page — изолированная страница Playwright.
+       *
+       * @returns преобразованное значение текущего элемента для результирующего набора.
+       */ (page) => page.items,
+    ) || [];
   return (
     <>
       <section className="page-heading">
@@ -73,22 +95,31 @@ export function RecordingsPage() {
           <Loading />
         ) : (
           <div className="conference-list">
-            {conferences.map((item) => (
-              <Link
-                className="conference-row"
-                key={item.id}
-                to={`/conferences/${item.id}`}
-              >
-                <Clapperboard size={22} />
-                <div>
-                  <strong>{item.title}</strong>
-                  <p className="field-hint">
-                    {formatDate(item.finishedAt || item.createdAt)}
-                  </p>
-                </div>
-                <span className="text-link">История и записи</span>
-              </Link>
-            ))}
+            {conferences.map(
+              /**
+               * Обработчик conferences.map преобразует один элемент набора в представление или данные следующего шага.
+               *
+               * @parameters:
+               *   - item — элемент списка, который обрабатывает текущий шаг.
+               *
+               * @returns преобразованное значение текущего элемента для результирующего набора.
+               */ (item) => (
+                <Link
+                  className="conference-row"
+                  key={item.id}
+                  to={`/conferences/${item.id}`}
+                >
+                  <Clapperboard size={22} />
+                  <div>
+                    <strong>{item.title}</strong>
+                    <p className="field-hint">
+                      {formatDate(item.finishedAt || item.createdAt)}
+                    </p>
+                  </div>
+                  <span className="text-link">История и записи</span>
+                </Link>
+              ),
+            )}
           </div>
         )}
         {!query.isPending && !query.isError && !conferences.length && (
@@ -98,7 +129,14 @@ export function RecordingsPage() {
           <Button
             variant="outline"
             busy={query.isFetchingNextPage}
-            onClick={() => void query.fetchNextPage()}
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns вычисленное значение: void query.fetchNextPage().
+               */ () => void query.fetchNextPage()
+            }
           >
             Ещё встречи
           </Button>

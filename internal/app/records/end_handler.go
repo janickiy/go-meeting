@@ -8,9 +8,9 @@ import (
 )
 
 // End завершает запись и отправляет worker-у команду финализации.
-// Параметры:
+// @parameters:
 // - c: Gin context HTTP-запроса.
-// Возвращает: JSON response.
+// @return JSON response.
 func (h *Handler) End(c *gin.Context) {
 	var request records.EndRequest
 	if err := c.ShouldBindJSON(&request); err != nil {

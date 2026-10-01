@@ -10,7 +10,12 @@ const (
 	DefaultVideoMaxBitrateBPS = 6_000_000
 )
 
-// VideoSettings описывает рекомендуемые параметры видео для браузерного WebRTC ingest.
+// VideoSettings задаёт разрешение, частоту кадров и битрейт браузерного видеозахвата.
+//   - Quality: поддерживаемый профиль качества видео.
+//   - Width: ширина видеокадра или области в пикселях.
+//   - Height: высота видеокадра или области в пикселях.
+//   - FrameRate: значение FrameRate типа int, используемое согласно назначению этой операции.
+//   - MaxBitrateBPS: значение MaxBitrateBPS типа int, используемое согласно назначению этой операции.
 type VideoSettings struct {
 	Quality       string `json:"quality"`
 	Width         int    `json:"width"`
@@ -20,9 +25,9 @@ type VideoSettings struct {
 }
 
 // NormalizeStartRequest заполняет безопасные значения по умолчанию для старта записи.
-// Параметры:
+// @parameters:
 // - request: исходный DTO старта записи.
-// Возвращает: DTO с дефолтным качеством видео.
+// @return DTO с дефолтным качеством видео.
 func NormalizeStartRequest(request StartRequest) StartRequest {
 	request.Quality = strings.TrimSpace(request.Quality)
 	if request.Quality == "" {
@@ -33,9 +38,9 @@ func NormalizeStartRequest(request StartRequest) StartRequest {
 }
 
 // VideoSettingsForQuality возвращает профиль видео по строковому quality.
-// Параметры:
+// @parameters:
 // - quality: качество из API, например 720p.
-// Возвращает: настройки видео; для неизвестного качества возвращается 720p.
+// @return настройки видео; для неизвестного качества возвращается 720p.
 func VideoSettingsForQuality(quality string) VideoSettings {
 	switch strings.ToLower(strings.TrimSpace(quality)) {
 	case "1080p":
@@ -74,9 +79,9 @@ func VideoSettingsForQuality(quality string) VideoSettings {
 }
 
 // IsSupportedVideoQuality проверяет, поддерживается ли quality.
-// Параметры:
+// @parameters:
 // - quality: качество из API.
-// Возвращает: true, если quality известно backend-у.
+// @return true, если quality известно backend-у.
 func IsSupportedVideoQuality(quality string) bool {
 	switch strings.ToLower(strings.TrimSpace(quality)) {
 	case "360p", "480p", "720p", "1080p":

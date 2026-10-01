@@ -7,6 +7,14 @@ import type { ChatAttachment } from "../types";
 import { Button, ErrorNotice } from "./ui";
 
 export const attachmentLimit = 10 * 1024 * 1024;
+/**
+ * validateAttachment проверяет клиентские ограничения имени, типа и размера файла до обращения к серверу.
+ *
+ * @parameters:
+ *   - file (Pick<File, "name" | "size">) — выбранный пользователем файл для проверки или передачи.
+ *
+ * @returns string | null — текст найденного нарушения либо отсутствие ошибки для допустимого файла.
+ */
 export function validateAttachment(
   file: Pick<File, "name" | "size">,
 ): string | null {
@@ -16,6 +24,17 @@ export function validateAttachment(
     return "Можно прикрепить JPG, PNG, WebP, PDF, TXT или CSV.";
   return null;
 }
+/**
+ * UploadRow хранит состояние файла, прогресс, результат загрузки и ошибку.
+ *
+ * Состав:
+ *   - key — поле или операция этого контракта.
+ *   - file — выбранный пользователем файл для проверки или передачи.
+ *   - progress — поле или операция этого контракта.
+ *   - state — новое состояние источников медиа.
+ *   - error — пойманная ошибка API или сети.
+ *   - attachmentId — идентификатор подготовленного или прикреплённого вложения.
+ */
 interface UploadRow {
   key: string;
   file: File;
@@ -24,6 +43,14 @@ interface UploadRow {
   error?: string;
   attachmentId?: string;
 }
+/**
+ * AttachmentUploader координирует инициализацию, передачу с прогрессом, финализацию и повтор загрузки выбранного файла.
+ *
+ * @parameters:
+ *   - объект параметров: conferenceId — идентификатор конференции и области данных; value — значение для проверки, преобразования или отображения; onChange — обработчик изменения управляемого значения; onBusy — свойство текущего компонента; disabled — запрещает действие в текущем состоянии.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function AttachmentUploader({
   conferenceId,
   value,
@@ -34,7 +61,14 @@ export function AttachmentUploader({
   conferenceId: string;
   value: ChatAttachment[];
   onChange: Dispatch<SetStateAction<ChatAttachment[]>>;
-  onBusy: (busy: boolean) => void;
+  onBusy: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в чате, файлах и совместной работе.
+   *
+   * @parameters:
+   *   - busy (boolean) — признак выполняющейся операции.
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ (busy: boolean) => void;
   disabled?: boolean;
 }) {
   const [rows, setRows] = useState<UploadRow[]>([]);
@@ -42,23 +76,90 @@ export function AttachmentUploader({
   const controllers = useRef(new Map<string, AbortController>());
   const mounted = useRef(true);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    mounted.current = true;
-    const active = controllers.current;
-    return () => {
-      mounted.current = false;
-      for (const controller of active.values()) controller.abort();
-    };
-  }, []);
-  useEffect(() => {
-    onBusy(rows.some((row) => row.state === "uploading"));
-  }, [rows, onBusy]);
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      mounted.current = true;
+      const active = controllers.current;
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      return () => {
+        mounted.current = false;
+        for (const controller of active.values()) controller.abort();
+      };
+    },
+    [],
+  );
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      onBusy(
+        rows.some(
+          /**
+           * Обработчик rows.some проверяет условие поиска элемента или соответствия элементов набора.
+           *
+           * @parameters:
+           *   - row — состояние одного файла в очереди загрузки.
+           *
+           * @returns логический признак соответствия элемента условию.
+           */ (row) => row.state === "uploading",
+        ),
+      );
+    },
+    [rows, onBusy],
+  );
+  /**
+   * update объединяет изменение со снимком медиа и уведомляет подписчика состояния.
+   *
+   * @parameters:
+   *   - key (string) — идентификатор строки загрузки.
+   *   - fields (Partial<UploadRow>) — изменённые поля состояния загрузки.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   const update = (key: string, fields: Partial<UploadRow>) => {
     if (mounted.current)
-      setRows((current) =>
-        current.map((row) => (row.key === key ? { ...row, ...fields } : row)),
+      setRows(
+        /**
+         * Обработчик setRows вычисляет следующее React-состояние из предыдущего значения.
+         *
+         * @parameters:
+         *   - current — текущее значение состояния.
+         *
+         * @returns следующее состояние, рассчитанное из предыдущего значения.
+         */ (current) =>
+          current.map(
+            /**
+             * Обработчик current.map преобразует один элемент набора в представление или данные следующего шага.
+             *
+             * @parameters:
+             *   - row — состояние одного файла в очереди загрузки.
+             *
+             * @returns преобразованное значение текущего элемента для результирующего набора.
+             */ (row) => (row.key === key ? { ...row, ...fields } : row),
+          ),
       );
   };
+  /**
+   * start подготавливает медиа-соединение и при явном разрешении захватывает устройства пользователя.
+   *
+   * @parameters:
+   *   - row (UploadRow) — состояние одного файла в очереди загрузки.
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   const start = async (row: UploadRow) => {
     const controller = new AbortController();
     controllers.current.set(row.key, controller);
@@ -75,6 +176,14 @@ export function AttachmentUploader({
         await uploadAttachment(
           result.uploadUrl,
           row.file,
+          /**
+           * Обработчик uploadAttachment выполняет переданный шаг вызова uploadAttachment в чате, файлах и совместной работе.
+           *
+           * @parameters:
+           *   - progress — доля завершённой передачи файла.
+           *
+           * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+           */
           (progress) => update(row.key, { progress }),
           controller.signal,
         );
@@ -84,10 +193,27 @@ export function AttachmentUploader({
         result.item.id,
       );
       if (!mounted.current || controller.signal.aborted) return;
-      onChange((current) =>
-        current.some((item) => item.id === finalized.item.id)
-          ? current
-          : [...current, finalized.item],
+      onChange(
+        /**
+         * Обработчик onChange выполняет переданный шаг вызова onChange в чате, файлах и совместной работе.
+         *
+         * @parameters:
+         *   - current — текущее значение состояния.
+         *
+         * @returns вычисленное значение: current.some( (item) => item.id === finalized.item.id, ) ? current : [...current, finalized.item].
+         */ (current) =>
+          current.some(
+            /**
+             * Обработчик current.some проверяет условие поиска элемента или соответствия элементов набора.
+             *
+             * @parameters:
+             *   - item — элемент списка, который обрабатывает текущий шаг.
+             *
+             * @returns логический признак соответствия элемента условию.
+             */ (item) => item.id === finalized.item.id,
+          )
+            ? current
+            : [...current, finalized.item],
       );
       update(row.key, {
         state: "ready",
@@ -112,34 +238,68 @@ export function AttachmentUploader({
         aria-label="Выбрать файлы для сообщения"
         hidden
         disabled={disabled || rows.length >= 5}
-        onChange={(event) => {
-          const files = [...(event.currentTarget.files || [])];
-          event.currentTarget.value = "";
-          setError("");
-          if (files.length + rows.length > 5) {
-            setError("В одном сообщении может быть не больше 5 файлов.");
-            return;
+        onChange={
+          /**
+           * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+           *
+           * @parameters:
+           *   - event — проверенный конверт события комнаты.
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ (event) => {
+            const files = [...(event.currentTarget.files || [])];
+            event.currentTarget.value = "";
+            setError("");
+            if (files.length + rows.length > 5) {
+              setError("В одном сообщении может быть не больше 5 файлов.");
+              return;
+            }
+            const validation = files.map(validateAttachment).find(Boolean);
+            if (validation) {
+              setError(validation);
+              return;
+            }
+            const added = files.map(
+              /**
+               * Обработчик files.map преобразует один элемент набора в представление или данные следующего шага.
+               *
+               * @parameters:
+               *   - file — выбранный пользователем файл для проверки или передачи.
+               *
+               * @returns UploadRow — преобразованное значение текущего элемента для результирующего набора.
+               */ (file): UploadRow => ({
+                key: crypto.randomUUID(),
+                file,
+                progress: 0,
+                state: "uploading",
+              }),
+            );
+            setRows(
+              /**
+               * Обработчик setRows вычисляет следующее React-состояние из предыдущего значения.
+               *
+               * @parameters:
+               *   - current — текущее значение состояния.
+               *
+               * @returns следующее состояние, рассчитанное из предыдущего значения.
+               */ (current) => [...current, ...added],
+            );
+            for (const row of added) void start(row);
           }
-          const validation = files.map(validateAttachment).find(Boolean);
-          if (validation) {
-            setError(validation);
-            return;
-          }
-          const added = files.map((file): UploadRow => ({
-            key: crypto.randomUUID(),
-            file,
-            progress: 0,
-            state: "uploading",
-          }));
-          setRows((current) => [...current, ...added]);
-          for (const row of added) void start(row);
-        }}
+        }
       />
       <Button
         type="button"
         variant="outline"
         disabled={disabled || rows.length >= 5}
-        onClick={() => input.current?.click()}
+        onClick={
+          /**
+           * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+           *
+           *
+           * @returns вычисленное значение: input.current?.click().
+           */ () => input.current?.click()
+        }
       >
         <Paperclip size={16} />
         Прикрепить файл
@@ -147,60 +307,126 @@ export function AttachmentUploader({
       <span className="field-hint">До 5 файлов, каждый до 10 МБ.</span>
       <ErrorNotice>{error || null}</ErrorNotice>
       <ul className="upload-list">
-        {rows.map((row) => (
-          <li key={row.key}>
-            <div>
-              <span className="upload-filename" title={row.file.name}>
-                {row.file.name}
-              </span>
-              <small>
-                {formatBytes(row.file.size)} ·{" "}
-                {row.state === "ready" &&
-                value.some((item) => item.id === row.attachmentId)
-                  ? "Готов к отправке"
-                  : row.state === "uploading"
-                    ? `${row.progress}%`
-                    : "Не загружен"}
-              </small>
-              {row.state === "uploading" && (
-                <progress
-                  max={100}
-                  value={row.progress}
-                  aria-label={`Загрузка ${row.file.name}`}
-                />
+        {rows.map(
+          /**
+           * Обработчик rows.map преобразует один элемент набора в представление или данные следующего шага.
+           *
+           * @parameters:
+           *   - row — состояние одного файла в очереди загрузки.
+           *
+           * @returns преобразованное значение текущего элемента для результирующего набора.
+           */ (row) => (
+            <li key={row.key}>
+              <div>
+                <span className="upload-filename" title={row.file.name}>
+                  {row.file.name}
+                </span>
+                <small>
+                  {formatBytes(row.file.size)} ·{" "}
+                  {row.state === "ready" &&
+                  value.some(
+                    /**
+                     * Обработчик value.some проверяет условие поиска элемента или соответствия элементов набора.
+                     *
+                     * @parameters:
+                     *   - item — элемент списка, который обрабатывает текущий шаг.
+                     *
+                     * @returns логический признак соответствия элемента условию.
+                     */ (item) => item.id === row.attachmentId,
+                  )
+                    ? "Готов к отправке"
+                    : row.state === "uploading"
+                      ? `${row.progress}%`
+                      : "Не загружен"}
+                </small>
+                {row.state === "uploading" && (
+                  <progress
+                    max={100}
+                    value={row.progress}
+                    aria-label={`Загрузка ${row.file.name}`}
+                  />
+                )}
+                {row.error && <p className="field-error">{row.error}</p>}
+              </div>
+              {row.state === "failed" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: void start(row).
+                     */ () => void start(row)
+                  }
+                >
+                  Повторить
+                </Button>
               )}
-              {row.error && <p className="field-error">{row.error}</p>}
-            </div>
-            {row.state === "failed" && (
-              <Button
+              <button
                 type="button"
-                variant="outline"
+                className="icon-button"
                 disabled={disabled}
-                onClick={() => void start(row)}
+                aria-label={`Убрать файл ${row.file.name}`}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                   */ () => {
+                    controllers.current.get(row.key)?.abort();
+                    controllers.current.delete(row.key);
+                    setRows(
+                      /**
+                       * Обработчик setRows вычисляет следующее React-состояние из предыдущего значения.
+                       *
+                       * @parameters:
+                       *   - current — текущее значение состояния.
+                       *
+                       * @returns следующее состояние, рассчитанное из предыдущего значения.
+                       */ (current) =>
+                        current.filter(
+                          /**
+                           * Обработчик current.filter проверяет, должен ли элемент войти в отфильтрованный набор.
+                           *
+                           * @parameters:
+                           *   - item — элемент списка, который обрабатывает текущий шаг.
+                           *
+                           * @returns логический признак соответствия элемента условию.
+                           */ (item) => item.key !== row.key,
+                        ),
+                    );
+                    onChange(
+                      /**
+                       * Обработчик onChange выполняет переданный шаг вызова onChange в чате, файлах и совместной работе.
+                       *
+                       * @parameters:
+                       *   - current — текущее значение состояния.
+                       *
+                       * @returns вычисленное значение: current.filter( (item) => item.id !== row.attachmentId, ).
+                       */ (current) =>
+                        current.filter(
+                          /**
+                           * Обработчик current.filter проверяет, должен ли элемент войти в отфильтрованный набор.
+                           *
+                           * @parameters:
+                           *   - item — элемент списка, который обрабатывает текущий шаг.
+                           *
+                           * @returns логический признак соответствия элемента условию.
+                           */ (item) => item.id !== row.attachmentId,
+                        ),
+                    );
+                  }
+                }
               >
-                Повторить
-              </Button>
-            )}
-            <button
-              type="button"
-              className="icon-button"
-              disabled={disabled}
-              aria-label={`Убрать файл ${row.file.name}`}
-              onClick={() => {
-                controllers.current.get(row.key)?.abort();
-                controllers.current.delete(row.key);
-                setRows((current) =>
-                  current.filter((item) => item.key !== row.key),
-                );
-                onChange((current) =>
-                  current.filter((item) => item.id !== row.attachmentId),
-                );
-              }}
-            >
-              <X size={17} />
-            </button>
-          </li>
-        ))}
+                <X size={17} />
+              </button>
+            </li>
+          ),
+        )}
       </ul>
     </div>
   );

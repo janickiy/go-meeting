@@ -24,6 +24,15 @@ import (
 
 const authTestSecret = "unit-test-secret-at-least-32-bytes-long"
 
+// authRouter подготавливает или проверяет часть тестового сценария «авторизация Router».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - limiter (httpmiddleware.Limiter): ограничитель частоты запросов, общий для экземпляров API.
+//
+// @return:
+//   - результат 1 (*gin.Engine): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (*authRepository): значение, подготовленное операцией для вызывающей стороны.
 func authRouter(t *testing.T, limiter httpmiddleware.Limiter) (*gin.Engine, *authRepository) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -47,6 +56,10 @@ func authRouter(t *testing.T, limiter httpmiddleware.Limiter) (*gin.Engine, *aut
 	return router, repo
 }
 
+// TestAuthRegistrationValidationAndNoSecrets проверяет сценарий «авторизация Registration проверка входных данных и без Secrets», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthRegistrationValidationAndNoSecrets(t *testing.T) {
 	router, repo := authRouter(t, nil)
 	response := performJSON(router, "POST", "/api/v1/auth/register", `{"email":" TEST@Example.com ","password":"StrongPassword123","displayName":" Test "}`)
@@ -65,6 +78,10 @@ func TestAuthRegistrationValidationAndNoSecrets(t *testing.T) {
 	}
 }
 
+// TestAuthLoginMeAndStatelessLogout проверяет сценарий «авторизация Login Me и Stateless Logout», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthLoginMeAndStatelessLogout(t *testing.T) {
 	router, _ := authRouter(t, nil)
 	performJSON(router, "POST", "/api/v1/auth/register", `{"email":"user@example.com","password":"StrongPassword123"}`)
@@ -98,6 +115,10 @@ func TestAuthLoginMeAndStatelessLogout(t *testing.T) {
 	assertStatus(t, result.Code, 200)
 }
 
+// TestAuthPasswordCharacterPolicy проверяет сценарий «авторизация Password Character политика», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthPasswordCharacterPolicy(t *testing.T) {
 	cases := []struct {
 		name, password string
@@ -113,24 +134,32 @@ func TestAuthPasswordCharacterPolicy(t *testing.T) {
 		{"129 cyrillic characters", strings.Repeat("я", 129), 422},
 	}
 	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			router, _ := authRouter(t, nil)
-			body, err := json.Marshal(users.RegisterRequest{Email: "policy@example.com", Password: test.password})
-			if err != nil {
-				t.Fatal(err)
-			}
-			assertStatus(t, performJSON(router, "POST", "/api/v1/auth/register", string(body)).Code, test.status)
-			if test.status == 201 {
-				loginBody, err := json.Marshal(users.LoginRequest{Email: "policy@example.com", Password: test.password})
+		t.Run(test.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+			@parameters:
+			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+			*/func(t *testing.T) {
+				router, _ := authRouter(t, nil)
+				body, err := json.Marshal(users.RegisterRequest{Email: "policy@example.com", Password: test.password})
 				if err != nil {
 					t.Fatal(err)
 				}
-				assertStatus(t, performJSON(router, "POST", "/api/v1/auth/login", string(loginBody)).Code, 200)
-			}
-		})
+				assertStatus(t, performJSON(router, "POST", "/api/v1/auth/register", string(body)).Code, test.status)
+				if test.status == 201 {
+					loginBody, err := json.Marshal(users.LoginRequest{Email: "policy@example.com", Password: test.password})
+					if err != nil {
+						t.Fatal(err)
+					}
+					assertStatus(t, performJSON(router, "POST", "/api/v1/auth/login", string(loginBody)).Code, 200)
+				}
+			})
 	}
 }
 
+// TestAuthExistingShortUnicodePasswordStillWorks проверяет сценарий «авторизация Existing Short Unicode Password Still Works», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthExistingShortUnicodePasswordStillWorks(t *testing.T) {
 	router, repo := authRouter(t, nil)
 	// Six Cyrillic characters met the old 12-byte registration minimum.
@@ -138,6 +167,10 @@ func TestAuthExistingShortUnicodePasswordStillWorks(t *testing.T) {
 	assertStatus(t, performJSON(router, "POST", "/api/v1/auth/login", `{"email":"legacy@example.com","password":"пароль"}`).Code, 200)
 }
 
+// TestPlatformRoutesRequireBearerAuthentication проверяет сценарий «Platform Routes Require Bearer Authentication», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPlatformRoutesRequireBearerAuthentication(t *testing.T) {
 	router, _ := authRouter(t, nil)
 	expired, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
@@ -158,6 +191,10 @@ func TestPlatformRoutesRequireBearerAuthentication(t *testing.T) {
 	}
 }
 
+// TestLoginRateLimitCannotBeBypassedWithForwardedIP проверяет сценарий «Login Rate лимит Cannot Be Bypassed с Forwarded IP», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLoginRateLimitCannotBeBypassedWithForwardedIP(t *testing.T) {
 	limiter := &loginLimiter{}
 	router, _ := authRouter(t, limiter)
@@ -178,6 +215,11 @@ func TestLoginRateLimitCannotBeBypassedWithForwardedIP(t *testing.T) {
 	}
 }
 
+// assertNoCredentials подготавливает или проверяет часть тестового сценария «проверка без Credentials».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 func assertNoCredentials(t *testing.T, raw string) {
 	t.Helper()
 	if strings.Contains(raw, "password") || strings.Contains(raw, "Password") || strings.Contains(raw, "StrongPassword123") || strings.Contains(raw, "$argon2") {
@@ -186,8 +228,20 @@ func assertNoCredentials(t *testing.T, raw string) {
 	}
 }
 
+// authRepository реализует постоянное хранение ресурсов компонента через GORM.
+// Состав:
+//   - user: пользователь либо его идентификатор, определяющий область доступа.
 type authRepository struct{ user users.User }
 
+// Create создаёт новое состояние ресурсов компонента по переданным параметрам.
+//
+// @parameters:
+//   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - user (users.User): пользователь либо его идентификатор, определяющий область доступа.
+//
+// @return:
+//   - результат 1 (users.User): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *authRepository) Create(_ context.Context, user users.User) (users.User, error) {
 	if r.user.Email == user.Email {
 		return users.User{}, apperrors.New(apperrors.ErrConflict, "email is already registered")
@@ -195,12 +249,32 @@ func (r *authRepository) Create(_ context.Context, user users.User) (users.User,
 	r.user = user
 	return user, nil
 }
+
+// GetByID читает учётную запись по её идентификатору.
+//
+// @parameters:
+//   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 (users.User): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *authRepository) GetByID(_ context.Context, id string) (users.User, error) {
 	if r.user.ID == id && id != "" {
 		return r.user, nil
 	}
 	return users.User{}, apperrors.ErrNotFound
 }
+
+// GetByEmail читает учётную запись по нормализованному адресу электронной почты.
+//
+// @parameters:
+//   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - email (string): адрес электронной почты пользователя.
+//
+// @return:
+//   - результат 1 (users.User): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *authRepository) GetByEmail(_ context.Context, email string) (users.User, error) {
 	if r.user.Email == email && email != "" {
 		return r.user, nil
@@ -208,15 +282,48 @@ func (r *authRepository) GetByEmail(_ context.Context, email string) (users.User
 	return users.User{}, apperrors.ErrNotFound
 }
 
+// authPasswords хранит изолированное состояние тестового компонента «авторизация Passwords».
 type authPasswords struct{}
 
+// Hash вычисляет защищённый хеш пароля для сохранения вместо открытого текста.
+//
+// @parameters:
+//   - password (string): открытый пароль для хеширования или проверки; не предназначен для журналирования.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (authPasswords) Hash(password string) (string, error) { return "test-hash:" + password, nil }
+
+// Verify проверяет подпись, срок и содержимое переданного разрешения согласно контракту сервиса.
+//
+// @parameters:
+//   - password (string): открытый пароль для хеширования или проверки; не предназначен для журналирования.
+//   - hash (string): сохранённый хеш пароля либо контрольная сумма данных.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (authPasswords) Verify(password, hash string) (bool, error) {
 	return hash == "test-hash:"+password, nil
 }
 
+// loginLimiter хранит изолированное состояние тестового компонента «login Limiter».
+// Состав:
+//   - keys: индекс значений keys для поиска и согласования состояния.
 type loginLimiter struct{ keys map[string]int }
 
+// Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
+//
+// @parameters:
+//   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//   - limit (int): предел количества обрабатываемых элементов.
+//   - _ (time.Duration): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+//
+// @return:
+//   - результат 1 (ratelimit.Result): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (l *loginLimiter) Allow(_ context.Context, key string, limit int, _ time.Duration) (ratelimit.Result, error) {
 	if l.keys == nil {
 		l.keys = make(map[string]int)

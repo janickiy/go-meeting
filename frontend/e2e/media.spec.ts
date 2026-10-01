@@ -4,9 +4,15 @@ test.skip(
   !process.env.MEET_MEDIA_CONFERENCE,
   "requires the isolated Stage 3 media harness",
 );
-test("two browsers exchange audio/video through the SFU and recreate media after reconnect", async ({
-  browser,
-}, info) => {
+test("two browsers exchange audio/video through the SFU and recreate media after reconnect", /**
+ * Проверка: two browsers exchange audio/video through the SFU and recreate media after reconnect выполняет тестовый сценарий «two browsers exchange audio/video through the SFU and recreate media after reconnect» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами.
+ *   - info — контекст запуска для диагностических вложений.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ browser }, info) => {
   test.skip(
     info.project.name !== "chromium",
     "isolated fake devices are configured for Chromium only",
@@ -17,7 +23,16 @@ test("two browsers exchange audio/video through the SFU and recreate media after
     browser.newContext(),
   ]);
   const [alice, bob] = await Promise.all(
-    contexts.map((context) => context.newPage()),
+    contexts.map(
+      /**
+       * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
+       *
+       * @parameters:
+       *   - context — входное значение context текущего шага обработки.
+       *
+       * @returns преобразованное значение текущего элемента для результирующего набора.
+       */ (context) => context.newPage(),
+    ),
   );
   const base = process.env.MEET_LIVE_TEST_URL || "http://127.0.0.1:5175";
   const conference = process.env.MEET_MEDIA_CONFERENCE!;
@@ -26,76 +41,187 @@ test("two browsers exchange audio/video through the SFU and recreate media after
   for (const [index, page] of [alice, bob].entries()) {
     // The isolated media harness focuses on live controls; storage/recording
     // routes are covered by the real RabbitMQ/MinIO recording integration test.
-    await page.route("**/api/v1/conferences/*/recordings", (route) =>
-      route.fulfill({ json: { status: "success", items: [] } }),
+    await page.route(
+      "**/api/v1/conferences/*/recordings",
+      /**
+       * Обработчик page.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+       *
+       * @parameters:
+       *   - route — входное значение route текущего шага обработки.
+       *
+       * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+       */ (route) => route.fulfill({ json: { status: "success", items: [] } }),
     );
     if (process.env.MEET_STAGE4)
-      await page.addInitScript(() => {
-        navigator.mediaDevices.getDisplayMedia = async () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = 640;
-          canvas.height = 360;
-          const paint = () => {
-            const ctx = canvas.getContext("2d")!;
-            ctx.fillStyle = "#1766eb";
-            ctx.fillRect(0, 0, 640, 360);
-            ctx.fillStyle = "white";
-            ctx.font = "36px sans-serif";
-            ctx.fillText(`Screen ${Date.now()}`, 25, 170);
-          };
-          paint();
-          const timer = setInterval(paint, 60);
-          const stream = canvas.captureStream(15);
-          const track = stream.getVideoTracks()[0];
-          track.addEventListener("ended", () => clearInterval(timer));
-          (window as unknown as { __endShare: () => void }).__endShare = () => {
-            track.stop();
-            track.dispatchEvent(new Event("ended"));
-          };
-          return stream;
-        };
-      });
-    await page.addInitScript(() => {
-      const target = window as unknown as { __mediaTrackTrace: unknown[] };
-      target.__mediaTrackTrace = [];
-      const Original = window.RTCPeerConnection;
-      window.RTCPeerConnection = new Proxy(Original, {
-        construct: (Type, args: [RTCConfiguration?]) => {
-          const pc = new Type(...args);
-          pc.addEventListener("track", (event) =>
-            target.__mediaTrackTrace.push({
-              id: event.track.id,
-              kind: event.track.kind,
-              mid: event.transceiver.mid,
-              streams: event.streams.map((stream) => stream.id),
-            }),
-          );
-          return pc;
+      await page.addInitScript(
+        /**
+         * Обработчик page.addInitScript выполняет переданный шаг вызова page.addInitScript в проверках клиентского поведения.
+         *
+         *
+         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ () => {
+          navigator.mediaDevices.getDisplayMedia =
+            /**
+             * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+             *
+             *
+             * @returns Promise, который после завершения операции возвращает: вычисленное значение: stream.
+             */ async () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = 640;
+              canvas.height = 360;
+              /**
+               * paint рисует тестовое изображение камеры или экрана.
+               *
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */
+              const paint = () => {
+                const ctx = canvas.getContext("2d")!;
+                ctx.fillStyle = "#1766eb";
+                ctx.fillRect(0, 0, 640, 360);
+                ctx.fillStyle = "white";
+                ctx.font = "36px sans-serif";
+                ctx.fillText(`Screen ${Date.now()}`, 25, 170);
+              };
+              paint();
+              const timer = setInterval(paint, 60);
+              const stream = canvas.captureStream(15);
+              const track = stream.getVideoTracks()[0];
+              track.addEventListener(
+                "ended",
+                /**
+                 * Обработчик track.addEventListener выполняет переданный шаг вызова track.addEventListener в проверках клиентского поведения.
+                 *
+                 *
+                 * @returns вычисленное значение: clearInterval(timer).
+                 */ () => clearInterval(timer),
+              );
+              (
+                window as unknown as {
+                  __endShare: /**
+                   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+                   *
+                   *
+                   * @returns void — значение не возвращается; функция выполняет описанные действия.
+                   */ () => void;
+                }
+              ).__endShare =
+                /**
+                 * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+                 *
+                 *
+                 * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                 */ () => {
+                  track.stop();
+                  track.dispatchEvent(new Event("ended"));
+                };
+              return stream;
+            };
         },
-      });
-    });
-    page.on("websocket", (socket) =>
-      socket.on("framereceived", ({ payload }) => {
-        try {
-          const event = JSON.parse(String(payload));
-          if (event.type?.startsWith("media.") || event.type === "error")
-            diagnostics[index].push({
-              type: event.type,
-              mediaPeerId: event.data?.mediaPeerId,
-              code: event.data?.code,
-              revision: event.data?.revision,
-              tracks: event.data?.tracks?.map(
-                (t: { id: string; mediaPeerId: string; kind: string }) => ({
-                  id: t.id,
-                  mediaPeerId: t.mediaPeerId,
-                  kind: t.kind,
+      );
+    await page.addInitScript(
+      /**
+       * Обработчик page.addInitScript выполняет переданный шаг вызова page.addInitScript в проверках клиентского поведения.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {
+        const target = window as unknown as { __mediaTrackTrace: unknown[] };
+        target.__mediaTrackTrace = [];
+        const Original = window.RTCPeerConnection;
+        window.RTCPeerConnection = new Proxy(Original, {
+          /**
+           * construct создаёт подставной объект браузерного API.
+           *
+           * @parameters:
+           *   - Type — входное значение Type текущего шага обработки.
+           *   - args ([RTCConfiguration?]) — входное значение args текущего шага обработки.
+           *
+           * @returns вычисленное значение: pc.
+           */
+          construct: (Type, args: [RTCConfiguration?]) => {
+            const pc = new Type(...args);
+            pc.addEventListener(
+              "track",
+              /**
+               * Обработчик pc.addEventListener выполняет переданный шаг вызова pc.addEventListener в проверках клиентского поведения.
+               *
+               * @parameters:
+               *   - event — проверенный конверт события комнаты.
+               *
+               * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+               */ (event) =>
+                target.__mediaTrackTrace.push({
+                  id: event.track.id,
+                  kind: event.track.kind,
+                  mid: event.transceiver.mid,
+                  streams: event.streams.map(
+                    /**
+                     * Обработчик event.streams.map преобразует один элемент набора в представление или данные следующего шага.
+                     *
+                     * @parameters:
+                     *   - stream — поток браузерных медиа-дорожек.
+                     *
+                     * @returns преобразованное значение текущего элемента для результирующего набора.
+                     */ (stream) => stream.id,
+                  ),
                 }),
-              ),
-            });
-        } catch {
-          /* Native websocket control frames are not JSON. */
-        }
-      }),
+            );
+            return pc;
+          },
+        });
+      },
+    );
+    page.on(
+      "websocket",
+      /**
+       * Обработчик page.on выполняет переданный шаг вызова page.on в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - socket — входное значение socket текущего шага обработки.
+       *
+       * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+       */ (socket) =>
+        socket.on(
+          "framereceived",
+          /**
+           * Обработчик socket.on выполняет переданный шаг вызова socket.on в проверках клиентского поведения.
+           *
+           * @parameters:
+           *   - объект параметров: payload — ссылки и состояние уведомления без выдачи прав на ресурс.
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ ({ payload }) => {
+            try {
+              const event = JSON.parse(String(payload));
+              if (event.type?.startsWith("media.") || event.type === "error")
+                diagnostics[index].push({
+                  type: event.type,
+                  mediaPeerId: event.data?.mediaPeerId,
+                  code: event.data?.code,
+                  revision: event.data?.revision,
+                  tracks: event.data?.tracks?.map(
+                    /**
+                     * Обработчик event.data?.tracks?.map преобразует один элемент набора в представление или данные следующего шага.
+                     *
+                     * @parameters:
+                     *   - t ({ id: string; mediaPeerId: string; kind: string }) — одна дорожка проверяемого медиапотока.
+                     *
+                     * @returns новый объект вычисленных данных.
+                     */
+                    (t: { id: string; mediaPeerId: string; kind: string }) => ({
+                      id: t.id,
+                      mediaPeerId: t.mediaPeerId,
+                      kind: t.kind,
+                    }),
+                  ),
+                });
+            } catch {
+              /* Native websocket control frames are not JSON. */
+            }
+          },
+        ),
     );
   }
   try {
@@ -129,27 +255,65 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       });
       await expect
         .poll(
+          /**
+           * Обработчик expect
+        .poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+        .poll в проверках клиентского поведения.
+           *
+           *
+           * @returns актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+           */
           () =>
             page
               .getByTestId("remote-media")
               .locator("video")
-              .evaluate((node) => {
-                const video = node as HTMLVideoElement;
-                const stream = video.srcObject as MediaStream | null;
-                return (
-                  video.videoWidth > 0 &&
-                  Boolean(
-                    stream
+              .evaluate(
+                /**
+ * Обработчик page
+              .getByTestId("remote-media")
+              .locator("video")
+              .evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+ *
+ * @parameters:
+ *   - node — DOM-элемент, к которому привязывается медиапоток.
+ *
+ * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+ */ (node) => {
+                  const video = node as HTMLVideoElement;
+                  const stream = video.srcObject as MediaStream | null;
+                  return (
+                    video.videoWidth > 0 &&
+                    Boolean(
+                      stream?.getAudioTracks().some(
+                        /**
+ * Обработчик stream
                       ?.getAudioTracks()
-                      .some((t) => t.readyState === "live"),
-                  ) &&
-                  Boolean(
-                    stream
+                      .some проверяет условие поиска элемента или соответствия элементов набора.
+ *
+ * @parameters:
+ *   - t — одна дорожка проверяемого медиапотока.
+ *
+ * @returns логический признак соответствия элемента условию.
+ */ (t) => t.readyState === "live",
+                      ),
+                    ) &&
+                    Boolean(
+                      stream?.getVideoTracks().some(
+                        /**
+ * Обработчик stream
                       ?.getVideoTracks()
-                      .some((t) => t.readyState === "live"),
-                  )
-                );
-              }),
+                      .some проверяет условие поиска элемента или соответствия элементов набора.
+ *
+ * @parameters:
+ *   - t — одна дорожка проверяемого медиапотока.
+ *
+ * @returns логический признак соответствия элемента условию.
+ */ (t) => t.readyState === "live",
+                      ),
+                    )
+                  );
+                },
+              ),
           { timeout: 30000 },
         )
         .toBe(true);
@@ -176,11 +340,31 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       ).toHaveCount(1);
       await bob.getByLabel("Выбор камеры").selectOption({ index: 1 });
       await expect
-        .poll(() =>
-          alice
+        .poll(
+          /**
+ * Обработчик expect
+        .poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+        .poll в проверках клиентского поведения.
+ *
+ *
+ * @returns актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+ */ () =>
+            alice
+              .getByTestId("remote-media")
+              .locator("video")
+              .evaluate(
+                /**
+ * Обработчик alice
             .getByTestId("remote-media")
             .locator("video")
-            .evaluate((v) => (v as HTMLVideoElement).videoWidth),
+            .evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+ *
+ * @parameters:
+ *   - v — входное значение v текущего шага обработки.
+ *
+ * @returns вычисленное значение: (v as HTMLVideoElement).videoWidth.
+ */ (v) => (v as HTMLVideoElement).videoWidth,
+              ),
         )
         .toBeGreaterThan(0);
       await bob
@@ -189,10 +373,27 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       await expect(alice.getByTestId("remote-media")).toHaveCount(2);
       await expect(alice.locator(".media-tile-screen video")).toHaveCount(1);
       await expect
-        .poll(() =>
-          alice
+        .poll(
+          /**
+ * Обработчик expect
+        .poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+        .poll в проверках клиентского поведения.
+ *
+ *
+ * @returns актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+ */ () =>
+            alice.locator(".media-tile-screen video").evaluate(
+              /**
+ * Обработчик alice
             .locator(".media-tile-screen video")
-            .evaluate((v) => (v as HTMLVideoElement).videoWidth),
+            .evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+ *
+ * @parameters:
+ *   - v — входное значение v текущего шага обработки.
+ *
+ * @returns вычисленное значение: (v as HTMLVideoElement).videoWidth.
+ */ (v) => (v as HTMLVideoElement).videoWidth,
+            ),
         )
         .toBeGreaterThan(0);
       await alice.screenshot({
@@ -211,8 +412,23 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       await expect(alice.getByTestId("media-status")).toHaveText(
         "Медиасвязь подключена",
       );
-      await bob.evaluate(() =>
-        (window as unknown as { __endShare: () => void }).__endShare(),
+      await bob.evaluate(
+        /**
+         * Обработчик bob.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+         *
+         *
+         * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+         */ () =>
+          (
+            window as unknown as {
+              __endShare: /**
+               * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+               *
+               *
+               * @returns void — значение не возвращается; функция выполняет описанные действия.
+               */ () => void;
+            }
+          ).__endShare(),
       );
       await expect(alice.getByTestId("remote-media")).toHaveCount(1);
       await bob
@@ -315,18 +531,43 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       "Safe received tracks:",
       JSON.stringify(
         await Promise.all(
-          [alice, bob].map((page) =>
-            page.evaluate(
-              () =>
-                (window as unknown as { __mediaTrackTrace: unknown[] })
-                  .__mediaTrackTrace,
-            ),
+          [alice, bob].map(
+            /**
+             * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+             *
+             * @parameters:
+             *   - page — изолированная страница Playwright.
+             *
+             * @returns преобразованное значение текущего элемента для результирующего набора.
+             */ (page) =>
+              page.evaluate(
+                /**
+                 * Обработчик page.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+                 *
+                 *
+                 * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+                 */
+                () =>
+                  (window as unknown as { __mediaTrackTrace: unknown[] })
+                    .__mediaTrackTrace,
+              ),
           ),
         ),
       ),
     );
     throw error;
   } finally {
-    await Promise.all(contexts.map((context) => context.close()));
+    await Promise.all(
+      contexts.map(
+        /**
+         * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
+         *
+         * @parameters:
+         *   - context — входное значение context текущего шага обработки.
+         *
+         * @returns преобразованное значение текущего элемента для результирующего набора.
+         */ (context) => context.close(),
+      ),
+    );
   }
 });

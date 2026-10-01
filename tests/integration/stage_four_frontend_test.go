@@ -8,8 +8,11 @@ import (
 	"time"
 )
 
-// Isolated Chromium uses fake camera/microphone and a synthetic canvas screen;
-// no physical devices, user browser profile or application database are used.
+// TestStageFourBrowserControls проверяет сценарий «этап четыре браузер управление», фиксируя ошибки поведения как регрессию.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourBrowserControls(t *testing.T) {
 	if os.Getenv("RECORDER_STAGE4_BROWSER_E2E") != "true" {
 		t.Skip("set RECORDER_STAGE4_BROWSER_E2E=true with PostgreSQL/Redis test settings")

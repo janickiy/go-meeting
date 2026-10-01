@@ -8,9 +8,9 @@ import (
 )
 
 // Offer проксирует SDP offer браузера во внутренний worker.
-// Параметры:
+// @parameters:
 // - c: Gin context HTTP-запроса.
-// Возвращает: SDP answer worker-а.
+// @return SDP answer worker-а.
 func (h *Handler) Offer(c *gin.Context) {
 	var request records.WebRTCOfferRequest
 	if err := c.ShouldBindJSON(&request); err != nil {

@@ -14,51 +14,60 @@ import (
 //go:embed views/webrtc-smoke.html
 var webrtcSmokeHTML string
 
-// CompletedRecordsLister читает завершенные записи из хранилища артефактов.
+// CompletedRecordsLister задаёт контракт зависимого компонента CompletedRecordsLister в регистрации и обработке HTTP-маршрутов; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+//   - ListCompletedRecords: операция список Completed Records с контрактом, описанным у метода.
 type CompletedRecordsLister interface {
 	// ListCompletedRecords возвращает записи, у которых в MinIO есть preview.jpg и final.mp4.
-	// Параметры:
+	// @parameters:
 	// - ctx: контекст HTTP-запроса.
 	// - limit: максимальное количество записей.
-	// Возвращает: список записей или ошибку хранилища.
+	// @return список записей или ошибку хранилища.
 	ListCompletedRecords(ctx context.Context, limit int) ([]s3storage.CompletedRecord, error)
 }
 
 // RegisterDebugRoutes регистрирует local-only debug страницы.
-// Параметры:
+// @parameters:
 // - router: Gin router.
 // - completedRecords: источник завершенных записей из MinIO.
-// Возвращает: ничего.
+// @return ничего.
 func RegisterDebugRoutes(router gin.IRouter, completedRecords CompletedRecordsLister) {
-	router.GET("/debug/webrtc-smoke", func(c *gin.Context) {
-		noStore(c)
-		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(webrtcSmokeHTML))
-	})
+	router.GET("/debug/webrtc-smoke", /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			noStore(c)
+			c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(webrtcSmokeHTML))
+		})
 
 	if completedRecords == nil {
 		return
 	}
-	router.GET("/debug/records/completed", func(c *gin.Context) {
-		noStore(c)
-		items, err := completedRecords.ListCompletedRecords(c.Request.Context(), debugLimit(c, 50))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  "failed",
-				"message": err.Error(),
+	router.GET("/debug/records/completed", /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			noStore(c)
+			items, err := completedRecords.ListCompletedRecords(c.Request.Context(), debugLimit(c, 50))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"status":  "failed",
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"status": "success",
+				"items":  items,
 			})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"status": "success",
-			"items":  items,
 		})
-	})
 }
 
 // noStore отключает browser cache для debug endpoint-ов.
-// Параметры:
+// @parameters:
 // - c: Gin context.
-// Возвращает: ничего.
+// @return ничего.
 func noStore(c *gin.Context) {
 	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	c.Header("Pragma", "no-cache")
@@ -66,10 +75,10 @@ func noStore(c *gin.Context) {
 }
 
 // debugLimit читает query-параметр limit для debug endpoint-ов.
-// Параметры:
+// @parameters:
 // - c: Gin context.
 // - fallback: значение по умолчанию.
-// Возвращает: корректный limit в диапазоне 1..100.
+// @return корректный limit в диапазоне 1..100.
 func debugLimit(c *gin.Context, fallback int) int {
 	value, err := strconv.Atoi(c.Query("limit"))
 	if err != nil || value <= 0 || value > 100 {

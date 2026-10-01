@@ -22,6 +22,16 @@ const initial: Conference = {
   startedAt: null,
   finishedAt: null,
 };
+/**
+ * member создаёт тестовое членство участника.
+ *
+ * @parameters:
+ *   - id (string) — идентификатор ресурса или конференции данного запроса.
+ *   - userId (string) — идентификатор текущего авторизованного пользователя.
+ *   - role (Participant["role"]) — роль участника и его полномочия (по умолчанию "participant").
+ *
+ * @returns Participant — объект с данными, собранными в текущей операции.
+ */
 function member(
   id: string,
   userId: string,
@@ -40,6 +50,15 @@ function member(
     updatedAt: now,
   };
 }
+/**
+ * mockApi устанавливает ответы HTTP API и сохраняет состояние тестового сценария.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *   - options ({ participant?: boolean; large?: boolean; expired?: boolean; failList?: boolean; failLogin?: boolean; failRegistrationLogin?: boolean; empty?: boolean; }) — метод, тело, отмена и признаки авторизации запроса (по умолчанию {}).
+ *
+ * @returns Promise, который после завершения операции возвращает: объект с данными, собранными в текущей операции.
+ */
 async function mockApi(
   page: Page,
   options: {
@@ -61,168 +80,241 @@ async function mockApi(
   if (options.large) {
     participants = [
       ...participants,
-      ...Array.from({ length: 99 }, (_, i) => member(`p-${i}`, `u-${i}`)),
+      ...Array.from(
+        { length: 99 },
+        /**
+         * Обработчик Array.from выполняет переданный шаг вызова Array.from в проверках клиентского поведения.
+         *
+         * @parameters:
+         *   - _ — входное значение _ текущего шага обработки.
+         *   - i — индекс элемента в текущем наборе.
+         *
+         * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+         */ (_, i) => member(`p-${i}`, `u-${i}`),
+      ),
       { ...member("current", current.id), status: "joined", joinedAt: now },
     ];
   }
   let list: Conference[] = options.empty ? [] : [conference];
   const writes: { path: string; body: unknown }[] = [];
-  await page.route("**/api/v1/**", async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    const path = url.pathname.replace("/api/v1", "");
-    const post = request.method() === "POST";
-    const respond = (body: unknown, status = 200) =>
-      route.fulfill({
-        status,
-        contentType: "application/json",
-        body: JSON.stringify(body),
-      });
-    if (post) writes.push({ path, body: request.postDataJSON() });
-    if (path === "/auth/register")
-      return respond({ status: "success", user: current }, 201);
-    if (path === "/auth/login") {
-      if (options.failLogin || options.failRegistrationLogin)
-        return respond({ message: "invalid email or password" }, 401);
-      return respond({
-        status: "success",
-        accessToken: "e2e-jwt",
-        expiresIn: 3600,
-        tokenType: "Bearer",
-        user: current,
-      });
-    }
-    if (options.expired) return respond({ message: "expired" }, 401);
-    if (request.headers()["authorization"] !== "Bearer e2e-jwt")
-      return respond({ message: "unauthorized" }, 401);
-    if (path === "/auth/me")
-      return respond({ status: "success", user: current });
-    if (path === "/auth/logout") return respond({ status: "success" });
-    if (path === "/conferences" && post) {
-      const body = request.postDataJSON();
-      if (
-        Object.keys(body).some(
-          (key) =>
-            ![
-              "title",
-              "waitingRoomEnabled",
-              "scheduledAt",
-              "plannedDurationMin",
-            ].includes(key),
-        )
-      )
-        return respond({ message: "invalid JSON" }, 400);
-      conference = { ...conference, title: body.title };
-      list = [conference];
-      return respond({ status: "success", item: conference }, 201);
-    }
-    if (path === "/notifications")
-      return respond({
-        status: "success",
-        items: [],
-        nextCursor: null,
-        unreadCount: 0,
-      });
-    if (path === "/conferences" || path === "/me/conferences") {
-      if (options.failList)
-        return respond({ message: "postgres: secret database error" }, 500);
-      return respond({
-        status: "success",
-        nextCursor: null,
-        items: list.slice(
-          Number(url.searchParams.get("offset") || 0),
-          Number(url.searchParams.get("offset") || 0) + 20,
-        ),
-      });
-    }
-    if (path === `/conferences/${conference.id}`)
-      return respond({ status: "success", item: conference });
-    if (path === `/conferences/${conference.id}/recordings` && !post)
-      return respond({ status: "success", items: [] });
-    if (path.endsWith("/participants/me")) {
-      const own = participants.find((item) => item.userId === current.id);
-      return own
-        ? respond({ status: "success", item: own })
-        : respond({ message: "forbidden" }, 403);
-    }
-    if (path.endsWith("/messages"))
-      return respond({
-        status: "success",
-        items: [],
-        nextCursor: null,
-        unreadCount: 0,
-        lastReadMessageId: null,
-      });
-    if (path.endsWith("/chat/read"))
-      return respond({
-        status: "success",
-        item: { unreadCount: 0, lastReadMessageId: null },
-      });
-    if (path.endsWith("/history"))
-      return respond({
-        status: "success",
-        item: {
-          conference,
-          owner: { id: user.id, displayName: user.displayName },
-          durationSec: 60,
-          participantCount: participants.length,
-          participants,
-          recordings: { total: 0, ready: 0, processing: 0, failed: 0 },
-          chatAvailable: true,
-          chatReadOnly: true,
-        },
-      });
-    if (path.endsWith("/participants")) {
-      const offset = Number(url.searchParams.get("offset") || 0);
-      return respond({
-        status: "success",
-        items: participants.slice(offset, offset + 100),
-      });
-    }
-    if (path === `/conference-invites/${code}`)
-      return respond({
-        status: "success",
-        item: {
-          id: conference.id,
-          title: conference.title,
-          status: conference.status,
-        },
-      });
-    if (post && /\/(join|leave)$/.test(path)) {
-      let own = participants.find((item) => item.userId === current.id);
-      if (!own) {
-        own = member("current", current.id);
-        participants.push(own);
-      }
-      own.status = path.endsWith("/leave") ? "left" : "joined";
-      own.joinedAt = now;
-      own.leftAt = own.status === "left" ? now : null;
-      return respond({ status: "success", item: own });
-    }
-    if (post && /\/(start|finish|cancel)$/.test(path)) {
-      if (options.participant) return respond({ message: "forbidden" }, 403);
-      conference.status = path.endsWith("/start")
-        ? "active"
-        : path.endsWith("/finish")
-          ? "finished"
-          : "cancelled";
-      if (conference.status === "active") conference.startedAt = now;
-      else {
-        conference.finishedAt = now;
-        participants.forEach((item) => {
-          if (item.status === "joined") {
-            item.status = "left";
-            item.leftAt = now;
-          }
+  await page.route(
+    "**/api/v1/**",
+    /**
+     * Обработчик page.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+     *
+     * @parameters:
+     *   - route — входное значение route текущего шага обработки.
+     *
+     * @returns Promise, который после завершения операции возвращает: вычисленные данные текущего шага, которые использует вызывающая операция.
+     */ async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const path = url.pathname.replace("/api/v1", "");
+      const post = request.method() === "POST";
+      /**
+       * respond возвращает подготовленный ответ перехваченному запросу теста.
+       *
+       * @parameters:
+       *   - body (unknown) — типизированное тело запроса.
+       *   - status — HTTP-статус либо состояние встречи (по умолчанию 200).
+       *
+       * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+       */
+      const respond = (body: unknown, status = 200) =>
+        route.fulfill({
+          status,
+          contentType: "application/json",
+          body: JSON.stringify(body),
+        });
+      if (post) writes.push({ path, body: request.postDataJSON() });
+      if (path === "/auth/register")
+        return respond({ status: "success", user: current }, 201);
+      if (path === "/auth/login") {
+        if (options.failLogin || options.failRegistrationLogin)
+          return respond({ message: "invalid email or password" }, 401);
+        return respond({
+          status: "success",
+          accessToken: "e2e-jwt",
+          expiresIn: 3600,
+          tokenType: "Bearer",
+          user: current,
         });
       }
-      list = [conference];
-      return respond({ status: "success", item: conference });
-    }
-    return respond({ message: "not found" }, 404);
-  });
+      if (options.expired) return respond({ message: "expired" }, 401);
+      if (request.headers()["authorization"] !== "Bearer e2e-jwt")
+        return respond({ message: "unauthorized" }, 401);
+      if (path === "/auth/me")
+        return respond({ status: "success", user: current });
+      if (path === "/auth/logout") return respond({ status: "success" });
+      if (path === "/conferences" && post) {
+        const body = request.postDataJSON();
+        if (
+          Object.keys(body).some(
+            /**
+             * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+             *
+             * @parameters:
+             *   - key — идентификатор строки загрузки.
+             *
+             * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+             */
+            (key) =>
+              ![
+                "title",
+                "waitingRoomEnabled",
+                "scheduledAt",
+                "plannedDurationMin",
+              ].includes(key),
+          )
+        )
+          return respond({ message: "invalid JSON" }, 400);
+        conference = { ...conference, title: body.title };
+        list = [conference];
+        return respond({ status: "success", item: conference }, 201);
+      }
+      if (path === "/notifications")
+        return respond({
+          status: "success",
+          items: [],
+          nextCursor: null,
+          unreadCount: 0,
+        });
+      if (path === "/conferences" || path === "/me/conferences") {
+        if (options.failList)
+          return respond({ message: "postgres: secret database error" }, 500);
+        return respond({
+          status: "success",
+          nextCursor: null,
+          items: list.slice(
+            Number(url.searchParams.get("offset") || 0),
+            Number(url.searchParams.get("offset") || 0) + 20,
+          ),
+        });
+      }
+      if (path === `/conferences/${conference.id}`)
+        return respond({ status: "success", item: conference });
+      if (path === `/conferences/${conference.id}/recordings` && !post)
+        return respond({ status: "success", items: [] });
+      if (path.endsWith("/participants/me")) {
+        const own = participants.find(
+          /**
+           * Обработчик participants.find проверяет условие поиска элемента или соответствия элементов набора.
+           *
+           * @parameters:
+           *   - item — элемент списка, который обрабатывает текущий шаг.
+           *
+           * @returns логический признак соответствия элемента условию.
+           */ (item) => item.userId === current.id,
+        );
+        return own
+          ? respond({ status: "success", item: own })
+          : respond({ message: "forbidden" }, 403);
+      }
+      if (path.endsWith("/messages"))
+        return respond({
+          status: "success",
+          items: [],
+          nextCursor: null,
+          unreadCount: 0,
+          lastReadMessageId: null,
+        });
+      if (path.endsWith("/chat/read"))
+        return respond({
+          status: "success",
+          item: { unreadCount: 0, lastReadMessageId: null },
+        });
+      if (path.endsWith("/history"))
+        return respond({
+          status: "success",
+          item: {
+            conference,
+            owner: { id: user.id, displayName: user.displayName },
+            durationSec: 60,
+            participantCount: participants.length,
+            participants,
+            recordings: { total: 0, ready: 0, processing: 0, failed: 0 },
+            chatAvailable: true,
+            chatReadOnly: true,
+          },
+        });
+      if (path.endsWith("/participants")) {
+        const offset = Number(url.searchParams.get("offset") || 0);
+        return respond({
+          status: "success",
+          items: participants.slice(offset, offset + 100),
+        });
+      }
+      if (path === `/conference-invites/${code}`)
+        return respond({
+          status: "success",
+          item: {
+            id: conference.id,
+            title: conference.title,
+            status: conference.status,
+          },
+        });
+      if (post && /\/(join|leave)$/.test(path)) {
+        let own = participants.find(
+          /**
+           * Обработчик participants.find проверяет условие поиска элемента или соответствия элементов набора.
+           *
+           * @parameters:
+           *   - item — элемент списка, который обрабатывает текущий шаг.
+           *
+           * @returns логический признак соответствия элемента условию.
+           */ (item) => item.userId === current.id,
+        );
+        if (!own) {
+          own = member("current", current.id);
+          participants.push(own);
+        }
+        own.status = path.endsWith("/leave") ? "left" : "joined";
+        own.joinedAt = now;
+        own.leftAt = own.status === "left" ? now : null;
+        return respond({ status: "success", item: own });
+      }
+      if (post && /\/(start|finish|cancel)$/.test(path)) {
+        if (options.participant) return respond({ message: "forbidden" }, 403);
+        conference.status = path.endsWith("/start")
+          ? "active"
+          : path.endsWith("/finish")
+            ? "finished"
+            : "cancelled";
+        if (conference.status === "active") conference.startedAt = now;
+        else {
+          conference.finishedAt = now;
+          participants.forEach(
+            /**
+             * Обработчик participants.forEach выполняет переданный шаг вызова participants.forEach в проверках клиентского поведения.
+             *
+             * @parameters:
+             *   - item — элемент списка, который обрабатывает текущий шаг.
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ (item) => {
+              if (item.status === "joined") {
+                item.status = "left";
+                item.leftAt = now;
+              }
+            },
+          );
+        }
+        list = [conference];
+        return respond({ status: "success", item: conference });
+      }
+      return respond({ message: "not found" }, 404);
+    },
+  );
   return { writes };
 }
+/**
+ * login отправляет учётные данные и получает токен и сведения пользователя.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 async function login(page: Page) {
   await page.goto("/login");
   await page.getByLabel("Email", { exact: true }).fill(user.email);
@@ -233,17 +325,37 @@ async function login(page: Page) {
     page.getByRole("heading", { name: "Добро пожаловать, Александр!" }),
   ).toBeVisible();
 }
+/**
+ * noOverflow проверяет отсутствие выхода элементов за доступную ширину страницы.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 async function noOverflow(page: Page) {
   expect(
     await page.evaluate(
+      /**
+       * Обработчик page.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+       *
+       *
+       * @returns вычисленное значение: document.documentElement.scrollWidth <= window.innerWidth.
+       */
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
 }
 
-test("landing, login, registration and success match the reference at desktop size", async ({
-  page,
-}, info) => {
+test("landing, login, registration and success match the reference at desktop size", /**
+ * Проверка: landing, login, registration and success match the reference at desktop size выполняет тестовый сценарий «landing, login, registration and success match the reference at desktop size» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *   - info — контекст запуска для диагностических вложений.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }, info) => {
   await mockApi(page, { empty: true });
   await page.goto("/");
   await expect(
@@ -252,7 +364,16 @@ test("landing, login, registration and success match the reference at desktop si
   const hero = page.getByRole("img");
   await expect(hero).toBeVisible();
   expect(
-    await hero.evaluate((node) => (node as HTMLImageElement).naturalWidth),
+    await hero.evaluate(
+      /**
+       * Обработчик hero.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+       *
+       * @parameters:
+       *   - node — DOM-элемент, к которому привязывается медиапоток.
+       *
+       * @returns вычисленное значение: (node as HTMLImageElement).naturalWidth.
+       */ (node) => (node as HTMLImageElement).naturalWidth,
+    ),
   ).toBeGreaterThan(0);
   await noOverflow(page);
   await page.screenshot({
@@ -290,9 +411,15 @@ test("landing, login, registration and success match the reference at desktop si
   ).toBeVisible();
 });
 
-test("login -> dashboard -> create -> share -> lifecycle -> logout", async ({
-  page,
-}, info) => {
+test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
+ * Проверка: login -> dashboard -> create -> share -> lifecycle -> logout выполняет тестовый сценарий «login -> dashboard -> create -> share -> lifecycle -> logout» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *   - info — контекст запуска для диагностических вложений.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }, info) => {
   const { writes } = await mockApi(page);
   await login(page);
   await page.screenshot({
@@ -317,7 +444,18 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", async ({
   await expect(page.getByLabel("Ссылка-приглашение")).toHaveValue(
     `http://127.0.0.1:5174/i/${code}`,
   );
-  expect(writes.find((item) => item.path === "/conferences")?.body).toEqual({
+  expect(
+    writes.find(
+      /**
+       * Обработчик writes.find проверяет условие поиска элемента или соответствия элементов набора.
+       *
+       * @parameters:
+       *   - item — элемент списка, который обрабатывает текущий шаг.
+       *
+       * @returns логический признак соответствия элемента условию.
+       */ (item) => item.path === "/conferences",
+    )?.body,
+  ).toEqual({
     title: "Демо React интерфейса",
     waitingRoomEnabled: false,
   });
@@ -350,13 +488,25 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", async ({
   await page.getByRole("button", { name: "Выйти из аккаунта" }).click();
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   expect(
-    await page.evaluate(() => sessionStorage.getItem("meet.session.v1")),
+    await page.evaluate(
+      /**
+       * Обработчик page.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+       *
+       *
+       * @returns вычисленное значение: sessionStorage.getItem("meet.session.v1").
+       */ () => sessionStorage.getItem("meet.session.v1"),
+    ),
   ).toBeNull();
 });
 
-test("an invitation survives login and a participant cannot see owner controls", async ({
-  page,
-}) => {
+test("an invitation survives login and a participant cannot see owner controls", /**
+ * Проверка: an invitation survives login and a participant cannot see owner controls выполняет тестовый сценарий «an invitation survives login and a participant cannot see owner controls» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }) => {
   await mockApi(page, { participant: true });
   await page.goto(`/i/${code}`);
   await expect(page).toHaveURL(/\/login\?next=/);
@@ -381,9 +531,14 @@ test("an invitation survives login and a participant cannot see owner controls",
   ).toHaveCount(0);
 });
 
-test("finds current membership after the first 100 participants", async ({
-  page,
-}) => {
+test("finds current membership after the first 100 participants", /**
+ * Проверка: finds current membership after the first 100 participants выполняет тестовый сценарий «finds current membership after the first 100 participants» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }) => {
   await mockApi(page, { participant: true, large: true });
   await login(page);
   await page.goto("/conferences/conference-1");
@@ -394,33 +549,59 @@ test("finds current membership after the first 100 participants", async ({
   await expect(page.getByText("Участники 101")).toBeVisible();
 });
 
-test("restores a session, but an expired token redirects safely to login", async ({
-  page,
-}) => {
+test("restores a session, but an expired token redirects safely to login", /**
+ * Проверка: restores a session, but an expired token redirects safely to login выполняет тестовый сценарий «restores a session, but an expired token redirects safely to login» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }) => {
   await mockApi(page);
   await login(page);
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Добро пожаловать, Александр!" }),
   ).toBeVisible();
-  await page.route("**/api/v1/auth/me", (route) =>
-    route.fulfill({
-      status: 401,
-      contentType: "application/json",
-      body: JSON.stringify({ message: "expired" }),
-    }),
+  await page.route(
+    "**/api/v1/auth/me",
+    /**
+     * Обработчик page.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+     *
+     * @parameters:
+     *   - route — входное значение route текущего шага обработки.
+     *
+     * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+     */ (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "expired" }),
+      }),
   );
   await page.reload();
   await expect(page).toHaveURL(/\/login/);
   await expect(page.getByRole("alert")).toContainText("Сессия завершилась");
   expect(
-    await page.evaluate(() => sessionStorage.getItem("meet.session.v1")),
+    await page.evaluate(
+      /**
+       * Обработчик page.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+       *
+       *
+       * @returns вычисленное значение: sessionStorage.getItem("meet.session.v1").
+       */ () => sessionStorage.getItem("meet.session.v1"),
+    ),
   ).toBeNull();
 });
 
-test("handles errors without leaking server details or pretending registration failed", async ({
-  page,
-}) => {
+test("handles errors without leaking server details or pretending registration failed", /**
+ * Проверка: handles errors without leaking server details or pretending registration failed выполняет тестовый сценарий «handles errors without leaking server details or pretending registration failed» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }) => {
   await mockApi(page, { failList: true });
   await login(page);
   await expect(page.getByRole("alert")).toContainText(
@@ -451,9 +632,14 @@ test("handles errors without leaking server details or pretending registration f
   ).toBeVisible();
 });
 
-test("registration counts characters, not bytes, and accepts eight plain letters", async ({
-  page,
-}) => {
+test("registration counts characters, not bytes, and accepts eight plain letters", /**
+ * Проверка: registration counts characters, not bytes, and accepts eight plain letters выполняет тестовый сценарий «registration counts characters, not bytes, and accepts eight plain letters» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }) => {
   const { writes } = await mockApi(page, { empty: true });
   await page.goto("/register");
   await page.getByLabel("Email", { exact: true }).fill("policy@example.test");
@@ -473,22 +659,46 @@ test("registration counts characters, not bytes, and accepts eight plain letters
     await submit.click();
     await expect(page.getByRole("alert")).toContainText("от 8 до 128 символов");
   }
-  expect(writes.filter((item) => item.path === "/auth/register")).toHaveLength(
-    0,
-  );
+  expect(
+    writes.filter(
+      /**
+       * Обработчик writes.filter проверяет, должен ли элемент войти в отфильтрованный набор.
+       *
+       * @parameters:
+       *   - item — элемент списка, который обрабатывает текущий шаг.
+       *
+       * @returns логический признак соответствия элемента условию.
+       */ (item) => item.path === "/auth/register",
+    ),
+  ).toHaveLength(0);
   await password.fill("abcdefgh");
   await submit.click();
   await expect(
     page.getByRole("heading", { name: "Аккаунт создан!" }),
   ).toBeVisible();
-  expect(writes.filter((item) => item.path === "/auth/register")).toHaveLength(
-    1,
-  );
+  expect(
+    writes.filter(
+      /**
+       * Обработчик writes.filter проверяет, должен ли элемент войти в отфильтрованный набор.
+       *
+       * @parameters:
+       *   - item — элемент списка, который обрабатывает текущий шаг.
+       *
+       * @returns логический признак соответствия элемента условию.
+       */ (item) => item.path === "/auth/register",
+    ),
+  ).toHaveLength(1);
 });
 
-test("mobile layouts, menu, keyboard dialog dismissal and deep-link refresh", async ({
-  page,
-}, info) => {
+test("mobile layouts, menu, keyboard dialog dismissal and deep-link refresh", /**
+ * Проверка: mobile layouts, menu, keyboard dialog dismissal and deep-link refresh выполняет тестовый сценарий «mobile layouts, menu, keyboard dialog dismissal and deep-link refresh» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright.
+ *   - info — контекст запуска для диагностических вложений.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);
   for (const path of ["/", "/login", "/register"]) {

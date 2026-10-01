@@ -1,14 +1,38 @@
 import type { ClientRealtimeType } from "./realtime";
 import type { RealtimeEvent } from "./types";
 
+/**
+ * MediaSource различает микрофон, камеру, экран и звук экрана при публикации медиа.
+ *
+ */
 export type MediaSource =
   "microphone" | "camera" | "video/screen" | "audio/screen";
+/**
+ * MediaPolicy описывает ограничения источников медиа, которые клиент применяет после серверной модерации.
+ *
+ * Состав:
+ *   - version — версия изменения или протокола.
+ *   - microphoneBlocked — серверный запрет микрофона.
+ *   - cameraBlocked — серверный запрет камеры.
+ *   - screenBlocked — серверный запрет экрана.
+ */
 export interface MediaPolicy {
   version?: number;
   microphoneBlocked?: boolean;
   cameraBlocked?: boolean;
   screenBlocked?: boolean;
 }
+/**
+ * MediaTrack связывает дорожку с серверным участником, источником и физическим подключением.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - streamId — поле или операция этого контракта.
+ *   - mediaPeerId — поле или операция этого контракта.
+ *   - participantId — идентификатор членства целевого участника.
+ *   - kind — поле или операция этого контракта.
+ *   - source — семантический источник медиа: микрофон, камера либо экран.
+ */
 export interface MediaTrack {
   id: string;
   streamId: string;
@@ -17,6 +41,17 @@ export interface MediaTrack {
   kind: "audio" | "video";
   source: MediaSource;
 }
+/**
+ * RemoteMedia собирает удалённые потоки и источники одного физического подключения.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - mediaPeerId — поле или операция этого контракта.
+ *   - participantId — идентификатор членства целевого участника.
+ *   - stream — поле или операция этого контракта.
+ *   - kinds — поле или операция этого контракта.
+ *   - screen — поле или операция этого контракта.
+ */
 export interface RemoteMedia {
   id: string;
   mediaPeerId: string;
@@ -25,6 +60,26 @@ export interface RemoteMedia {
   kinds: string[];
   screen: boolean;
 }
+/**
+ * MediaView описывает отображаемый снимок состояния медиа, устройств, потоков и ошибок.
+ *
+ * Состав:
+ *   - active — поле или операция этого контракта.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - localStream — поле или операция этого контракта.
+ *   - localScreen — поле или операция этого контракта.
+ *   - microphoneEnabled — признак включённого микрофона.
+ *   - cameraEnabled — признак включённой камеры.
+ *   - screenSharing — признак демонстрации экрана.
+ *   - controlBusy — поле или операция этого контракта.
+ *   - remoteStreams — поле или операция этого контракта.
+ *   - mediaPeerId — поле или операция этого контракта.
+ *   - workerId — поле или операция этого контракта.
+ *   - connectionState — поле или операция этого контракта.
+ *   - iceState — поле или операция этого контракта.
+ *   - negotiationState — поле или операция этого контракта.
+ *   - error — пойманная ошибка API или сети.
+ */
 export interface MediaView {
   active: boolean;
   status: string;
@@ -42,9 +97,28 @@ export interface MediaView {
   negotiationState: string;
   error: string | null;
 }
-type Send = (type: ClientRealtimeType, data: unknown) => string;
+/**
+ * Send задаёт контракт отправки разрешённой сигнализации физического соединения.
+ *
+ */
+type Send =
+  /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+   *
+   * @parameters:
+   *   - type (ClientRealtimeType) — машинный тип события.
+   *   - data (unknown) — нагрузка события, проверяемая перед чтением.
+   *
+   * @returns string — результат указанного контракта; реализация предоставляется вызывающим компонентом.
+   */ (type: ClientRealtimeType, data: unknown) => string;
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+/**
+ * initial создаёт исходный снимок медиа без соединения и захваченных устройств.
+ *
+ *
+ * @returns MediaView — новое исходное состояние без активного подключения.
+ */
 const initial = (): MediaView => ({
   active: false,
   status: "Камера и микрофон выключены",
@@ -62,11 +136,27 @@ const initial = (): MediaView => ({
   negotiationState: "stable",
   error: null,
 });
+/**
+ * record проверяет, является ли неизвестная нагрузка обычным объектом для дальнейшего чтения полей.
+ *
+ * @parameters:
+ *   - value (unknown) — значение для проверки, преобразования или отображения.
+ *
+ * @returns Record<string, unknown> | null — true для обычного ненулевого объекта и false для остальных значений.
+ */
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
+/**
+ * tracks проверяет и нормализует описания медиа-дорожек входящего события.
+ *
+ * @parameters:
+ *   - value (unknown) — значение для проверки, преобразования или отображения.
+ *
+ * @returns MediaTrack[] | null — набор элементов указанного типа, полученных описанной операцией.
+ */
 function tracks(value: unknown): MediaTrack[] | null {
   if (!Array.isArray(value) || value.length > 128) return null;
   const result: MediaTrack[] = [];
@@ -99,6 +189,14 @@ function tracks(value: unknown): MediaTrack[] | null {
   }
   return result;
 }
+/**
+ * videoCapture проверяет предложенный профиль захвата видео перед применением к устройству.
+ *
+ * @parameters:
+ *   - value (unknown) — значение для проверки, преобразования или отображения.
+ *
+ * @returns объект с данными, собранными в текущей операции.
+ */
 function videoCapture(value: unknown) {
   if (value === undefined)
     return { maxWidth: 1280, maxHeight: 720, maxFrameRate: 30 };
@@ -125,6 +223,61 @@ function videoCapture(value: unknown) {
 
 // One controller = one Stage 2 connection and one server-side MediaPeer.
 // No permission request or automatic capture occurs in the constructor.
+/**
+ * ConferenceMediaClient управляет физическим WebRTC-соединением, захватом устройств, экраном и последовательным согласованием SDP.
+ *
+ * Состав:
+ *   - view — раздел будущих, активных или прошедших встреч.
+ *   - disposed — поле или операция этого контракта.
+ *   - started — поле или операция этого контракта.
+ *   - pc — поле или операция этого контракта.
+ *   - local — поле или операция этого контракта.
+ *   - screen — поле или операция этого контракта.
+ *   - policy — актуальные ограничения модерации источников.
+ *   - capture — поле или операция этого контракта.
+ *   - sources — поле или операция этого контракта.
+ *   - localRevision — поле или операция этого контракта.
+ *   - preferredInputs — поле или операция этого контракта.
+ *   - answeredLocalRevision — поле или операция этого контракта.
+ *   - joinedRequest — поле или операция этого контракта.
+ *   - negotiation — поле или операция этого контракта.
+ *   - wantedRevision — поле или операция этого контракта.
+ *   - answeredRevision — поле или операция этого контракта.
+ *   - catalog — поле или операция этого контракта.
+ *   - ownPublished — поле или операция этого контракта.
+ *   - catalogRevision — поле или операция этого контракта.
+ *   - received — поле или операция этого контракта.
+ *   - streams — поле или операция этого контракта.
+ *   - remoteICE — поле или операция этого контракта.
+ *   - localICE — поле или операция этого контракта.
+ *   - remoteDescriptionReady — поле или операция этого контракта.
+ *   - hasSentOffer — поле или операция этого контракта.
+ *   - readyRequests — поле или операция этого контракта.
+ *   - queue — поле или операция этого контракта.
+ *   - timer — поле или операция этого контракта.
+ *   - disconnectedTimer — поле или операция этого контракта.
+ *   - constructor — function Object() { [native code] }.
+ *   - snapshot — поле или операция этого контракта.
+ *   - update — поле или операция этого контракта.
+ *   - deadline — поле или операция этого контракта.
+ *   - fail — поле или операция этого контракта.
+ *   - stop — поле или операция этого контракта.
+ *   - start — поле или операция этого контракта.
+ *   - watchTrack — поле или операция этого контракта.
+ *   - refreshLocal — поле или операция этого контракта.
+ *   - mutate — поле или операция этого контракта.
+ *   - replaceSource — поле или операция этого контракта.
+ *   - setPolicy — поле или операция этого контракта.
+ *   - changeSource — поле или операция этого контракта.
+ *   - startScreen — поле или операция этого контракта.
+ *   - stopScreen — поле или операция этого контракта.
+ *   - handle — поле или операция этого контракта.
+ *   - process — поле или операция этого контракта.
+ *   - createPeer — поле или операция этого контракта.
+ *   - sendICE — поле или операция этого контракта.
+ *   - offer — поле или операция этого контракта.
+ *   - syncRemoteStreams — поле или операция этого контракта.
+ */
 export class ConferenceMediaClient {
   private view = initial();
   private disposed = false;
@@ -173,27 +326,88 @@ export class ConferenceMediaClient {
   private timer?: ReturnType<typeof setTimeout>;
   private disconnectedTimer?: ReturnType<typeof setTimeout>;
 
+  /**
+   * constructor function Object() { [native code] }.
+   *
+   * @parameters:
+   *   - send (Send) — входное значение send текущего шага обработки.
+   *   - onChange ((view: MediaView) => void) — обработчик изменения управляемого значения.
+   *
+   * @returns инициализированный экземпляр текущего класса.
+   */
   constructor(
     private send: Send,
-    private onChange: (view: MediaView) => void,
+    private onChange: /**
+     * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+     *
+     * @parameters:
+     *   - view (MediaView) — раздел будущих, активных или прошедших встреч.
+     *
+     * @returns void — значение не возвращается; функция выполняет описанные действия.
+     */ (view: MediaView) => void,
   ) {}
 
+  /**
+   * snapshot возвращает текущий снимок состояния медиа для отображения интерфейса.
+   *
+   *
+   * @returns текущий снимок состояния медиа, потоков и устройств.
+   */
   snapshot() {
     return this.view;
   }
+  /**
+   * update объединяет изменение со снимком медиа и уведомляет подписчика состояния.
+   *
+   * @parameters:
+   *   - patch (Partial<MediaView>) — частичное изменение снимка медиа.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private update(patch: Partial<MediaView>) {
     this.view = { ...this.view, ...patch };
     this.onChange(this.view);
   }
+  /**
+   * deadline ограничивает ожидание согласования таймером и выводит понятную ошибку по истечении срока.
+   *
+   * @parameters:
+   *   - message (string) — понятный текст ошибки или сообщение операции.
+   *   - ms — длительность ожидания в миллисекундах (по умолчанию 15000).
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private deadline(message: string, ms = 15000) {
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.fail(message), ms);
+    this.timer = setTimeout(
+      /**
+       * Обработчик setTimeout выполняет отложенную либо периодическую часть операции.
+       *
+       *
+       * @returns следующее состояние, рассчитанное из предыдущего значения.
+       */ () => this.fail(message),
+      ms,
+    );
   }
+  /**
+   * fail фиксирует ошибку медиа и обновляет отображаемое состояние клиента.
+   *
+   * @parameters:
+   *   - message (string) — понятный текст ошибки или сообщение операции.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private fail(message: string) {
     if (this.disposed) return;
     this.stop();
     this.update({ status: "Медиасвязь остановлена", error: message });
   }
+  /**
+   * stop закрывает WebRTC, останавливает принадлежащие клиенту дорожки и очищает таймеры и состояние.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   stop() {
     if (this.disposed) return;
     this.disposed = true;
@@ -238,6 +452,14 @@ export class ConferenceMediaClient {
     });
   }
 
+  /**
+   * start подготавливает медиа-соединение и при явном разрешении захватывает устройства пользователя.
+   *
+   * @parameters:
+   *   - captureDevices — разрешает первоначальный захват устройств после явного действия пользователя (по умолчанию true).
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   async start(captureDevices = true) {
     if (this.started || this.disposed) return;
     this.started = true;
@@ -272,7 +494,16 @@ export class ConferenceMediaClient {
                   },
             });
       if (this.disposed) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach(
+          /**
+           * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+           *
+           * @parameters:
+           *   - track — дорожка захваченного или удалённого MediaStream.
+           *
+           * @returns вычисленное значение: track.stop().
+           */ (track) => track.stop(),
+        );
         return;
       }
       for (const track of stream.getTracks()) {
@@ -287,8 +518,26 @@ export class ConferenceMediaClient {
       this.local = stream;
       this.update({
         localStream: stream.getTracks().length ? stream : null,
-        microphoneEnabled: stream.getTracks().some((t) => t.kind === "audio"),
-        cameraEnabled: stream.getTracks().some((t) => t.kind === "video"),
+        microphoneEnabled: stream.getTracks().some(
+          /**
+           * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+           *
+           * @parameters:
+           *   - t — одна дорожка проверяемого медиапотока.
+           *
+           * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+           */ (t) => t.kind === "audio",
+        ),
+        cameraEnabled: stream.getTracks().some(
+          /**
+           * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+           *
+           * @parameters:
+           *   - t — одна дорожка проверяемого медиапотока.
+           *
+           * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+           */ (t) => t.kind === "video",
+        ),
         status: "Подключаемся к media-worker…",
       });
       this.deadline(
@@ -312,29 +561,64 @@ export class ConferenceMediaClient {
     }
   }
 
+  /**
+   * watchTrack следит за завершением захваченной дорожки и согласует отключение её семантического источника.
+   *
+   * @parameters:
+   *   - source (MediaSource) — семантический источник медиа: микрофон, камера либо экран.
+   *   - track (MediaStreamTrack) — дорожка захваченного или удалённого MediaStream.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private watchTrack(source: MediaSource, track: MediaStreamTrack) {
-    track.onended = () => {
-      if (this.disposed || this.sources.get(source)?.track !== track) return;
-      for (const publication of this.ownPublished.values()) {
-        if (publication.source === source)
-          this.send("media.unpublish", {
-            mediaPeerId: this.view.mediaPeerId,
-            trackId: publication.id,
-          });
-      }
-      if (source === "video/screen") void this.stopScreen();
-      else
-        void this.mutate(async () => {
-          if (this.sources.get(source)?.track === track)
-            await this.replaceSource(source, null);
-        });
-    };
+    track.onended =
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {
+        if (this.disposed || this.sources.get(source)?.track !== track) return;
+        for (const publication of this.ownPublished.values()) {
+          if (publication.source === source)
+            this.send("media.unpublish", {
+              mediaPeerId: this.view.mediaPeerId,
+              trackId: publication.id,
+            });
+        }
+        if (source === "video/screen") void this.stopScreen();
+        else
+          void this.mutate(
+            /**
+             * Обработчик mutate выполняет переданный шаг вызова mutate в состоянии связи и WebRTC-медиа.
+             *
+             *
+             * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ async () => {
+              if (this.sources.get(source)?.track === track)
+                await this.replaceSource(source, null);
+            },
+          );
+      };
   }
+  /**
+   * refreshLocal обновляет локальные потоки и признаки активных источников для интерфейса.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private refreshLocal() {
     this.update({
-      localStream: this.local
-        ?.getTracks()
-        .some((track) => track.readyState === "live")
+      localStream: this.local?.getTracks().some(
+        /**
+         * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+         *
+         * @parameters:
+         *   - track — дорожка захваченного или удалённого MediaStream.
+         *
+         * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+         */ (track) => track.readyState === "live",
+      )
         ? this.local
         : null,
       localScreen: this.screen,
@@ -345,24 +629,62 @@ export class ConferenceMediaClient {
         this.sources.get("video/screen")?.track?.readyState === "live",
     });
   }
-  private mutate(action: () => Promise<void>) {
-    const next = this.queue.then(async () => {
-      if (this.disposed) return;
-      await action();
-      if (this.disposed) return;
-      this.refreshLocal();
-      this.localRevision++;
-      await this.offer();
-    });
-    this.queue = next.catch(() => {
-      if (!this.disposed)
-        this.update({
-          error:
-            "Не удалось изменить медиапоток. Повторите действие или переподключитесь.",
-        });
-    });
+  /**
+   * mutate сериализует изменение источников медиа, чтобы конкурирующие действия не нарушали порядок согласования.
+   *
+   * @parameters:
+   *   - action (() => Promise<void>) — разрешённое действие управления либо асинхронная операция.
+   *
+   * @returns вычисленное значение: this.queue.
+   */
+  private mutate(
+    action: /**
+     * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+     *
+     *
+     * @returns Promise<void> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
+     */ () => Promise<void>,
+  ) {
+    const next = this.queue.then(
+      /**
+       * Обработчик then выполняет переданный шаг вызова then в состоянии связи и WebRTC-медиа.
+       *
+       *
+       * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ async () => {
+        if (this.disposed) return;
+        await action();
+        if (this.disposed) return;
+        this.refreshLocal();
+        this.localRevision++;
+        await this.offer();
+      },
+    );
+    this.queue = next.catch(
+      /**
+       * Обработчик next.catch обрабатывает отказ асинхронной операции в соответствии с текущим состоянием интерфейса.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {
+        if (!this.disposed)
+          this.update({
+            error:
+              "Не удалось изменить медиапоток. Повторите действие или переподключитесь.",
+          });
+      },
+    );
     return this.queue;
   }
+  /**
+   * replaceSource заменяет или отключает дорожку конкретного источника через соответствующий RTCRtpSender.
+   *
+   * @parameters:
+   *   - source (MediaSource) — семантический источник медиа: микрофон, камера либо экран.
+   *   - track (MediaStreamTrack | null) — дорожка захваченного или удалённого MediaStream.
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private async replaceSource(
     source: MediaSource,
     track: MediaStreamTrack | null,
@@ -391,6 +713,14 @@ export class ConferenceMediaClient {
       this.watchTrack(source, track);
     }
   }
+  /**
+   * setPolicy применяет текущие ограничения модерации к локальным устройствам и экрану.
+   *
+   * @parameters:
+   *   - policy (MediaPolicy) — актуальные ограничения модерации источников.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   setPolicy(policy: MediaPolicy) {
     // Delayed roster fetches must not undo a newer realtime restriction.
     if ((policy.version ?? 0) < (this.policy.version ?? 0)) return;
@@ -401,12 +731,40 @@ export class ConferenceMediaClient {
     if (policy.cameraBlocked) blocked.push("camera");
     if (policy.screenBlocked || policy.cameraBlocked)
       blocked.push("video/screen", "audio/screen");
-    if (blocked.some((source) => this.sources.get(source)?.track))
-      void this.mutate(async () => {
-        for (const source of blocked) await this.replaceSource(source, null);
-        if (policy.screenBlocked || policy.cameraBlocked) this.screen = null;
-      });
+    if (
+      blocked.some(
+        /**
+         * Обработчик blocked.some проверяет условие поиска элемента или соответствия элементов набора.
+         *
+         * @parameters:
+         *   - source — семантический источник медиа: микрофон, камера либо экран.
+         *
+         * @returns логический признак соответствия элемента условию.
+         */ (source) => this.sources.get(source)?.track,
+      )
+    )
+      void this.mutate(
+        /**
+         * Обработчик mutate выполняет переданный шаг вызова mutate в состоянии связи и WebRTC-медиа.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ async () => {
+          for (const source of blocked) await this.replaceSource(source, null);
+          if (policy.screenBlocked || policy.cameraBlocked) this.screen = null;
+        },
+      );
   }
+  /**
+   * changeSource включает, отключает или меняет устройство конкретного разрешённого источника медиа.
+   *
+   * @parameters:
+   *   - source ("microphone" | "camera") — семантический источник медиа: микрофон, камера либо экран.
+   *   - enabled (boolean) — разрешает выполнение запроса или подключение при выполненных условиях доступа.
+   *   - deviceId (string) — идентификатор выбранного пользователем устройства (необязательный параметр).
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   async changeSource(
     source: "microphone" | "camera",
     enabled: boolean,
@@ -464,31 +822,62 @@ export class ConferenceMediaClient {
             ? this.policy.microphoneBlocked
             : this.policy.cameraBlocked))
       ) {
-        captured?.getTracks().forEach((track) => track.stop());
+        captured?.getTracks().forEach(
+          /**
+           * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+           *
+           * @parameters:
+           *   - track — дорожка захваченного или удалённого MediaStream.
+           *
+           * @returns вычисленное значение: track.stop().
+           */ (track) => track.stop(),
+        );
         return;
       }
       const track =
-        captured
-          ?.getTracks()
-          .find(
-            (t) => t.kind === (source === "microphone" ? "audio" : "video"),
-          ) || null;
+        captured?.getTracks().find(
+          /**
+           * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+           *
+           * @parameters:
+           *   - t — одна дорожка проверяемого медиапотока.
+           *
+           * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+           */
+          (t) => t.kind === (source === "microphone" ? "audio" : "video"),
+        ) || null;
       if (enabled && !track) throw new Error("missing_track");
-      await this.mutate(async () => {
-        if (
-          enabled &&
-          (source === "microphone"
-            ? this.policy.microphoneBlocked
-            : this.policy.cameraBlocked)
-        ) {
-          track?.stop();
-          return;
-        }
-        await this.replaceSource(source, track);
-        if (track && deviceId) this.preferredInputs.set(source, deviceId);
-      });
+      await this.mutate(
+        /**
+         * Обработчик mutate выполняет переданный шаг вызова mutate в состоянии связи и WebRTC-медиа.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ async () => {
+          if (
+            enabled &&
+            (source === "microphone"
+              ? this.policy.microphoneBlocked
+              : this.policy.cameraBlocked)
+          ) {
+            track?.stop();
+            return;
+          }
+          await this.replaceSource(source, track);
+          if (track && deviceId) this.preferredInputs.set(source, deviceId);
+        },
+      );
     } catch {
-      captured?.getTracks().forEach((track) => track.stop());
+      captured?.getTracks().forEach(
+        /**
+         * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+         *
+         * @parameters:
+         *   - track — дорожка захваченного или удалённого MediaStream.
+         *
+         * @returns вычисленное значение: track.stop().
+         */ (track) => track.stop(),
+      );
       if (!this.disposed)
         this.update({
           error:
@@ -500,6 +889,12 @@ export class ConferenceMediaClient {
       if (!this.disposed) this.update({ controlBusy: false });
     }
   }
+  /**
+   * startScreen по действию пользователя запрашивает демонстрацию экрана и публикует разрешённые дорожки.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   async startScreen() {
     if (
       this.disposed ||
@@ -528,50 +923,128 @@ export class ConferenceMediaClient {
         this.policy.screenBlocked ||
         this.policy.cameraBlocked
       ) {
-        stream.getTracks().forEach((t) => t.stop());
+        stream.getTracks().forEach(
+          /**
+           * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+           *
+           * @parameters:
+           *   - t — одна дорожка проверяемого медиапотока.
+           *
+           * @returns вычисленное значение: t.stop().
+           */ (t) => t.stop(),
+        );
         return;
       }
       const captured = stream;
-      await this.mutate(async () => {
-        if (this.policy.screenBlocked || this.policy.cameraBlocked) {
-          captured.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        try {
-          this.screen = new MediaStream();
-          const video = captured.getTracks().find((t) => t.kind === "video");
-          if (!video) throw new Error("missing_screen");
-          await this.replaceSource("video/screen", video);
-          await this.replaceSource(
-            "audio/screen",
-            this.policy.microphoneBlocked
-              ? null
-              : captured.getTracks().find((t) => t.kind === "audio") || null,
-          );
-        } catch (error) {
-          // A second sender may reject after the first has accepted capture.
-          // Stop physical capture even if rollback itself encounters an error.
-          captured.getTracks().forEach((track) => track.stop());
-          for (const source of [
-            "video/screen",
-            "audio/screen",
-          ] as MediaSource[]) {
-            const slot = this.sources.get(source);
-            if (!slot) continue;
-            slot.track = null;
-            slot.transceiver.direction = "recvonly";
-            await slot.sender.replaceTrack(null).catch(() => {});
+      await this.mutate(
+        /**
+         * Обработчик mutate выполняет переданный шаг вызова mutate в состоянии связи и WebRTC-медиа.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ async () => {
+          if (this.policy.screenBlocked || this.policy.cameraBlocked) {
+            captured.getTracks().forEach(
+              /**
+               * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+               *
+               * @parameters:
+               *   - t — одна дорожка проверяемого медиапотока.
+               *
+               * @returns вычисленное значение: t.stop().
+               */ (t) => t.stop(),
+            );
+            return;
           }
-          this.screen = null;
-          this.refreshLocal();
-          this.localRevision++;
-          await this.offer();
-          throw error;
-        }
-      });
-      if (this.disposed) captured.getTracks().forEach((t) => t.stop());
+          try {
+            this.screen = new MediaStream();
+            const video = captured.getTracks().find(
+              /**
+               * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+               *
+               * @parameters:
+               *   - t — одна дорожка проверяемого медиапотока.
+               *
+               * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+               */ (t) => t.kind === "video",
+            );
+            if (!video) throw new Error("missing_screen");
+            await this.replaceSource("video/screen", video);
+            await this.replaceSource(
+              "audio/screen",
+              this.policy.microphoneBlocked
+                ? null
+                : captured.getTracks().find(
+                    /**
+                     * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                     *
+                     * @parameters:
+                     *   - t — одна дорожка проверяемого медиапотока.
+                     *
+                     * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                     */ (t) => t.kind === "audio",
+                  ) || null,
+            );
+          } catch (error) {
+            // A second sender may reject after the first has accepted capture.
+            // Stop physical capture even if rollback itself encounters an error.
+            captured.getTracks().forEach(
+              /**
+               * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+               *
+               * @parameters:
+               *   - track — дорожка захваченного или удалённого MediaStream.
+               *
+               * @returns вычисленное значение: track.stop().
+               */ (track) => track.stop(),
+            );
+            for (const source of [
+              "video/screen",
+              "audio/screen",
+            ] as MediaSource[]) {
+              const slot = this.sources.get(source);
+              if (!slot) continue;
+              slot.track = null;
+              slot.transceiver.direction = "recvonly";
+              await slot.sender.replaceTrack(null).catch(
+                /**
+                 * Обработчик catch выполняет переданный шаг вызова catch в состоянии связи и WebRTC-медиа.
+                 *
+                 *
+                 * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                 */ () => {},
+              );
+            }
+            this.screen = null;
+            this.refreshLocal();
+            this.localRevision++;
+            await this.offer();
+            throw error;
+          }
+        },
+      );
+      if (this.disposed)
+        captured.getTracks().forEach(
+          /**
+           * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+           *
+           * @parameters:
+           *   - t — одна дорожка проверяемого медиапотока.
+           *
+           * @returns вычисленное значение: t.stop().
+           */ (t) => t.stop(),
+        );
     } catch {
-      stream?.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach(
+        /**
+         * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+         *
+         * @parameters:
+         *   - t — одна дорожка проверяемого медиапотока.
+         *
+         * @returns вычисленное значение: t.stop().
+         */ (t) => t.stop(),
+      );
       if (!this.disposed)
         this.update({
           error:
@@ -579,19 +1052,51 @@ export class ConferenceMediaClient {
         });
     } finally {
       for (const track of stream?.getTracks() || [])
-        if (![...this.sources.values()].some((slot) => slot.track === track))
+        if (
+          ![...this.sources.values()].some(
+            /**
+             * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+             *
+             * @parameters:
+             *   - slot — входное значение slot текущего шага обработки.
+             *
+             * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+             */ (slot) => slot.track === track,
+          )
+        )
           track.stop();
       if (!this.disposed) this.update({ controlBusy: false });
     }
   }
+  /**
+   * stopScreen останавливает принадлежащие клиенту дорожки экрана и согласует снятие публикации.
+   *
+   *
+   * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+   */
   stopScreen() {
-    return this.mutate(async () => {
-      await this.replaceSource("video/screen", null);
-      await this.replaceSource("audio/screen", null);
-      this.screen = null;
-    });
+    return this.mutate(
+      /**
+       * Обработчик mutate выполняет переданный шаг вызова mutate в состоянии связи и WebRTC-медиа.
+       *
+       *
+       * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ async () => {
+        await this.replaceSource("video/screen", null);
+        await this.replaceSource("audio/screen", null);
+        this.screen = null;
+      },
+    );
   }
 
+  /**
+   * handle ставит входящее медиа-событие в последовательную обработку, сохраняя порядок SDP и ICE.
+   *
+   * @parameters:
+   *   - event (RealtimeEvent) — проверенный конверт события комнаты.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   handle(event: RealtimeEvent) {
     if (
       this.disposed ||
@@ -601,13 +1106,35 @@ export class ConferenceMediaClient {
     )
       return;
     this.queue = this.queue
-      .then(() => this.process(event))
-      .catch(() => {
-        this.fail(
-          "Ошибка обмена медиа. Переподключите камеру и микрофон; может требоваться TURN.",
-        );
-      });
+      .then(
+        /**
+         * Обработчик then выполняет переданный шаг вызова then в состоянии связи и WebRTC-медиа.
+         *
+         *
+         * @returns вычисленное значение: this.process(event).
+         */ () => this.process(event),
+      )
+      .catch(
+        /**
+         * Обработчик catch выполняет переданный шаг вызова catch в состоянии связи и WebRTC-медиа.
+         *
+         *
+         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ () => {
+          this.fail(
+            "Ошибка обмена медиа. Переподключите камеру и микрофон; может требоваться TURN.",
+          );
+        },
+      );
   }
+  /**
+   * process разбирает тип медиа-события, применяет сигнализацию и обновляет локальный снимок.
+   *
+   * @parameters:
+   *   - event (RealtimeEvent) — проверенный конверт события комнаты.
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private async process(event: RealtimeEvent) {
     if (this.disposed) return;
     const data = record(event.data);
@@ -706,9 +1233,16 @@ export class ConferenceMediaClient {
         status: "Согласуем медиасвязь…",
       });
       this.catalog = list;
-      const video = this.local
-        ?.getTracks()
-        .find((track) => track.kind === "video");
+      const video = this.local?.getTracks().find(
+        /**
+         * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+         *
+         * @parameters:
+         *   - track — дорожка захваченного или удалённого MediaStream.
+         *
+         * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+         */ (track) => track.kind === "video",
+      );
       if (video)
         await video.applyConstraints({
           width: { ideal: capture.maxWidth, max: capture.maxWidth },
@@ -718,7 +1252,8 @@ export class ConferenceMediaClient {
       // Applying browser constraints is async. A stop/reconnect while pending
       // must not resurrect a PeerConnection or publish the captured stream.
       if (this.disposed) return;
-      this.createPeer(data.iceServers as RTCIceServer[], Number(data.maxPeers));
+      if (data.iceTransportPolicy !== undefined && data.iceTransportPolicy !== "all" && data.iceTransportPolicy !== "relay") throw new Error("invalid_ice_policy");
+      this.createPeer(data.iceServers as RTCIceServer[], Number(data.maxPeers), data.iceTransportPolicy === "relay" ? "relay" : "all");
       this.refreshLocal();
       await this.offer();
       return;
@@ -751,11 +1286,19 @@ export class ConferenceMediaClient {
       });
       this.readyRequests.set(
         readyRequest,
-        setTimeout(() => {
-          this.fail(
-            "Media-worker не подтвердил готовность медиасвязи. Подключите камеру и микрофон снова.",
-          );
-        }, 15000),
+        setTimeout(
+          /**
+           * Обработчик setTimeout выполняет отложенную либо периодическую часть операции.
+           *
+           *
+           * @returns следующее состояние, рассчитанное из предыдущего значения.
+           */ () => {
+            this.fail(
+              "Media-worker не подтвердил готовность медиасвязи. Подключите камеру и микрофон снова.",
+            );
+          },
+          15000,
+        ),
       );
       this.answeredRevision = offer.revision;
       this.answeredLocalRevision = offer.localRevision;
@@ -805,7 +1348,18 @@ export class ConferenceMediaClient {
         throw new Error("invalid_tracks");
       if (Number(data.revision) < this.catalogRevision) return;
       this.catalogRevision = Number(data.revision);
-      const ids = new Set(list.map((entry) => entry.id));
+      const ids = new Set(
+        list.map(
+          /**
+           * Обработчик list.map преобразует один элемент набора в представление или данные следующего шага.
+           *
+           * @parameters:
+           *   - entry — состояние видимости одного наблюдаемого элемента.
+           *
+           * @returns преобразованное значение текущего элемента для результирующего набора.
+           */ (entry) => entry.id,
+        ),
+      );
       for (const previous of this.catalog) {
         if (ids.has(previous.id)) continue;
         for (const [key, received] of this.received) {
@@ -814,6 +1368,14 @@ export class ConferenceMediaClient {
               (received.track.kind === previous.kind &&
                 received.streamIds.includes(previous.streamId))) &&
             !list.some(
+              /**
+               * Обработчик list.some проверяет условие поиска элемента или соответствия элементов набора.
+               *
+               * @parameters:
+               *   - entry — состояние видимости одного наблюдаемого элемента.
+               *
+               * @returns логический признак соответствия элемента условию.
+               */
               (entry) =>
                 entry.kind === received.track.kind &&
                 received.streamIds.includes(entry.streamId),
@@ -850,12 +1412,23 @@ export class ConferenceMediaClient {
     }
   }
 
-  private createPeer(iceServers: RTCIceServer[], maxPeers: number) {
+  /**
+   * createPeer создаёт RTCPeerConnection с ICE-настройками и обработчиками удалённых дорожек и состояния.
+   *
+   * @parameters:
+   *   - iceServers (RTCIceServer[]) — проверенные серверные настройки ICE.
+   *   - maxPeers (number) — серверное ограничение числа подключений.
+   *   - iceTransportPolicy (RTCIceTransportPolicy) — all или relay, выданный сервером режим ICE.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
+  private createPeer(iceServers: RTCIceServer[], maxPeers: number, iceTransportPolicy: RTCIceTransportPolicy = "all") {
     // SFU always negotiates BUNDLE. Share one ICE transport even before the
     // first answer: gathering per receive slot can otherwise exceed the
     // signaling rate limit as the room's preallocated transceiver count grows.
     const pc = new RTCPeerConnection({
       iceServers,
+      iceTransportPolicy,
       bundlePolicy: "max-bundle",
     });
     this.pc = pc;
@@ -872,7 +1445,16 @@ export class ConferenceMediaClient {
       const screen = source.endsWith("/screen");
       const track = screen
         ? null
-        : this.local!.getTracks().find((t) => t.kind === kind) || null;
+        : this.local!.getTracks().find(
+            /**
+             * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+             *
+             * @parameters:
+             *   - t — одна дорожка проверяемого медиапотока.
+             *
+             * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+             */ (t) => t.kind === kind,
+          ) || null;
       const transceiver = pc.addTransceiver(track || kind, {
         direction: track ? "sendrecv" : "recvonly",
         ...(track ? { streams: [this.local!] } : {}),
@@ -893,6 +1475,14 @@ export class ConferenceMediaClient {
     for (const transceiver of pc.getTransceivers()) {
       const kind = transceiver.receiver.track.kind;
       const codecs = RTCRtpReceiver.getCapabilities?.(kind)?.codecs.filter(
+        /**
+         * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
+         *
+         * @parameters:
+         *   - codec — входное значение codec текущего шага обработки.
+         *
+         * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+         */
         (codec) =>
           codec.mimeType.toLowerCase() ===
           (kind === "audio" ? "audio/opus" : "video/vp8"),
@@ -903,73 +1493,148 @@ export class ConferenceMediaClient {
       )
         transceiver.setCodecPreferences(codecs);
     }
-    pc.onicecandidate = (event) => {
-      if (this.disposed) return;
-      const candidate = event.candidate?.toJSON() || null;
-      if (!this.hasSentOffer) {
-        if (this.localICE.length < 128) this.localICE.push(candidate);
-        else
-          this.fail(
-            "Слишком много ICE-кандидатов. Проверьте сетевую конфигурацию.",
-          );
-      } else this.sendICE(candidate);
-    };
-    pc.ontrack = (event) => {
-      if (this.disposed) return;
-      const streamIds = event.streams?.map((stream) => stream.id) || [];
-      for (const [id, previous] of this.received) {
-        if (
-          previous.track.kind === event.track.kind &&
-          previous.streamIds.some((id) => streamIds.includes(id))
-        )
-          this.received.delete(id);
-      }
-      if (!this.received.has(event.track.id) && this.received.size >= 128) {
-        this.fail("Превышен лимит удалённых медиа-треков.");
-        return;
-      }
-      this.received.set(event.track.id, {
-        track: event.track,
-        streamIds,
-      });
-      event.track.onended = () => {
-        if (this.received.get(event.track.id)?.track !== event.track) return;
-        this.received.delete(event.track.id);
+    pc.onicecandidate =
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       * @parameters:
+       *   - event — проверенный конверт события комнаты.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ (event) => {
+        if (this.disposed) return;
+        const candidate = event.candidate?.toJSON() || null;
+        if (!this.hasSentOffer) {
+          if (this.localICE.length < 128) this.localICE.push(candidate);
+          else
+            this.fail(
+              "Слишком много ICE-кандидатов. Проверьте сетевую конфигурацию.",
+            );
+        } else this.sendICE(candidate);
+      };
+    pc.ontrack =
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       * @parameters:
+       *   - event — проверенный конверт события комнаты.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ (event) => {
+        if (this.disposed) return;
+        const streamIds =
+          event.streams?.map(
+            /**
+             * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+             *
+             * @parameters:
+             *   - stream — поток браузерных медиа-дорожек.
+             *
+             * @returns преобразованное значение текущего элемента для результирующего набора.
+             */ (stream) => stream.id,
+          ) || [];
+        for (const [id, previous] of this.received) {
+          if (
+            previous.track.kind === event.track.kind &&
+            previous.streamIds.some(
+              /**
+               * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+               *
+               * @parameters:
+               *   - id — идентификатор ресурса или конференции данного запроса.
+               *
+               * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+               */ (id) => streamIds.includes(id),
+            )
+          )
+            this.received.delete(id);
+        }
+        if (!this.received.has(event.track.id) && this.received.size >= 128) {
+          this.fail("Превышен лимит удалённых медиа-треков.");
+          return;
+        }
+        this.received.set(event.track.id, {
+          track: event.track,
+          streamIds,
+        });
+        event.track.onended =
+          /**
+           * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+           *
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ () => {
+            if (this.received.get(event.track.id)?.track !== event.track)
+              return;
+            this.received.delete(event.track.id);
+            this.syncRemoteStreams();
+          };
         this.syncRemoteStreams();
       };
-      this.syncRemoteStreams();
-    };
-    pc.onconnectionstatechange = () => {
-      if (this.disposed) return;
-      const state = pc.connectionState;
-      this.update({ connectionState: state });
-      if (state === "connected") {
-        if (!this.negotiation) clearTimeout(this.timer);
-        clearTimeout(this.disconnectedTimer);
-        this.update({ status: "Медиасвязь подключена" });
-      } else if (state === "failed" || state === "closed") {
-        this.fail(
-          "Медиасвязь прервана. Подключите камеру и микрофон снова; может требоваться TURN.",
-        );
-      } else if (state === "disconnected") {
-        this.update({ status: "Медиасвязь потеряна…" });
-        clearTimeout(this.disconnectedTimer);
-        this.disconnectedTimer = setTimeout(
-          () =>
-            this.fail(
-              "Медиасвязь не восстановилась. Подключите камеру и микрофон снова.",
-            ),
-          8000,
-        );
-      }
-    };
-    pc.oniceconnectionstatechange = () => {
-      if (!this.disposed) this.update({ iceState: pc.iceConnectionState });
-    };
-    pc.onsignalingstatechange = () => {
-      if (!this.disposed) this.update({ negotiationState: pc.signalingState });
-    };
+    pc.onconnectionstatechange =
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {
+        if (this.disposed) return;
+        const state = pc.connectionState;
+        this.update({ connectionState: state });
+        if (state === "connected") {
+          if (!this.negotiation) clearTimeout(this.timer);
+          clearTimeout(this.disconnectedTimer);
+          this.update({ status: "Медиасвязь подключена" });
+        } else if (state === "failed" || state === "closed") {
+          this.fail(
+            "Медиасвязь прервана. Подключите камеру и микрофон снова; может требоваться TURN.",
+          );
+        } else if (state === "disconnected") {
+          this.update({ status: "Медиасвязь потеряна…" });
+          clearTimeout(this.disconnectedTimer);
+          this.disconnectedTimer = setTimeout(
+            /**
+             * Обработчик setTimeout выполняет отложенную либо периодическую часть операции.
+             *
+             *
+             * @returns следующее состояние, рассчитанное из предыдущего значения.
+             */
+            () =>
+              this.fail(
+                "Медиасвязь не восстановилась. Подключите камеру и микрофон снова.",
+              ),
+            8000,
+          );
+        }
+      };
+    pc.oniceconnectionstatechange =
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {
+        if (!this.disposed) this.update({ iceState: pc.iceConnectionState });
+      };
+    pc.onsignalingstatechange =
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {
+        if (!this.disposed)
+          this.update({ negotiationState: pc.signalingState });
+      };
   }
+  /**
+   * sendICE отправляет кандидат ICE через проверенный канал сигнализации комнаты.
+   *
+   * @parameters:
+   *   - candidate (RTCIceCandidateInit | null) — кандидат ICE или null после завершения сбора.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private sendICE(candidate: RTCIceCandidateInit | null) {
     try {
       this.send("media.ice", { mediaPeerId: this.view.mediaPeerId, candidate });
@@ -977,6 +1642,12 @@ export class ConferenceMediaClient {
       this.fail("Realtime-связь потеряна. Подключите медиасвязь снова.");
     }
   }
+  /**
+   * offer создаёт SDP-предложение с семантическими источниками и отправляет его серверу.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private async offer() {
     const pc = this.pc;
     if (
@@ -1002,14 +1673,31 @@ export class ConferenceMediaClient {
       sdp: pc.localDescription!.sdp,
       publications: [...this.sources]
         .filter(
+          /**
+           * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
+           *
+           * @parameters:
+           *   - [, slot] — элементы записи набора, извлечённые по указанным позициям.
+           *
+           * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+           */
           ([, slot]) =>
             slot.track?.readyState === "live" && slot.transceiver.mid !== null,
         )
-        .map(([source, slot]) => ({
-          mid: slot.transceiver.mid!,
-          source,
-          trackId: slot.track!.id,
-        })),
+        .map(
+          /**
+           * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+           *
+           * @parameters:
+           *   - [source, slot] — элементы записи набора, извлечённые по указанным позициям.
+           *
+           * @returns новый объект вычисленных данных.
+           */ ([source, slot]) => ({
+            mid: slot.transceiver.mid!,
+            source,
+            trackId: slot.track!.id,
+          }),
+        ),
     });
     this.hasSentOffer = true;
     for (const candidate of this.localICE.splice(0)) this.sendICE(candidate);
@@ -1017,6 +1705,12 @@ export class ConferenceMediaClient {
       "Ответ на медиа offer не получен. Повторите подключение камеры и микрофона.",
     );
   }
+  /**
+   * syncRemoteStreams обновляет удалённые потоки по действующим дорожкам и серверным сведениям источников.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   private syncRemoteStreams() {
     if (this.disposed) return;
     const grouped = new Map<
@@ -1033,6 +1727,14 @@ export class ConferenceMediaClient {
       const track =
         this.received.get(entry.id)?.track ||
         [...this.received.values()].find(
+          /**
+           * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+           *
+           * @parameters:
+           *   - received — входное значение received текущего шага обработки.
+           *
+           * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+           */
           (received) =>
             received.track.kind === entry.kind &&
             received.streamIds.includes(entry.streamId),
@@ -1049,9 +1751,18 @@ export class ConferenceMediaClient {
     }
     for (const [id, stream] of this.streams) {
       const active = grouped.get(id)?.tracks || [];
-      stream.getTracks().forEach((track) => {
-        if (!active.includes(track)) stream.removeTrack(track);
-      });
+      stream.getTracks().forEach(
+        /**
+         * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
+         *
+         * @parameters:
+         *   - track — дорожка захваченного или удалённого MediaStream.
+         *
+         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ (track) => {
+          if (!active.includes(track)) stream.removeTrack(track);
+        },
+      );
       if (!active.length) this.streams.delete(id);
     }
     const remoteStreams: RemoteMedia[] = [];
@@ -1068,7 +1779,16 @@ export class ConferenceMediaClient {
         mediaPeerId: group.mediaPeerId,
         participantId: group.participantId,
         stream,
-        kinds: group.tracks.map((track) => track.kind),
+        kinds: group.tracks.map(
+          /**
+           * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+           *
+           * @parameters:
+           *   - track — дорожка захваченного или удалённого MediaStream.
+           *
+           * @returns преобразованное значение текущего элемента для результирующего набора.
+           */ (track) => track.kind,
+        ),
         screen: group.screen,
       });
     }
@@ -1076,6 +1796,12 @@ export class ConferenceMediaClient {
   }
 }
 
+/**
+ * emptyMediaView возвращает новое пустое состояние медиа без общего изменяемого объекта.
+ *
+ *
+ * @returns новое независимое пустое состояние медиа.
+ */
 export function emptyMediaView() {
   return initial();
 }

@@ -194,11 +194,22 @@ MANUAL_REPLACEMENTS = {
 CONTINUOUS_SECTION_BREAKS = {213, 320, 600, 4209, 4395, 4711}
 
 
+# LexerState сохраняет режим лексического разбора между строками многострочного кода.
+#
+# Состав:
+#   - mode: режим многострочной строки или комментария.
 @dataclass
 class LexerState:
     mode: str | None = None
 
 
+# CodeGroup описывает границы блока кода, язык и абзац подписи внутри документа.
+#
+# Состав:
+#   - start: начальный индекс абзаца блока.
+#   - end: конечный индекс абзаца блока.
+#   - language: язык подсветки кода.
+#   - label_index: позиция подписи языка или None.
 @dataclass
 class CodeGroup:
     start: int
@@ -207,6 +218,15 @@ class CodeGroup:
     label_index: int | None = None
 
 
+# set_font назначает шрифт, размер и цвет фрагменту текста, включая XML-параметры всех наборов символов.
+#
+# @parameters:
+#   - run (объект соответствующего API): фрагмент текста python-docx, свойства которого изменяются.
+#   - name (str): имя шрифта.
+#   - size (float): размер шрифта в пунктах.
+#   - color (str | None): RGB-цвет без символа #; None сохраняет прежнее значение.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_font(run, name: str, size: float, color: str | None = None) -> None:
     run.font.name = name
     run.font.size = Pt(size)
@@ -218,12 +238,26 @@ def set_font(run, name: str, size: float, color: str | None = None) -> None:
         rfonts.set(qn(f"w:{attr}"), name)
 
 
+# remove_children удаляет дочерние XML-элементы указанных имён перед назначением новых свойств.
+#
+# @parameters:
+#   - element (объект соответствующего API): родительский XML-элемент документа.
+#   - tags (Iterable[str]): локальные имена XML-полей Word для удаления.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def remove_children(element, tags: Iterable[str]) -> None:
     for tag in tags:
         for child in list(element.findall(qn(tag))):
             element.remove(child)
 
 
+# set_paragraph_shading назначает или удаляет фоновую заливку абзаца без накопления повторных XML-свойств.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#   - fill (str | None): RGB-цвет заливки; None удаляет заливку там, где это разрешает сигнатура.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_paragraph_shading(paragraph, fill: str | None) -> None:
     ppr = paragraph._p.get_or_add_pPr()
     remove_children(ppr, ["w:shd"])
@@ -235,6 +269,13 @@ def set_paragraph_shading(paragraph, fill: str | None) -> None:
         ppr.append(shd)
 
 
+# set_run_shading назначает или удаляет фоновую заливку отдельного фрагмента текста.
+#
+# @parameters:
+#   - run (объект соответствующего API): фрагмент текста python-docx, свойства которого изменяются.
+#   - fill (str | None): RGB-цвет заливки; None удаляет заливку там, где это разрешает сигнатура.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_run_shading(run, fill: str | None) -> None:
     rpr = run._element.get_or_add_rPr()
     remove_children(rpr, ["w:shd"])
@@ -246,6 +287,13 @@ def set_run_shading(run, fill: str | None) -> None:
         rpr.append(shd)
 
 
+# set_paragraph_borders заменяет границы абзаца заданными XML-параметрами.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#   - borders (dict[str, dict[str, str]]): словарь сторон и XML-свойств каждой границы.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_paragraph_borders(paragraph, borders: dict[str, dict[str, str]]) -> None:
     ppr = paragraph._p.get_or_add_pPr()
     remove_children(ppr, ["w:pBdr"])
@@ -265,6 +313,13 @@ def set_paragraph_borders(paragraph, borders: dict[str, dict[str, str]]) -> None
     ppr.append(pbdr)
 
 
+# set_cell_shading назначает фоновую заливку ячейки таблицы.
+#
+# @parameters:
+#   - cell (объект соответствующего API): ячейка таблицы python-docx.
+#   - fill (str): RGB-цвет заливки; None удаляет заливку там, где это разрешает сигнатура.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_cell_shading(cell, fill: str) -> None:
     tcpr = cell._tc.get_or_add_tcPr()
     remove_children(tcpr, ["w:shd"])
@@ -274,6 +329,16 @@ def set_cell_shading(cell, fill: str) -> None:
     tcpr.append(shd)
 
 
+# set_cell_margins назначает внутренние отступы ячейки таблицы в единицах Word.
+#
+# @parameters:
+#   - cell (объект соответствующего API): ячейка таблицы python-docx.
+#   - top (int): верхний отступ в единицах Word.
+#   - start (int): отступ начальной стороны ячейки в единицах Word либо начальный индекс блока согласно типу.
+#   - bottom (int): нижний отступ в единицах Word.
+#   - end (int): отступ конечной стороны ячейки в единицах Word либо конечный индекс блока согласно типу.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_cell_margins(cell, top: int = 90, start: int = 110, bottom: int = 90, end: int = 110) -> None:
     tcpr = cell._tc.get_or_add_tcPr()
     margins = tcpr.first_child_found_in("w:tcMar")
@@ -289,6 +354,12 @@ def set_cell_margins(cell, top: int = 90, start: int = 110, bottom: int = 90, en
         node.set(qn("w:type"), "dxa")
 
 
+# set_table_borders назначает единообразные границы таблицы документа.
+#
+# @parameters:
+#   - table (объект соответствующего API): таблица python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_table_borders(table) -> None:
     tblpr = table._tbl.tblPr
     remove_children(tblpr, ["w:tblBorders"])
@@ -303,6 +374,12 @@ def set_table_borders(table) -> None:
     tblpr.append(borders)
 
 
+# set_repeat_table_header помечает строку таблицы как повторяемый заголовок на следующих страницах.
+#
+# @parameters:
+#   - row (объект соответствующего API): строка таблицы, повторяемая как заголовок.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_repeat_table_header(row) -> None:
     trpr = row._tr.get_or_add_trPr()
     remove_children(trpr, ["w:tblHeader"])
@@ -311,16 +388,35 @@ def set_repeat_table_header(row) -> None:
     trpr.append(header)
 
 
+# clear_paragraph_runs удаляет прежние фрагменты текста абзаца перед его новым оформлением.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def clear_paragraph_runs(paragraph) -> None:
     for run in list(paragraph.runs):
         paragraph._p.remove(run._element)
 
 
+# set_paragraph_text заменяет текст абзаца, удаляя старые фрагменты и создавая новый.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#   - text (str): исходный текст для назначения или разбора.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def set_paragraph_text(paragraph, text: str) -> None:
     clear_paragraph_runs(paragraph)
     paragraph.add_run(text)
 
 
+# ensure_styles создаёт или обновляет используемые документом стили текста, заголовков и кода.
+#
+# @parameters:
+#   - doc (объект соответствующего API): загруженный документ python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def ensure_styles(doc) -> None:
     styles = doc.styles
 
@@ -393,6 +489,12 @@ def ensure_styles(doc) -> None:
     label_style.paragraph_format.keep_with_next = True
 
 
+# format_question_numbering приводит нумерацию вопросов документа к выбранному оформлению.
+#
+# @parameters:
+#   - doc (объект соответствующего API): загруженный документ python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def format_question_numbering(doc) -> None:
     num_ids: set[str] = set()
     for paragraph in doc.paragraphs:
@@ -453,6 +555,12 @@ def format_question_numbering(doc) -> None:
         rpr.append(size_cs)
 
 
+# normalize_sections назначает геометрию и параметры разделов документа.
+#
+# @parameters:
+#   - doc (объект соответствующего API): загруженный документ python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def normalize_sections(doc) -> None:
     section_break_paragraphs = [
         index
@@ -476,6 +584,12 @@ def normalize_sections(doc) -> None:
                 section.start_type = WD_SECTION.CONTINUOUS
 
 
+# has_num_pr проверяет XML-признак нумерованного абзаца.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#
+# @return: bool — подготовленное значение согласно назначению функции.
 def has_num_pr(paragraph) -> bool:
     return (
         paragraph._p.pPr is not None
@@ -483,6 +597,12 @@ def has_num_pr(paragraph) -> bool:
     )
 
 
+# is_visual_subheading распознаёт короткий визуальный подзаголовок по тексту и исходному оформлению.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#
+# @return: bool — подготовленное значение согласно назначению функции.
 def is_visual_subheading(paragraph) -> bool:
     if paragraph.style.name not in {"Normal", "Body Text"}:
         return False
@@ -502,6 +622,13 @@ def is_visual_subheading(paragraph) -> bool:
     return chars > 0 and (large_chars / chars >= 0.5 or (bold_chars / chars >= 0.95 and len(text) <= 65))
 
 
+# apply_body_paragraph_format применяет выбранный стиль и единообразные отступы обычного абзаца.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#   - style_name (str): имя выбранного стиля абзаца.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def apply_body_paragraph_format(paragraph, style_name: str) -> None:
     fmt = paragraph.paragraph_format
     fmt.keep_together = False
@@ -553,6 +680,13 @@ def apply_body_paragraph_format(paragraph, style_name: str) -> None:
         fmt.line_spacing = 1.0
 
 
+# format_regular_paragraph оформляет обычный абзац с учётом заголовков, списков и его позиции.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#   - paragraph_index (int | None): исходная позиция абзаца для правил оформления; None не задаёт позицию.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def format_regular_paragraph(paragraph, paragraph_index: int | None = None) -> None:
     style_name = paragraph.style.name if paragraph.style is not None else "Normal"
     if style_name == "List Paragraph" and paragraph.text.strip().endswith("?"):
@@ -598,6 +732,12 @@ def format_regular_paragraph(paragraph, paragraph_index: int | None = None) -> N
                 set_font(run, BODY_FONT, 10.5, TEXT)
 
 
+# collect_preformatted_groups находит последовательные абзацы исходного стиля предварительно форматированного текста.
+#
+# @parameters:
+#   - paragraphs (объект соответствующего API): абзацы документа в исходном порядке.
+#
+# @return: list[CodeGroup] — подготовленное значение согласно назначению функции.
 def collect_preformatted_groups(paragraphs) -> list[CodeGroup]:
     groups: list[CodeGroup] = []
     start: int | None = None
@@ -613,6 +753,14 @@ def collect_preformatted_groups(paragraphs) -> list[CodeGroup]:
     return groups
 
 
+# make_preformatted_group определяет язык и границы одного найденного блока кода.
+#
+# @parameters:
+#   - paragraphs (объект соответствующего API): абзацы документа в исходном порядке.
+#   - start (int): отступ начальной стороны ячейки в единицах Word либо начальный индекс блока согласно типу.
+#   - end (int): отступ конечной стороны ячейки в единицах Word либо конечный индекс блока согласно типу.
+#
+# @return: CodeGroup — подготовленное значение согласно назначению функции.
 def make_preformatted_group(paragraphs, start: int, end: int) -> CodeGroup:
     label_index = start - 1 if start > 0 else None
     language = "go"
@@ -625,6 +773,12 @@ def make_preformatted_group(paragraphs, start: int, end: int) -> CodeGroup:
     return CodeGroup(start, end, language, label_index)
 
 
+# collect_code_groups возвращает блоки кода, подготовленные для подсветки и отдельной верстки.
+#
+# @parameters:
+#   - paragraphs (объект соответствующего API): абзацы документа в исходном порядке.
+#
+# @return: list[CodeGroup] — подготовленное значение согласно назначению функции.
 def collect_code_groups(paragraphs) -> list[CodeGroup]:
     groups = collect_preformatted_groups(paragraphs)
     groups.extend(CodeGroup(start, end, "go") for start, end in MANUAL_CODE_RANGES)
@@ -632,6 +786,14 @@ def collect_code_groups(paragraphs) -> list[CodeGroup]:
     return groups
 
 
+# tokenize_code разбирает текст кода на фрагменты подсветки с сохранением состояния многострочных конструкций.
+#
+# @parameters:
+#   - text (str): исходный текст для назначения или разбора.
+#   - language (str): определённый язык синтаксиса блока.
+#   - state (LexerState): состояние разбора, сохраняющее многострочные строки и комментарии.
+#
+# @return: list[tuple[str, str]] — подготовленное значение согласно назначению функции.
 def tokenize_code(text: str, language: str, state: LexerState) -> list[tuple[str, str]]:
     result: list[tuple[str, str]] = []
     pieces = text.replace("\t", "    ").splitlines(keepends=True)
@@ -643,6 +805,14 @@ def tokenize_code(text: str, language: str, state: LexerState) -> list[tuple[str
     return result
 
 
+# tokenize_physical_line разбирает одну физическую строку кода и обновляет состояние строк и комментариев.
+#
+# @parameters:
+#   - line (str): одна физическая строка исходного кода.
+#   - language (str): определённый язык синтаксиса блока.
+#   - state (LexerState): состояние разбора, сохраняющее многострочные строки и комментарии.
+#
+# @return: list[tuple[str, str]] — подготовленное значение согласно назначению функции.
 def tokenize_physical_line(line: str, language: str, state: LexerState) -> list[tuple[str, str]]:
     result: list[tuple[str, str]] = []
     i = 0
@@ -779,6 +949,13 @@ def tokenize_physical_line(line: str, language: str, state: LexerState) -> list[
     return result
 
 
+# format_language_label оформляет подпись языка перед блоком кода.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#   - language (str): определённый язык синтаксиса блока.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def format_language_label(paragraph, language: str) -> None:
     label = "GO" if language in {"go", "golang"} else language.upper()
     set_paragraph_text(paragraph, label)
@@ -806,6 +983,13 @@ def format_language_label(paragraph, language: str) -> None:
         run.bold = True
 
 
+# format_code_group назначает блоку кода шрифт, фон, интервалы и подсветку синтаксиса.
+#
+# @parameters:
+#   - paragraphs (объект соответствующего API): абзацы документа в исходном порядке.
+#   - group (CodeGroup): границы и язык блока, который требуется оформить.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def format_code_group(paragraphs, group: CodeGroup) -> None:
     if group.label_index is not None:
         format_language_label(paragraphs[group.label_index], group.language)
@@ -884,6 +1068,12 @@ def format_code_group(paragraphs, group: CodeGroup) -> None:
             set_font(run, CODE_FONT, 8.0, SYNTAX["plain"])
 
 
+# format_tables оформляет таблицы документа, включая заголовки, границы и отступы.
+#
+# @parameters:
+#   - doc (объект соответствующего API): загруженный документ python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def format_tables(doc) -> None:
     for table in doc.tables:
         table.alignment = 1
@@ -906,6 +1096,12 @@ def format_tables(doc) -> None:
                             run.bold = True
 
 
+# format_headers_and_footers оформляет колонтитулы разделов и служебные сведения страниц.
+#
+# @parameters:
+#   - doc (объект соответствующего API): загруженный документ python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def format_headers_and_footers(doc) -> None:
     seen: set[int] = set()
     for section in doc.sections:
@@ -928,6 +1124,12 @@ def format_headers_and_footers(doc) -> None:
                                 set_font(run, BODY_FONT, 8.5, MUTED)
 
 
+# add_cover_accent добавляет визуальное оформление абзацу титульной страницы.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def add_cover_accent(paragraph) -> None:
     set_paragraph_borders(
         paragraph,
@@ -935,6 +1137,13 @@ def add_cover_accent(paragraph) -> None:
     )
 
 
+# format_document читает исходный DOCX, применяет оформление ко всем его блокам и сохраняет новый документ.
+#
+# @parameters:
+#   - input_path (Path): исходный DOCX-файл для чтения.
+#   - output_path (Path): путь сохраняемого оформленного DOCX-файла.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def format_document(input_path: Path, output_path: Path) -> None:
     doc = Document(str(input_path))
     paragraphs = doc.paragraphs
@@ -983,6 +1192,11 @@ def format_document(input_path: Path, output_path: Path) -> None:
     )
 
 
+# main читает параметры командной строки и запускает оформление DOCX.
+#
+# входные пути и настройки читаются из командной строки.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=Path)

@@ -8,9 +8,9 @@ import (
 )
 
 // List возвращает список записей.
-// Параметры:
+// @parameters:
 // - c: Gin context HTTP-запроса.
-// Возвращает: JSON response.
+// @return JSON response.
 func (h *Handler) List(c *gin.Context) {
 	limit := queryInt(c, "limit", 20)
 	offset := queryInt(c, "offset", 0)
@@ -23,6 +23,15 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "items": items})
 }
 
+// queryInt разбирает целочисленный параметр URL и применяет значение по умолчанию и допустимые границы.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//   - fallback (int): значение, используемое при отсутствии входного параметра.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
 func queryInt(c *gin.Context, key string, fallback int) int {
 	value := c.Query(key)
 	if value == "" {

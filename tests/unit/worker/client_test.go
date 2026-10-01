@@ -11,17 +11,26 @@ import (
 	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
 )
 
+// TestClientSendsStartRecordCommand проверяет сценарий «клиент Sends запуск запись Command», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestClientSendsStartRecordCommand(t *testing.T) {
 	var got records.Command
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/records/record-1/start" {
-			t.Fatalf("path = %s", r.URL.Path)
-		}
-		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
-			t.Fatalf("decode request: %v", err)
-		}
-		_, _ = w.Write([]byte(`{"status":"success"}`))
-	}))
+	server := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - w (http.ResponseWriter): получатель HTTP-ответа.
+		  - r (*http.Request): входящий HTTP-запрос.
+		*/func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/records/record-1/start" {
+				t.Fatalf("path = %s", r.URL.Path)
+			}
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			_, _ = w.Write([]byte(`{"status":"success"}`))
+		}))
 	defer server.Close()
 
 	client := workerinfra.NewClient(server.URL)
@@ -34,17 +43,26 @@ func TestClientSendsStartRecordCommand(t *testing.T) {
 	}
 }
 
+// TestClientSendsStopRecordCommand проверяет сценарий «клиент Sends остановка запись Command», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestClientSendsStopRecordCommand(t *testing.T) {
 	var got records.Command
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/records/record-1/stop" {
-			t.Fatalf("path = %s", r.URL.Path)
-		}
-		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
-			t.Fatalf("decode request: %v", err)
-		}
-		_, _ = w.Write([]byte(`{"status":"success"}`))
-	}))
+	server := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - w (http.ResponseWriter): получатель HTTP-ответа.
+		  - r (*http.Request): входящий HTTP-запрос.
+		*/func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/records/record-1/stop" {
+				t.Fatalf("path = %s", r.URL.Path)
+			}
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatalf("decode request: %v", err)
+			}
+			_, _ = w.Write([]byte(`{"status":"success"}`))
+		}))
 	defer server.Close()
 
 	client := workerinfra.NewClient(server.URL)
@@ -57,10 +75,19 @@ func TestClientSendsStopRecordCommand(t *testing.T) {
 	}
 }
 
+// TestClientReturnsWorkerError проверяет сценарий «клиент Returns воркер ошибка», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestClientReturnsWorkerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "worker session is not prepared", http.StatusBadRequest)
-	}))
+	server := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - w (http.ResponseWriter): получатель HTTP-ответа.
+		  - _ (*http.Request): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+		*/func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "worker session is not prepared", http.StatusBadRequest)
+		}))
 	defer server.Close()
 
 	client := workerinfra.NewClient(server.URL)

@@ -12,16 +12,49 @@ import type { Participant, RealtimeEvent } from "../types";
 import type { useRealtime } from "../realtime";
 import { HandReactionsPanel } from "./HandReactionsPanel";
 
-afterEach(() => vi.restoreAllMocks());
-it("subscribes without replacing the media handler and bounds reaction bubbles", async () => {
+afterEach(
+  /**
+   * Обработчик afterEach выполняет переданный шаг вызова afterEach в проверках клиентского поведения.
+   *
+   *
+   * @returns вычисленное значение: vi.restoreAllMocks().
+   */ () => vi.restoreAllMocks(),
+);
+it("subscribes without replacing the media handler and bounds reaction bubbles", /**
+ * Проверка: subscribes without replacing the media handler and bounds reaction bubbles выполняет тестовый сценарий «subscribes without replacing the media handler and bounds reaction bubbles» и проверяет ожидаемые результаты.
+ *
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async () => {
   vi.spyOn(api, "hands").mockResolvedValue({ status: "success", items: [] });
   const hand = vi.spyOn(api, "hand").mockResolvedValue({ status: "success" });
   const media = vi.fn();
-  let receive: (event: RealtimeEvent) => void = () => {};
+  /**
+   * receive доставляет подготовленное событие тестовому клиенту.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
+  let receive: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+   *
+   * @parameters:
+   *   - event (RealtimeEvent) — проверенный конверт события комнаты.
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ (event: RealtimeEvent) => void = () => {};
   const unsubscribe = vi.fn();
   const live = {
     state: { connectionId: "connection" },
     onEvent: { current: media },
+    /**
+     * subscribe подключает обработчик состояния или событий и возвращает снятие подписки.
+     *
+     * @parameters:
+     *   - callback (typeof receive) — обработчик события или изменения наблюдаемого состояния.
+     *
+     * @returns вычисленное значение: unsubscribe.
+     */
     subscribe: (callback: typeof receive) => {
       receive = callback;
       return unsubscribe;
@@ -42,27 +75,47 @@ it("subscribes without replacing the media handler and bounds reaction bubbles",
     </QueryClientProvider>,
   );
   await screen.findByRole("button", { name: "Поднять руку" });
-  act(() => {
-    for (let index = 0; index < 20; index++)
-      receive({
-        id: String(index),
-        type: "reaction.created",
-        data: { participantId: "bob", emoji: "👍" },
-      } as RealtimeEvent);
-  });
+  act(
+    /**
+     * Обработчик act выполняет переданный шаг вызова act в проверках клиентского поведения.
+     *
+     *
+     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */ () => {
+      for (let index = 0; index < 20; index++)
+        receive({
+          id: String(index),
+          type: "reaction.created",
+          data: { participantId: "bob", emoji: "👍" },
+        } as RealtimeEvent);
+    },
+  );
   expect(document.querySelectorAll(".reaction-bubble")).toHaveLength(6);
   expect(live.onEvent.current).toBe(media);
-  act(() =>
-    receive({
-      id: "hand",
-      type: "hand.raised",
-      data: { participantId: "bob", raisedAt: "2026-10-01T10:00:00Z" },
-    } as RealtimeEvent),
+  act(
+    /**
+     * Обработчик act выполняет переданный шаг вызова act в проверках клиентского поведения.
+     *
+     *
+     * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+     */ () =>
+      receive({
+        id: "hand",
+        type: "hand.raised",
+        data: { participantId: "bob", raisedAt: "2026-10-01T10:00:00Z" },
+      } as RealtimeEvent),
   );
   fireEvent.click(
     await screen.findByRole("button", { name: "Опустить руку: Bob" }),
   );
-  await waitFor(() => expect(hand).toHaveBeenCalledWith("room", "bob", false));
+  await waitFor(
+    /**
+     * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+     *
+     *
+     * @returns вычисленное значение: expect(hand).toHaveBeenCalledWith("room", "bob", false).
+     */ () => expect(hand).toHaveBeenCalledWith("room", "bob", false),
+  );
   view.unmount();
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   client.clear();

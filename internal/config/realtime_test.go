@@ -5,12 +5,36 @@ import (
 	"time"
 )
 
+// TestRealtimeConfigValidation проверяет сценарий «события реального времени конфигурация проверка входных данных», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRealtimeConfigValidation(t *testing.T) {
 	c, err := LoadRealtime()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, change := range []func(*RealtimeConfig){func(c *RealtimeConfig) { c.QueueSize = 0 }, func(c *RealtimeConfig) { c.TicketTTL = time.Minute + time.Second }, func(c *RealtimeConfig) { c.SessionTTL = time.Second }, func(c *RealtimeConfig) { c.MessageBytes = 0 }, func(c *RealtimeConfig) { c.AllowedOrigins = []string{"https://example.com/path"} }} {
+	for _, change := range []func(*RealtimeConfig){ /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*RealtimeConfig): значение настроек или состояния компонента согласно указанному типу.
+		*/func(c *RealtimeConfig) { c.QueueSize = 0 }, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*RealtimeConfig): значение настроек или состояния компонента согласно указанному типу.
+		*/func(c *RealtimeConfig) { c.TicketTTL = time.Minute + time.Second }, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*RealtimeConfig): значение настроек или состояния компонента согласно указанному типу.
+		*/func(c *RealtimeConfig) { c.SessionTTL = time.Second }, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*RealtimeConfig): значение настроек или состояния компонента согласно указанному типу.
+		*/func(c *RealtimeConfig) { c.MessageBytes = 0 }, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*RealtimeConfig): значение настроек или состояния компонента согласно указанному типу.
+		*/func(c *RealtimeConfig) { c.AllowedOrigins = []string{"https://example.com/path"} }} {
 		invalid := c
 		change(&invalid)
 		if invalid.Validate() == nil {

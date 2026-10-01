@@ -7,9 +7,9 @@ import (
 )
 
 // RemoveEmptyTrees удаляет переданные директории только если они пустые.
-// Параметры:
+// @parameters:
 // - paths: пути к директориям, внутри которых нужно удалить пустые поддиректории.
-// Возвращает: ошибку чтения или удаления директории.
+// @return ошибку чтения или удаления директории.
 func RemoveEmptyTrees(paths ...string) error {
 	for _, path := range paths {
 		if err := removeEmptyTree(path); err != nil {
@@ -20,6 +20,13 @@ func RemoveEmptyTrees(paths ...string) error {
 	return nil
 }
 
+// removeEmptyTree рекурсивно проверяет каталог и удаляет его только после опустошения дочерних каталогов.
+//
+// @parameters:
+//   - path (string): путь к локальному файлу или каталогу операции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func removeEmptyTree(path string) error {
 	entries, err := os.ReadDir(path)
 	if os.IsNotExist(err) {

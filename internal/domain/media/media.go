@@ -12,8 +12,13 @@ import (
 const MaxSDPBytes = 49152
 const MaxICEBytes = 4096
 
-// Binding is constructed by the API from an authenticated WebSocket session,
-// never from browser supplied identity fields.
+// Binding связывает медиа с проверенной WebSocket-сессией; идентификаторы не берутся из полей браузерного сообщения.
+//   - ConferenceID: идентификатор конференции, ограничивающий область операции.
+//   - ParticipantID: идентификатор членства участника внутри конференции.
+//   - SessionID: идентификатор одной физической сессии подключения.
+//   - ConnectionID: идентификатор физического медиа-соединения.
+//   - UserID: идентификатор пользователя, для которого выполняется операция.
+//   - AuthorizationExpiresAt: временная отметка AuthorizationExpiresAt; указатель допускает отсутствие значения.
 type Binding struct {
 	ConferenceID           string    `json:"conferenceId"`
 	ParticipantID          string    `json:"participantId"`
@@ -23,17 +28,30 @@ type Binding struct {
 	AuthorizationExpiresAt time.Time `json:"authorizationExpiresAt"`
 }
 
+// Route хранит адрес и версию владельца медиа-комнаты для защищённого внутреннего вызова.
+//   - WorkerID: идентификатор воркера-владельца операции.
+//   - Endpoint: адрес конечной точки вызываемого сервиса.
+//   - LeaseID: идентификатор связанного ресурса, заданного параметром LeaseID.
 type Route struct {
 	WorkerID string `json:"workerId"`
 	Endpoint string `json:"endpoint"`
 	LeaseID  string `json:"leaseId"`
 }
 
+// Worker описывает присутствие медиа-воркера в распределённом реестре.
+//   - ID: уникальный идентификатор данной сущности.
+//   - Endpoint: адрес конечной точки вызываемого сервиса.
 type Worker struct {
 	ID       string `json:"id"`
 	Endpoint string `json:"endpoint"`
 }
 
+// PeerView возвращает доступное представление физического медиа-подключения.
+//   - MediaPeerID: идентификатор связанного ресурса, заданного параметром MediaPeerID.
+//   - ConferenceID: идентификатор конференции, ограничивающий область операции.
+//   - ParticipantID: идентификатор членства участника внутри конференции.
+//   - SessionID: идентификатор одной физической сессии подключения.
+//   - ConnectionID: идентификатор физического медиа-соединения.
 type PeerView struct {
 	MediaPeerID   string `json:"mediaPeerId"`
 	ConferenceID  string `json:"conferenceId"`
@@ -54,6 +72,14 @@ const (
 	SourceAudioScreen Source = "audio/screen"
 )
 
+// Track описывает опубликованную медиа-дорожку и её источник.
+// Состав:
+//   - ID: уникальный идентификатор данной сущности.
+//   - StreamID: идентификатор связанного ресурса, заданного параметром StreamID.
+//   - MediaPeerID: идентификатор связанного ресурса, заданного параметром MediaPeerID.
+//   - ParticipantID: идентификатор членства участника внутри конференции.
+//   - Kind: тип события, ошибки или медиа, определяющий ветку обработки.
+//   - Source: семантический источник медиа либо входной источник данных.
 type Track struct {
 	ID            string `json:"id"`
 	StreamID      string `json:"streamId"`
@@ -63,14 +89,22 @@ type Track struct {
 	Source        Source `json:"source"`
 }
 
-// Publication binds a browser sending m-section to its semantic source. MID is
-// stable across replaceTrack; browser track IDs are not.
+// Publication связывает стабильный SDP MID с семантическим источником; идентификатор браузерной дорожки может измениться.
+//   - MID: идентификатор связанного ресурса, заданного параметром MID.
+//   - Source: семантический источник медиа либо входной источник данных.
+//   - TrackID: идентификатор связанного ресурса, заданного параметром TrackID.
 type Publication struct {
 	MID     string `json:"mid"`
 	Source  Source `json:"source"`
 	TrackID string `json:"trackId,omitempty"`
 }
 
+// ParticipantPolicy описывает сохранённые разрешения источников медиа и монотонную версию модерации.
+//   - Version: версия изменения для защиты от устаревших операций.
+//   - MicrophoneBlocked: серверный запрет микрофона.
+//   - CameraBlocked: серверный запрет камеры.
+//   - ScreenBlocked: серверный запрет экрана.
+//   - Kicked: логический признак Kicked, управляющий соответствующей веткой обработки.
 type ParticipantPolicy struct {
 	Version           int64 `json:"version"`
 	MicrophoneBlocked bool  `json:"microphoneBlocked"`
@@ -79,6 +113,13 @@ type ParticipantPolicy struct {
 	Kicked            bool  `json:"kicked"`
 }
 
+// Allows проверяет, разрешает ли политика участника передачу указанного источника медиа.
+//
+// @parameters:
+//   - source (Source): семантический источник медиа либо входной источник данных.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func (p ParticipantPolicy) Allows(source Source) bool {
 	if p.Kicked {
 		return false
@@ -97,6 +138,13 @@ func (p ParticipantPolicy) Allows(source Source) bool {
 	}
 }
 
+// SourceKind определяет тип медиа по семантическому источнику, различая звук, камеру и экран.
+//
+// @parameters:
+//   - source (Source): семантический источник медиа либо входной источник данных.
+//
+// @return:
+//   - результат 1 (Kind): значение, подготовленное операцией для вызывающей стороны.
 func SourceKind(source Source) Kind {
 	switch source {
 	case SourceMicrophone, SourceAudioScreen:
@@ -108,7 +156,20 @@ func SourceKind(source Source) Kind {
 	}
 }
 
-// Command is used exclusively on the protected API-to-worker transport.
+// Command задаёт согласованное представление данных «Command» для защищённом управлении медиа-комнатой.
+//   - RequestID: идентификатор запроса сигнализации для сопоставления ответа.
+//   - Binding: проверенная идентичность медиа-подключения, назначенная сервером.
+//   - Route: адрес и версия действующего владельца медиа-комнаты.
+//   - MediaPeerID: идентификатор связанного ресурса, заданного параметром MediaPeerID.
+//   - NegotiationID: идентификатор связанного ресурса, заданного параметром NegotiationID.
+//   - SDP: значение SDP типа string, используемое согласно назначению этой операции.
+//   - Candidate: проверенный кандидат ICE для WebRTC-соединения.
+//   - TrackID: идентификатор связанного ресурса, заданного параметром TrackID.
+//   - Ticket: одноразовый билет ограниченного подключения.
+//   - Publications: набор значений Publications для последовательной или пакетной обработки.
+//   - Policy: актуальные ограничения медиа и версия модерации участника.
+//   - ConferenceID: идентификатор конференции, ограничивающий область операции.
+//   - ParticipantID: идентификатор членства участника внутри конференции.
 type Command struct {
 	RequestID     string             `json:"requestId"`
 	Binding       Binding            `json:"binding"`
@@ -125,25 +186,47 @@ type Command struct {
 	ParticipantID string             `json:"participantId,omitempty"`
 }
 
+// VideoCaptureTarget задаёт параметры видеозахвата, применяемые к выбранному профилю качества.
+//   - MaxWidth: значение MaxWidth типа int, используемое согласно назначению этой операции.
+//   - MaxHeight: значение MaxHeight типа int, используемое согласно назначению этой операции.
+//   - MaxFrameRate: значение MaxFrameRate типа int, используемое согласно назначению этой операции.
 type VideoCaptureTarget struct {
 	MaxWidth     int `json:"maxWidth"`
 	MaxHeight    int `json:"maxHeight"`
 	MaxFrameRate int `json:"maxFrameRate"`
 }
 
+// Result передаёт результат операции и связанные метаданные компонента.
+//   - MediaPeerID: идентификатор связанного ресурса, заданного параметром MediaPeerID.
+//   - WorkerID: идентификатор воркера-владельца операции.
+//   - MaxPeers: значение MaxPeers типа int, используемое согласно назначению этой операции.
+//   - ICEServers: набор значений ICEServers для последовательной или пакетной обработки.
+//   - Tracks: набор дорожек, входящих в операцию.
+//   - NegotiationID: идентификатор связанного ресурса, заданного параметром NegotiationID.
+//   - SDP: значение SDP типа string, используемое согласно назначению этой операции.
+//   - VideoCapture: значение VideoCapture типа VideoCaptureTarget, используемое согласно назначению этой операции.
+//   - Policy: актуальные ограничения медиа и версия модерации участника.
 type Result struct {
-	MediaPeerID   string               `json:"mediaPeerId"`
-	WorkerID      string               `json:"workerId,omitempty"`
-	MaxPeers      int                  `json:"maxPeers,omitempty"`
-	ICEServers    []realtime.ICEServer `json:"iceServers,omitempty"`
-	Tracks        []Track              `json:"tracks,omitempty"`
-	NegotiationID string               `json:"negotiationId,omitempty"`
-	SDP           string               `json:"sdp,omitempty"`
-	VideoCapture  VideoCaptureTarget   `json:"videoCapture"`
-	Policy        *ParticipantPolicy   `json:"policy,omitempty"`
+	MediaPeerID        string               `json:"mediaPeerId"`
+	WorkerID           string               `json:"workerId,omitempty"`
+	MaxPeers           int                  `json:"maxPeers,omitempty"`
+	ICEServers         []realtime.ICEServer `json:"iceServers,omitempty"`
+	ICETransportPolicy string               `json:"iceTransportPolicy,omitempty"`
+	ICEExpiresAt       int64                `json:"iceExpiresAt,omitempty"`
+	Tracks             []Track              `json:"tracks,omitempty"`
+	NegotiationID      string               `json:"negotiationId,omitempty"`
+	SDP                string               `json:"sdp,omitempty"`
+	VideoCapture       VideoCaptureTarget   `json:"videoCapture"`
+	Policy             *ParticipantPolicy   `json:"policy,omitempty"`
 }
 
-// Signal is the bounded browser payload. Its identity is always server assigned.
+// Signal содержит ограниченную нагрузку сигнализации; доверенная идентичность назначается сервером.
+//   - MediaPeerID: идентификатор связанного ресурса, заданного параметром MediaPeerID.
+//   - NegotiationID: идентификатор связанного ресурса, заданного параметром NegotiationID.
+//   - SDP: значение SDP типа string, используемое согласно назначению этой операции.
+//   - Candidate: проверенный кандидат ICE для WebRTC-соединения.
+//   - TrackID: идентификатор связанного ресурса, заданного параметром TrackID.
+//   - Publications: набор значений Publications для последовательной или пакетной обработки.
 type Signal struct {
 	MediaPeerID   string          `json:"mediaPeerId,omitempty"`
 	NegotiationID string          `json:"negotiationId,omitempty"`
@@ -165,6 +248,13 @@ var (
 	ErrPolicy         = errors.New("media_policy_blocked")
 )
 
+// ErrorCode сопоставляет ошибку медиа с безопасным кодом для внешнего ответа.
+//
+// @parameters:
+//   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func ErrorCode(err error) string {
 	for _, known := range []error{ErrUnavailable, ErrInvalid, ErrUnauthorized, ErrOwnership, ErrLimit, ErrPeerNotFound, ErrNegotiation, ErrScreenConflict, ErrPolicy} {
 		if errors.Is(err, known) {

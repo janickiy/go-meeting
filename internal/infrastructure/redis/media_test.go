@@ -14,6 +14,13 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
+// mediaRegistryFixture подготавливает или проверяет часть тестового сценария «медиа Registry тестовое окружение».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//
+// @return:
+//   - результат 1 (*MediaRegistry): значение, подготовленное операцией для вызывающей стороны.
 func mediaRegistryFixture(t *testing.T) *MediaRegistry {
 	t.Helper()
 	addr := os.Getenv("RECORDER_STAGE2_TEST_REDIS_ADDR")
@@ -28,16 +35,22 @@ func mediaRegistryFixture(t *testing.T) *MediaRegistry {
 		t.Fatal(err)
 	}
 	s := NewMediaRegistry(client, "test:media-registry:"+uuid.NewString())
-	t.Cleanup(func() {
-		keys, _ := client.Keys(context.Background(), s.prefix+":*").Result()
-		if len(keys) > 0 {
-			_ = client.Del(context.Background(), keys...).Err()
-		}
-		_ = client.Close()
-	})
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
+			keys, _ := client.Keys(context.Background(), s.prefix+":*").Result()
+			if len(keys) > 0 {
+				_ = client.Del(context.Background(), keys...).Err()
+			}
+			_ = client.Close()
+		})
 	return s
 }
 
+// TestMediaOwnershipAtomicClaimAndFencing проверяет сценарий «медиа Ownership Atomic Claim и защита версии владения», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaOwnershipAtomicClaimAndFencing(t *testing.T) {
 	s := mediaRegistryFixture(t)
 	ctx := context.Background()
@@ -53,7 +66,11 @@ func TestMediaOwnershipAtomicClaimAndFencing(t *testing.T) {
 	failures := make(chan error, 20)
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
-		go func(index int) {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - index (int): значение index типа int, используемое согласно назначению этой операции.
+		*/func(index int) {
 			defer wg.Done()
 			r, err := s.Claim(ctx, conferenceID, workers[index%2].ID, time.Second)
 			if err != nil {
@@ -118,6 +135,10 @@ func TestMediaOwnershipAtomicClaimAndFencing(t *testing.T) {
 	}
 }
 
+// TestMediaWorkerExpiryAndRegistrationBinding проверяет сценарий «медиа воркер истечение срока и Registration Binding», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaWorkerExpiryAndRegistrationBinding(t *testing.T) {
 	s := mediaRegistryFixture(t)
 	ctx := context.Background()

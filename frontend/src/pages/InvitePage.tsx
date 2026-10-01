@@ -6,6 +6,12 @@ import { useAuth } from "../auth";
 import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
 import { formatDate } from "../utils";
 
+/**
+ * InvitePage показывает сведения приглашения и обрабатывает авторизованный вход или включение в будущую встречу.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function InvitePage() {
   const { code = "" } = useParams();
   const { user } = useAuth();
@@ -13,10 +19,32 @@ export function InvitePage() {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ["invite", user?.id, code],
+    /**
+     * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
+     *
+     * @parameters:
+     *   - объект параметров: signal — сигнал отмены запроса или потока.
+     *
+     * @returns вычисленное значение: api.invite(code, signal).
+     */
     queryFn: ({ signal }) => api.invite(code, signal),
   });
   const mutation = useMutation({
+    /**
+     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
+     *
+     *
+     * @returns вычисленное значение: api.joinInvite(code).
+     */
     mutationFn: () => api.joinInvite(code),
+    /**
+     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+     *
+     * @parameters:
+     *   - объект параметров: item — элемент списка, который обрабатывает текущий шаг.
+     *
+     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */
     onSuccess: ({ item }) => {
       void client.invalidateQueries({ queryKey: ["conferences"] });
       navigate(`/conferences/${item.conferenceId}`, { replace: true });
@@ -60,7 +88,17 @@ export function InvitePage() {
       </p>
       <ErrorNotice error={mutation.error} />
       {!closed && (
-        <Button busy={mutation.isPending} onClick={() => mutation.mutate()}>
+        <Button
+          busy={mutation.isPending}
+          onClick={
+            /**
+             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             *
+             * @returns вычисленное значение: mutation.mutate().
+             */ () => mutation.mutate()
+          }
+        >
           <LogIn size={18} />
           {conference.status === "scheduled"
             ? "Добавить в мои встречи"

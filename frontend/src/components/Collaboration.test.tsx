@@ -16,9 +16,23 @@ import { ChatPanel } from "./ChatPanel";
 import { WaitingRoomPanel } from "./WaitingRoomPanel";
 import { NotificationBell } from "./NotificationBell";
 
-vi.mock("../auth", () => ({
-  useAuth: () => ({ user: { id: "user", displayName: "Test" } }),
-}));
+vi.mock(
+  "../auth",
+  /**
+   * Обработчик vi.mock выполняет переданный шаг вызова vi.mock в проверках клиентского поведения.
+   *
+   *
+   * @returns новый объект вычисленных данных.
+   */ () => ({
+    /**
+     * useAuth возвращает авторизацию текущего React-контекста и сообщает об использовании вне провайдера.
+     *
+     *
+     * @returns состояние, данные или действия React-хука; ресурсы освобождаются при изменении зависимостей.
+     */
+    useAuth: () => ({ user: { id: "user", displayName: "Test" } }),
+  }),
+);
 const member = {
   id: "self",
   role: "owner",
@@ -46,6 +60,14 @@ const message = {
   attachments: [],
 } as ChatMessage;
 const clients: QueryClient[] = [];
+/**
+ * show монтирует проверяемый компонент с изолированными провайдерами.
+ *
+ * @parameters:
+ *   - child (ReactNode) — вложенный React-элемент тестового компонента.
+ *
+ * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+ */
 function show(child: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -57,27 +79,51 @@ function show(child: ReactNode) {
     </QueryClientProvider>,
   );
 }
-beforeEach(() => {
-  vi.spyOn(api, "messages").mockResolvedValue({
-    status: "success",
-    items: [message],
-    nextCursor: null,
-    unreadCount: 1,
-    lastReadMessageId: null,
-  });
-  vi.spyOn(api, "chatRead").mockResolvedValue({
-    status: "success",
-    item: { lastReadMessageId: null, unreadCount: 1 },
-  });
-});
-afterEach(() => {
-  cleanup();
-  for (const client of clients.splice(0)) client.clear();
-  vi.restoreAllMocks();
-});
+beforeEach(
+  /**
+   * Обработчик beforeEach выполняет переданный шаг вызова beforeEach в проверках клиентского поведения.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ () => {
+    vi.spyOn(api, "messages").mockResolvedValue({
+      status: "success",
+      items: [message],
+      nextCursor: null,
+      unreadCount: 1,
+      lastReadMessageId: null,
+    });
+    vi.spyOn(api, "chatRead").mockResolvedValue({
+      status: "success",
+      item: { lastReadMessageId: null, unreadCount: 1 },
+    });
+  },
+);
+afterEach(
+  /**
+   * Обработчик afterEach выполняет переданный шаг вызова afterEach в проверках клиентского поведения.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ () => {
+    cleanup();
+    for (const client of clients.splice(0)) client.clear();
+    vi.restoreAllMocks();
+  },
+);
 
-describe("waiting room", () => {
-  it("allows only a joined moderator to decide and excludes withdrawn requests", async () => {
+describe("waiting room", /**
+ * Проверка: waiting room выполняет тестовый сценарий «waiting room» и проверяет ожидаемые результаты.
+ *
+ *
+ * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ () => {
+  it("allows only a joined moderator to decide and excludes withdrawn requests", /**
+   * Проверка: allows only a joined moderator to decide and excludes withdrawn requests выполняет тестовый сценарий «allows only a joined moderator to decide and excludes withdrawn requests» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const admit = vi.spyOn(api, "admit").mockResolvedValue({
       status: "success",
       item: { ...waiting, status: "joined", admissionState: "admitted" },
@@ -95,11 +141,21 @@ describe("waiting room", () => {
     );
     expect(screen.queryByText("Withdrawn")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Допустить: Bob" }));
-    await waitFor(() =>
-      expect(admit).toHaveBeenCalledWith("room", "waiting", "admit"),
+    await waitFor(
+      /**
+       * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+       *
+       *
+       * @returns вычисленное значение: expect(admit).toHaveBeenCalledWith("room", "waiting", "admit").
+       */ () => expect(admit).toHaveBeenCalledWith("room", "waiting", "admit"),
     );
   });
-  it("has no private room controls and correctly explains a closed waiting request", () => {
+  it("has no private room controls and correctly explains a closed waiting request", /**
+   * Проверка: has no private room controls and correctly explains a closed waiting request выполняет тестовый сценарий «has no private room controls and correctly explains a closed waiting request» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ () => {
     show(
       <WaitingRoomPanel
         conferenceId="room"
@@ -114,8 +170,18 @@ describe("waiting room", () => {
     expect(screen.queryByText(/скоро рассмотрит/)).toBeNull();
   });
 });
-describe("persistent chat", () => {
-  it("keeps draft on network failure and retries with the same idempotency key", async () => {
+describe("persistent chat", /**
+ * Проверка: persistent chat выполняет тестовый сценарий «persistent chat» и проверяет ожидаемые результаты.
+ *
+ *
+ * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ () => {
+  it("keeps draft on network failure and retries with the same idempotency key", /**
+   * Проверка: keeps draft on network failure and retries with the same idempotency key выполняет тестовый сценарий «keeps draft on network failure and retries with the same idempotency key» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const send = vi
       .spyOn(api, "sendMessage")
       .mockRejectedValueOnce(new Error("offline"))
@@ -131,16 +197,33 @@ describe("persistent chat", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Повторить отправку" }),
     );
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    await waitFor(
+      /**
+       * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+       *
+       *
+       * @returns вычисленное значение: expect(send).toHaveBeenCalledTimes(2).
+       */ () => expect(send).toHaveBeenCalledTimes(2),
+    );
     expect(send.mock.calls[0][1].clientRequestId).toBe(
       send.mock.calls[1][1].clientRequestId,
     );
     expect(send.mock.calls[0][1].text).toBe("Retry safely");
-    await waitFor(() =>
-      expect(screen.getByLabelText("Сообщение")).toHaveValue(""),
+    await waitFor(
+      /**
+       * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+       *
+       *
+       * @returns вычисленное значение: expect(screen.getByLabelText("Сообщение")).toHaveValue("").
+       */ () => expect(screen.getByLabelText("Сообщение")).toHaveValue(""),
     );
   });
-  it("supports reply/edit/delete with server-confirmed mutations", async () => {
+  it("supports reply/edit/delete with server-confirmed mutations", /**
+   * Проверка: supports reply/edit/delete with server-confirmed mutations выполняет тестовый сценарий «supports reply/edit/delete with server-confirmed mutations» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const edit = vi.spyOn(api, "editMessage").mockResolvedValue({
       status: "success",
       item: { ...message, text: "Edited", version: 2 },
@@ -163,17 +246,41 @@ describe("persistent chat", () => {
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Сохранить сообщение" }),
     );
-    await waitFor(() =>
-      expect(edit).toHaveBeenCalledWith("room", "message", "Edited"),
+    await waitFor(
+      /**
+       * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+       *
+       *
+       * @returns вычисленное значение: expect(edit).toHaveBeenCalledWith("room", "message", "Edited").
+       */ () => expect(edit).toHaveBeenCalledWith("room", "message", "Edited"),
     );
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(
+      /**
+       * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+       *
+       *
+       * @returns вычисленное значение: expect(screen.queryByRole("dialog")).toBeNull().
+       */ () => expect(screen.queryByRole("dialog")).toBeNull(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Удалить" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Да, удалить сообщение" }),
     );
-    await waitFor(() => expect(remove).toHaveBeenCalledWith("room", "message"));
+    await waitFor(
+      /**
+       * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+       *
+       *
+       * @returns вычисленное значение: expect(remove).toHaveBeenCalledWith("room", "message").
+       */ () => expect(remove).toHaveBeenCalledWith("room", "message"),
+    );
   });
-  it("renders finished history as plain text with no write or moderation controls", async () => {
+  it("renders finished history as plain text with no write or moderation controls", /**
+   * Проверка: renders finished history as plain text with no write or moderation controls выполняет тестовый сценарий «renders finished history as plain text with no write or moderation controls» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     vi.mocked(api.messages).mockResolvedValue({
       status: "success",
       items: [{ ...message, text: "<img src=x onerror=alert(1)>" }],
@@ -192,8 +299,18 @@ describe("persistent chat", () => {
     ).toBeNull();
   });
 });
-describe("notifications", () => {
-  it("shows unread count and persists explicit acknowledgement", async () => {
+describe("notifications", /**
+ * Проверка: notifications выполняет тестовый сценарий «notifications» и проверяет ожидаемые результаты.
+ *
+ *
+ * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ () => {
+  it("shows unread count and persists explicit acknowledgement", /**
+   * Проверка: shows unread count and persists explicit acknowledgement выполняет тестовый сценарий «shows unread count and persists explicit acknowledgement» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const notification = {
       id: "notification",
       userId: "user",
@@ -220,8 +337,14 @@ describe("notifications", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Прочитано: Запись встречи готова" }),
     );
-    await waitFor(() =>
-      expect(read).toHaveBeenCalledWith("notification", expect.anything()),
+    await waitFor(
+      /**
+       * Обработчик waitFor выполняет переданный шаг вызова waitFor в проверках клиентского поведения.
+       *
+       *
+       * @returns вычисленное значение: expect(read).toHaveBeenCalledWith("notification", expect.anything()).
+       */ () =>
+        expect(read).toHaveBeenCalledWith("notification", expect.anything()),
     );
   });
 });

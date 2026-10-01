@@ -11,6 +11,11 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 )
 
+// Fail сопоставляет прикладную ошибку с HTTP-статусом и безопасным JSON-ответом.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+//   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func Fail(c *gin.Context, err error) {
 	status, message := http.StatusInternalServerError, "internal server error"
 	switch {
@@ -34,8 +39,15 @@ func Fail(c *gin.Context, err error) {
 	c.AbortWithStatusJSON(status, gin.H{"status": "failed", "message": message})
 }
 
-// BindJSON bounds new platform requests and rejects unknown fields and trailing JSON.
-// It does not alter the legacy recorder's request contract.
+// BindJSON строго разбирает JSON-тело HTTP-запроса и сообщает безопасную ошибку формата.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+//   - target (any): целевой объект, участник или состояние операции.
+//   - optional (bool): логический признак optional, управляющий соответствующей веткой обработки.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func BindJSON(c *gin.Context, target any, optional bool) bool {
 	if c.Request.Body == nil {
 		c.Request.Body = http.NoBody
@@ -57,6 +69,15 @@ func BindJSON(c *gin.Context, target any, optional bool) bool {
 	return false
 }
 
+// Pagination разбирает предел и смещение страницы из URL и проверяет допустимые границы.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 3 (bool): признак выполнения проверяемого условия или изменения состояния.
 func Pagination(c *gin.Context) (int, int, bool) {
 	limit, offset := 20, 0
 	var err error

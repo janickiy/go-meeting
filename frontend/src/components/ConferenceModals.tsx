@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { SubmitEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Info, Link as LinkIcon, Mail, Video } from "lucide-react";
@@ -10,12 +10,25 @@ import { Button, CopyLink, ErrorNotice, Modal, SuccessMark } from "./ui";
 import { ScheduleFields } from "./ScheduleFields";
 import { localSchedule, toLocalInput } from "../collaboration";
 
+/**
+ * ShareConference показывает результат создания встречи и действия копирования ссылки и перехода в комнату.
+ *
+ * @parameters:
+ *   - объект параметров: conference — свойство текущего компонента; onClose — обработчик закрытия формы или диалога.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function ShareConference({
   conference,
   onClose,
 }: {
   conference: Conference;
-  onClose: () => void;
+  onClose: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в конференциях, расписании и истории.
+   *
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ () => void;
 }) {
   const link = inviteLink(conference.inviteCode);
   return (
@@ -49,6 +62,12 @@ export function ShareConference({
     </Modal>
   );
 }
+/**
+ * CreateConference управляет формой создания встречи, локальным расписанием и залом ожидания.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function CreateConference() {
   const navigate = useNavigate();
   const client = useQueryClient();
@@ -57,11 +76,22 @@ export function CreateConference() {
   const [created, setCreated] = useState<Conference | null>(null);
   const [waitingRoom, setWaitingRoom] = useState(false);
   const [planned, setPlanned] = useState(false);
-  const [scheduledAt, setScheduledAt] = useState(() =>
-    toLocalInput(new Date(Date.now() + 3600000).toISOString()),
+  const [scheduledAt, setScheduledAt] = useState(
+    /**
+     * Обработчик useState выполняет переданный шаг вызова useState в конференциях, расписании и истории.
+     *
+     *
+     * @returns вычисленное значение: toLocalInput(new Date(Date.now() + 3600000).toISOString()).
+     */ () => toLocalInput(new Date(Date.now() + 3600000).toISOString()),
   );
   const [duration, setDuration] = useState("");
   const mutation = useMutation({
+    /**
+     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
+     *
+     *
+     * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+     */
     mutationFn: () =>
       api.create({
         title: title.trim(),
@@ -73,15 +103,37 @@ export function CreateConference() {
             }
           : {}),
       }),
+    /**
+     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+     *
+     * @parameters:
+     *   - объект параметров: item — элемент списка, который обрабатывает текущий шаг.
+     *
+     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */
     onSuccess: ({ item }) => {
       void client.invalidateQueries({ queryKey: ["conferences"] });
       setCreated(item);
     },
   });
+  /**
+   * close закрывает форму или соединение с предусмотренной очисткой.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   function close() {
     if (!mutation.isPending) navigate("/app");
   }
-  function submit(event: FormEvent) {
+  /**
+   * submit проверяет поля формы, отправляет изменение и показывает результат либо ошибку.
+   *
+   * @parameters:
+   *   - event (SubmitEvent<HTMLFormElement>) — событие отправки формы.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
+  function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setValidation("");
     if (!title.trim() || Array.from(title.trim()).length > 200) {
@@ -122,7 +174,16 @@ export function CreateConference() {
             data-autofocus
             placeholder="Обсуждение проекта"
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={
+              /**
+               * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               * @parameters:
+               *   - event — проверенный конверт события комнаты.
+               *
+               * @returns вычисленное значение: setTitle(event.target.value).
+               */ (event) => setTitle(event.target.value)
+            }
             disabled={mutation.isPending}
           />
         </label>
@@ -130,7 +191,16 @@ export function CreateConference() {
           <input
             type="checkbox"
             checked={waitingRoom}
-            onChange={(event) => setWaitingRoom(event.target.checked)}
+            onChange={
+              /**
+               * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               * @parameters:
+               *   - event — проверенный конверт события комнаты.
+               *
+               * @returns вычисленное значение: setWaitingRoom(event.target.checked).
+               */ (event) => setWaitingRoom(event.target.checked)
+            }
             disabled={mutation.isPending}
           />
           <span>
@@ -142,7 +212,16 @@ export function CreateConference() {
           <input
             type="checkbox"
             checked={planned}
-            onChange={(event) => setPlanned(event.target.checked)}
+            onChange={
+              /**
+               * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               * @parameters:
+               *   - event — проверенный конверт события комнаты.
+               *
+               * @returns вычисленное значение: setPlanned(event.target.checked).
+               */ (event) => setPlanned(event.target.checked)
+            }
             disabled={mutation.isPending}
           />
           <span>
@@ -180,28 +259,58 @@ export function CreateConference() {
     </Modal>
   );
 }
+/**
+ * EditSchedule редактирует однозначное время и длительность ещё запланированной встречи.
+ *
+ * @parameters:
+ *   - объект параметров: conference — свойство текущего компонента; onClose — обработчик закрытия формы или диалога.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function EditSchedule({
   conference,
   onClose,
 }: {
   conference: Conference;
-  onClose: () => void;
+  onClose: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в конференциях, расписании и истории.
+   *
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ () => void;
 }) {
   const client = useQueryClient();
-  const [date, setDate] = useState(() =>
-    toLocalInput(conference.scheduledAt || ""),
+  const [date, setDate] = useState(
+    /**
+     * Обработчик useState выполняет переданный шаг вызова useState в конференциях, расписании и истории.
+     *
+     *
+     * @returns вычисленное значение: toLocalInput(conference.scheduledAt || "").
+     */ () => toLocalInput(conference.scheduledAt || ""),
   );
   const [duration, setDuration] = useState(
     String(conference.plannedDurationMin || ""),
   );
   const [validation, setValidation] = useState("");
   const mutation = useMutation({
+    /**
+     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
+     *
+     *
+     * @returns вычисленное значение: api.schedule( conference.id, localSchedule(date)!, duration ? Number(duration) : null, ).
+     */
     mutationFn: () =>
       api.schedule(
         conference.id,
         localSchedule(date)!,
         duration ? Number(duration) : null,
       ),
+    /**
+     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+     *
+     *
+     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["conference"] });
       void client.invalidateQueries({ queryKey: ["conferences"] });
@@ -211,30 +320,46 @@ export function EditSchedule({
   return (
     <Modal
       title="Изменить расписание"
-      onClose={() => {
-        if (!mutation.isPending) onClose();
-      }}
+      onClose={
+        /**
+         * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+         *
+         *
+         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ () => {
+          if (!mutation.isPending) onClose();
+        }
+      }
     >
       <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          setValidation("");
-          const utc = localSchedule(date);
-          if (!utc || new Date(utc).getTime() <= Date.now()) {
-            setValidation("Укажите время в будущем.");
-            return;
+        onSubmit={
+          /**
+           * onSubmit обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+           *
+           * @parameters:
+           *   - event — проверенный конверт события комнаты.
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ (event) => {
+            event.preventDefault();
+            setValidation("");
+            const utc = localSchedule(date);
+            if (!utc || new Date(utc).getTime() <= Date.now()) {
+              setValidation("Укажите время в будущем.");
+              return;
+            }
+            if (
+              duration &&
+              (!Number.isInteger(Number(duration)) ||
+                Number(duration) < 1 ||
+                Number(duration) > 1440)
+            ) {
+              setValidation("Длительность — от 1 до 1440 минут.");
+              return;
+            }
+            mutation.mutate();
           }
-          if (
-            duration &&
-            (!Number.isInteger(Number(duration)) ||
-              Number(duration) < 1 ||
-              Number(duration) > 1440)
-          ) {
-            setValidation("Длительность — от 1 до 1440 минут.");
-            return;
-          }
-          mutation.mutate();
-        }}
+        }
       >
         <ScheduleFields
           value={date}
@@ -251,11 +376,36 @@ export function EditSchedule({
     </Modal>
   );
 }
-export function JoinByLink({ onClose }: { onClose: () => void }) {
+/**
+ * JoinByLink проверяет введённое приглашение и выполняет авторизованное присоединение.
+ *
+ * @parameters:
+ *   - объект параметров: onClose — обработчик закрытия формы или диалога.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
+export function JoinByLink({
+  onClose,
+}: {
+  onClose: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в конференциях, расписании и истории.
+   *
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ () => void;
+}) {
   const navigate = useNavigate();
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
-  function submit(event: FormEvent) {
+  /**
+   * submit проверяет поля формы, отправляет изменение и показывает результат либо ошибку.
+   *
+   * @parameters:
+   *   - event (SubmitEvent<HTMLFormElement>) — событие отправки формы.
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
+  function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const code = inviteCode(value);
     if (!code) {
@@ -277,7 +427,16 @@ export function JoinByLink({ onClose }: { onClose: () => void }) {
             data-autofocus
             placeholder={`${window.location.origin}/i/…`}
             value={value}
-            onChange={(event) => setValue(event.target.value)}
+            onChange={
+              /**
+               * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               * @parameters:
+               *   - event — проверенный конверт события комнаты.
+               *
+               * @returns вычисленное значение: setValue(event.target.value).
+               */ (event) => setValue(event.target.value)
+            }
           />
         </label>
         <ErrorNotice>{error || null}</ErrorNotice>

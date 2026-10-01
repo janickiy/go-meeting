@@ -19,6 +19,10 @@ import (
 	pg "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
 )
 
+// TestStageFiveWaitingAdmissionAndProtectedResources проверяет сценарий «этап пять ожидание допуск и Protected Resources», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveWaitingAdmissionAndProtectedResources(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -37,7 +41,13 @@ func TestStageFiveWaitingAdmissionAndProtectedResources(t *testing.T) {
 	if pending.Item.Status != conferences.Waiting || pending.Item.AdmissionState != conferences.AdmissionWaiting || pending.Item.JoinedAt != nil {
 		t.Fatalf("invalid waiting membership: %+v", pending.Item)
 	}
-	ownerSocket.wait(t, func(e realtime.Envelope) bool { return e.Type == "participant.waiting" })
+	ownerSocket.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (realtime.Envelope): значение e типа realtime.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e realtime.Envelope) bool { return e.Type == "participant.waiting" })
 	id := pending.Item.ID
 	blocked := true
 	for _, request := range []conferences.ModerationRequest{{Action: "kick"}, {Action: "mute", Blocked: &blocked}, {Action: "role", Role: conferences.CoHost}} {
@@ -93,6 +103,10 @@ func TestStageFiveWaitingAdmissionAndProtectedResources(t *testing.T) {
 	}
 }
 
+// TestStageFiveAdmissionRacesRejectAndCoHost проверяет сценарий «этап пять допуск гонки отказ и Co Host», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveAdmissionRacesRejectAndCoHost(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -104,6 +118,11 @@ func TestStageFiveAdmissionRacesRejectAndCoHost(t *testing.T) {
 	if _, err := repo.Moderate(ctx, f.conference.ID, f.owner.ID, member.ID, conferences.ModerationRequest{Action: "role", Role: conferences.CoHost}); err != nil {
 		t.Fatal(err)
 	}
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	//
+	// @return:
+	//   - результат 1 (users.User): значение, подготовленное операцией для вызывающей стороны.
 	newWaiter := func() users.User {
 		u := users.User{ID: uuid.NewString(), Email: uuid.NewString() + "@stage5.example", PasswordHash: f.owner.PasswordHash}
 		if _, err := pg.NewUserRepository(f.db).Create(ctx, u); err != nil {
@@ -117,13 +136,17 @@ func TestStageFiveAdmissionRacesRejectAndCoHost(t *testing.T) {
 	u := newWaiter()
 	p, _ := repo.Membership(ctx, f.conference.ID, u.ID)
 	results := make([]error, 20)
-	runConcurrent(len(results), func(i int) {
-		decision := "admit"
-		if i%2 == 0 {
-			decision = "reject"
-		}
-		_, results[i] = repo.DecideAdmission(ctx, f.conference.ID, f.member.ID, p.ID, conferences.AdmissionRequest{Decision: decision})
-	})
+	runConcurrent(len(results), /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - i (int): значение i типа int, используемое согласно назначению этой операции.
+		*/func(i int) {
+			decision := "admit"
+			if i%2 == 0 {
+				decision = "reject"
+			}
+			_, results[i] = repo.DecideAdmission(ctx, f.conference.ID, f.member.ID, p.ID, conferences.AdmissionRequest{Decision: decision})
+		})
 	p, err := repo.Membership(ctx, f.conference.ID, u.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -153,6 +176,10 @@ func TestStageFiveAdmissionRacesRejectAndCoHost(t *testing.T) {
 	}
 }
 
+// TestStageFiveScheduledHistoryAndCursor проверяет сценарий «этап пять Scheduled история и курсор», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveScheduledHistoryAndCursor(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -186,13 +213,17 @@ func TestStageFiveScheduledHistoryAndCursor(t *testing.T) {
 		t.Fatal("enrollment missing from upcoming")
 	}
 	var updateErr, startErr error
-	runConcurrent(2, func(i int) {
-		if i == 0 {
-			_, updateErr = repo.UpdateSchedule(ctx, c.ID, f.owner.ID, conferences.ScheduleRequest{ScheduledAt: future.Add(time.Hour)})
-		} else {
-			_, startErr = repo.Transition(ctx, c.ID, f.owner.ID, conferences.Active)
-		}
-	})
+	runConcurrent(2, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - i (int): значение i типа int, используемое согласно назначению этой операции.
+		*/func(i int) {
+			if i == 0 {
+				_, updateErr = repo.UpdateSchedule(ctx, c.ID, f.owner.ID, conferences.ScheduleRequest{ScheduledAt: future.Add(time.Hour)})
+			} else {
+				_, startErr = repo.Transition(ctx, c.ID, f.owner.ID, conferences.Active)
+			}
+		})
 	if startErr != nil || updateErr != nil && !errors.Is(updateErr, apperrors.ErrConflict) {
 		t.Fatalf("schedule/start race: %v / %v", updateErr, startErr)
 	}

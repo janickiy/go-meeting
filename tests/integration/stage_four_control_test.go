@@ -27,12 +27,28 @@ import (
 	"github.com/janickiy/go-recorder/internal/usecase/recordings"
 )
 
+// policyProbe хранит изолированное состояние тестового компонента «политика Probe».
+// Состав:
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - last: значение last типа media.ParticipantPolicy, используемое согласно назначению этой операции.
+//   - fail: логический признак fail, управляющий соответствующей веткой обработки.
 type policyProbe struct {
 	mu   sync.Mutex
 	last media.ParticipantPolicy
 	fail bool
 }
 
+// SetParticipantPolicy передаёт актуальную политику участника владельцу медиа-комнаты.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+//   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+//   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+//   - policy (media.ParticipantPolicy): актуальные ограничения медиа и версия модерации участника.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *policyProbe) SetParticipantPolicy(_ context.Context, _, _ string, policy media.ParticipantPolicy) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -43,6 +59,10 @@ func (p *policyProbe) SetParticipantPolicy(_ context.Context, _, _ string, polic
 	return nil
 }
 
+// TestStageFourControlPermissionsAndRecordingTransactions проверяет сценарий «этап четыре управление полномочия и запись Transactions», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -68,6 +88,13 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	}
 	memberSocket := f.connect(t, 0, f.memberToken, f.conference.ID)
 	sequence := 0
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - state (map[string]any): индекс значений state для поиска и согласования состояния.
+	//
+	// @return:
+	//   - результат 1 (map[string]any): значение, подготовленное операцией для вызывающей стороны.
 	mediaUpdate := func(state map[string]any) map[string]any {
 		sequence++
 		state["connectionId"] = memberSocket.state.ConnectionID
@@ -107,7 +134,9 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	failures := make(chan error, 20)
 	for range 20 {
 		wg.Add(1)
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			record, _, err := recordingRepo.Start(ctx, f.owner.ID, f.conference.ID, 2)
 			if err != nil {
@@ -167,6 +196,10 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	}
 }
 
+// TestStageFourKickSurvivesRejoinAndFailedEnforcement проверяет сценарий «этап четыре Kick Survives Rejoin и Failed Enforcement», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourKickSurvivesRejoinAndFailedEnforcement(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -213,6 +246,10 @@ func TestStageFourKickSurvivesRejoinAndFailedEnforcement(t *testing.T) {
 	api.expect(t, "GET", path+"/"+record.UUID, f.ownerToken, nil, 200, nil)
 }
 
+// TestStageFourCoHostCannotChangeRolesOrCameraPolicy проверяет сценарий «этап четыре Co Host Cannot Change Roles Or Camera политика», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourCoHostCannotChangeRolesOrCameraPolicy(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -242,6 +279,10 @@ func TestStageFourCoHostCannotChangeRolesOrCameraPolicy(t *testing.T) {
 	}
 }
 
+// TestStageFourDurableOutboxOrderingAndFencing проверяет сценарий «этап четыре Durable журнал доставки порядок и защита версии владения», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourDurableOutboxOrderingAndFencing(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -291,6 +332,10 @@ func TestStageFourDurableOutboxOrderingAndFencing(t *testing.T) {
 	}
 }
 
+// TestStageFourStartVersusFinish проверяет сценарий «этап четыре запуск Versus Finish», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourStartVersusFinish(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -310,8 +355,12 @@ func TestStageFourStartVersusFinish(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(2)
 		var startErr, finishErr error
-		go func() { defer wg.Done(); <-gate; _, _, startErr = repo.Start(ctx, f.owner.ID, conference.ID, 2) }()
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() { defer wg.Done(); <-gate; _, _, startErr = repo.Start(ctx, f.owner.ID, conference.ID, 2) }()
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			<-gate
 			_, finishErr = f.service.Transition(ctx, f.owner.ID, conference.ID, conferences.Finished)
@@ -344,6 +393,10 @@ func TestStageFourStartVersusFinish(t *testing.T) {
 	}
 }
 
+// TestStageFourLastPhysicalDisconnectClearsMediaState проверяет сценарий «этап четыре последний Physical отключение Clears медиа состояние», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourLastPhysicalDisconnectClearsMediaState(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -382,16 +435,22 @@ func TestStageFourLastPhysicalDisconnectClearsMediaState(t *testing.T) {
 		t.Fatal("first tab disconnect cleared the second tab's state")
 	}
 	_ = second.conn.Close()
-	owner.wait(t, func(event realtime.Envelope) bool {
-		if event.Type != "participant.media.updated" {
-			return false
-		}
-		var payload struct{ Participant conferences.ParticipantView }
-		if json.Unmarshal(event.Data, &payload) != nil {
-			return false
-		}
-		return payload.Participant.ID == member.ID && !payload.Participant.MicrophoneEnabled && !payload.Participant.CameraEnabled && !payload.Participant.ScreenSharing
-	})
+	owner.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - event (realtime.Envelope): конверт входящего или публикуемого события.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(event realtime.Envelope) bool {
+			if event.Type != "participant.media.updated" {
+				return false
+			}
+			var payload struct{ Participant conferences.ParticipantView }
+			if json.Unmarshal(event.Data, &payload) != nil {
+				return false
+			}
+			return payload.Participant.ID == member.ID && !payload.Participant.MicrophoneEnabled && !payload.Participant.CameraEnabled && !payload.Participant.ScreenSharing
+		})
 	state, err = repo.Membership(ctx, f.conference.ID, f.member.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -406,21 +465,35 @@ func TestStageFourLastPhysicalDisconnectClearsMediaState(t *testing.T) {
 	}
 	var disconnects sync.WaitGroup
 	disconnects.Add(2)
-	go func() { defer disconnects.Done(); _ = first.conn.Close() }()
-	go func() { defer disconnects.Done(); _ = second.conn.Close() }()
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() { defer disconnects.Done(); _ = first.conn.Close() }()
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() { defer disconnects.Done(); _ = second.conn.Close() }()
 	disconnects.Wait()
-	owner.wait(t, func(event realtime.Envelope) bool {
-		if event.Type != "participant.media.updated" {
-			return false
-		}
-		var payload struct{ Participant conferences.ParticipantView }
-		if json.Unmarshal(event.Data, &payload) != nil {
-			return false
-		}
-		return payload.Participant.ID == member.ID && !payload.Participant.MicrophoneEnabled && !payload.Participant.CameraEnabled && !payload.Participant.ScreenSharing
-	})
+	owner.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - event (realtime.Envelope): конверт входящего или публикуемого события.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(event realtime.Envelope) bool {
+			if event.Type != "participant.media.updated" {
+				return false
+			}
+			var payload struct{ Participant conferences.ParticipantView }
+			if json.Unmarshal(event.Data, &payload) != nil {
+				return false
+			}
+			return payload.Participant.ID == member.ID && !payload.Participant.MicrophoneEnabled && !payload.Participant.CameraEnabled && !payload.Participant.ScreenSharing
+		})
 }
 
+// TestStageFourSessionMediaStateIsOrderedAndAggregated проверяет сценарий «этап четыре сессия медиа состояние является Ordered и Aggregated», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourSessionMediaStateIsOrderedAndAggregated(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -432,6 +505,17 @@ func TestStageFourSessionMediaStateIsOrderedAndAggregated(t *testing.T) {
 	first := f.connect(t, 0, f.memberToken, f.conference.ID)
 	second := f.connect(t, 1, f.memberToken, f.conference.ID)
 	owner := f.connect(t, 0, f.ownerToken, f.conference.ID)
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - connection (string): значение connection типа string, используемое согласно назначению этой операции.
+	//   - sequence (int64): серверный монотонный номер сообщения или команды.
+	//   - microphone (bool): логический признак microphone, управляющий соответствующей веткой обработки.
+	//   - camera (bool): логический признак camera, управляющий соответствующей веткой обработки.
+	//   - screen (bool): логический признак screen, управляющий соответствующей веткой обработки.
+	//
+	// @return:
+	//   - результат 1 (conferences.Participant): значение, подготовленное операцией для вызывающей стороны.
 	update := func(connection string, sequence int64, microphone, camera, screen bool) conferences.Participant {
 		t.Helper()
 		p, err := repo.UpdateMediaState(ctx, f.conference.ID, f.member.ID, conferences.MediaState{ConnectionID: connection, Sequence: sequence, MicrophoneEnabled: microphone, CameraEnabled: camera, ScreenSharing: screen})
@@ -440,6 +524,13 @@ func TestStageFourSessionMediaStateIsOrderedAndAggregated(t *testing.T) {
 		}
 		return p
 	}
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - p (conferences.Participant): байты, переданные по контракту io.Writer.
+	//   - microphone (bool): логический признак microphone, управляющий соответствующей веткой обработки.
+	//   - camera (bool): логический признак camera, управляющий соответствующей веткой обработки.
+	//   - screen (bool): логический признак screen, управляющий соответствующей веткой обработки.
 	check := func(p conferences.Participant, microphone, camera, screen bool) {
 		t.Helper()
 		if p.MicrophoneEnabled != microphone || p.CameraEnabled != camera || p.ScreenSharing != screen {
@@ -482,21 +573,31 @@ func TestStageFourSessionMediaStateIsOrderedAndAggregated(t *testing.T) {
 	check(update(first.state.ConnectionID, 5, true, false, false), true, false, false)
 	check(update(second.state.ConnectionID, 7, false, true, false), true, true, false)
 	_ = first.conn.Close()
-	owner.wait(t, func(event realtime.Envelope) bool {
-		if event.Type != "participant.media.updated" {
-			return false
-		}
-		var payload struct{ Participant conferences.ParticipantView }
-		if json.Unmarshal(event.Data, &payload) != nil {
-			return false
-		}
-		return payload.Participant.ID == p.ID && !payload.Participant.MicrophoneEnabled && payload.Participant.CameraEnabled && !payload.Participant.ScreenSharing
-	})
+	owner.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - event (realtime.Envelope): конверт входящего или публикуемого события.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(event realtime.Envelope) bool {
+			if event.Type != "participant.media.updated" {
+				return false
+			}
+			var payload struct{ Participant conferences.ParticipantView }
+			if json.Unmarshal(event.Data, &payload) != nil {
+				return false
+			}
+			return payload.Participant.ID == p.ID && !payload.Participant.MicrophoneEnabled && payload.Participant.CameraEnabled && !payload.Participant.ScreenSharing
+		})
 	if _, err := repo.UpdateMediaState(ctx, f.conference.ID, f.member.ID, conferences.MediaState{ConnectionID: first.state.ConnectionID, Sequence: 6, MicrophoneEnabled: true}); !errors.Is(err, apperrors.ErrForbidden) {
 		t.Fatalf("closed connection resurrected state: %v", err)
 	}
 }
 
+// TestStageFourSessionMediaCloseVersusUpdate проверяет сценарий «этап четыре сессия медиа закрытие Versus обновление», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourSessionMediaCloseVersusUpdate(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
@@ -516,8 +617,12 @@ func TestStageFourSessionMediaCloseVersusUpdate(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(2)
 		var closeErr, updateErr error
-		go func() { defer wg.Done(); <-gate; closeErr = sessions.Close(ctx, session.ConnectionID, now) }()
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() { defer wg.Done(); <-gate; closeErr = sessions.Close(ctx, session.ConnectionID, now) }()
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			<-gate
 			_, updateErr = repo.UpdateMediaState(ctx, f.conference.ID, f.member.ID, conferences.MediaState{ConnectionID: session.ConnectionID, Sequence: 1, MicrophoneEnabled: true})

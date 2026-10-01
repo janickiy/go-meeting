@@ -13,8 +13,13 @@ import (
 	"github.com/minio/minio-go/v7"
 )
 
-// CheckAttachmentPrivacy is deliberately read-only: collaboration must not
-// silently inherit a public bucket or rewrite an operator's storage policy.
+// CheckAttachmentPrivacy проверяет отсутствие публичной политики бакета для приватных вложений.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) CheckAttachmentPrivacy(ctx context.Context) error {
 	policy, err := c.minio.GetBucketPolicy(ctx, c.bucket)
 	if err != nil {
@@ -26,6 +31,18 @@ func (c *Client) CheckAttachmentPrivacy(ctx context.Context) error {
 	return nil
 }
 
+// PutAttachment сохраняет байты вложения по ключу, сформированному сервером.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//   - reader (io.Reader): источник содержимого либо читатель карточек записи согласно типу.
+//   - size (int64): размер содержимого в байтах.
+//   - contentType (string): значение contentType типа string, используемое согласно назначению этой операции.
+//   - checksum (string): контрольная сумма содержимого для проверки неизменности передачи.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) PutAttachment(ctx context.Context, key string, reader io.Reader, size int64, contentType, checksum string) error {
 	if !attachmentKey(key) {
 		return fmt.Errorf("invalid attachment key")
@@ -33,6 +50,18 @@ func (c *Client) PutAttachment(ctx context.Context, key string, reader io.Reader
 	_, err := c.minio.PutObject(ctx, c.bucket, key, reader, size, minio.PutObjectOptions{ContentType: contentType, UserMetadata: map[string]string{"sha256": checksum}})
 	return err
 }
+
+// StatAttachment читает фактический размер и метаданные объекта перед финализацией.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//
+// @return:
+//   - результат 1 (int64): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (string): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 3 (string): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 4 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) StatAttachment(ctx context.Context, key string) (int64, string, string, error) {
 	if !attachmentKey(key) {
 		return 0, "", "", fmt.Errorf("invalid attachment key")
@@ -43,6 +72,18 @@ func (c *Client) StatAttachment(ctx context.Context, key string) (int64, string,
 	}
 	return object.Size, object.ContentType, object.UserMetadata["Sha256"], nil
 }
+
+// AttachmentDownloadURL создаёт краткоживущую подписанную ссылку с принудительным скачиванием файла.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//   - filename (string): проверяемое или формируемое имя файла без управляемого пользователем пути.
+//   - expiry (time.Duration): значение expiry типа time.Duration, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (string): адрес разрешённого чтения или целевого ресурса.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) AttachmentDownloadURL(ctx context.Context, key, filename string, expiry time.Duration) (string, error) {
 	if !attachmentKey(key) || expiry <= 0 || expiry > 5*time.Minute {
 		return "", fmt.Errorf("invalid attachment download parameters")
@@ -62,9 +103,15 @@ func (c *Client) AttachmentDownloadURL(ctx context.Context, key, filename string
 	return objectURL.String(), nil
 }
 
-// CleanAttachmentObjects only accepts a complete generated attachment prefix.
-// Keeping the winning immutable object also removes abandoned upload attempts
-// when an attachment eventually becomes attached to a message.
+// CleanAttachmentObjects удаляет объекты точного префикса вложения, сохраняя выигравший прикреплённый объект.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - prefix (string): ограниченный префикс объектов, относящихся к одной операции.
+//   - keep (string): объект или значение, которое необходимо сохранить при очистке.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) CleanAttachmentObjects(ctx context.Context, prefix, keep string) error {
 	parts := strings.Split(strings.TrimSuffix(prefix, "/"), "/")
 	if len(parts) != 3 || parts[0] != "attachments" || !attachmentID(parts[1]) || !attachmentID(parts[2]) || !strings.HasSuffix(prefix, "/") || (keep != "" && (!attachmentKey(keep) || !strings.HasPrefix(keep, prefix))) {
@@ -84,10 +131,25 @@ func (c *Client) CleanAttachmentObjects(ctx context.Context, prefix, keep string
 	return nil
 }
 
+// attachmentID проверяет канонический UUID для безопасного построения ключа объекта.
+//
+// @parameters:
+//   - value (string): значение для проверки, нормализации или преобразования.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func attachmentID(value string) bool {
 	id, err := uuid.Parse(value)
 	return err == nil && id != uuid.Nil && id.String() == value
 }
+
+// attachmentKey проверяет структуру серверного пути вложения и идентификаторы его сегментов.
+//
+// @parameters:
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func attachmentKey(key string) bool {
 	parts := strings.Split(key, "/")
 	return len(parts) == 4 && parts[0] == "attachments" && attachmentID(parts[1]) && attachmentID(parts[2]) && attachmentID(parts[3])

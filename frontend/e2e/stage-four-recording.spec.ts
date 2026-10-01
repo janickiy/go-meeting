@@ -18,7 +18,25 @@ test.skip(
 const root = resolve(import.meta.dirname, "../..");
 const base = process.env.MEET_STAGE4_DOCKER_UI || "http://127.0.0.1:5173";
 const api = process.env.MEET_STAGE4_DOCKER_API || "http://127.0.0.1:8085";
+/**
+ * Actor объединяет страницу, авторизацию и тестовую идентичность участника.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - token — токен текущей авторизации; null отключает авторизованные запросы.
+ *   - email — адрес электронной почты.
+ *   - name — отображаемое имя пользователя для инициалов.
+ */
 type Actor = { id: string; token: string; email: string; name: string };
+/**
+ * Card описывает сведения записи браузерного сценария.
+ *
+ * Состав:
+ *   - uuid — внешний UUID записи.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - errorMessage — безопасная причина отказа.
+ *   - files — доступные артефакты и выданные сервером ссылки.
+ */
 type Card = {
   uuid: string;
   status: string;
@@ -26,6 +44,18 @@ type Card = {
   files: { fileType: string; url?: string; sizeBytes?: number }[];
 };
 
+/**
+ * request отправляет JSON-запрос к API, добавляет Bearer-токен для приватного маршрута и проверяет ответ; при 401 уведомляет владельца использованной сессии.
+ *
+ * @parameters:
+ *   - client (APIRequestContext) — входное значение client текущего шага обработки.
+ *   - path (string) — локальный путь API без базового префикса.
+ *   - token (string) — токен текущей авторизации; null отключает авторизованные запросы (необязательный параметр).
+ *   - method — входное значение method текущего шага обработки (по умолчанию "GET").
+ *   - data (unknown) — нагрузка события, проверяемая перед чтением (необязательный параметр).
+ *
+ * @returns Promise<T> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
+ */
 async function request<T>(
   client: APIRequestContext,
   path: string,
@@ -43,6 +73,17 @@ async function request<T>(
   return (await response.json()) as T;
 }
 
+/**
+ * login отправляет учётные данные и получает токен и сведения пользователя.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *   - actor (Actor) — входное значение actor текущего шага обработки.
+ *   - password (string) — пароль из формы; не предназначен для журналирования.
+ *   - conference (string) — входное значение conference текущего шага обработки.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 async function login(
   page: Page,
   actor: Actor,
@@ -58,6 +99,14 @@ async function login(
   await expect(page.getByTestId("connection-id")).toBeVisible();
 }
 
+/**
+ * enableMedia включает тестовые источники через интерфейс и ожидает связи.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 async function enableMedia(page: Page) {
   await page
     .getByRole("button", { name: "Включить камеру и микрофон", exact: true })
@@ -68,10 +117,15 @@ async function enableMedia(page: Page) {
   );
 }
 
-test("real Docker UI conference recording produces private MP4 and preview", async ({
-  browser,
-  request: client,
-}, info) => {
+test("real Docker UI conference recording produces private MP4 and preview", /**
+ * Проверка: real Docker UI conference recording produces private MP4 and preview выполняет тестовый сценарий «real Docker UI conference recording produces private MP4 and preview» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами; request — параметры сообщения или другого API-действия.
+ *   - info — контекст запуска для диагностических вложений.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ browser, request: client }, info) => {
   for (const address of [base, api]) {
     const endpoint = new URL(address);
     expect(["localhost", "127.0.0.1", "[::1]"]).toContain(endpoint.hostname);
@@ -81,14 +135,31 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
   const password = `Smoke-${randomUUID()}`;
   const actors: Actor[] = [];
   const contexts = await Promise.all(
-    [0, 1, 2].map(() =>
-      browser.newContext({
-        ignoreHTTPSErrors: true,
-        viewport: { width: 1440, height: 1100 },
-      }),
+    [0, 1, 2].map(
+      /**
+       * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+       *
+       *
+       * @returns преобразованное значение текущего элемента для результирующего набора.
+       */ () =>
+        browser.newContext({
+          ignoreHTTPSErrors: true,
+          viewport: { width: 1440, height: 1100 },
+        }),
     ),
   );
-  const pages = await Promise.all(contexts.map((context) => context.newPage()));
+  const pages = await Promise.all(
+    contexts.map(
+      /**
+       * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
+       *
+       * @parameters:
+       *   - context — входное значение context текущего шага обработки.
+       *
+       * @returns преобразованное значение текущего элемента для результирующего набора.
+       */ (context) => context.newPage(),
+    ),
+  );
   const [owner, bob, carol] = pages;
   let conferenceId = "";
   let recordingId = "";
@@ -110,167 +181,351 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
   for (const [index, page] of pages.entries()) {
     await page.exposeFunction(
       "stageFourDiagnostic",
+      /**
+       * Обработчик page.exposeFunction выполняет переданный шаг вызова page.exposeFunction в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - event (Record<string, unknown>) — проверенный конверт события комнаты.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
       (event: Record<string, unknown>) => {
         events.push({ browser: index, at: new Date().toISOString(), ...event });
       },
     );
-    await page.addInitScript(() => {
-      const peers: RTCPeerConnection[] = [];
-      Object.assign(window, { stageFourPeers: peers });
-      const NativePeer = window.RTCPeerConnection;
-      window.RTCPeerConnection = class extends NativePeer {
-        constructor(configuration?: RTCConfiguration) {
-          super(configuration);
-          peers.push(this);
-        }
-      };
-      const report = (event: Record<string, unknown>) => {
-        void (
-          window as unknown as {
-            stageFourDiagnostic: (
-              event: Record<string, unknown>,
-            ) => Promise<void>;
+    await page.addInitScript(
+      /**
+       * Обработчик page.addInitScript выполняет переданный шаг вызова page.addInitScript в проверках клиентского поведения.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {
+        const peers: RTCPeerConnection[] = [];
+        Object.assign(window, { stageFourPeers: peers });
+        const NativePeer = window.RTCPeerConnection;
+        window.RTCPeerConnection = class extends NativePeer {
+          /**
+           * constructor function Object() { [native code] }.
+           *
+           * @parameters:
+           *   - configuration (RTCConfiguration) — входное значение configuration текущего шага обработки (необязательный параметр).
+           *
+           * @returns инициализированный экземпляр текущего класса.
+           */
+          constructor(configuration?: RTCConfiguration) {
+            super(configuration);
+            peers.push(this);
           }
-        ).stageFourDiagnostic(event);
-      };
-      const NativeWebSocket = window.WebSocket;
-      window.WebSocket = class extends NativeWebSocket {
-        constructor(url: string | URL, protocols?: string | string[]) {
-          super(url, protocols);
-          this.addEventListener("close", (event) =>
+        };
+        /**
+         * report собирает диагностику медиа и записи для протокола теста.
+         *
+         * @parameters:
+         *   - event (Record<string, unknown>) — проверенный конверт события комнаты.
+         *
+         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */
+        const report = (event: Record<string, unknown>) => {
+          void (
+            window as unknown as {
+              stageFourDiagnostic: /**
+               * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+               *
+               * @parameters:
+               *   - event (Record<string, unknown>) — проверенный конверт события комнаты.
+               *
+               * @returns Promise<void> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
+               */ (event: Record<string, unknown>) => Promise<void>;
+            }
+          ).stageFourDiagnostic(event);
+        };
+        const NativeWebSocket = window.WebSocket;
+        window.WebSocket = class extends NativeWebSocket {
+          /**
+           * constructor function Object() { [native code] }.
+           *
+           * @parameters:
+           *   - url (string | URL) — адрес запроса или ресурса.
+           *   - protocols (string | string[]) — входное значение protocols текущего шага обработки (необязательный параметр).
+           *
+           * @returns инициализированный экземпляр текущего класса.
+           */
+          constructor(url: string | URL, protocols?: string | string[]) {
+            super(url, protocols);
+            this.addEventListener(
+              "close",
+              /**
+               * Обработчик addEventListener выполняет переданный шаг вызова addEventListener в проверках клиентского поведения.
+               *
+               * @parameters:
+               *   - event — проверенный конверт события комнаты.
+               *
+               * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+               */ (event) =>
+                report({
+                  type: "diagnostic.websocket.closed",
+                  code: event.code,
+                  reason: event.reason,
+                }),
+            );
+          }
+          /**
+           * close закрывает форму или соединение с предусмотренной очисткой.
+           *
+           * @parameters:
+           *   - code (number) — проверенный код приглашения (необязательный параметр).
+           *   - reason (string) — входное значение reason текущего шага обработки (необязательный параметр).
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */
+          override close(code?: number, reason?: string) {
             report({
-              type: "diagnostic.websocket.closed",
-              code: event.code,
-              reason: event.reason,
-            }),
-          );
-        }
-        override close(code?: number, reason?: string) {
-          report({
-            type: "diagnostic.websocket.close.called",
-            code,
-            reason,
-            stack: new Error().stack,
-          });
-          super.close(code, reason);
-        }
-      };
-      const nativeClose = RTCPeerConnection.prototype.close;
-      RTCPeerConnection.prototype.close = function () {
-        report({
-          type: "diagnostic.peer.close.called",
-          state: this.connectionState,
-          stack: new Error().stack,
-        });
-        nativeClose.call(this);
-      };
-      navigator.mediaDevices.getDisplayMedia = async () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 960;
-        canvas.height = 540;
-        const paint = () => {
-          const c = canvas.getContext("2d")!;
-          c.fillStyle = "#125bdd";
-          c.fillRect(0, 0, 960, 540);
-          c.fillStyle = "#fff";
-          c.font = "48px sans-serif";
-          c.fillText("Stage 4 recording screen", 45, 230);
-          c.font = "28px monospace";
-          c.fillText(new Date().toISOString(), 45, 295);
-        };
-        paint();
-        const paintTimer = setInterval(paint, 66);
-        const stream = canvas.captureStream(15);
-        const video = stream.getVideoTracks()[0];
-        const stop = video.stop.bind(video);
-        video.stop = () => {
-          clearInterval(paintTimer);
-          stop();
-        };
-        return stream;
-      };
-    });
-    page.on("websocket", (socket) => {
-      const collect =
-        (direction: "framereceived" | "framesent") =>
-        ({ payload }: { payload: string | Buffer }) => {
-          try {
-            const event = JSON.parse(String(payload));
-            if (
-              event.type?.startsWith("recording.") ||
-              event.type?.startsWith("media.") ||
-              event.type === "conference.state" ||
-              event.type === "participant.media.updated" ||
-              event.type === "participant.role.updated" ||
-              event.type === "error"
-            )
-              events.push({
-                browser: index,
-                at: new Date().toISOString(),
-                direction,
-                type: event.type,
-                ...(event.data?.connectionId
-                  ? { connectionId: event.data.connectionId }
-                  : {}),
-                ...(event.data?.code ? { code: event.data.code } : {}),
-              });
-          } catch {
-            /* Ignore non-JSON control frames. */
+              type: "diagnostic.websocket.close.called",
+              code,
+              reason,
+              stack: new Error().stack,
+            });
+            super.close(code, reason);
           }
         };
-      socket.on("framereceived", collect("framereceived"));
-      socket.on("framesent", collect("framesent"));
-    });
+        const nativeClose = RTCPeerConnection.prototype.close;
+        RTCPeerConnection.prototype.close =
+          /**
+           * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+           *
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ function () {
+            report({
+              type: "diagnostic.peer.close.called",
+              state: this.connectionState,
+              stack: new Error().stack,
+            });
+            nativeClose.call(this);
+          };
+        navigator.mediaDevices.getDisplayMedia =
+          /**
+           * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+           *
+           *
+           * @returns Promise, который после завершения операции возвращает: вычисленное значение: stream.
+           */ async () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 960;
+            canvas.height = 540;
+            /**
+             * paint рисует тестовое изображение камеры или экрана.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */
+            const paint = () => {
+              const c = canvas.getContext("2d")!;
+              c.fillStyle = "#125bdd";
+              c.fillRect(0, 0, 960, 540);
+              c.fillStyle = "#fff";
+              c.font = "48px sans-serif";
+              c.fillText("Stage 4 recording screen", 45, 230);
+              c.font = "28px monospace";
+              c.fillText(new Date().toISOString(), 45, 295);
+            };
+            paint();
+            const paintTimer = setInterval(paint, 66);
+            const stream = canvas.captureStream(15);
+            const video = stream.getVideoTracks()[0];
+            const stop = video.stop.bind(video);
+            video.stop =
+              /**
+               * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+               *
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ () => {
+                clearInterval(paintTimer);
+                stop();
+              };
+            return stream;
+          };
+      },
+    );
+    page.on(
+      "websocket",
+      /**
+       * Обработчик page.on выполняет переданный шаг вызова page.on в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - socket — входное значение socket текущего шага обработки.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ (socket) => {
+        /**
+         * collect собирает контрольные замеры проверяемого сценария.
+         *
+         * @parameters:
+         *   - direction ("framereceived" | "framesent") — входное значение direction текущего шага обработки.
+         *
+         * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+         */
+        const collect =
+          (direction: "framereceived" | "framesent") =>
+          /**
+           * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+           *
+           * @parameters:
+           *   - объект параметров: payload — ссылки и состояние уведомления без выдачи прав на ресурс.
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */
+          ({ payload }: { payload: string | Buffer }) => {
+            try {
+              const event = JSON.parse(String(payload));
+              if (
+                event.type?.startsWith("recording.") ||
+                event.type?.startsWith("media.") ||
+                event.type === "conference.state" ||
+                event.type === "participant.media.updated" ||
+                event.type === "participant.role.updated" ||
+                event.type === "error"
+              )
+                events.push({
+                  browser: index,
+                  at: new Date().toISOString(),
+                  direction,
+                  type: event.type,
+                  ...(event.data?.connectionId
+                    ? { connectionId: event.data.connectionId }
+                    : {}),
+                  ...(event.data?.code ? { code: event.data.code } : {}),
+                });
+            } catch {
+              /* Ignore non-JSON control frames. */
+            }
+          };
+        socket.on("framereceived", collect("framereceived"));
+        socket.on("framesent", collect("framesent"));
+      },
+    );
   }
+  /**
+   * diagnostics читает диагностику тестового браузера и медиасервиса.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   const diagnostics = async () => {
     summary.browserMedia = await Promise.all(
-      pages.map((page) =>
-        page
-          .evaluate(async () => {
-            const peers =
-              (window as unknown as { stageFourPeers?: RTCPeerConnection[] })
-                .stageFourPeers || [];
-            return {
-              buttons: [...document.querySelectorAll("button")].map(
-                (button) => button.textContent,
-              ),
-              videos: [...document.querySelectorAll("video")].map((video) => ({
-                label: video.closest(".media-tile")?.textContent,
-                width: video.videoWidth,
-                height: video.videoHeight,
-                decoded: video.getVideoPlaybackQuality().totalVideoFrames,
-              })),
-              peers: await Promise.all(
-                peers.map(async (peer) => {
-                  const reports: Record<string, unknown>[] = [];
-                  (await peer.getStats()).forEach((stat) => {
-                    if (["inbound-rtp", "outbound-rtp"].includes(stat.type)) {
-                      const safe: Record<string, unknown> = {};
-                      for (const key of [
-                        "type",
-                        "kind",
-                        "framesSent",
-                        "framesEncoded",
-                        "keyFramesEncoded",
-                        "framesDecoded",
-                        "keyFramesDecoded",
-                        "packetsSent",
-                        "packetsReceived",
-                        "frameWidth",
-                        "frameHeight",
-                        "ssrc",
-                        "mid",
-                      ])
-                        if (stat[key] !== undefined) safe[key] = stat[key];
-                      reports.push(safe);
+      pages.map(
+        /**
+         * Обработчик pages.map преобразует один элемент набора в представление или данные следующего шага.
+         *
+         * @parameters:
+         *   - page — изолированная страница Playwright.
+         *
+         * @returns преобразованное значение текущего элемента для результирующего набора.
+         */ (page) =>
+          page
+            .evaluate(
+              /**
+               * Обработчик page.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+               *
+               *
+               * @returns Promise, который после завершения операции возвращает: объект с данными, собранными в текущей операции.
+               */ async () => {
+                const peers =
+                  (
+                    window as unknown as {
+                      stageFourPeers?: RTCPeerConnection[];
                     }
-                  });
-                  return { state: peer.connectionState, reports };
-                }),
-              ),
-            };
-          })
-          .catch(() => ({ unavailable: true })),
+                  ).stageFourPeers || [];
+                return {
+                  buttons: [...document.querySelectorAll("button")].map(
+                    /**
+                     * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+                     *
+                     * @parameters:
+                     *   - button — входное значение button текущего шага обработки.
+                     *
+                     * @returns преобразованное значение текущего элемента для результирующего набора.
+                     */
+                    (button) => button.textContent,
+                  ),
+                  videos: [...document.querySelectorAll("video")].map(
+                    /**
+                     * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+                     *
+                     * @parameters:
+                     *   - video — входное значение video текущего шага обработки.
+                     *
+                     * @returns новый объект вычисленных данных.
+                     */ (video) => ({
+                      label: video.closest(".media-tile")?.textContent,
+                      width: video.videoWidth,
+                      height: video.videoHeight,
+                      decoded: video.getVideoPlaybackQuality().totalVideoFrames,
+                    }),
+                  ),
+                  peers: await Promise.all(
+                    peers.map(
+                      /**
+                       * Обработчик peers.map преобразует один элемент набора в представление или данные следующего шага.
+                       *
+                       * @parameters:
+                       *   - peer — входное значение peer текущего шага обработки.
+                       *
+                       * @returns Promise, который после завершения операции возвращает: преобразованное значение текущего элемента для результирующего набора.
+                       */ async (peer) => {
+                        const reports: Record<string, unknown>[] = [];
+                        (await peer.getStats()).forEach(
+                          /**
+                           * Обработчик forEach выполняет переданный шаг вызова forEach в проверках клиентского поведения.
+                           *
+                           * @parameters:
+                           *   - stat — входное значение stat текущего шага обработки.
+                           *
+                           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                           */ (stat) => {
+                            if (
+                              ["inbound-rtp", "outbound-rtp"].includes(
+                                stat.type,
+                              )
+                            ) {
+                              const safe: Record<string, unknown> = {};
+                              for (const key of [
+                                "type",
+                                "kind",
+                                "framesSent",
+                                "framesEncoded",
+                                "keyFramesEncoded",
+                                "framesDecoded",
+                                "keyFramesDecoded",
+                                "packetsSent",
+                                "packetsReceived",
+                                "frameWidth",
+                                "frameHeight",
+                                "ssrc",
+                                "mid",
+                              ])
+                                if (stat[key] !== undefined)
+                                  safe[key] = stat[key];
+                              reports.push(safe);
+                            }
+                          },
+                        );
+                        return { state: peer.connectionState, reports };
+                      },
+                    ),
+                  ),
+                };
+              },
+            )
+            .catch(
+              /**
+               * Обработчик catch выполняет переданный шаг вызова catch в проверках клиентского поведения.
+               *
+               *
+               * @returns новый объект вычисленных данных.
+               */ () => ({ unavailable: true }),
+            ),
       ),
     );
     if (recordingId && /^[0-9a-f-]{36}$/.test(recordingId)) {
@@ -348,20 +603,42 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
     for (const page of [owner, bob]) {
       await expect(page.getByTestId("remote-media")).toHaveCount(1);
       await expect
-        .poll(() =>
-          page
-            .getByTestId("remote-media")
-            .locator("video")
-            .evaluate((node) => {
-              const video = node as HTMLVideoElement;
-              const stream = video.srcObject as MediaStream;
-              return (
-                video.videoWidth > 0 &&
-                stream
-                  .getAudioTracks()
-                  .some((track) => track.readyState === "live")
-              );
-            }),
+        .poll(
+          /**
+           * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+           *
+           *
+           * @returns актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+           */ () =>
+            page
+              .getByTestId("remote-media")
+              .locator("video")
+              .evaluate(
+                /**
+                 * Обработчик evaluate выполняет переданный шаг вызова evaluate в проверках клиентского поведения.
+                 *
+                 * @parameters:
+                 *   - node — DOM-элемент, к которому привязывается медиапоток.
+                 *
+                 * @returns вычисленное значение: video.videoWidth > 0 && stream.getAudioTracks().some( (track) => track.readyState === "live", ).
+                 */ (node) => {
+                  const video = node as HTMLVideoElement;
+                  const stream = video.srcObject as MediaStream;
+                  return (
+                    video.videoWidth > 0 &&
+                    stream.getAudioTracks().some(
+                      /**
+                       * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                       *
+                       * @parameters:
+                       *   - track — дорожка захваченного или удалённого MediaStream.
+                       *
+                       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                       */ (track) => track.readyState === "live",
+                    )
+                  );
+                },
+              ),
         )
         .toBe(true);
     }
@@ -377,29 +654,73 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
     const workerId = (
       await execute("docker", ["compose", "ps", "-q", "worker"], { cwd: root })
     ).stdout.trim();
-    processTimer = setInterval(() => {
-      if (!processSampling)
-        processSampling = execute(
-          "docker",
-          ["exec", workerId, "ps", "-o", "comm"],
-          { cwd: root, timeout: 2000 },
-        )
-          .then((result) => {
-            ffmpegProcessSamples.push({
-              at: new Date().toISOString(),
-              phase,
-              count: result.stdout
-                .split("\n")
-                .filter((line) => line.trim() === "ffmpeg").length,
-            });
-          })
-          .catch(() => {
-            /* Resource sampling does not alter recording state. */
-          })
-          .finally(() => {
-            processSampling = null;
-          });
-    }, 250);
+    processTimer = setInterval(
+      /**
+       * Обработчик setInterval выполняет отложенную либо периодическую часть операции.
+       *
+       *
+       * @returns следующее состояние, рассчитанное из предыдущего значения.
+       */ () => {
+        if (!processSampling)
+          processSampling = execute(
+            "docker",
+            ["exec", workerId, "ps", "-o", "comm"],
+            { cwd: root, timeout: 2000 },
+          )
+            .then(
+              /**
+               * Обработчик then выполняет переданный шаг вызова then в проверках клиентского поведения.
+               *
+               * @parameters:
+               *   - result — результат завершённой операции.
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ (result) => {
+                ffmpegProcessSamples.push({
+                  at: new Date().toISOString(),
+                  phase,
+                  count: result.stdout.split("\n").filter(
+                    /**
+                     * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                     *
+                     * @parameters:
+                     *   - line — строка входящего текстового потока.
+                     *
+                     * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                     */ (line) => line.trim() === "ffmpeg",
+                  ).length,
+                });
+              },
+            )
+            .catch(
+              /**
+               * Обработчик catch выполняет переданный шаг вызова catch в проверках клиентского поведения.
+               *
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ () => {
+                /* Resource sampling does not alter recording state. */
+              },
+            )
+            .finally(
+              /**
+               * Обработчик finally выполняет переданный шаг вызова finally в проверках клиентского поведения.
+               *
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ () => {
+                processSampling = null;
+              },
+            );
+      },
+      250,
+    );
+    /**
+     * sample делает один ограниченный замер ресурсов или записи.
+     *
+     *
+     * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */
     const sample = async () => {
       const samplePhase = phase;
       const sampledAt = new Date().toISOString();
@@ -424,22 +745,64 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
         at: sampledAt,
         phase: samplePhase,
         containers: stats.stdout.trim().split("\n"),
-        ffmpegProcesses: processes.stdout
-          .split("\n")
-          .filter((line) => line.trim() === "ffmpeg").length,
+        ffmpegProcesses: processes.stdout.split("\n").filter(
+          /**
+           * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
+           *
+           * @parameters:
+           *   - line — строка входящего текстового потока.
+           *
+           * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+           */ (line) => line.trim() === "ffmpeg",
+        ).length,
       });
     };
-    timer = setInterval(() => {
-      if (!sampling)
-        sampling = sample()
-          .catch((error: unknown) => {
-            samples.push({ phase, sampleError: String(error).slice(0, 200) });
-          })
-          .finally(() => {
-            sampling = null;
-          });
-    }, 2000);
+    timer = setInterval(
+      /**
+       * Обработчик setInterval выполняет отложенную либо периодическую часть операции.
+       *
+       *
+       * @returns следующее состояние, рассчитанное из предыдущего значения.
+       */ () => {
+        if (!sampling)
+          sampling = sample()
+            .catch(
+              /**
+               * Обработчик catch выполняет переданный шаг вызова catch в проверках клиентского поведения.
+               *
+               * @parameters:
+               *   - error (unknown) — пойманная ошибка API или сети.
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ (error: unknown) => {
+                samples.push({
+                  phase,
+                  sampleError: String(error).slice(0, 200),
+                });
+              },
+            )
+            .finally(
+              /**
+               * Обработчик finally выполняет переданный шаг вызова finally в проверках клиентского поведения.
+               *
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ () => {
+                sampling = null;
+              },
+            );
+      },
+      2000,
+    );
     const started = owner.waitForResponse(
+      /**
+       * Обработчик owner.waitForResponse выполняет переданный шаг вызова owner.waitForResponse в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - response — входное значение response текущего шага обработки.
+       *
+       * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
+       */
       (response) =>
         response.request().method() === "POST" &&
         response.url().endsWith(`/conferences/${conferenceId}/recordings`),
@@ -471,10 +834,23 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
       .click();
     await expect(owner.locator(".media-tile-screen video")).toHaveCount(1);
     await expect
-      .poll(() =>
-        owner
-          .locator(".media-tile-screen video")
-          .evaluate((video) => (video as HTMLVideoElement).videoWidth),
+      .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */ () =>
+          owner.locator(".media-tile-screen video").evaluate(
+            /**
+             * Обработчик evaluate выполняет переданный шаг вызова evaluate в проверках клиентского поведения.
+             *
+             * @parameters:
+             *   - video — входное значение video текущего шага обработки.
+             *
+             * @returns вычисленное значение: (video as HTMLVideoElement).videoWidth.
+             */ (video) => (video as HTMLVideoElement).videoWidth,
+          ),
       )
       .toBeGreaterThan(0);
     phase = "recording/screen";
@@ -494,12 +870,27 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
     await expect(owner.getByTestId("remote-media")).toHaveCount(3);
     await expect
       .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */
         () =>
           owner
             .getByTestId("remote-media")
             .filter({ hasText: "Smoke Carol" })
             .locator("video")
-            .evaluate((video) => (video as HTMLVideoElement).videoWidth),
+            .evaluate(
+              /**
+               * Обработчик evaluate выполняет переданный шаг вызова evaluate в проверках клиентского поведения.
+               *
+               * @parameters:
+               *   - video — входное значение video текущего шага обработки.
+               *
+               * @returns вычисленное значение: (video as HTMLVideoElement).videoWidth.
+               */ (video) => (video as HTMLVideoElement).videoWidth,
+            ),
         { timeout: 15000 },
       )
       .toBeGreaterThan(0);
@@ -541,6 +932,12 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
     let ready: Card | null = null;
     await expect
       .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */
         async () => {
           const result = await request<{ item: Card }>(
             client,
@@ -571,8 +968,25 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
         )
       ).status(),
     ).toBe(401);
-    const videoFile = card.files.find((file) => file.fileType === "final_mp4");
+    const videoFile = card.files.find(
+      /**
+       * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+       *
+       * @parameters:
+       *   - file — выбранный пользователем файл для проверки или передачи.
+       *
+       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+       */ (file) => file.fileType === "final_mp4",
+    );
     const previewFile = card.files.find(
+      /**
+       * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+       *
+       * @parameters:
+       *   - file — выбранный пользователем файл для проверки или передачи.
+       *
+       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+       */
       (file) => file.fileType === "preview_jpg",
     );
     expect(videoFile?.url).toBeTruthy();
@@ -606,9 +1020,25 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
       ).stdout,
     );
     const videoStream = probe.streams.find(
+      /**
+       * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+       *
+       * @parameters:
+       *   - stream ({ codec_type: string }) — поток браузерных медиа-дорожек.
+       *
+       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+       */
       (stream: { codec_type: string }) => stream.codec_type === "video",
     );
     const audioStream = probe.streams.find(
+      /**
+       * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+       *
+       * @parameters:
+       *   - stream ({ codec_type: string }) — поток браузерных медиа-дорожек.
+       *
+       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+       */
       (stream: { codec_type: string }) => stream.codec_type === "audio",
     );
     expect(videoStream?.codec_name).toBe("h264");
@@ -710,7 +1140,16 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
       }
     summary.finalGridGreenRatios = greenRatios;
     expect(
-      greenRatios.filter((ratio) => ratio > 0.4).length,
+      greenRatios.filter(
+        /**
+         * Обработчик greenRatios.filter проверяет, должен ли элемент войти в отфильтрованный набор.
+         *
+         * @parameters:
+         *   - ratio — входное значение ratio текущего шага обработки.
+         *
+         * @returns логический признак соответствия элемента условию.
+         */ (ratio) => ratio > 0.4,
+      ).length,
       "final composite must contain all three camera pictures",
     ).toBe(3);
     const black = await execute(
@@ -730,9 +1169,16 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
       ],
       { maxBuffer: 2 * 1024 * 1024 },
     );
-    const blackIntervals = black.stderr
-      .split("\n")
-      .filter((line) => line.includes("black_start:"));
+    const blackIntervals = black.stderr.split("\n").filter(
+      /**
+       * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
+       *
+       * @parameters:
+       *   - line — строка входящего текстового потока.
+       *
+       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+       */ (line) => line.includes("black_start:"),
+    );
     summary.blackIntervals = blackIntervals;
     expect(
       blackIntervals,
@@ -746,6 +1192,12 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
       .click();
     await expect
       .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */
         async () =>
           (
             await request<{ item: { status: string } }>(
@@ -766,7 +1218,18 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
     if (processTimer) clearInterval(processTimer);
     await sampling;
     await processSampling;
-    await Promise.all(contexts.map((context) => context.close()));
+    await Promise.all(
+      contexts.map(
+        /**
+         * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
+         *
+         * @parameters:
+         *   - context — входное значение context текущего шага обработки.
+         *
+         * @returns преобразованное значение текущего элемента для результирующего набора.
+         */ (context) => context.close(),
+      ),
+    );
     let terminal = true;
     if (conferenceId && actors[0]?.token) {
       try {
@@ -796,11 +1259,28 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
             `/conferences/${conferenceId}/recordings`,
             actors[0].token,
           );
-          terminal = records.items.every((item) =>
-            ["ready", "failed", "cancelled"].includes(item.status),
+          terminal = records.items.every(
+            /**
+             * Обработчик every проверяет, соответствует ли текущий элемент условию выборки или поиска.
+             *
+             * @parameters:
+             *   - item — элемент списка, который обрабатывает текущий шаг.
+             *
+             * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+             */ (item) =>
+              ["ready", "failed", "cancelled"].includes(item.status),
           );
           if (terminal || Date.now() > limit) break;
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise(
+            /**
+             * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+             *
+             * @parameters:
+             *   - resolve — завершает ожидающий Promise успешным результатом.
+             *
+             * @returns вычисленное значение: setTimeout(resolve, 1500).
+             */ (resolve) => setTimeout(resolve, 1500),
+          );
         }
       } catch {
         terminal = false;
@@ -812,7 +1292,16 @@ test("real Docker UI conference recording produces private MP4 and preview", asy
       JSON.stringify({
         runId,
         conferenceId,
-        userIds: actors.map((actor) => actor.id),
+        userIds: actors.map(
+          /**
+           * Обработчик actors.map преобразует один элемент набора в представление или данные следующего шага.
+           *
+           * @parameters:
+           *   - actor — входное значение actor текущего шага обработки.
+           *
+           * @returns преобразованное значение текущего элемента для результирующего набора.
+           */ (actor) => actor.id,
+        ),
       }),
     );
     if (terminal) {

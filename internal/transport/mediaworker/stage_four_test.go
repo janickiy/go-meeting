@@ -16,6 +16,14 @@ import (
 	"github.com/janickiy/go-recorder/internal/infrastructure/sfu"
 )
 
+// stageFourFixture подготавливает или проверяет часть тестового сценария «этап четыре тестовое окружение».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//
+// @return:
+//   - результат 1 (*fixture): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (*sfu.Manager): значение, подготовленное операцией для вызывающей стороны.
 func stageFourFixture(t *testing.T) (*fixture, *sfu.Manager) {
 	t.Helper()
 	f := newFixture(t)
@@ -26,14 +34,24 @@ func stageFourFixture(t *testing.T) (*fixture, *sfu.Manager) {
 	cfg := f.cfg
 	cfg.OperationTimeout = 2 * time.Second
 	cfg.OwnershipTTL = 20 * time.Second
-	h := NewHandler(cfg, f.registry, f.sessions, f.tickets, engine, func() any { return engine.Snapshot() }, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := NewHandler(cfg, f.registry, f.sessions, f.tickets, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (any): значение, подготовленное операцией для вызывающей стороны. */func() any { return engine.Snapshot() }, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	h.workerDeadline = time.Now().Add(time.Hour)
 	h.ready.Store(true)
 	f.h = h
-	t.Cleanup(func() { _ = engine.Shutdown(context.Background()) })
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() { _ = engine.Shutdown(context.Background()) })
 	return f, engine
 }
 
+// TestPolicyJoinOrderingAndCrossLeaseRejection проверяет сценарий «политика Join порядок и Cross аренда Rejection», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPolicyJoinOrderingAndCrossLeaseRejection(t *testing.T) {
 	f, engine := stageFourFixture(t)
 	f.cmd.Policy = &media.ParticipantPolicy{Version: 1}
@@ -74,6 +92,10 @@ func TestPolicyJoinOrderingAndCrossLeaseRejection(t *testing.T) {
 	}
 }
 
+// TestEgressAuthenticationLeaseAndLongLivedWriteDeadline проверяет сценарий «выход медиа Authentication аренда и Long Lived запись данных Deadline», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestEgressAuthenticationLeaseAndLongLivedWriteDeadline(t *testing.T) {
 	f, engine := stageFourFixture(t)
 	server := httptest.NewUnstartedServer(f.h.Routes())
@@ -81,6 +103,14 @@ func TestEgressAuthenticationLeaseAndLongLivedWriteDeadline(t *testing.T) {
 	server.Start()
 	defer server.Close()
 	request := media.EgressRequest{RequestID: uuid.NewString(), ConferenceID: f.cmd.Binding.ConferenceID, RecordingID: uuid.NewString(), Route: f.cmd.Route, SegmentDurationSec: 1}
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - secret (string): секрет подписи или внутренней авторизации компонента.
+	//   - value (media.EgressRequest): значение для проверки, нормализации или преобразования.
+	//
+	// @return:
+	//   - результат 1 (*http.Response): значение, подготовленное операцией для вызывающей стороны.
 	send := func(secret string, value media.EgressRequest) *http.Response {
 		t.Helper()
 		raw, _ := json.Marshal(value)

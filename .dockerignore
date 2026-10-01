@@ -2,6 +2,10 @@
 .idea
 .env
 .env.local
+.env.*
+secrets/
+**/*.key
+**/*.pem
 dockers/api/tmp
 dockers/postgres/data
 dockers/postgres/data/**

@@ -2,6 +2,12 @@ package conferences
 
 import "github.com/janickiy/go-recorder/internal/domain/apperrors"
 
+// MediaState описывает заявленную активность микрофона, камеры и экрана участника.
+//   - ConnectionID: идентификатор физического медиа-соединения.
+//   - Sequence: серверный монотонный номер сообщения или команды.
+//   - MicrophoneEnabled: сохранённый признак включённого микрофона.
+//   - CameraEnabled: сохранённый признак включённой камеры.
+//   - ScreenSharing: сохранённый признак демонстрации экрана.
 type MediaState struct {
 	ConnectionID      string `json:"connectionId"`
 	Sequence          int64  `json:"sequence"`
@@ -10,14 +16,25 @@ type MediaState struct {
 	ScreenSharing     bool   `json:"screenSharing"`
 }
 
+// ModerationRequest передаёт действие модерации и его дополнительные параметры.
+//   - Action: действие управления, которое необходимо проверить или исполнить.
+//   - Blocked: значение Blocked типа *bool, используемое согласно назначению этой операции.
+//   - Role: роль участника, определяющая полномочия.
 type ModerationRequest struct {
 	Action  string `json:"action"`
 	Blocked *bool  `json:"blocked,omitempty"`
 	Role    Role   `json:"role,omitempty"`
 }
 
-// Owner is immutable. Co-hosts may moderate ordinary participants only, and
-// cannot grant camera policy or recording privileges.
+// CanModerate сопоставляет роли и состояния инициатора и цели; защищает владельца и ограничивает действия соорганизатора.
+//
+// @parameters:
+//   - actor (Participant): участник, от имени которого проверяются полномочия действия.
+//   - target (Participant): целевой объект, участник или состояние операции.
+//   - action (string): действие управления, которое необходимо проверить или исполнить.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func CanModerate(actor, target Participant, action string) bool {
 	switch action {
 	case "mute", "camera", "screen", "kick", "role":
@@ -39,6 +56,10 @@ func CanModerate(actor, target Participant, action string) bool {
 	return actor.Role == CoHost && target.Role == ParticipantRole && (action == "mute" || action == "screen" || action == "kick")
 }
 
+// Validate проверяет ограничения и согласованность полей текущего значения перед его использованием.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r ModerationRequest) Validate() error {
 	switch r.Action {
 	case "mute", "camera", "screen":

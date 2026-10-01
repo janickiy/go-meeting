@@ -9,6 +9,12 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/media"
 )
 
+// Tile задаёт прямоугольную область одного источника в итоговом кадре.
+//   - TrackID: идентификатор связанного ресурса, заданного параметром TrackID.
+//   - X: значение X типа int, используемое согласно назначению этой операции.
+//   - Y: значение Y типа int, используемое согласно назначению этой операции.
+//   - Width: ширина видеокадра или области в пикселях.
+//   - Height: высота видеокадра или области в пикселях.
 type Tile struct {
 	TrackID string `json:"trackId"`
 	X       int    `json:"x"`
@@ -17,6 +23,11 @@ type Tile struct {
 	Height  int    `json:"height"`
 }
 
+// Layout задаёт размер итогового кадра и расположение плиток источников.
+//   - Name: имя поля, компонента или ресурса, используемое в операции.
+//   - Width: ширина видеокадра или области в пикселях.
+//   - Height: высота видеокадра или области в пикселях.
+//   - Tiles: набор значений Tiles для последовательной или пакетной обработки.
 type Layout struct {
 	Name   string `json:"name"`
 	Width  int    `json:"width"`
@@ -24,8 +35,15 @@ type Layout struct {
 	Tiles  []Tile `json:"tiles"`
 }
 
-// GridLayout sorts by stable participant/track IDs, so arrival order does not
-// move existing tiles unpredictably. Camera and screen remain distinct sources.
+// GridLayout рассчитывает стабильную сетку записи по идентификаторам участников и источников, выделяя экран отдельно от камер.
+//
+// @parameters:
+//   - tracks ([]media.Track): набор дорожек, входящих в операцию.
+//   - width (int): ширина видеокадра или области в пикселях.
+//   - height (int): высота видеокадра или области в пикселях.
+//
+// @return:
+//   - результат 1 (Layout): значение, подготовленное операцией для вызывающей стороны.
 func GridLayout(tracks []media.Track, width, height int) Layout {
 	if width < 320 {
 		width = 1280
@@ -47,13 +65,24 @@ func GridLayout(tracks []media.Track, width, height int) Layout {
 			cameras = append(cameras, track)
 		}
 	}
+	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - items ([]media.Track): элементы страницы или порции пакетной обработки.
 	less := func(items []media.Track) {
-		sort.Slice(items, func(i, j int) bool {
-			if items[i].ParticipantID == items[j].ParticipantID {
-				return items[i].ID < items[j].ID
-			}
-			return items[i].ParticipantID < items[j].ParticipantID
-		})
+		sort.Slice(items, /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+
+			@parameters:
+			  - i (int): значение i типа int, используемое согласно назначению этой операции.
+			  - j (int): значение j типа int, используемое согласно назначению этой операции.
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(i, j int) bool {
+				if items[i].ParticipantID == items[j].ParticipantID {
+					return items[i].ID < items[j].ID
+				}
+				return items[i].ParticipantID < items[j].ParticipantID
+			})
 	}
 	less(cameras)
 	less(screens)
@@ -71,6 +100,17 @@ func GridLayout(tracks []media.Track, width, height int) Layout {
 	return result
 }
 
+// gridTiles рассчитывает прямоугольники плиток внутри области сетки.
+//
+// @parameters:
+//   - tracks ([]media.Track): набор дорожек, входящих в операцию.
+//   - x (int): значение x типа int, используемое согласно назначению этой операции.
+//   - y (int): значение y типа int, используемое согласно назначению этой операции.
+//   - width (int): ширина видеокадра или области в пикселях.
+//   - height (int): высота видеокадра или области в пикселях.
+//
+// @return:
+//   - результат 1 ([]Tile): собранные элементы результата; состав ограничивается параметрами операции.
 func gridTiles(tracks []media.Track, x, y, width, height int) []Tile {
 	result := make([]Tile, 0, len(tracks))
 	if len(tracks) == 0 {

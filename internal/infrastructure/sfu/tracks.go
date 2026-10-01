@@ -14,6 +14,20 @@ import (
 	pion "github.com/pion/webrtc/v4"
 )
 
+// publishedTrack хранит опубликованную дорожку, её источник и подписчиков.
+//   - metadata: значение metadata типа media.Track, используемое согласно назначению этой операции.
+//   - publisher: транспорт публикации событий после сохранения состояния.
+//   - remote: значение remote типа *pion.TrackRemote, используемое согласно назначению этой операции.
+//   - ctx: контекст отмены, дедлайна и времени жизни операции.
+//   - cancel: отмена контекста, завершающая принадлежащие ресурсу операции.
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - active: логический признак active, управляющий соответствующей веткой обработки.
+//   - subscribers: индекс значений subscribers для поиска и согласования состояния.
+//   - lastPLI: временная отметка lastPLI; указатель допускает отсутствие значения.
+//   - pli: канал «pli» для передачи данных или завершения ожидания.
+//   - stopOnce: значение stopOnce типа sync.Once, используемое согласно назначению этой операции.
+//   - receiver: значение receiver типа *receiver, используемое согласно назначению этой операции.
+//   - permitted: значение permitted типа atomic.Bool, используемое согласно назначению этой операции.
 type publishedTrack struct {
 	metadata    media.Track
 	publisher   *peer
@@ -30,14 +44,26 @@ type publishedTrack struct {
 	permitted   atomic.Bool
 }
 
-// A transport receiver outlives a publication. Pausing a source drains RTP but
-// removes it from the room; resuming/replaceTrack can reuse the negotiated SSRC.
+// receiver владеет транспортным приёмником, который переживает паузу публикации и может повторно использовать согласованный SSRC.
+//   - mid: идентификатор SDP-секции, связывающий дорожку с источником.
+//   - remote: значение remote типа *pion.TrackRemote, используемое согласно назначению этой операции.
+//   - publication: значение publication типа *publishedTrack, используемое согласно назначению этой операции.
 type receiver struct {
 	mid         string
 	remote      *pion.TrackRemote
 	publication *publishedTrack // guarded by publisher.mu
 }
 
+// subscription связывает опубликованную дорожку с исходящим потоком конкретного получателя.
+//   - source: семантический источник медиа либо входной источник данных.
+//   - peer: значение peer типа *peer, используемое согласно назначению этой операции.
+//   - local: значение local типа *pion.TrackLocalStaticRTP, используемое согласно назначению этой операции.
+//   - sender: значение sender типа *pion.RTPSender, используемое согласно назначению этой операции.
+//   - ctx: контекст отмены, дедлайна и времени жизни операции.
+//   - cancel: отмена контекста, завершающая принадлежащие ресурсу операции.
+//   - queue: канал «очередь» для передачи данных или завершения ожидания.
+//   - stopOnce: значение stopOnce типа sync.Once, используемое согласно назначению этой операции.
+//   - ready: значение ready типа atomic.Bool, используемое согласно назначению этой операции.
 type subscription struct {
 	source   *publishedTrack
 	peer     *peer
@@ -50,6 +76,13 @@ type subscription struct {
 	ready    atomic.Bool
 }
 
+// receive читает входящие события или пакеты и передаёт их соответствующим обработчикам.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - p (*peer): байты, переданные по контракту io.Writer.
+//   - remote (*pion.TrackRemote): значение remote типа *pion.TrackRemote, используемое согласно назначению этой операции.
+//   - transport (*pion.RTPReceiver): клиент защищённого внутреннего медиа-транспорта.
 func (m *Manager) receive(p *peer, remote *pion.TrackRemote, transport *pion.RTPReceiver) {
 	if !supported(remote) || remote.RID() != "" {
 		p.emit("media.error", map[string]string{"mediaPeerId": p.id, "code": "unsupported_codec_or_simulcast"})
@@ -86,7 +119,10 @@ func (m *Manager) receive(p *peer, remote *pion.TrackRemote, transport *pion.RTP
 	if previous != nil && previous.remote != remote {
 		_ = previous.remote.SetReadDeadline(time.Now())
 	}
-	defer func() {
+	defer /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
+	Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+	*/func() {
 		p.mu.Lock()
 		t := r.publication
 		if p.receivers[mid] == r {
@@ -142,6 +178,15 @@ func (m *Manager) receive(p *peer, remote *pion.TrackRemote, transport *pion.RTP
 	}
 }
 
+// activate включает публикацию дорожки после проверки политики и согласования.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - p (*peer): байты, переданные по контракту io.Writer.
+//   - r (*receiver): запрос либо состояние ресурса согласно указанному типу.
+//
+// @return:
+//   - результат 1 (*publishedTrack): значение, подготовленное операцией для вызывающей стороны.
 func (m *Manager) activate(p *peer, r *receiver) *publishedTrack {
 	p.mu.Lock()
 	if p.closing || p.receivers[r.mid] != r {
@@ -215,6 +260,11 @@ func (m *Manager) activate(p *peer, r *receiver) *publishedTrack {
 	return t
 }
 
+// syncPeer синхронизирует подписки пира с доступными публикациями комнаты.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - p (*peer): байты, переданные по контракту io.Writer.
 func (m *Manager) syncPeer(p *peer) {
 	p.room.mu.Lock()
 	tracks := make([]*publishedTrack, 0, len(p.room.tracks))
@@ -227,6 +277,12 @@ func (m *Manager) syncPeer(p *peer) {
 	}
 }
 
+// subscribe создаёт подписку на опубликованную медиа-дорожку.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - p (*peer): байты, переданные по контракту io.Writer.
 func (m *Manager) subscribe(t *publishedTrack, p *peer) {
 	// Multiple tabs have distinct endpoints, but a user's own microphone and
 	// camera are never echoed to their other endpoints.
@@ -280,6 +336,8 @@ func (m *Manager) subscribe(t *publishedTrack, p *peer) {
 	t.requestPLI()
 }
 
+// forward передаёт RTP-пакеты подписчикам дорожки.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (s *subscription) forward() {
 	for {
 		select {
@@ -308,6 +366,7 @@ func (s *subscription) forward() {
 	}
 }
 
+// readRTCP читает управляющие RTCP-пакеты от подписчика и обрабатывает запросы ключевых кадров.
 func (s *subscription) readRTCP() {
 	for {
 		packets, _, err := s.sender.ReadRTCP()
@@ -328,6 +387,7 @@ func (s *subscription) readRTCP() {
 	}
 }
 
+// requestPLI запрашивает ключевой кадр у источника видео через RTCP PLI.
 func (t *publishedTrack) requestPLI() {
 	if t.metadata.Kind != media.KindVideo {
 		return
@@ -338,6 +398,8 @@ func (t *publishedTrack) requestPLI() {
 	}
 }
 
+// keyframes периодически запрашивает ключевые кадры, пока дорожка активна.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (t *publishedTrack) keyframes() {
 	for {
 		select {
@@ -371,88 +433,118 @@ func (t *publishedTrack) keyframes() {
 	}
 }
 
+// unsubscribe освобождает подписку на дорожку и связанные сетевые ресурсы.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - s (*subscription): значение s типа *subscription, используемое согласно назначению этой операции.
 func (m *Manager) unsubscribe(s *subscription) {
-	s.stopOnce.Do(func() {
-		s.cancel()
-		s.peer.negotiation.Lock()
-		s.peer.mu.Lock()
-		delete(s.peer.subscriptions, s.source.metadata.ID)
-		s.peer.mu.Unlock()
-		_ = s.peer.pc.RemoveTrack(s.sender)
-		// Stop independently as RemoveTrack on a closed PC returns before Stop.
-		_ = s.sender.Stop()
-		s.peer.negotiation.Unlock()
-		s.source.mu.Lock()
-		delete(s.source.subscribers, s.peer.id)
-		s.source.mu.Unlock()
-		s.peer.changed()
-	})
+	s.stopOnce.Do( /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+		*/func() {
+			s.cancel()
+			s.peer.negotiation.Lock()
+			s.peer.mu.Lock()
+			delete(s.peer.subscriptions, s.source.metadata.ID)
+			s.peer.mu.Unlock()
+			_ = s.peer.pc.RemoveTrack(s.sender)
+			// Stop independently as RemoveTrack on a closed PC returns before Stop.
+			_ = s.sender.Stop()
+			s.peer.negotiation.Unlock()
+			s.source.mu.Lock()
+			delete(s.source.subscribers, s.peer.id)
+			s.source.mu.Unlock()
+			s.peer.changed()
+		})
 }
 
+// unpublish удаляет публикацию источника из комнаты и обновляет подписчиков.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func (m *Manager) unpublish(t *publishedTrack) {
-	t.stopOnce.Do(func() {
-		t.permitted.Store(false)
-		t.mu.Lock()
-		t.active = false
-		subs := make([]*subscription, 0, len(t.subscribers))
-		for _, sub := range t.subscribers {
-			subs = append(subs, sub)
-		}
-		t.mu.Unlock()
-		t.cancel()
-		t.publisher.mu.Lock()
-		delete(t.publisher.publications, t.metadata.ID)
-		if t.receiver.publication == t {
-			t.receiver.publication = nil
-		}
-		t.publisher.room.mu.Lock()
-		delete(t.publisher.room.tracks, t.metadata.ID)
-		for _, e := range t.publisher.room.egresses {
-			e.endTrack(t)
-		}
-		otherScreens := []*publishedTrack{}
-		replacementScreen := false
-		for mid, source := range t.publisher.allowedSources {
-			if source == media.SourceVideoScreen && mid != t.receiver.mid {
-				replacementScreen = true
+	t.stopOnce.Do( /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+		*/func() {
+			t.permitted.Store(false)
+			t.mu.Lock()
+			t.active = false
+			subs := make([]*subscription, 0, len(t.subscribers))
+			for _, sub := range t.subscribers {
+				subs = append(subs, sub)
 			}
-		}
-		if t.metadata.Source == media.SourceVideoScreen && !replacementScreen && (t.publisher.receivers[t.receiver.mid] == nil || t.publisher.receivers[t.receiver.mid] == t.receiver) {
-			delete(t.publisher.room.screens, t.publisher.id)
+			t.mu.Unlock()
+			t.cancel()
+			t.publisher.mu.Lock()
+			delete(t.publisher.publications, t.metadata.ID)
+			if t.receiver.publication == t {
+				t.receiver.publication = nil
+			}
+			t.publisher.room.mu.Lock()
+			delete(t.publisher.room.tracks, t.metadata.ID)
+			for _, e := range t.publisher.room.egresses {
+				e.endTrack(t)
+			}
+			otherScreens := []*publishedTrack{}
+			replacementScreen := false
 			for mid, source := range t.publisher.allowedSources {
-				if source == media.SourceVideoScreen || source == media.SourceAudioScreen {
-					if t.publisher.suspendedSources == nil {
-						t.publisher.suspendedSources = map[string]string{}
+				if source == media.SourceVideoScreen && mid != t.receiver.mid {
+					replacementScreen = true
+				}
+			}
+			if t.metadata.Source == media.SourceVideoScreen && !replacementScreen && (t.publisher.receivers[t.receiver.mid] == nil || t.publisher.receivers[t.receiver.mid] == t.receiver) {
+				delete(t.publisher.room.screens, t.publisher.id)
+				for mid, source := range t.publisher.allowedSources {
+					if source == media.SourceVideoScreen || source == media.SourceAudioScreen {
+						if t.publisher.suspendedSources == nil {
+							t.publisher.suspendedSources = map[string]string{}
+						}
+						t.publisher.suspendedSources[mid] = t.publisher.offeredTrackIDs[mid]
+						delete(t.publisher.allowedSources, mid)
 					}
-					t.publisher.suspendedSources[mid] = t.publisher.offeredTrackIDs[mid]
-					delete(t.publisher.allowedSources, mid)
+				}
+				for _, sibling := range t.publisher.publications {
+					if sibling.metadata.Source == media.SourceAudioScreen {
+						otherScreens = append(otherScreens, sibling)
+					}
 				}
 			}
-			for _, sibling := range t.publisher.publications {
-				if sibling.metadata.Source == media.SourceAudioScreen {
-					otherScreens = append(otherScreens, sibling)
-				}
+			t.publisher.room.mu.Unlock()
+			t.publisher.mu.Unlock()
+			for _, sibling := range otherScreens {
+				m.unpublish(sibling)
 			}
-		}
-		t.publisher.room.mu.Unlock()
-		t.publisher.mu.Unlock()
-		for _, sibling := range otherScreens {
-			m.unpublish(sibling)
-		}
-		for _, sub := range subs {
-			m.unsubscribe(sub)
-		}
-		m.log(t.publisher, "track_unpublished", []any{"track_id", t.metadata.ID, "kind", t.metadata.Kind, "source", t.metadata.Source})
-		t.publisher.emit("media.unpublished", map[string]string{"mediaPeerId": t.publisher.id, "trackId": t.metadata.ID})
-	})
+			for _, sub := range subs {
+				m.unsubscribe(sub)
+			}
+			m.log(t.publisher, "track_unpublished", []any{"track_id", t.metadata.ID, "kind", t.metadata.Kind, "source", t.metadata.Source})
+			t.publisher.emit("media.unpublished", map[string]string{"mediaPeerId": t.publisher.id, "trackId": t.metadata.ID})
+		})
 }
 
+// Tracks возвращает снимок доступных опубликованных дорожек комнаты.
+//
+// @parameters:
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 ([]media.Track): собранные элементы результата; состав ограничивается параметрами операции.
 func (m *Manager) Tracks(id string) []media.Track {
 	p, err := m.get(id)
 	if err != nil {
 		return []media.Track{}
 	}
 	tracks := p.tracks()
-	sort.Slice(tracks, func(i, j int) bool { return tracks[i].ID < tracks[j].ID })
+	sort.Slice(tracks, /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
+
+		@parameters:
+		  - i (int): значение i типа int, используемое согласно назначению этой операции.
+		  - j (int): значение j типа int, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(i, j int) bool { return tracks[i].ID < tracks[j].ID })
 	return tracks
 }

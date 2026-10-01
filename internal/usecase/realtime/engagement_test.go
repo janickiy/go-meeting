@@ -9,6 +9,10 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
+// TestOutOfOrderHandEventsUseCurrentState проверяет сценарий «Out Of Order рука события Use текущий состояние», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestOutOfOrderHandEventsUseCurrentState(t *testing.T) {
 	allowed := map[string]bool{"member": true}
 	oldRaise := domain.Event("hand.raised", "conference", domain.Hand{ParticipantID: "member", RaisedAt: time.Now()})
@@ -27,6 +31,10 @@ func TestOutOfOrderHandEventsUseCurrentState(t *testing.T) {
 	}
 }
 
+// TestStateVisibilityIsPerRecipient проверяет сценарий «состояние Visibility является Per Recipient», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStateVisibilityIsPerRecipient(t *testing.T) {
 	state := domain.State{Participants: []domain.Presence{
 		{ParticipantView: conferences.ParticipantView{ID: "owner", Role: conferences.Owner, Status: conferences.Joined, AdmissionState: conferences.AdmissionAdmitted}},
@@ -43,6 +51,11 @@ func TestStateVisibilityIsPerRecipient(t *testing.T) {
 		t.Fatal("canonical snapshot was mutated")
 	}
 }
+
+// TestInitialStateRequiresCurrentAdmission проверяет сценарий «Initial состояние Requires текущий допуск», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestInitialStateRequiresCurrentAdmission(t *testing.T) {
 	for _, test := range []struct {
 		status     conferences.Status

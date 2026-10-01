@@ -10,6 +10,10 @@ import (
 	ffmpeginfra "github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
 )
 
+// TestPostProcessorFinalizeIgnoresEmptySegmentsAndNonSegmentFiles проверяет сценарий «Post Processor Finalize Ignores пустой Segments и не Segment файлы», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPostProcessorFinalizeIgnoresEmptySegmentsAndNonSegmentFiles(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "segment_000000.mkv"), nil, 0o644); err != nil {

@@ -7,6 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// TestMessageValidationAndStableRetryFingerprint проверяет сценарий «сообщение проверка входных данных и Stable повторная попытка отпечаток запроса», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMessageValidationAndStableRetryFingerprint(t *testing.T) {
 	request := SendRequest{ClientRequestID: uuid.NewString(), Text: "  Привет 👋  ", AttachmentIDs: []string{uuid.NewString(), uuid.NewString()}}
 	first, fingerprint, err := NormalizeSend(request)
@@ -27,6 +31,11 @@ func TestMessageValidationAndStableRetryFingerprint(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestAttachmentMetadataValidation проверяет сценарий «вложение Metadata проверка входных данных», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAttachmentMetadataValidation(t *testing.T) {
 	for _, name := range []string{"../secret.txt", "dir/file.txt", "dir\\file.txt", "evil.svg", "program.exe", "file\n.txt", "..hidden.txt", "", "image.jpg.exe", "file\u202e.txt"} {
 		if _, err := NormalizeInit(InitRequest{ClientRequestID: uuid.NewString(), Filename: name, Size: 10}); err == nil {

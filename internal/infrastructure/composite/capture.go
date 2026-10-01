@@ -22,6 +22,11 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media/samplebuilder"
 )
 
+// CaptureOptions задаёт ограничения фрагментов, буферов и кодирования захватываемых источников.
+//   - SegmentDuration: значение SegmentDuration типа time.Duration, используемое согласно назначению этой операции.
+//   - MaxBytes: значение MaxBytes типа int64, используемое согласно назначению этой операции.
+//   - MaxTracks: значение MaxTracks типа int, используемое согласно назначению этой операции.
+//   - OnStarted: операция OnStarted с контрактом, описанным у метода.
 type CaptureOptions struct {
 	SegmentDuration time.Duration
 	MaxBytes        int64
@@ -31,9 +36,13 @@ type CaptureOptions struct {
 
 var ErrEgressEnded = errors.New("media egress ended")
 
-// OnlyEgressEnded excludes simultaneous spool/encode failures from the normal
-// conference-finish EOF path. A successful earlier chunk cannot hide a failed
-// final tail or a failed compositor.
+// OnlyEgressEnded отличает нормальное завершение входящего потока от совместной ошибки записи или композиции.
+//
+// @parameters:
+//   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func OnlyEgressEnded(err error) bool {
 	if err == nil {
 		return false
@@ -53,9 +62,17 @@ func OnlyEgressEnded(err error) bool {
 	return errors.Is(err, ErrEgressEnded)
 }
 
-// Capture spools encoded media to bounded-duration durable source chunks. Only
-// the independent composition goroutine decodes or encodes. Backpressure ends
-// this recording instead of blocking the conference's SFU.
+// Capture сохраняет закодированные медиа в ограниченные по времени устойчивые фрагменты; давление записи не должно останавливать SFU.
+//
+// @parameters:
+//   - captureCtx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - workCtx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - reader (io.Reader): источник содержимого либо читатель карточек записи согласно типу.
+//   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
+//   - options (CaptureOptions): зависимости и настройки создаваемого компонента.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader, dir string, options CaptureOptions) error {
 	if options.SegmentDuration < time.Second || options.SegmentDuration > 30*time.Second {
 		return fmt.Errorf("invalid segment duration")
@@ -72,7 +89,9 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 	jobs := make(chan Chunk, 4)
 	composed := make(chan error, 1)
 	composeFailed := make(chan error, 1)
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+
+	 */func() {
 		var result error
 		for chunk := range jobs {
 			if result == nil {
@@ -92,6 +111,14 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 	var bytesReceived int64
 	index := 0
 	started := false
+	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - end (int64): значение end типа int64, используемое согласно назначению этой операции.
+	//   - final (bool): логический признак final, управляющий соответствующей веткой обработки.
+	//
+	// @return:
+	//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	closeChunk := func(end int64, final bool) error {
 		chunk := Chunk{Index: index, Duration: float64(end-epoch) / 1e9, Sources: []Source{}}
 		var closeErr error
@@ -138,7 +165,14 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 		if chunk.Duration < 0.05 {
 			return nil
 		}
-		sort.Slice(chunk.Sources, func(i, j int) bool { return chunk.Sources[i].Track.ID < chunk.Sources[j].Track.ID })
+		sort.Slice(chunk.Sources, /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+
+			@parameters:
+			  - i (int): значение i типа int, используемое согласно назначению этой операции.
+			  - j (int): значение j типа int, используемое согласно назначению этой операции.
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(i, j int) bool { return chunk.Sources[i].Track.ID < chunk.Sources[j].Track.ID })
 		tracks := make([]media.Track, 0, len(chunk.Sources))
 		for _, source := range chunk.Sources {
 			tracks = append(tracks, source.Track)
@@ -173,9 +207,13 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 	defer stopReading()
 	frames := make(chan media.EgressFrame, 512)
 	readDone := make(chan error, 1)
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+
+	 */func() {
 		var readErr error
-		defer func() { readDone <- readErr; close(frames) }()
+		defer /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+
+		 */func() { readDone <- readErr; close(frames) }()
 		scanner := bufio.NewScanner(reader)
 		scanner.Buffer(make([]byte, 64<<10), 256<<10)
 		for scanner.Scan() {
@@ -359,10 +397,30 @@ readLoop:
 	return captureErr
 }
 
+// validCodec проверяет, поддерживается ли кодек для сохранения данного источника.
+//
+// @parameters:
+//   - track (media.EgressTrack): медиа-дорожка, которую обрабатывает или подписывает компонент.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func validCodec(track media.EgressTrack) bool {
 	return (track.Kind == media.KindVideo && strings.EqualFold(track.MimeType, "video/VP8") && track.ClockRate == 90000) || (track.Kind == media.KindAudio && strings.EqualFold(track.MimeType, "audio/opus") && track.ClockRate == 48000 && track.Channels <= 2)
 }
 
+// sourceWriter собирает элементарный поток одного источника в устойчивый фрагмент записи.
+//   - track: медиа-дорожка, которую обрабатывает или подписывает компонент.
+//   - path: путь к локальному файлу или каталогу операции.
+//   - state: значение state типа *sourceState, используемое согласно назначению этой операции.
+//   - file: значение file типа *os.File, используемое согласно назначению этой операции.
+//   - ogg: значение ogg типа *oggwriter.OggWriter, используемое согласно назначению этой операции.
+//   - firstTimestamp: значение firstTimestamp типа uint32, используемое согласно назначению этой операции.
+//   - firstAt: значение firstAt типа int64, используемое согласно назначению этой операции.
+//   - lastAt: значение lastAt типа int64, используемое согласно назначению этой операции.
+//   - endedAt: время завершения записи или физической сессии.
+//   - lastDuration: значение lastDuration типа time.Duration, используемое согласно назначению этой операции.
+//   - samples: значение samples типа uint32, используемое согласно назначению этой операции.
+//   - keyframe: логический признак keyframe, управляющий соответствующей веткой обработки.
 type sourceWriter struct {
 	track          media.EgressTrack
 	path           string
@@ -378,12 +436,24 @@ type sourceWriter struct {
 	keyframe       bool
 }
 
+// encodedSample хранит закодированный образец с временными параметрами для записи в контейнер.
+//   - data: полезная нагрузка события или байты обрабатываемого содержимого.
+//   - timestamp: значение timestamp типа uint32, используемое согласно назначению этой операции.
+//   - at: однозначное время планируемой операции; nil означает отсутствие значения, если это допускает тип.
+//   - duration: плановая длительность или интервал в единицах, заданных типом.
 type encodedSample struct {
 	data      []byte
 	timestamp uint32
 	at        int64
 	duration  time.Duration
 }
+
+// sourceState сохраняет состояние источника между пакетами и границами фрагментов.
+//   - builder: значение builder типа *samplebuilder.SampleBuilder, используемое согласно назначению этой операции.
+//   - arrivals: индекс значений arrivals для поиска и согласования состояния.
+//   - preroll: набор значений preroll для последовательной или пакетной обработки.
+//   - bytes: значение bytes типа int, используемое согласно назначению этой операции.
+//   - lastPacketAt: значение lastPacketAt типа int64, используемое согласно назначению этой операции.
 type sourceState struct {
 	builder      *samplebuilder.SampleBuilder
 	arrivals     map[uint32]int64
@@ -392,10 +462,31 @@ type sourceState struct {
 	lastPacketAt int64
 }
 
+// newSourceWriter создаёт запись элементарного потока для одного источника медиа.
+//
+// @parameters:
+//   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
+//   - index (int): значение index типа int, используемое согласно назначению этой операции.
+//   - track (media.EgressTrack): медиа-дорожка, которую обрабатывает или подписывает компонент.
+//
+// @return:
+//   - результат 1 (*sourceWriter): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func newSourceWriter(dir string, index int, track media.EgressTrack) (*sourceWriter, error) {
 	return newSourceWriterState(dir, index, track, nil)
 }
 
+// newSourceWriterState инициализирует состояние кодирования и сборки фрагментов одного источника.
+//
+// @parameters:
+//   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
+//   - index (int): значение index типа int, используемое согласно назначению этой операции.
+//   - track (media.EgressTrack): медиа-дорожка, которую обрабатывает или подписывает компонент.
+//   - state (*sourceState): значение state типа *sourceState, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*sourceWriter): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func newSourceWriterState(dir string, index int, track media.EgressTrack, state *sourceState) (*sourceWriter, error) {
 	w := &sourceWriter{track: track, state: state}
 	ext := ".ivf"
@@ -452,6 +543,14 @@ func newSourceWriterState(dir string, index int, track media.EgressTrack, state 
 	return w, nil
 }
 
+// WriteRTP принимает RTP-пакет и добавляет его к собираемому элементарному потоку.
+//
+// @parameters:
+//   - packet (*rtp.Packet): закодированный RTP- или управляющий пакет.
+//   - capturedAt (int64): значение capturedAt типа int64, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (w *sourceWriter) WriteRTP(packet *rtp.Packet, capturedAt int64) error {
 	w.state.lastPacketAt = max(w.state.lastPacketAt, capturedAt)
 	if len(w.state.arrivals) > 256 {
@@ -466,6 +565,10 @@ func (w *sourceWriter) WriteRTP(packet *rtp.Packet, capturedAt int64) error {
 	return w.pop()
 }
 
+// pop извлекает следующий готовый закодированный образец из буфера источника.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (w *sourceWriter) pop() error {
 	for sample := w.state.builder.Pop(); sample != nil; sample = w.state.builder.Pop() {
 		at := w.state.arrivals[sample.PacketTimestamp]
@@ -501,6 +604,13 @@ func (w *sourceWriter) pop() error {
 	return nil
 }
 
+// writeSample записывает закодированный образец в текущий фрагмент источника.
+//
+// @parameters:
+//   - sample (encodedSample): значение sample типа encodedSample, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (w *sourceWriter) writeSample(sample encodedSample) error {
 	if w.track.Kind == media.KindVideo && !w.keyframe {
 		if len(sample.data) < 10 || sample.data[0]&1 != 0 {
@@ -540,10 +650,21 @@ func (w *sourceWriter) writeSample(sample encodedSample) error {
 	return nil
 }
 
+// Close закрывает принадлежащие компоненту ресурсы и завершает связанный жизненный цикл.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (w *sourceWriter) Close() error {
 	return w.closeChunk(true)
 }
 
+// closeChunk закрывает потоки фрагмента и публикует устойчивый манифест после успешного завершения файлов.
+//
+// @parameters:
+//   - final (bool): логический признак final, управляющий соответствующей веткой обработки.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (w *sourceWriter) closeChunk(final bool) error {
 	var err error
 	if final {

@@ -30,8 +30,10 @@ import (
 	chatusecase "github.com/janickiy/go-recorder/internal/usecase/chat"
 )
 
-// Own random PostgreSQL database, Redis identities and MinIO attachment prefix.
-// No production objects or shared tables are truncated by this acceptance test.
+// TestStageFiveChatFilesRead проверяет сценарий «этап пять чат файлы чтение», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFiveChatFilesRead(t *testing.T) {
 	if os.Getenv("RECORDER_STAGE5_CHAT_E2E") != "true" {
 		t.Skip("set RECORDER_STAGE5_CHAT_E2E=true with local PostgreSQL, Redis and MinIO")
@@ -43,15 +45,17 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	storage.SetPublicEndpoint("localhost:9000")
-	t.Cleanup(func() {
-		_ = storage.RemovePrefix(context.Background(), "attachments/"+f.conference.ID+"/")
-		for _, user := range []string{f.owner.ID, f.member.ID} {
-			keys, _ := f.redis.Keys(context.Background(), "rate:chat_*:"+user+":*").Result()
-			if len(keys) > 0 {
-				_ = f.redis.Del(context.Background(), keys...).Err()
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
+			_ = storage.RemovePrefix(context.Background(), "attachments/"+f.conference.ID+"/")
+			for _, user := range []string{f.owner.ID, f.member.ID} {
+				keys, _ := f.redis.Keys(context.Background(), "rate:chat_*:"+user+":*").Result()
+				if len(keys) > 0 {
+					_ = f.redis.Del(context.Background(), keys...).Err()
+				}
 			}
-		}
-	})
+		})
 	repo := pg.NewChatRepository(f.db)
 	service, err := chatusecase.NewService(ctx, repo, storage, f.hubs[0])
 	if err != nil {
@@ -75,9 +79,15 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 	if first.SenderID != f.owner.ID || first.SenderName != "Alice" || first.Sequence < 1 || first.Version != 1 {
 		t.Fatalf("incorrect message: %+v", first)
 	}
-	memberSocket.wait(t, func(e realtime.Envelope) bool {
-		return e.Type == "chat.message.created" && bytes.Contains(e.Data, []byte(first.ID))
-	})
+	memberSocket.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (realtime.Envelope): значение e типа realtime.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e realtime.Envelope) bool {
+			return e.Type == "chat.message.created" && bytes.Contains(e.Data, []byte(first.ID))
+		})
 	api.expect(t, "POST", path+"/messages", f.ownerToken, request, 200, &envelope)
 	if envelope.Item.ID != first.ID {
 		t.Fatal("retry duplicated message")
@@ -96,9 +106,15 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 	if envelope.Item.Version != 2 {
 		t.Fatal("version did not advance")
 	}
-	ownerSocket.wait(t, func(e realtime.Envelope) bool {
-		return e.Type == "chat.message.updated" && bytes.Contains(e.Data, []byte(first.ID))
-	})
+	ownerSocket.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (realtime.Envelope): значение e типа realtime.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e realtime.Envelope) bool {
+			return e.Type == "chat.message.updated" && bytes.Contains(e.Data, []byte(first.ID))
+		})
 	var page chat.Page
 	api.expect(t, "GET", path+"/messages?limit=1", f.memberToken, nil, 200, &page)
 	if len(page.Items) != 1 || page.Items[0].ID != reply.ID || page.NextCursor == "" || page.UnreadCount != 1 {
@@ -115,59 +131,81 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 	if read.Item.UnreadCount != 0 || read.Item.LastReadMessageID == nil || *read.Item.LastReadMessageID != reply.ID {
 		t.Fatal("read cursor not stored")
 	}
-	memberSocket.wait(t, func(e realtime.Envelope) bool { return e.Type == "chat.read.updated" })
+	memberSocket.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (realtime.Envelope): значение e типа realtime.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e realtime.Envelope) bool { return e.Type == "chat.read.updated" })
 	api.expect(t, "PUT", path+"/chat/read", f.memberToken, chat.ReadRequest{MessageID: first.ID}, 200, &read)
 	if *read.Item.LastReadMessageID != reply.ID {
 		t.Fatal("read cursor moved backwards")
 	}
 
-	t.Run("concurrent retry edit delete and read", func(t *testing.T) {
-		request := chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "Один запрос"}
-		var ids [12]string
-		var failures [12]error
-		runConcurrent(12, func(i int) {
-			message, _, err := service.Send(ctx, f.owner.ID, f.conference.ID, request)
-			ids[i] = message.ID
-			failures[i] = err
+	t.Run("concurrent retry edit delete and read", /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+		@parameters:
+		  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+		*/func(t *testing.T) {
+			request := chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "Один запрос"}
+			var ids [12]string
+			var failures [12]error
+			runConcurrent(12, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+				@parameters:
+				  - i (int): значение i типа int, используемое согласно назначению этой операции.
+				*/func(i int) {
+					message, _, err := service.Send(ctx, f.owner.ID, f.conference.ID, request)
+					ids[i] = message.ID
+					failures[i] = err
+				})
+			for i, err := range failures {
+				if err != nil || ids[i] != ids[0] {
+					t.Fatalf("retry %d: %s %v", i, ids[i], err)
+				}
+			}
+			runConcurrent(12, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+				@parameters:
+				  - i (int): значение i типа int, используемое согласно назначению этой операции.
+				*/func(i int) {
+					target := first.ID
+					if i%2 == 0 {
+						target = ids[0]
+					}
+					_, failures[i] = service.MarkRead(ctx, f.member.ID, f.conference.ID, chat.ReadRequest{MessageID: target})
+				})
+			for _, err := range failures {
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			state, err := service.ReadState(ctx, f.member.ID, f.conference.ID)
+			if err != nil || state.LastReadMessageID == nil || *state.LastReadMessageID != ids[0] {
+				t.Fatal("read race regressed", state, err)
+			}
+			runConcurrent(12, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+				@parameters:
+				  - i (int): значение i типа int, используемое согласно назначению этой операции.
+				*/func(i int) {
+					if i%2 == 0 {
+						_, failures[i] = service.Edit(ctx, f.owner.ID, f.conference.ID, ids[0], chat.EditRequest{Text: "edited"})
+					} else {
+						_, failures[i] = service.Delete(ctx, f.owner.ID, f.conference.ID, ids[0])
+					}
+				})
+			for _, err := range failures {
+				if err != nil && !errors.Is(err, apperrors.ErrConflict) {
+					t.Fatal(err)
+				}
+			}
+			var message chat.Message
+			if err := f.db.Where("id=?", ids[0]).Take(&message).Error; err != nil || message.DeletedAt == nil || message.Text != "" {
+				t.Fatal("edit resurrected deleted message", err)
+			}
 		})
-		for i, err := range failures {
-			if err != nil || ids[i] != ids[0] {
-				t.Fatalf("retry %d: %s %v", i, ids[i], err)
-			}
-		}
-		runConcurrent(12, func(i int) {
-			target := first.ID
-			if i%2 == 0 {
-				target = ids[0]
-			}
-			_, failures[i] = service.MarkRead(ctx, f.member.ID, f.conference.ID, chat.ReadRequest{MessageID: target})
-		})
-		for _, err := range failures {
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-		state, err := service.ReadState(ctx, f.member.ID, f.conference.ID)
-		if err != nil || state.LastReadMessageID == nil || *state.LastReadMessageID != ids[0] {
-			t.Fatal("read race regressed", state, err)
-		}
-		runConcurrent(12, func(i int) {
-			if i%2 == 0 {
-				_, failures[i] = service.Edit(ctx, f.owner.ID, f.conference.ID, ids[0], chat.EditRequest{Text: "edited"})
-			} else {
-				_, failures[i] = service.Delete(ctx, f.owner.ID, f.conference.ID, ids[0])
-			}
-		})
-		for _, err := range failures {
-			if err != nil && !errors.Is(err, apperrors.ErrConflict) {
-				t.Fatal(err)
-			}
-		}
-		var message chat.Message
-		if err := f.db.Where("id=?", ids[0]).Take(&message).Error; err != nil || message.DeletedAt == nil || message.Text != "" {
-			t.Fatal("edit resurrected deleted message", err)
-		}
-	})
 
 	data := []byte("Вложение для конференции\n")
 	init := chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "заметки.txt", MimeType: "text/plain", Size: int64(len(data))}
@@ -183,6 +221,12 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 	}
 	uploadPath := path + "/attachments/" + attachment.ID
 	api.expect(t, "POST", uploadPath+"/finalize", f.ownerToken, nil, 409, nil)
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+	//   - payload ([]byte): типизированная нагрузка события или ссылочные сведения уведомления.
+	//   - status (int): состояние ресурса, ответа или фильтра выборки.
 	rawUpload := func(token string, payload []byte, status int) {
 		t.Helper()
 		request := httptest.NewRequest("PUT", "/api/v1"+uploadPath+"/content", bytes.NewReader(payload))
@@ -241,222 +285,262 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 		t.Fatalf("private object accessible anonymously: %d", anonymous.StatusCode)
 	}
 
-	t.Run("access scope and admission", func(t *testing.T) {
-		outsider := users.User{ID: uuid.NewString(), Email: uuid.NewString() + "@stage5.test", PasswordHash: f.owner.PasswordHash}
-		if err := f.db.Create(&outsider).Error; err != nil {
-			t.Fatal(err)
-		}
-		token, _ := f.tokens.Issue(outsider.ID)
-		for _, suffix := range []string{"/messages", "/chat/read", "/attachments/" + attachment.ID + "/download"} {
-			api.expect(t, "GET", path+suffix, token, nil, 403, nil)
-		}
-		for _, admission := range []string{"waiting", "rejected", "kicked"} {
-			if err := f.db.Model(&conferences.Participant{}).Where("conference_id=? AND user_id=?", f.conference.ID, f.member.ID).Updates(map[string]any{"status": admission, "admission_state": admission, "joined_at": nil, "left_at": nil}).Error; err != nil {
+	t.Run("access scope and admission", /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+		@parameters:
+		  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+		*/func(t *testing.T) {
+			outsider := users.User{ID: uuid.NewString(), Email: uuid.NewString() + "@stage5.test", PasswordHash: f.owner.PasswordHash}
+			if err := f.db.Create(&outsider).Error; err != nil {
 				t.Fatal(err)
 			}
-			api.expect(t, "GET", path+"/messages", f.memberToken, nil, 403, nil)
-			api.expect(t, "GET", uploadPath+"/download", f.memberToken, nil, 403, nil)
-			api.expect(t, "POST", path+"/messages", f.memberToken, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "bypass"}, 403, nil)
-		}
-		if err := f.db.Model(&conferences.Participant{}).Where("conference_id=? AND user_id=?", f.conference.ID, f.member.ID).Updates(map[string]any{"status": "joined", "admission_state": "admitted", "joined_at": time.Now().UTC(), "left_at": nil}).Error; err != nil {
-			t.Fatal(err)
-		}
-		other, err := f.service.Create(ctx, f.owner.ID, conferences.CreateRequest{Title: "Other chat"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := f.service.Join(ctx, f.owner.ID, other.ID, conferences.JoinRequest{}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := f.service.Transition(ctx, f.owner.ID, other.ID, conferences.Active); err != nil {
-			t.Fatal(err)
-		}
-		_, _, err = service.Send(ctx, f.owner.ID, other.ID, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "cross reply", ReplyTo: first.ID})
-		if !errors.Is(err, apperrors.ErrInvalidInput) {
-			t.Fatal("cross-conference reply accepted", err)
-		}
-		_, err = service.MarkRead(ctx, f.owner.ID, other.ID, chat.ReadRequest{MessageID: first.ID})
-		if !errors.Is(err, apperrors.ErrNotFound) {
-			t.Fatal("cross-conference read cursor accepted", err)
-		}
-		_, _, err = service.Download(ctx, f.owner.ID, other.ID, attachment.ID)
-		if !errors.Is(err, apperrors.ErrNotFound) {
-			t.Fatal("cross-conference attachment accepted", err)
-		}
-	})
-
-	t.Run("orphan cleanup and attachment finalize race", func(t *testing.T) {
-		orphan, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "orphan.txt", Size: int64(len(data))})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := service.Upload(ctx, f.owner.ID, f.conference.ID, orphan.ID, bytes.NewReader(data)); err != nil {
-			t.Fatal(err)
-		}
-		if err := f.db.Model(&chat.Attachment{}).Where("id=?", orphan.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error; err != nil {
-			t.Fatal(err)
-		}
-		var results [2]error
-		runConcurrent(2, func(i int) {
-			if i == 0 {
-				_, results[i] = service.FinalizeAttachment(ctx, f.owner.ID, f.conference.ID, orphan.ID)
-			} else {
-				results[i] = service.Cleanup(ctx)
+			token, _ := f.tokens.Issue(outsider.ID)
+			for _, suffix := range []string{"/messages", "/chat/read", "/attachments/" + attachment.ID + "/download"} {
+				api.expect(t, "GET", path+suffix, token, nil, 403, nil)
 			}
-		})
-		if !errors.Is(results[0], apperrors.ErrConflict) || results[1] != nil {
-			t.Fatal("cleanup/finalize race", results)
-		}
-		if err := f.db.Where("id=?", orphan.ID).Take(&orphan).Error; err != nil {
-			t.Fatal(err)
-		}
-		if orphan.Status != "expired" || orphan.CleanedAt == nil {
-			t.Fatal("orphan was not expired and cleaned")
-		}
-		if _, _, _, err := storage.StatAttachment(ctx, orphan.ObjectKey); err == nil {
-			t.Fatal("expired orphan object still present")
-		}
-		// Cleanup of an attached row retains exactly its immutable winning object.
-		if err := f.db.Model(&chat.Attachment{}).Where("id=?", attachment.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error; err != nil {
-			t.Fatal(err)
-		}
-		if err := service.Cleanup(ctx); err != nil {
-			t.Fatal(err)
-		}
-		if _, _, err := service.Download(ctx, f.member.ID, f.conference.ID, attachment.ID); err != nil {
-			t.Fatal("cleanup removed attached object", err)
-		}
-	})
-
-	t.Run("upload size bound and finalize idempotency", func(t *testing.T) {
-		oversized, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "oversized.txt", Size: chat.MaxAttachmentBytes})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = service.Upload(ctx, f.owner.ID, f.conference.ID, oversized.ID, io.LimitReader(repeatedChatByte{}, chat.MaxAttachmentBytes+1))
-		if !errors.Is(err, apperrors.ErrInvalidInput) {
-			t.Fatal("oversized stream accepted", err)
-		}
-		spoofed, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "fake.png", Size: int64(len(data))})
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = service.Upload(ctx, f.owner.ID, f.conference.ID, spoofed.ID, bytes.NewReader(data))
-		if !errors.Is(err, apperrors.ErrInvalidInput) {
-			t.Fatal("browser MIME spoof accepted", err)
-		}
-		concurrent, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "concurrent.txt", Size: int64(len(data))})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := service.Upload(ctx, f.owner.ID, f.conference.ID, concurrent.ID, bytes.NewReader(data)); err != nil {
-			t.Fatal(err)
-		}
-		var results [12]error
-		runConcurrent(12, func(i int) {
-			_, results[i] = service.FinalizeAttachment(ctx, f.owner.ID, f.conference.ID, concurrent.ID)
-		})
-		for _, err := range results {
+			for _, admission := range []string{"waiting", "rejected", "kicked"} {
+				if err := f.db.Model(&conferences.Participant{}).Where("conference_id=? AND user_id=?", f.conference.ID, f.member.ID).Updates(map[string]any{"status": admission, "admission_state": admission, "joined_at": nil, "left_at": nil}).Error; err != nil {
+					t.Fatal(err)
+				}
+				api.expect(t, "GET", path+"/messages", f.memberToken, nil, 403, nil)
+				api.expect(t, "GET", uploadPath+"/download", f.memberToken, nil, 403, nil)
+				api.expect(t, "POST", path+"/messages", f.memberToken, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "bypass"}, 403, nil)
+			}
+			if err := f.db.Model(&conferences.Participant{}).Where("conference_id=? AND user_id=?", f.conference.ID, f.member.ID).Updates(map[string]any{"status": "joined", "admission_state": "admitted", "joined_at": time.Now().UTC(), "left_at": nil}).Error; err != nil {
+				t.Fatal(err)
+			}
+			other, err := f.service.Create(ctx, f.owner.ID, conferences.CreateRequest{Title: "Other chat"})
 			if err != nil {
-				t.Fatal("finalize retry not idempotent", err)
-			}
-		}
-	})
-
-	t.Run("seeded cursor explain and independent rate limit", func(t *testing.T) {
-		if err := f.db.Exec(`INSERT INTO chat_messages(id,conference_id,sender_user_id,client_request_id,request_fingerprint,text) SELECT gen_random_uuid(),?,?,gen_random_uuid(),repeat('a',64),'seeded' FROM generate_series(1,3000)`, f.conference.ID, f.owner.ID).Error; err != nil {
-			t.Fatal(err)
-		}
-		if err := f.db.Exec(`WITH other AS (INSERT INTO conferences(id,owner_id,title,invite_code,status) SELECT gen_random_uuid(),?,'isolated explain seed',replace(gen_random_uuid()::text,'-',''),'created' FROM generate_series(1,12) RETURNING id) INSERT INTO chat_messages(id,conference_id,sender_user_id,client_request_id,request_fingerprint,text) SELECT gen_random_uuid(),other.id,?,gen_random_uuid(),repeat('b',64),'other conference' FROM other CROSS JOIN generate_series(1,500)`, f.owner.ID, f.owner.ID).Error; err != nil {
-			t.Fatal(err)
-		}
-		if err := f.db.Exec("ANALYZE chat_messages").Error; err != nil {
-			t.Fatal(err)
-		}
-		rows, err := f.db.Raw(`EXPLAIN (ANALYZE,BUFFERS) SELECT id,sequence,text FROM chat_messages WHERE conference_id=? AND sequence<99999999 ORDER BY sequence DESC LIMIT 50`, f.conference.ID).Rows()
-		if err != nil {
-			t.Fatal(err)
-		}
-		var plan []string
-		for rows.Next() {
-			var line string
-			if err := rows.Scan(&line); err != nil {
 				t.Fatal(err)
 			}
-			plan = append(plan, line)
-		}
-		rows.Close()
-		t.Log("cursor EXPLAIN:", strings.Join(plan, "\n"))
-		if !strings.Contains(strings.Join(plan, " "), "chat_messages_conference_sequence") || strings.Contains(strings.Join(plan, " "), "Rows Removed by Filter") {
-			t.Fatal("cursor query did not use the conference-scoped index")
-		}
-		// Mark-read uses its own key; exhausting it must not block message send.
-		var latest chat.Message
-		if err := f.db.Where("conference_id=?", f.conference.ID).Order("sequence DESC").First(&latest).Error; err != nil {
-			t.Fatal(err)
-		}
-		blocked := false
-		for i := 0; i < 35; i++ {
-			body, _ := json.Marshal(chat.ReadRequest{MessageID: latest.ID})
-			request := httptest.NewRequest("PUT", "/api/v1"+path+"/chat/read", bytes.NewReader(body))
-			request.Header.Set("Authorization", "Bearer "+f.ownerToken)
-			response := httptest.NewRecorder()
-			router.ServeHTTP(response, request)
-			if response.Code == 429 {
-				blocked = true
-				break
+			if _, err := f.service.Join(ctx, f.owner.ID, other.ID, conferences.JoinRequest{}); err != nil {
+				t.Fatal(err)
 			}
-			if response.Code != 200 {
-				t.Fatalf("read rate response: %d %s", response.Code, response.Body.String())
+			if _, err := f.service.Transition(ctx, f.owner.ID, other.ID, conferences.Active); err != nil {
+				t.Fatal(err)
 			}
-		}
-		if !blocked {
-			t.Fatal("read updates lack rate limit")
-		}
-		api.expect(t, "POST", path+"/messages", f.ownerToken, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "separate budget"}, 201, nil)
-	})
+			_, _, err = service.Send(ctx, f.owner.ID, other.ID, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "cross reply", ReplyTo: first.ID})
+			if !errors.Is(err, apperrors.ErrInvalidInput) {
+				t.Fatal("cross-conference reply accepted", err)
+			}
+			_, err = service.MarkRead(ctx, f.owner.ID, other.ID, chat.ReadRequest{MessageID: first.ID})
+			if !errors.Is(err, apperrors.ErrNotFound) {
+				t.Fatal("cross-conference read cursor accepted", err)
+			}
+			_, _, err = service.Download(ctx, f.owner.ID, other.ID, attachment.ID)
+			if !errors.Is(err, apperrors.ErrNotFound) {
+				t.Fatal("cross-conference attachment accepted", err)
+			}
+		})
 
-	t.Run("bounded HTTP burst and critical snapshot", func(t *testing.T) {
-		live := f.connect(t, 1, f.memberToken, f.conference.ID)
-		const count = 80
-		statuses := make([]int, count)
-		done := make(chan struct{})
-		start := time.Now()
-		go func() {
-			defer close(done)
-			runConcurrent(count, func(i int) {
-				body, _ := json.Marshal(chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "bounded burst"})
-				request := httptest.NewRequest("POST", "/api/v1"+path+"/messages", bytes.NewReader(body))
-				request.Header.Set("Authorization", "Bearer "+f.memberToken)
+	t.Run("orphan cleanup and attachment finalize race", /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+		@parameters:
+		  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+		*/func(t *testing.T) {
+			orphan, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "orphan.txt", Size: int64(len(data))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.Upload(ctx, f.owner.ID, f.conference.ID, orphan.ID, bytes.NewReader(data)); err != nil {
+				t.Fatal(err)
+			}
+			if err := f.db.Model(&chat.Attachment{}).Where("id=?", orphan.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error; err != nil {
+				t.Fatal(err)
+			}
+			var results [2]error
+			runConcurrent(2, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+				@parameters:
+				  - i (int): значение i типа int, используемое согласно назначению этой операции.
+				*/func(i int) {
+					if i == 0 {
+						_, results[i] = service.FinalizeAttachment(ctx, f.owner.ID, f.conference.ID, orphan.ID)
+					} else {
+						results[i] = service.Cleanup(ctx)
+					}
+				})
+			if !errors.Is(results[0], apperrors.ErrConflict) || results[1] != nil {
+				t.Fatal("cleanup/finalize race", results)
+			}
+			if err := f.db.Where("id=?", orphan.ID).Take(&orphan).Error; err != nil {
+				t.Fatal(err)
+			}
+			if orphan.Status != "expired" || orphan.CleanedAt == nil {
+				t.Fatal("orphan was not expired and cleaned")
+			}
+			if _, _, _, err := storage.StatAttachment(ctx, orphan.ObjectKey); err == nil {
+				t.Fatal("expired orphan object still present")
+			}
+			// Cleanup of an attached row retains exactly its immutable winning object.
+			if err := f.db.Model(&chat.Attachment{}).Where("id=?", attachment.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error; err != nil {
+				t.Fatal(err)
+			}
+			if err := service.Cleanup(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := service.Download(ctx, f.member.ID, f.conference.ID, attachment.ID); err != nil {
+				t.Fatal("cleanup removed attached object", err)
+			}
+		})
+
+	t.Run("upload size bound and finalize idempotency", /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+		@parameters:
+		  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+		*/func(t *testing.T) {
+			oversized, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "oversized.txt", Size: chat.MaxAttachmentBytes})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = service.Upload(ctx, f.owner.ID, f.conference.ID, oversized.ID, io.LimitReader(repeatedChatByte{}, chat.MaxAttachmentBytes+1))
+			if !errors.Is(err, apperrors.ErrInvalidInput) {
+				t.Fatal("oversized stream accepted", err)
+			}
+			spoofed, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "fake.png", Size: int64(len(data))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = service.Upload(ctx, f.owner.ID, f.conference.ID, spoofed.ID, bytes.NewReader(data))
+			if !errors.Is(err, apperrors.ErrInvalidInput) {
+				t.Fatal("browser MIME spoof accepted", err)
+			}
+			concurrent, _, err := service.InitAttachment(ctx, f.owner.ID, f.conference.ID, chat.InitRequest{ClientRequestID: uuid.NewString(), Filename: "concurrent.txt", Size: int64(len(data))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.Upload(ctx, f.owner.ID, f.conference.ID, concurrent.ID, bytes.NewReader(data)); err != nil {
+				t.Fatal(err)
+			}
+			var results [12]error
+			runConcurrent(12, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+				@parameters:
+				  - i (int): значение i типа int, используемое согласно назначению этой операции.
+				*/func(i int) {
+					_, results[i] = service.FinalizeAttachment(ctx, f.owner.ID, f.conference.ID, concurrent.ID)
+				})
+			for _, err := range results {
+				if err != nil {
+					t.Fatal("finalize retry not idempotent", err)
+				}
+			}
+		})
+
+	t.Run("seeded cursor explain and independent rate limit", /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+		@parameters:
+		  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+		*/func(t *testing.T) {
+			if err := f.db.Exec(`INSERT INTO chat_messages(id,conference_id,sender_user_id,client_request_id,request_fingerprint,text) SELECT gen_random_uuid(),?,?,gen_random_uuid(),repeat('a',64),'seeded' FROM generate_series(1,3000)`, f.conference.ID, f.owner.ID).Error; err != nil {
+				t.Fatal(err)
+			}
+			if err := f.db.Exec(`WITH other AS (INSERT INTO conferences(id,owner_id,title,invite_code,status) SELECT gen_random_uuid(),?,'isolated explain seed',replace(gen_random_uuid()::text,'-',''),'created' FROM generate_series(1,12) RETURNING id) INSERT INTO chat_messages(id,conference_id,sender_user_id,client_request_id,request_fingerprint,text) SELECT gen_random_uuid(),other.id,?,gen_random_uuid(),repeat('b',64),'other conference' FROM other CROSS JOIN generate_series(1,500)`, f.owner.ID, f.owner.ID).Error; err != nil {
+				t.Fatal(err)
+			}
+			if err := f.db.Exec("ANALYZE chat_messages").Error; err != nil {
+				t.Fatal(err)
+			}
+			rows, err := f.db.Raw(`EXPLAIN (ANALYZE,BUFFERS) SELECT id,sequence,text FROM chat_messages WHERE conference_id=? AND sequence<99999999 ORDER BY sequence DESC LIMIT 50`, f.conference.ID).Rows()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var plan []string
+			for rows.Next() {
+				var line string
+				if err := rows.Scan(&line); err != nil {
+					t.Fatal(err)
+				}
+				plan = append(plan, line)
+			}
+			rows.Close()
+			t.Log("cursor EXPLAIN:", strings.Join(plan, "\n"))
+			if !strings.Contains(strings.Join(plan, " "), "chat_messages_conference_sequence") || strings.Contains(strings.Join(plan, " "), "Rows Removed by Filter") {
+				t.Fatal("cursor query did not use the conference-scoped index")
+			}
+			// Mark-read uses its own key; exhausting it must not block message send.
+			var latest chat.Message
+			if err := f.db.Where("conference_id=?", f.conference.ID).Order("sequence DESC").First(&latest).Error; err != nil {
+				t.Fatal(err)
+			}
+			blocked := false
+			for i := 0; i < 35; i++ {
+				body, _ := json.Marshal(chat.ReadRequest{MessageID: latest.ID})
+				request := httptest.NewRequest("PUT", "/api/v1"+path+"/chat/read", bytes.NewReader(body))
+				request.Header.Set("Authorization", "Bearer "+f.ownerToken)
 				response := httptest.NewRecorder()
 				router.ServeHTTP(response, request)
-				statuses[i] = response.Code
-			})
-		}()
-		f.hubs[0].ConferenceChanged(ctx, f.conference.ID)
-		live.wait(t, func(event realtime.Envelope) bool { return event.Type == "conference.state" })
-		latency := time.Since(start)
-		<-done
-		accepted, limited := 0, 0
-		for _, status := range statuses {
-			switch status {
-			case 201:
-				accepted++
-			case 429:
-				limited++
-			default:
-				t.Fatalf("unexpected burst response %d", status)
+				if response.Code == 429 {
+					blocked = true
+					break
+				}
+				if response.Code != 200 {
+					t.Fatalf("read rate response: %d %s", response.Code, response.Body.String())
+				}
 			}
-		}
-		if accepted == 0 || accepted > 60 || limited == 0 {
-			t.Fatalf("unbounded burst accepted=%d limited=%d", accepted, limited)
-		}
-		api.expect(t, "POST", "/conferences/"+strings.ToUpper(f.conference.ID)+"/messages", f.memberToken, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "UUID-case bypass"}, 429, nil)
-		if latency > 2*time.Second {
-			t.Fatalf("critical snapshot starved for %s", latency)
-		}
-		t.Logf("80-request chat burst: accepted=%d rate-limited=%d critical snapshot latency=%s total=%s", accepted, limited, latency, time.Since(start))
-	})
+			if !blocked {
+				t.Fatal("read updates lack rate limit")
+			}
+			api.expect(t, "POST", path+"/messages", f.ownerToken, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "separate budget"}, 201, nil)
+		})
+
+	t.Run("bounded HTTP burst and critical snapshot", /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+		@parameters:
+		  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+		*/func(t *testing.T) {
+			live := f.connect(t, 1, f.memberToken, f.conference.ID)
+			const count = 80
+			statuses := make([]int, count)
+			done := make(chan struct{})
+			start := time.Now()
+			go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			 */func() {
+				defer close(done)
+				runConcurrent(count, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+					@parameters:
+					  - i (int): значение i типа int, используемое согласно назначению этой операции.
+					*/func(i int) {
+						body, _ := json.Marshal(chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "bounded burst"})
+						request := httptest.NewRequest("POST", "/api/v1"+path+"/messages", bytes.NewReader(body))
+						request.Header.Set("Authorization", "Bearer "+f.memberToken)
+						response := httptest.NewRecorder()
+						router.ServeHTTP(response, request)
+						statuses[i] = response.Code
+					})
+			}()
+			f.hubs[0].ConferenceChanged(ctx, f.conference.ID)
+			live.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+				@parameters:
+				  - event (realtime.Envelope): конверт входящего или публикуемого события.
+
+				@return:
+				  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(event realtime.Envelope) bool { return event.Type == "conference.state" })
+			latency := time.Since(start)
+			<-done
+			accepted, limited := 0, 0
+			for _, status := range statuses {
+				switch status {
+				case 201:
+					accepted++
+				case 429:
+					limited++
+				default:
+					t.Fatalf("unexpected burst response %d", status)
+				}
+			}
+			if accepted == 0 || accepted > 60 || limited == 0 {
+				t.Fatalf("unbounded burst accepted=%d limited=%d", accepted, limited)
+			}
+			api.expect(t, "POST", "/conferences/"+strings.ToUpper(f.conference.ID)+"/messages", f.memberToken, chat.SendRequest{ClientRequestID: uuid.NewString(), Text: "UUID-case bypass"}, 429, nil)
+			if latency > 2*time.Second {
+				t.Fatalf("critical snapshot starved for %s", latency)
+			}
+			t.Logf("80-request chat burst: accepted=%d rate-limited=%d critical snapshot latency=%s total=%s", accepted, limited, latency, time.Since(start))
+		})
 	api.expect(t, "DELETE", path+"/messages/"+fileMessage.ID, f.ownerToken, nil, 200, &envelope)
 	api.expect(t, "GET", uploadPath+"/download", f.memberToken, nil, 404, nil)
 	api.expect(t, "DELETE", path+"/messages/"+first.ID, f.ownerToken, nil, 200, nil)
@@ -470,8 +554,17 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 	t.Log("chat persistence/realtime, idempotency, replies, ownership, read races, private uploads/downloads, admission, cleanup and finished read-only passed")
 }
 
+// repeatedChatByte хранит изолированное состояние тестового компонента «repeated чат Byte».
 type repeatedChatByte struct{}
 
+// Read читает состояние ресурсов компонента для дальнейшей обработки или ответа.
+//
+// @parameters:
+//   - p ([]byte): байты, переданные по контракту io.Writer.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (repeatedChatByte) Read(p []byte) (int, error) {
 	for i := range p {
 		p[i] = 'a'

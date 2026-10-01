@@ -26,6 +26,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/infrastructure/security"
 	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
 	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
+	"github.com/janickiy/go-recorder/internal/operations"
 	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 	wstransport "github.com/janickiy/go-recorder/internal/transport/websocket"
@@ -40,8 +41,8 @@ import (
 )
 
 // RunAPI запускает HTTP API.
-// Параметры: нет.
-// Возвращает: ошибку bootstrap или HTTP server-а.
+// @parameters: нет.
+// @return ошибку bootstrap или HTTP server-а.
 func RunAPI() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -98,10 +99,20 @@ func RunAPI() error {
 		return err
 	}
 	defer commandPublisher.Close()
-	workerSignaler := workerinfra.NewClient(cfg.WorkerInternalURL)
+	workerSignaler := workerinfra.NewClient(cfg.WorkerInternalURL).SetSecret(cfg.Operations.InternalSecret)
 	service := recorder.NewService(repository, commandPublisher, s3Client, conferenceLock)
+	sqlDB.SetMaxOpenConns(cfg.Operations.DBMaxOpen)
+	sqlDB.SetMaxIdleConns(cfg.Operations.DBMaxIdle)
+	sqlDB.SetConnMaxLifetime(cfg.Operations.DBLifetime)
+	ops := operations.New("api", hostname(), cfg.Operations, map[string]operations.Check{
+		"postgres": sqlDB.PingContext,
+		"redis":    func(ctx context.Context) error { return redisClient.Ping(ctx).Err() },
+		"minio":    s3Client.Check,
+		"rabbitmq": commandPublisher.Check,
+	})
 	handler := recordsapp.NewHandlerWithSignaler(service, workerSignaler)
-	router := httptransport.NewRouter(handler, cfg.IsLocal(), s3Client, httpmiddleware.RateLimit(rateLimiter, rateLimitConfig(cfg)))
+	router := httptransport.NewRouter(handler, cfg.IsLocal(), s3Client, ops.Middleware(), httpmiddleware.RateLimit(rateLimiter, rateLimitConfig(cfg)))
+	ops.RegisterGin(router)
 	if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		return fmt.Errorf("HTTP_TRUSTED_PROXIES: %w", err)
 	}
@@ -149,6 +160,9 @@ func RunAPI() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	ops.Run(ctx)
+	go runProfiling(ctx, ops)
+	go sampleDatabase(ctx, sqlDB)
 	go controlService.Run(ctx)
 	go recordingService.Run(ctx)
 	go chatService.Run(ctx)
@@ -157,9 +171,18 @@ func RunAPI() error {
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Handler: router, BaseContext: func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	server := &http.Server{Handler: router, BaseContext: /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+
+	@parameters:
+	  - аргумент 1 (net.Listener): значение для проверки, нормализации или преобразования.
+
+	@return:
+	  - результат 1 (context.Context): значение, подготовленное операцией для вызывающей стороны. */func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	failed := make(chan error, 1)
-	go func() { failed <- server.Serve(listener) }()
+	server.ReadTimeout = cfg.Operations.HTTPReadTimeout
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+
+	 */func() { failed <- server.Serve(listener) }()
 	select {
 	case err := <-failed:
 		if !errors.Is(err, http.ErrServerClosed) {
@@ -168,20 +191,35 @@ func RunAPI() error {
 	case <-ctx.Done():
 	}
 	// Hijacked WebSockets are not closed by http.Server.Shutdown.
+	ops.Drain()
 	_ = listener.Close()
-	hub.Shutdown()
-	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdown, cancel := context.WithTimeout(context.Background(), cfg.Operations.ShutdownTimeout)
 	defer cancel()
-	err = server.Shutdown(shutdown)
+	hubErr := hub.ShutdownContext(shutdown)
+	err = errors.Join(hubErr, server.Shutdown(shutdown))
 	if errors.Is(err, net.ErrClosed) || errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}
 	return err
 }
 
+// rateLimitConfig преобразует общие настройки приложения в конфигурацию HTTP-ограничителя.
+//
+// @parameters:
+//   - cfg (config.Config): проверенные настройки соответствующего компонента.
+//
+// @return:
+//   - результат 1 (httpmiddleware.RateLimitConfig): значение, подготовленное операцией для вызывающей стороны.
 func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 	window := cfg.RateLimitWindow
 	defaultLimit := cfg.RateLimit.DefaultRPM
+	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - value (int): значение для проверки, нормализации или преобразования.
+	//
+	// @return:
+	//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
 	limit := func(value int) int {
 		if value > 0 {
 			return value
@@ -189,6 +227,13 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 
 		return defaultLimit
 	}
+	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - route (string): адрес и версия действующего владельца медиа-комнаты.
+	//
+	// @return:
+	//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 	path := func(route string) string {
 		return httptransport.APIV1Prefix + route
 	}
@@ -276,8 +321,8 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 }
 
 // RunMigrations применяет миграции без запуска API.
-// Параметры: нет.
-// Возвращает: ошибку подключения или миграции.
+// @parameters: нет.
+// @return ошибку подключения или миграции.
 func RunMigrations() error {
 	cfg, err := config.Load()
 	if err != nil {

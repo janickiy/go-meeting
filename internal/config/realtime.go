@@ -11,6 +11,22 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
+// RealtimeConfig задаёт лимиты, сроки жизни, допустимые источники и параметры WebSocket-подключений.
+//   - PingInterval: значение PingInterval типа time.Duration, используемое согласно назначению этой операции.
+//   - PongTimeout: значение PongTimeout типа time.Duration, используемое согласно назначению этой операции.
+//   - WriteTimeout: значение WriteTimeout типа time.Duration, используемое согласно назначению этой операции.
+//   - SessionTTL: значение SessionTTL типа time.Duration, используемое согласно назначению этой операции.
+//   - TicketTTL: значение TicketTTL типа time.Duration, используемое согласно назначению этой операции.
+//   - QueueSize: значение QueueSize типа int, используемое согласно назначению этой операции.
+//   - MessageBytes: значение MessageBytes типа int64, используемое согласно назначению этой операции.
+//   - OutboundBytes: значение OutboundBytes типа int, используемое согласно назначению этой операции.
+//   - SDPBytes: значение SDPBytes типа int, используемое согласно назначению этой операции.
+//   - ICEBytes: значение ICEBytes типа int, используемое согласно назначению этой операции.
+//   - MessagesPerSecond: значение MessagesPerSecond типа int, используемое согласно назначению этой операции.
+//   - Burst: значение Burst типа int, используемое согласно назначению этой операции.
+//   - Namespace: пространство изолированных ключей и каналов Redis.
+//   - AllowedOrigins: набор значений AllowedOrigins для последовательной или пакетной обработки.
+//   - ICE: значение ICE типа realtime.ICEConfig, используемое согласно назначению этой операции.
 type RealtimeConfig struct {
 	PingInterval      time.Duration
 	PongTimeout       time.Duration
@@ -27,8 +43,15 @@ type RealtimeConfig struct {
 	Namespace         string
 	AllowedOrigins    []string
 	ICE               realtime.ICEConfig
+	TURN              TURNConfig
+	MaxConnections    int
 }
 
+// LoadRealtime читает и проверяет ограничения WebSocket, присутствия, сроков и очередей.
+//
+// @return:
+//   - результат 1 (RealtimeConfig): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func LoadRealtime() (RealtimeConfig, error) {
 	c := RealtimeConfig{
 		PingInterval:      envDuration("WS_PING_INTERVAL", 25*time.Second),
@@ -43,6 +66,7 @@ func LoadRealtime() (RealtimeConfig, error) {
 		ICEBytes:          envInt("WS_MAX_ICE_BYTES", 4096),
 		MessagesPerSecond: envInt("WS_MESSAGES_PER_SECOND", 20),
 		Burst:             envInt("WS_MESSAGE_BURST", 40),
+		MaxConnections:    envInt("WS_MAX_CONNECTIONS", 1000),
 		Namespace:         env("WS_REDIS_NAMESPACE", "go-recorder:realtime:v1"),
 		AllowedOrigins:    envList("WS_ALLOWED_ORIGINS"),
 		ICE:               realtime.ICEConfig{ICEServers: []realtime.ICEServer{}},
@@ -52,9 +76,22 @@ func LoadRealtime() (RealtimeConfig, error) {
 			return c, fmt.Errorf("WEBRTC_ICE_SERVERS_JSON must be an ICE server array")
 		}
 	}
+	var err error
+	c.TURN, err = LoadTURN()
+	if err != nil {
+		return c, err
+	}
 	return c, c.Validate()
 }
+
+// Validate проверяет ограничения и согласованность полей текущего значения перед его использованием.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c RealtimeConfig) Validate() error {
+	if c.MaxConnections < 0 || c.MaxConnections > 100000 {
+		return fmt.Errorf("invalid WS_MAX_CONNECTIONS")
+	}
 	if c.PingInterval < 100*time.Millisecond || c.PingInterval > time.Minute ||
 		c.PongTimeout < 10*time.Millisecond || c.PongTimeout > 30*time.Second ||
 		c.WriteTimeout < 10*time.Millisecond || c.WriteTimeout > 30*time.Second ||

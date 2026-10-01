@@ -10,6 +10,15 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/media"
 )
 
+// mediaTicketFixture подготавливает или проверяет часть тестового сценария «медиа билет тестовое окружение».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//
+// @return:
+//   - результат 1 (*MediaTickets): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (media.Binding): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 3 (media.Route): значение, подготовленное операцией для вызывающей стороны.
 func mediaTicketFixture(t *testing.T) (*MediaTickets, media.Binding, media.Route) {
 	t.Helper()
 	s, err := NewMediaTickets(strings.Repeat("media-unit-secret-", 3), 45*time.Second)
@@ -17,12 +26,21 @@ func mediaTicketFixture(t *testing.T) (*MediaTickets, media.Binding, media.Route
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Truncate(time.Second)
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	//
+	// @return:
+	//   - результат 1 (time.Time): временная отметка результата или окончания действия разрешения.
 	s.now = func() time.Time { return now }
 	b := media.Binding{ConferenceID: uuid.NewString(), ParticipantID: uuid.NewString(), SessionID: uuid.NewString(), ConnectionID: uuid.NewString(), UserID: uuid.NewString(), AuthorizationExpiresAt: now.Add(time.Hour)}
 	r := media.Route{WorkerID: "unit-worker", Endpoint: "http://worker:8091", LeaseID: uuid.NewString()}
 	return s, b, r
 }
 
+// TestMediaTicketBindingAndExpiration проверяет сценарий «медиа билет Binding и Expiration», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaTicketBindingAndExpiration(t *testing.T) {
 	s, b, r := mediaTicketFixture(t)
 	raw, err := s.Issue(b, r)
@@ -34,22 +52,41 @@ func TestMediaTicketBindingAndExpiration(t *testing.T) {
 		t.Fatal("ticket binding lost or rejected", err)
 	}
 	now := s.now()
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	//
+	// @return:
+	//   - результат 1 (time.Time): временная отметка результата или окончания действия разрешения.
 	s.now = func() time.Time { return now.Add(46 * time.Second) }
 	if _, _, err = s.Verify(raw); err == nil {
 		t.Fatal("expired ticket accepted")
 	}
 	b.AuthorizationExpiresAt = now.Add(10 * time.Second)
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	//
+	// @return:
+	//   - результат 1 (time.Time): временная отметка результата или окончания действия разрешения.
 	s.now = func() time.Time { return now }
 	raw, err = s.Issue(b, r)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	//
+	// @return:
+	//   - результат 1 (time.Time): временная отметка результата или окончания действия разрешения.
 	s.now = func() time.Time { return now.Add(11 * time.Second) }
 	if _, _, err = s.Verify(raw); err == nil {
 		t.Fatal("ticket outlived original authorization")
 	}
 }
 
+// TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity проверяет сценарий «медиа билет Rejects Forged Purpose Algorithm и Identity», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity(t *testing.T) {
 	s, b, r := mediaTicketFixture(t)
 	now := s.now()
@@ -59,30 +96,78 @@ func TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity(t *testing.T) {
 		change func(*mediaClaims)
 		method jwt.SigningMethod
 	}{
-		{"purpose", func(c *mediaClaims) { c.Purpose = "access" }, jwt.SigningMethodHS256},
-		{"issuer", func(c *mediaClaims) { c.Issuer = "foreign" }, jwt.SigningMethodHS256},
-		{"audience", func(c *mediaClaims) { c.Audience = jwt.ClaimStrings{"go-recorder-api"} }, jwt.SigningMethodHS256},
-		{"subject", func(c *mediaClaims) { c.Subject = uuid.NewString() }, jwt.SigningMethodHS256},
-		{"identity", func(c *mediaClaims) { c.Binding.ParticipantID = "not-uuid" }, jwt.SigningMethodHS256},
-		{"missing expiry", func(c *mediaClaims) { c.ExpiresAt = nil }, jwt.SigningMethodHS256},
-		{"missing issued", func(c *mediaClaims) { c.IssuedAt = nil }, jwt.SigningMethodHS256},
-		{"future issued", func(c *mediaClaims) { c.IssuedAt = jwt.NewNumericDate(now.Add(time.Hour)) }, jwt.SigningMethodHS256},
-		{"long ttl", func(c *mediaClaims) { c.ExpiresAt = jwt.NewNumericDate(now.Add(10 * time.Minute)) }, jwt.SigningMethodHS256},
-		{"lease", func(c *mediaClaims) { c.Route.LeaseID = "" }, jwt.SigningMethodHS256},
-		{"algorithm", func(*mediaClaims) {}, jwt.SigningMethodHS512},
+		{"purpose", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.Purpose = "access" }, jwt.SigningMethodHS256},
+		{"issuer", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.Issuer = "foreign" }, jwt.SigningMethodHS256},
+		{"audience", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.Audience = jwt.ClaimStrings{"go-recorder-api"} }, jwt.SigningMethodHS256},
+		{"subject", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.Subject = uuid.NewString() }, jwt.SigningMethodHS256},
+		{"identity", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.Binding.ParticipantID = "not-uuid" }, jwt.SigningMethodHS256},
+		{"missing expiry", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.ExpiresAt = nil }, jwt.SigningMethodHS256},
+		{"missing issued", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.IssuedAt = nil }, jwt.SigningMethodHS256},
+		{"future issued", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.IssuedAt = jwt.NewNumericDate(now.Add(time.Hour)) }, jwt.SigningMethodHS256},
+		{"long ttl", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.ExpiresAt = jwt.NewNumericDate(now.Add(10 * time.Minute)) }, jwt.SigningMethodHS256},
+		{"lease", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
+			*/func(c *mediaClaims) { c.Route.LeaseID = "" }, jwt.SigningMethodHS256},
+		{"algorithm", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - аргумент 1 (*mediaClaims): значение для проверки, нормализации или преобразования.
+			*/func(*mediaClaims) {}, jwt.SigningMethodHS512},
 	}
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			claims := base
-			tc.change(&claims)
-			raw, err := jwt.NewWithClaims(tc.method, claims).SignedString(s.secret)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, _, err = s.Verify(raw); err == nil {
-				t.Fatal("invalid ticket accepted")
-			}
-		})
+		t.Run(tc.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+			@parameters:
+			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+			*/func(t *testing.T) {
+				claims := base
+				tc.change(&claims)
+				raw, err := jwt.NewWithClaims(tc.method, claims).SignedString(s.secret)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, _, err = s.Verify(raw); err == nil {
+					t.Fatal("invalid ticket accepted")
+				}
+			})
 	}
 	raw, _ := s.Issue(b, r)
 	other, _ := NewMediaTickets(strings.Repeat("different-key-", 4), 45*time.Second)

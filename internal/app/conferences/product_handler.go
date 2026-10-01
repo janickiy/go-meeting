@@ -13,6 +13,10 @@ import (
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 )
 
+// Self возвращает собственное членство пользователя, включая состояние ожидания и решение о допуске.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Self(c *gin.Context) {
 	id, ok := conferenceID(c)
 	if !ok {
@@ -25,6 +29,11 @@ func (h *Handler) Self(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "item": item})
 }
+
+// Admission обрабатывает решение о допуске или отказе с проверкой полномочий организатора.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Admission(c *gin.Context) {
 	id, ok := conferenceID(c)
 	if !ok {
@@ -46,6 +55,11 @@ func (h *Handler) Admission(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "item": item})
 }
+
+// Schedule обновляет расписание запланированной встречи с проверкой полномочий владельца.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Schedule(c *gin.Context) {
 	id, ok := conferenceID(c)
 	if !ok {
@@ -62,6 +76,11 @@ func (h *Handler) Schedule(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "item": item})
 }
+
+// History собирает сведения завершённой встречи, историю участников и сводку записей с проверкой доступа.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) History(c *gin.Context) {
 	id, ok := conferenceID(c)
 	if !ok {
@@ -74,6 +93,11 @@ func (h *Handler) History(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "item": item})
 }
+
+// Timeline возвращает страницу встреч текущего пользователя с фильтрами будущих, активных и прошедших встреч.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Timeline(c *gin.Context) {
 	query := conferences.TimelineQuery{View: c.DefaultQuery("view", "upcoming"), Scope: c.DefaultQuery("scope", "all"), Status: conferences.Status(c.Query("status")), Cursor: c.Query("cursor"), Limit: 20}
 	if raw, exists := c.GetQuery("limit"); exists {

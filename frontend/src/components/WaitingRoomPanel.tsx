@@ -4,6 +4,14 @@ import { api } from "../api";
 import type { Participant } from "../types";
 import { Button, ErrorNotice } from "./ui";
 
+/**
+ * WaitingRoomPanel показывает собственное ожидание либо очередь организатора и разрешённые действия допуска.
+ *
+ * @parameters:
+ *   - объект параметров: conferenceId — идентификатор конференции и области данных; membership — свойство текущего компонента; participants — разрешённый состав участников; active — свойство текущего компонента; closed — свойство текущего компонента.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function WaitingRoomPanel({
   conferenceId,
   membership,
@@ -19,6 +27,14 @@ export function WaitingRoomPanel({
 }) {
   const client = useQueryClient();
   const mutation = useMutation({
+    /**
+     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
+     *
+     * @parameters:
+     *   - объект параметров: id — идентификатор ресурса или конференции данного запроса; decision — решение admit или reject.
+     *
+     * @returns вычисленное значение: api.admit(conferenceId, id, decision).
+     */
     mutationFn: ({
       id,
       decision,
@@ -26,6 +42,12 @@ export function WaitingRoomPanel({
       id: string;
       decision: "admit" | "reject";
     }) => api.admit(conferenceId, id, decision),
+    /**
+     * onSettled обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+     *
+     *
+     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ["participants"] });
       void client.invalidateQueries({ queryKey: ["membership"] });
@@ -79,6 +101,14 @@ export function WaitingRoomPanel({
     membership?.status === "joined" &&
     ["owner", "co_host"].includes(membership.role);
   const pending = participants.filter(
+    /**
+     * Обработчик participants.filter проверяет, должен ли элемент войти в отфильтрованный набор.
+     *
+     * @parameters:
+     *   - person — целевое членство участника.
+     *
+     * @returns логический признак соответствия элемента условию.
+     */
     (person) =>
       person.status === "waiting" &&
       (!person.admissionState || person.admissionState === "waiting"),
@@ -101,32 +131,53 @@ export function WaitingRoomPanel({
           Допустить участников можно после начала встречи.
         </p>
       )}
-      {pending.map((person) => (
-        <div className="waiting-person" key={person.id}>
-          <strong>{person.displayName}</strong>
-          <div className="meeting-actions">
-            <Button
-              disabled={!active || mutation.isPending}
-              onClick={() =>
-                mutation.mutate({ id: person.id, decision: "admit" })
-              }
-              aria-label={`Допустить: ${person.displayName}`}
-            >
-              Допустить
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!active || mutation.isPending}
-              onClick={() =>
-                mutation.mutate({ id: person.id, decision: "reject" })
-              }
-              aria-label={`Отклонить: ${person.displayName}`}
-            >
-              Отклонить
-            </Button>
+      {pending.map(
+        /**
+         * Обработчик pending.map преобразует один элемент набора в представление или данные следующего шага.
+         *
+         * @parameters:
+         *   - person — целевое членство участника.
+         *
+         * @returns преобразованное значение текущего элемента для результирующего набора.
+         */ (person) => (
+          <div className="waiting-person" key={person.id}>
+            <strong>{person.displayName}</strong>
+            <div className="meeting-actions">
+              <Button
+                disabled={!active || mutation.isPending}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+                   */ () =>
+                    mutation.mutate({ id: person.id, decision: "admit" })
+                }
+                aria-label={`Допустить: ${person.displayName}`}
+              >
+                Допустить
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!active || mutation.isPending}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+                   */ () =>
+                    mutation.mutate({ id: person.id, decision: "reject" })
+                }
+                aria-label={`Отклонить: ${person.displayName}`}
+              >
+                Отклонить
+              </Button>
+            </div>
           </div>
-        </div>
-      ))}
+        ),
+      )}
     </section>
   );
 }

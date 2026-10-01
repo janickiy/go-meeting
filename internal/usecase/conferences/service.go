@@ -14,22 +14,140 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/users"
 )
 
+// repository задаёт контракт зависимого компонента repository в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+//   - Create: операция создание с контрактом, описанным у метода.
+//   - Get: операция получение с контрактом, описанным у метода.
+//   - GetByInvite: операция получение By Invite с контрактом, описанным у метода.
+//   - ListForUser: операция список для пользователь с контрактом, описанным у метода.
+//   - Membership: операция Membership с контрактом, описанным у метода.
+//   - Participants: операция Participants с контрактом, описанным у метода.
+//   - Transition: операция переход с контрактом, описанным у метода.
+//   - Join: операция Join с контрактом, описанным у метода.
+//   - Leave: операция Leave с контрактом, описанным у метода.
 type repository interface {
+	// Create создаёт новое состояние конференций и членств участников по переданным параметрам.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (domain.Conference): конференция либо её идентификатор, ограничивающий область операции.
+	//   - аргумент 3 (domain.Participant): значение owner типа domain.Participant, используемое согласно назначению этой операции.
+	//
+	// @return:
+	//   - результат 1 (domain.Conference): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Create(context.Context, domain.Conference, domain.Participant) (domain.Conference, error)
+	// Get читает состояние конференций и членств участников для дальнейшей обработки или ответа.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
+	//
+	// @return:
+	//   - результат 1 (domain.Conference): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Get(context.Context, string) (domain.Conference, error)
+	// GetByInvite находит конференцию по действующему коду приглашения.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): код приглашения или машинный код результата.
+	//
+	// @return:
+	//   - результат 1 (domain.Conference): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	GetByInvite(context.Context, string) (domain.Conference, error)
+	// ListForUser возвращает конференции, доступные указанному пользователю.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
+	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
+	//   - аргумент 4 (int): число элементов, пропускаемых перед началом страницы.
+	//
+	// @return:
+	//   - результат 1 ([]domain.Conference): собранные элементы результата; состав ограничивается параметрами операции.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	ListForUser(context.Context, string, int, int) ([]domain.Conference, error)
+	// Membership читает членство пользователя в заданной конференции.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
+	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
+	//
+	// @return:
+	//   - результат 1 (domain.Participant): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Membership(context.Context, string, string) (domain.Participant, error)
+	// Participants возвращает разрешённую страницу участников конференции.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
+	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
+	//   - аргумент 4 (int): число элементов, пропускаемых перед началом страницы.
+	//
+	// @return:
+	//   - результат 1 ([]domain.Participant): собранные элементы результата; состав ограничивается параметрами операции.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Participants(context.Context, string, int, int) ([]domain.Participant, error)
+	// Transition выполняет разрешённый переход состояния конференции или записи.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
+	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
+	//   - аргумент 4 (domain.Status): целевой объект, участник или состояние операции.
+	//
+	// @return:
+	//   - результат 1 (domain.Conference): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Transition(context.Context, string, string, domain.Status) (domain.Conference, error)
+	// Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
+	//   - аргумент 3 (users.User): пользователь либо его идентификатор, определяющий область доступа.
+	//   - аргумент 4 (string): криптографически случайный код приглашения, не заменяющий авторизацию.
+	//
+	// @return:
+	//   - результат 1 (domain.Participant): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Join(context.Context, string, users.User, string) (domain.Participant, error)
+	// Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
+	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
+	//
+	// @return:
+	//   - результат 1 (domain.Participant): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Leave(context.Context, string, string) (domain.Participant, error)
 }
 
+// userRepository задаёт контракт зависимого компонента userRepository в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+//   - GetByID: операция получение By ID с контрактом, описанным у метода.
 type userRepository interface {
+	// GetByID читает учётную запись по её идентификатору.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
+	//
+	// @return:
+	//   - результат 1 (users.User): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	GetByID(context.Context, string) (users.User, error)
 }
 
+// Service объединяет зависимости прикладного сценария и координирует его операции.
+//   - repository: хранилище постоянных данных прикладного сценария.
+//   - users: хранилище учётных записей пользователей.
+//   - invite: операция invite с контрактом, описанным у метода.
+//   - observer: получатель сохранённых изменений конференции или закрытия сессии.
 type Service struct {
 	repository repository
 	users      userRepository
@@ -37,20 +155,48 @@ type Service struct {
 	observer   interface{ ConferenceChanged(context.Context, string) }
 }
 
+// NewService создаёт и связывает зависимости компонента Service, используемого в жизненном цикле конференций и правах участников.
+//
+// @parameters:
+//   - repository (repository): хранилище постоянных данных прикладного сценария.
+//   - users (userRepository): хранилище учётных записей пользователей.
+//   - invite (func() (string, error)): вызываемый обработчик «invite» с контрактом, указанным в типе.
+//
+// @return:
+//   - результат 1 (*Service): созданный компонент с переданными зависимостями.
 func NewService(repository repository, users userRepository, invite func() (string, error)) *Service {
 	return &Service{repository: repository, users: users, invite: invite}
 }
 
-// Configure once during bootstrap, before serving any requests.
+// SetObserver подключает обработчик изменений конференции при сборке приложения.
+//
+// @parameters:
+//   - observer (interface{ ConferenceChanged(context.Context, string) }): получатель сохранённых изменений конференции или закрытия сессии.
 func (s *Service) SetObserver(observer interface{ ConferenceChanged(context.Context, string) }) {
 	s.observer = observer
 }
+
+// changed сообщает зависимым обработчикам об изменении локального или сохранённого состояния.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
 func (s *Service) changed(ctx context.Context, id string) {
 	if s.observer != nil {
 		s.observer.ConferenceChanged(ctx, id)
 	}
 }
 
+// Create создаёт новое состояние конференций и членств участников по переданным параметрам.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - request (domain.CreateRequest): входные параметры соответствующего прикладного запроса.
+//
+// @return:
+//   - результат 1 (domain.View): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Create(ctx context.Context, userID string, request domain.CreateRequest) (domain.View, error) {
 	if err := domain.ValidateSchedule(request.ScheduledAt, request.PlannedDurationMin, time.Now()); err != nil {
 		return domain.View{}, err
@@ -93,6 +239,17 @@ func (s *Service) Create(ctx context.Context, userID string, request domain.Crea
 	return domain.View{}, fmt.Errorf("unable to generate a unique invite code")
 }
 
+// List возвращает ограниченный список конференций и членств участников с принятыми в данном слое фильтрами.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - limit (int): максимальное число элементов страницы или порции обработки.
+//   - offset (int): число элементов, пропускаемых перед началом страницы.
+//
+// @return:
+//   - результат 1 ([]domain.View): собранные элементы результата; состав ограничивается параметрами операции.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) List(ctx context.Context, userID string, limit, offset int) ([]domain.View, error) {
 	items, err := s.repository.ListForUser(ctx, userID, limit, offset)
 	if err != nil {
@@ -107,6 +264,16 @@ func (s *Service) List(ctx context.Context, userID string, limit, offset int) ([
 	return views, nil
 }
 
+// Read читает состояние конференций и членств участников для дальнейшей обработки или ответа.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 (domain.View): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Read(ctx context.Context, userID, id string) (domain.View, error) {
 	conference, err := s.repository.Get(ctx, id)
 	if err != nil {
@@ -126,6 +293,17 @@ func (s *Service) Read(ctx context.Context, userID, id string) (domain.View, err
 	return view, nil
 }
 
+// Transition выполняет разрешённый переход состояния конференции или записи.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - target (domain.Status): целевой объект, участник или состояние операции.
+//
+// @return:
+//   - результат 1 (domain.View): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Transition(ctx context.Context, userID, id string, target domain.Status) (domain.View, error) {
 	conference, err := s.repository.Transition(ctx, id, userID, target)
 	if err != nil {
@@ -135,6 +313,18 @@ func (s *Service) Transition(ctx context.Context, userID, id string, target doma
 	return conference.View(), nil
 }
 
+// Participants возвращает разрешённую страницу участников конференции.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - limit (int): максимальное число элементов страницы или порции обработки.
+//   - offset (int): число элементов, пропускаемых перед началом страницы.
+//
+// @return:
+//   - результат 1 ([]domain.ParticipantView): собранные элементы результата; состав ограничивается параметрами операции.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Participants(ctx context.Context, userID, id string, limit, offset int) ([]domain.ParticipantView, error) {
 	if _, err := s.repository.Get(ctx, id); err != nil {
 		return nil, err
@@ -170,6 +360,17 @@ func (s *Service) Participants(ctx context.Context, userID, id string, limit, of
 	return views, nil
 }
 
+// Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - request (domain.JoinRequest): входные параметры соответствующего прикладного запроса.
+//
+// @return:
+//   - результат 1 (domain.ParticipantView): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Join(ctx context.Context, userID, id string, request domain.JoinRequest) (domain.ParticipantView, error) {
 	if request.InviteCode != "" && !validInvite(request.InviteCode) {
 		return domain.ParticipantView{}, apperrors.New(apperrors.ErrInvalidInput, "invalid inviteCode")
@@ -189,6 +390,16 @@ func (s *Service) Join(ctx context.Context, userID, id string, request domain.Jo
 	return participant.View(), nil
 }
 
+// Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 (domain.ParticipantView): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Leave(ctx context.Context, userID, id string) (domain.ParticipantView, error) {
 	participant, err := s.repository.Leave(ctx, id, userID)
 	if err != nil {
@@ -198,6 +409,15 @@ func (s *Service) Leave(ctx context.Context, userID, id string) (domain.Particip
 	return participant.View(), nil
 }
 
+// LookupInvite находит ограниченные сведения о конференции по коду приглашения.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - code (string): код приглашения или машинный код результата.
+//
+// @return:
+//   - результат 1 (domain.InviteView): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) LookupInvite(ctx context.Context, code string) (domain.InviteView, error) {
 	if !validInvite(code) {
 		return domain.InviteView{}, apperrors.ErrNotFound
@@ -209,6 +429,16 @@ func (s *Service) LookupInvite(ctx context.Context, code string) (domain.InviteV
 	return domain.InviteView{ID: conference.ID, Title: conference.Title, Status: conference.Status, WaitingRoomEnabled: conference.WaitingRoomEnabled, ScheduledAt: conference.ScheduledAt}, nil
 }
 
+// JoinInvite присоединяет авторизованного пользователя по коду приглашения с сохранением существующего членства.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - code (string): код приглашения или машинный код результата.
+//
+// @return:
+//   - результат 1 (domain.ParticipantView): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) JoinInvite(ctx context.Context, userID, code string) (domain.ParticipantView, error) {
 	invite, err := s.LookupInvite(ctx, code)
 	if err != nil {
@@ -217,6 +447,15 @@ func (s *Service) JoinInvite(ctx context.Context, userID, code string) (domain.P
 	return s.Join(ctx, userID, invite.ID, domain.JoinRequest{InviteCode: code})
 }
 
+// currentUser читает учётную запись и подготавливает сведения участника текущей операции.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 (users.User): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) currentUser(ctx context.Context, id string) (users.User, error) {
 	user, err := s.users.GetByID(ctx, id)
 	if errors.Is(err, apperrors.ErrNotFound) {
@@ -225,6 +464,13 @@ func (s *Service) currentUser(ctx context.Context, id string) (users.User, error
 	return user, err
 }
 
+// event формирует серверное событие сохранённого изменения членства конференции.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - participant (domain.Participant): значение participant типа domain.Participant, используемое согласно назначению этой операции.
 func (s *Service) event(ctx context.Context, kind, id string, participant domain.Participant) {
 	if events, ok := s.observer.(interface {
 		Broadcast(context.Context, realtime.Envelope) error
@@ -233,6 +479,13 @@ func (s *Service) event(ctx context.Context, kind, id string, participant domain
 	}
 }
 
+// validInvite проверяет форму кода приглашения перед обращением к хранилищу.
+//
+// @parameters:
+//   - code (string): код приглашения или машинный код результата.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func validInvite(code string) bool {
 	if len(code) != 32 {
 		return false

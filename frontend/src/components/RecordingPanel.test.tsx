@@ -19,6 +19,15 @@ const row = {
   createdAt: "2026-10-01T10:00:00Z",
   files: [],
 } as ConferenceRecording;
+/**
+ * show монтирует проверяемый компонент с изолированными провайдерами.
+ *
+ * @parameters:
+ *   - role (Participant["role"]) — роль участника и его полномочия.
+ *   - items (ConferenceRecording[]) — элементы результата для объединения или отображения.
+ *
+ * @returns вычисленное значение: client.
+ */
 function show(role: Participant["role"], items: ConferenceRecording[]) {
   vi.spyOn(api, "recordings").mockResolvedValue({ status: "success", items });
   const client = new QueryClient({
@@ -34,12 +43,29 @@ function show(role: Participant["role"], items: ConferenceRecording[]) {
   );
   return client;
 }
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-});
-describe("conference recording controls", () => {
-  it("shows active recording to participants but exposes no recording command", async () => {
+afterEach(
+  /**
+   * Обработчик afterEach выполняет переданный шаг вызова afterEach в проверках клиентского поведения.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ () => {
+    cleanup();
+    vi.restoreAllMocks();
+  },
+);
+describe("conference recording controls", /**
+ * Проверка: conference recording controls выполняет тестовый сценарий «conference recording controls» и проверяет ожидаемые результаты.
+ *
+ *
+ * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ () => {
+  it("shows active recording to participants but exposes no recording command", /**
+   * Проверка: shows active recording to participants but exposes no recording command выполняет тестовый сценарий «shows active recording to participants but exposes no recording command» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const client = show("participant", [row]);
     expect(await screen.findByTestId("recording-indicator")).toHaveTextContent(
       "Идёт запись",
@@ -47,7 +73,12 @@ describe("conference recording controls", () => {
     expect(screen.queryByRole("button", { name: /запись/ })).toBeNull();
     client.clear();
   });
-  it("allows owner stop and does not duplicate start while recording", async () => {
+  it("allows owner stop and does not duplicate start while recording", /**
+   * Проверка: allows owner stop and does not duplicate start while recording выполняет тестовый сценарий «allows owner stop and does not duplicate start while recording» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const client = show("owner", [row]);
     expect(
       await screen.findByRole("button", { name: "Остановить запись" }),
@@ -55,7 +86,12 @@ describe("conference recording controls", () => {
     expect(screen.queryByRole("button", { name: "Начать запись" })).toBeNull();
     client.clear();
   });
-  it("keeps cohost recording permission owner-only", async () => {
+  it("keeps cohost recording permission owner-only", /**
+   * Проверка: keeps cohost recording permission owner-only выполняет тестовый сценарий «keeps cohost recording permission owner-only» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const client = show("co_host", []);
     await screen.findByText(/Записей пока нет/);
     expect(screen.queryByRole("button", { name: "Начать запись" })).toBeNull();

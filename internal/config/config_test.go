@@ -6,6 +6,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// TestRabbitMQURL проверяет сценарий «Rabbit MQURL», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRabbitMQURL(t *testing.T) {
 	tests := []struct {
 		name string
@@ -39,25 +43,33 @@ func TestRabbitMQURL(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for _, key := range []string{"RABBIT_MQ_DSN", "RABBIT_MQ_HOST", "RABBIT_MQ_PORT", "RABBIT_MQ_USER", "RABBIT_MQ_PASSWORD", "RABBIT_MQ_VHOST"} {
-				t.Setenv(key, "")
-			}
-			for key, value := range tt.env {
-				t.Setenv(key, value)
-			}
-			got, err := amqp.ParseURI(rabbitMQURL())
-			if err != nil {
-				t.Fatalf("parse RabbitMQ URL: %v", err)
-			}
-			if got.Scheme != tt.want.Scheme || got.Host != tt.want.Host || got.Port != tt.want.Port ||
-				got.Username != tt.want.Username || got.Password != tt.want.Password || got.Vhost != tt.want.Vhost {
-				t.Fatalf("parsed URI = %+v, want %+v", got, tt.want)
-			}
-		})
+		t.Run(tt.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+			@parameters:
+			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+			*/func(t *testing.T) {
+				for _, key := range []string{"RABBIT_MQ_DSN", "RABBIT_MQ_HOST", "RABBIT_MQ_PORT", "RABBIT_MQ_USER", "RABBIT_MQ_PASSWORD", "RABBIT_MQ_VHOST"} {
+					t.Setenv(key, "")
+				}
+				for key, value := range tt.env {
+					t.Setenv(key, value)
+				}
+				got, err := amqp.ParseURI(rabbitMQURL())
+				if err != nil {
+					t.Fatalf("parse RabbitMQ URL: %v", err)
+				}
+				if got.Scheme != tt.want.Scheme || got.Host != tt.want.Host || got.Port != tt.want.Port ||
+					got.Username != tt.want.Username || got.Password != tt.want.Password || got.Vhost != tt.want.Vhost {
+					t.Fatalf("parsed URI = %+v, want %+v", got, tt.want)
+				}
+			})
 	}
 }
 
+// TestRabbitMQURLExplicitDSN проверяет сценарий «Rabbit MQURL Explicit DSN», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRabbitMQURLExplicitDSN(t *testing.T) {
 	const dsn = "amqps://custom:secret@broker.example:5671/recordings"
 	t.Setenv("RABBIT_MQ_DSN", dsn)

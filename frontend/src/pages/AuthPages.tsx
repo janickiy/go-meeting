@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { SubmitEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { api, errorMessage } from "../api";
@@ -13,6 +13,14 @@ import {
 } from "../components/ui";
 import { passwordLength, safeNext, utf8Bytes } from "../utils";
 
+/**
+ * AuthPage показывает форму входа либо регистрации и обрабатывает проверку данных и ошибки API.
+ *
+ * @parameters:
+ *   - объект параметров: register — выбирает форму регистрации вместо входа.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function AuthPage({ register = false }: { register?: boolean }) {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -29,7 +37,15 @@ export function AuthPage({ register = false }: { register?: boolean }) {
   // Do not interrupt the registration success transition after automatic login.
   if (auth.user && !auth.loading && !submitted.current)
     return <Navigate to={next} replace />;
-  async function submit(event: FormEvent) {
+  /**
+   * submit проверяет поля формы, отправляет изменение и показывает результат либо ошибку.
+   *
+   * @parameters:
+   *   - event (SubmitEvent<HTMLFormElement>) — событие отправки формы.
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     if (
@@ -108,7 +124,16 @@ export function AuthPage({ register = false }: { register?: boolean }) {
               placeholder="you@example.com"
               required
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={
+                /**
+                 * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                 *
+                 * @parameters:
+                 *   - event — проверенный конверт события комнаты.
+                 *
+                 * @returns вычисленное значение: setEmail(event.target.value).
+                 */ (event) => setEmail(event.target.value)
+              }
               disabled={busy}
             />
           </label>
@@ -120,7 +145,16 @@ export function AuthPage({ register = false }: { register?: boolean }) {
               autoComplete={register ? "new-password" : "current-password"}
               required
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={
+                /**
+                 * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                 *
+                 * @parameters:
+                 *   - event — проверенный конверт события комнаты.
+                 *
+                 * @returns вычисленное значение: setPassword(event.target.value).
+                 */ (event) => setPassword(event.target.value)
+              }
               disabled={busy}
             />
           </label>
@@ -137,7 +171,16 @@ export function AuthPage({ register = false }: { register?: boolean }) {
                   autoComplete="nickname"
                   placeholder="Александр"
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={
+                    /**
+                     * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     * @parameters:
+                     *   - event — проверенный конверт события комнаты.
+                     *
+                     * @returns вычисленное значение: setName(event.target.value).
+                     */ (event) => setName(event.target.value)
+                  }
                   disabled={busy}
                 />
               </label>
@@ -147,7 +190,14 @@ export function AuthPage({ register = false }: { register?: boolean }) {
               <button
                 type="button"
                 className="text-button"
-                onClick={() => setRecovery(!recovery)}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: setRecovery(!recovery).
+                   */ () => setRecovery(!recovery)
+                }
               >
                 Забыли пароль?
               </button>
@@ -189,6 +239,12 @@ export function AuthPage({ register = false }: { register?: boolean }) {
     </div>
   );
 }
+/**
+ * RegistrationSuccess показывает результат регистрации и переход в приложение.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function RegistrationSuccess() {
   const { user } = useAuth();
   const [params] = useSearchParams();

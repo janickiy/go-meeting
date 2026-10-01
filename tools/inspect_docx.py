@@ -10,11 +10,22 @@ from docx import Document
 from docx.oxml.ns import qn
 
 
+# has_section_break проверяет наличие разрыва раздела в XML-свойствах абзаца Word.
+#
+# @parameters:
+#   - paragraph (объект соответствующего API): объект абзаца python-docx.
+#
+# @return: bool — подготовленное значение согласно назначению функции.
 def has_section_break(paragraph) -> bool:
     ppr = paragraph._p.pPr
     return ppr is not None and ppr.find(qn("w:sectPr")) is not None
 
 
+# main читает параметры командной строки и выводит структуру и свойства DOCX в JSON.
+#
+# входные пути и настройки читаются из командной строки.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("input")

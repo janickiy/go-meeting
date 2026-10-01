@@ -9,12 +9,12 @@ import (
 )
 
 // CountByConference возвращает количество записей и краткие карточки записей для переданных conferenceId.
-// Параметры:
+// @parameters:
 // - c: Gin context HTTP-запроса.
 // Query-параметры:
 // - conferenceIds[] или conferenceIds: один или несколько UUID конференций.
 // - status: optional фильтр по статусу записи.
-// Возвращает: JSON response со списком conferenceId, recordsCount и records[].
+// @return JSON response со списком conferenceId, recordsCount и records[].
 func (h *Handler) CountByConference(c *gin.Context) {
 	conferenceIDs := conferenceIDsFromQuery(c)
 	if message := records.ValidateConferenceIDs(conferenceIDs); message != "" {
@@ -36,6 +36,13 @@ func (h *Handler) CountByConference(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "items": items})
 }
 
+// conferenceIDsFromQuery читает идентификаторы конференций из параметров URL.
+//
+// @parameters:
+//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+//
+// @return:
+//   - результат 1 ([]string): собранные элементы результата; состав ограничивается параметрами операции.
 func conferenceIDsFromQuery(c *gin.Context) []string {
 	values := make([]string, 0)
 	for _, key := range []string{"conferenceIds[]", "conferenceIds"} {
@@ -52,6 +59,13 @@ func conferenceIDsFromQuery(c *gin.Context) []string {
 	return uniqueStrings(values)
 }
 
+// uniqueStrings устраняет повторяющиеся строки с сохранением одного значения каждого элемента.
+//
+// @parameters:
+//   - values ([]string): набор значений values для последовательной или пакетной обработки.
+//
+// @return:
+//   - результат 1 ([]string): собранные элементы результата; состав ограничивается параметрами операции.
 func uniqueStrings(values []string) []string {
 	seen := make(map[string]struct{}, len(values))
 	result := make([]string, 0, len(values))

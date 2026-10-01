@@ -5,6 +5,12 @@ import (
 	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
 )
 
+// RegisterConferenceRecordingRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
+//
+// @parameters:
+//   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
+//   - handler (*recordingsapp.Handler): обработчик вызываемой команды или маршрута.
+//   - authentication (gin.HandlerFunc): значение authentication типа gin.HandlerFunc, используемое согласно назначению этой операции.
 func RegisterConferenceRecordingRoutes(router gin.IRouter, handler *recordingsapp.Handler, authentication gin.HandlerFunc) {
 	routes := router.Group(APIV1Prefix+"/conferences", authentication)
 	routes.POST("/:id/recordings", handler.Start)

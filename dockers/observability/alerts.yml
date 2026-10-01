@@ -1,0 +1,53 @@
+groups:
+  - name: recorder
+    rules:
+      - alert: RecorderDependencyUnavailable
+        expr: recorder_dependency_up == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: "Critical recorder dependency unavailable"}
+      - alert: RecorderMetricsUnavailable
+        expr: up{job="recorder"} == 0
+        for: 1m
+        labels: {severity: critical}
+      - alert: RecorderHTTPErrorRate
+        expr: sum by(service) (rate(recorder_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum by(service) (rate(recorder_http_requests_total[5m])), 0.01) > 0.05
+        for: 5m
+        labels: {severity: warning}
+      - alert: RecorderHTTPP95
+        expr: histogram_quantile(0.95, sum by(le,service) (rate(recorder_http_duration_seconds_bucket{route!~".*(events|ws).*"}[5m]))) > 1
+        for: 5m
+        labels: {severity: warning}
+      - alert: RecorderFFmpegFailure
+        expr: sum by(service) (increase(recorder_events_total{event=~"ffmpeg_failed|recording_failed"}[5m])) > 0
+        labels: {severity: warning}
+      - alert: RecorderPoisonMessages
+        expr: increase(recorder_events_total{event="rabbitmq_dead_letter"}[5m]) > 0
+        labels: {severity: warning}
+      - alert: RecorderMediaFailures
+        expr: increase(recorder_state{resource="media_failures_total"}[5m]) > 5
+        labels: {severity: warning}
+      - alert: RecorderDBSaturation
+        expr: recorder_state{resource="db_in_use"} >= 18
+        for: 2m
+        labels: {severity: warning}
+      - alert: RecorderLowDisk
+        expr: recorder_state{resource="disk_free_bytes"} < 1073741824
+        for: 1m
+        labels: {severity: critical}
+      - alert: RecorderGoroutineGrowth
+        expr: deriv(go_goroutines[30m]) > 1
+        for: 10m
+        labels: {severity: warning}
+      - alert: RecorderFDGrowth
+        expr: process_open_fds / process_max_fds > 0.8
+        for: 5m
+        labels: {severity: warning}
+      - alert: RecorderResidentMemory
+        expr: process_resident_memory_bytes > 2147483648
+        for: 5m
+        labels: {severity: warning}
+      - alert: RecorderCPU
+        expr: rate(process_cpu_seconds_total[5m]) > 3
+        for: 10m
+        labels: {severity: warning}

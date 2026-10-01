@@ -13,6 +13,10 @@ import (
 	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 )
 
+// TestDebugCompletedRecordsReadsFromStorage проверяет сценарий «Debug Completed Records Reads из Storage», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestDebugCompletedRecordsReadsFromStorage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	lister := &fakeCompletedRecordsLister{
@@ -44,6 +48,14 @@ func TestDebugCompletedRecordsReadsFromStorage(t *testing.T) {
 	}
 }
 
+// containsAll подготавливает или проверяет часть тестового сценария «contains All».
+//
+// @parameters:
+//   - body (string): тело входящего запроса или сериализованные данные передачи.
+//   - values (...string): значение values типа ...string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func containsAll(body string, values ...string) bool {
 	for _, value := range values {
 		if !strings.Contains(body, value) {
@@ -54,11 +66,24 @@ func containsAll(body string, values ...string) bool {
 	return true
 }
 
+// fakeCompletedRecordsLister хранит изолированное состояние тестового компонента «fake Completed Records Lister».
+// Состав:
+//   - items: элементы страницы или порции пакетной обработки.
+//   - limit: максимальное число элементов страницы или порции обработки.
 type fakeCompletedRecordsLister struct {
 	items []s3storage.CompletedRecord
 	limit int
 }
 
+// ListCompletedRecords находит готовые артефакты записей в объектном хранилище.
+//
+// @parameters:
+//   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - limit (int): максимальное число элементов страницы или порции обработки.
+//
+// @return:
+//   - результат 1 ([]s3storage.CompletedRecord): собранные элементы результата; состав ограничивается параметрами операции.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (l *fakeCompletedRecordsLister) ListCompletedRecords(_ context.Context, limit int) ([]s3storage.CompletedRecord, error) {
 	l.limit = limit
 	return l.items, nil

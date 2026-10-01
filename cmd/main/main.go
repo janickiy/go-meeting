@@ -7,10 +7,6 @@ import (
 	"github.com/janickiy/go-recorder/internal/app"
 )
 
-// main запускает общий entrypoint приложения.
-// Параметры:
-// - os.Args[1]: команда serve/api, worker или migrate; если команда не задана, используется serve.
-// Возвращает: ничего; при критической ошибке завершает процесс через log.Fatalf.
 func main() {
 	command := "serve"
 	if len(os.Args) > 1 {

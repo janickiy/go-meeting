@@ -38,12 +38,31 @@ import (
 const stageThreeTicketSecret = "stage-three-isolated-media-ticket-secret"
 const stageThreeInternalSecret = "stage-three-isolated-internal-http-secret"
 
-// startStageThreeMedia uses the real Redis lease, signed ticket, protected HTTP
-// worker and both API WebSocket instances. It never touches the running app DB.
+// startStageThreeMedia подготавливает или проверяет часть тестового сценария «запуск этап три медиа».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - f (*stageTwoFixture): значение f типа *stageTwoFixture, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*sfu.Manager): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (config.MediaConfig): значение, подготовленное операцией для вызывающей стороны.
 func startStageThreeMedia(t *testing.T, f *stageTwoFixture) (*sfu.Manager, config.MediaConfig) {
 	return startMediaWithLimits(t, f, 2, 1, 1)
 }
 
+// startMediaWithLimits подготавливает или проверяет часть тестового сценария «запуск медиа с ограничения».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - f (*stageTwoFixture): значение f типа *stageTwoFixture, используемое согласно назначению этой операции.
+//   - published (int): значение published типа int, используемое согласно назначению этой операции.
+//   - audio (int): значение audio типа int, используемое согласно назначению этой операции.
+//   - video (int): значение video типа int, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*sfu.Manager): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (config.MediaConfig): значение, подготовленное операцией для вызывающей стороны.
 func startMediaWithLimits(t *testing.T, f *stageTwoFixture, published, audio, video int) (*sfu.Manager, config.MediaConfig) {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -55,7 +74,13 @@ func startMediaWithLimits(t *testing.T, f *stageTwoFixture, published, audio, vi
 	if err != nil {
 		t.Fatal(err)
 	}
-	engine, err := sfu.NewManager(sfu.Options{WorkerID: cfg.WorkerID, MaxPeers: cfg.MaxPeers, MaxRooms: cfg.MaxRooms, MaxPublishedTracks: published, MaxAudioTracks: audio, MaxVideoTracks: video, Logger: logger, Emit: func(binding mediadomain.Binding, kind string, data any) {
+	engine, err := sfu.NewManager(sfu.Options{WorkerID: cfg.WorkerID, MaxPeers: cfg.MaxPeers, MaxRooms: cfg.MaxRooms, MaxPublishedTracks: published, MaxAudioTracks: audio, MaxVideoTracks: video, Logger: logger, Emit: /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	@parameters:
+	  - binding (mediadomain.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
+	  - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+	  - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
+	*/func(binding mediadomain.Binding, kind string, data any) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		event := realtime.Event(kind, binding.ConferenceID, data)
@@ -64,7 +89,11 @@ func startMediaWithLimits(t *testing.T, f *stageTwoFixture, published, audio, vi
 	if err != nil {
 		t.Fatal(err)
 	}
-	workerHandler := mediaworker.NewHandler(cfg, registry, f.store, tickets, engine, func() any { return engine.Snapshot() }, logger)
+	workerHandler := mediaworker.NewHandler(cfg, registry, f.store, tickets, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (any): значение, подготовленное операцией для вызывающей стороны. */func() any { return engine.Snapshot() }, logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	done, err := workerHandler.Start(ctx)
 	if err != nil {
@@ -92,17 +121,40 @@ func startMediaWithLimits(t *testing.T, f *stageTwoFixture, published, audio, vi
 		wstransport.NewHandler(hub, f.tokens, f.store, redisinfra.NewRateLimiter(f.redis), f.config).SetMedia(controller).RegisterRoutes(router)
 		f.servers[i] = httptest.NewServer(router)
 	}
-	t.Cleanup(func() {
-		cancel()
-		<-done
-		shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
-		defer stop()
-		_ = workerHandler.Stop(shutdown)
-		worker.Close()
-	})
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
+			cancel()
+			<-done
+			shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
+			defer stop()
+			_ = workerHandler.Stop(shutdown)
+			worker.Close()
+		})
 	return engine, cfg
 }
 
+// mediaTestPeer хранит изолированное состояние тестового компонента «медиа проверка Peer».
+// Состав:
+//   - t: контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - socket: значение socket типа *testSocket, используемое согласно назначению этой операции.
+//   - pc: значение pc типа *webrtc.PeerConnection, используемое согласно назначению этой операции.
+//   - conferenceID: идентификатор конференции, ограничивающий область операции.
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - peerID: идентификатор связанного ресурса, заданного параметром peerID.
+//   - tracks: набор дорожек, входящих в операцию.
+//   - received: индекс значений received для поиска и согласования состояния.
+//   - closing: логический признак closing, управляющий соответствующей веткой обработки.
+//   - writeMu: значение writeMu типа sync.Mutex, используемое согласно назначению этой операции.
+//   - ctx: контекст отмены, дедлайна и времени жизни операции.
+//   - cancel: отмена контекста, завершающая принадлежащие ресурсу операции.
+//   - wg: счётчик принадлежащих компоненту фоновых горутин для ожидания завершения.
+//   - actions: канал «actions» для передачи данных или завершения ожидания.
+//   - errors: канал «ошибки» для передачи данных или завершения ожидания.
+//   - joined: канал «joined» для передачи данных или завершения ожидания.
+//   - local: набор значений local для последовательной или пакетной обработки.
+//   - senders: набор значений senders для последовательной или пакетной обработки.
+//   - sources: набор источников медиа для публикации или композиции.
 type mediaTestPeer struct {
 	t            *testing.T
 	socket       *testSocket
@@ -125,12 +177,32 @@ type mediaTestPeer struct {
 	sources      map[string]mediadomain.Source
 }
 
+// newMediaTestPeer подготавливает или проверяет часть тестового сценария «новый медиа проверка Peer».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - f (*stageTwoFixture): значение f типа *stageTwoFixture, используемое согласно назначению этой операции.
+//   - instance (int): значение instance типа int, используемое согласно назначению этой операции.
+//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+//
+// @return:
+//   - результат 1 (*mediaTestPeer): значение, подготовленное операцией для вызывающей стороны.
 func newMediaTestPeer(t *testing.T, f *stageTwoFixture, instance int, token string) *mediaTestPeer {
 	return newMediaTestPeerWithPublisher(t, f, instance, token, nil)
 }
 
-// The Stage 4 recording test supplies valid encoded fixtures while Stage 3
-// forwarding tests retain their lightweight payload generator.
+// newMediaTestPeerWithPublisher подготавливает или проверяет часть тестового сценария «новый медиа проверка Peer с Publisher».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - f (*stageTwoFixture): значение f типа *stageTwoFixture, используемое согласно назначению этой операции.
+//   - instance (int): значение instance типа int, используемое согласно назначению этой операции.
+//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+//   - publisher (func(*mediaTestPeer)): транспорт публикации событий после сохранения состояния.
+//
+// @return:
+//   - результат 1 (*mediaTestPeer): значение, подготовленное операцией для вызывающей стороны.
 func newMediaTestPeerWithPublisher(t *testing.T, f *stageTwoFixture, instance int, token string, publisher func(*mediaTestPeer)) *mediaTestPeer {
 	t.Helper()
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
@@ -151,7 +223,11 @@ func newMediaTestPeerWithPublisher(t *testing.T, f *stageTwoFixture, instance in
 		p.local = append(p.local, track)
 		p.senders = append(p.senders, sender)
 		p.wg.Add(1)
-		go func(sender *webrtc.RTPSender) {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - sender (*webrtc.RTPSender): значение sender типа *webrtc.RTPSender, используемое согласно назначению этой операции.
+		*/func(sender *webrtc.RTPSender) {
 			defer p.wg.Done()
 			for {
 				if _, _, e := sender.ReadRTCP(); e != nil {
@@ -167,36 +243,49 @@ func newMediaTestPeerWithPublisher(t *testing.T, f *stageTwoFixture, instance in
 			}
 		}
 	}
-	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
-		var candidate any
-		if c != nil {
-			candidate = c.ToJSON()
-		}
-		p.send("media.ice", map[string]any{"mediaPeerId": p.id(), "candidate": candidate})
-	})
-	pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		p.mu.Lock()
-		if p.closing {
-			p.mu.Unlock()
-			return
-		}
-		p.wg.Add(1)
-		p.mu.Unlock()
-		go func() {
-			defer p.wg.Done()
-			for {
-				if _, _, e := track.ReadRTP(); e != nil {
-					return
-				}
-				p.mu.Lock()
-				if p.received[track.StreamID()] == nil {
-					p.received[track.StreamID()] = make(map[string]int)
-				}
-				p.received[track.StreamID()][track.Kind().String()]++
-				p.mu.Unlock()
+	pc.OnICECandidate( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*webrtc.ICECandidate): значение настроек или состояния компонента согласно указанному типу.
+		*/func(c *webrtc.ICECandidate) {
+			var candidate any
+			if c != nil {
+				candidate = c.ToJSON()
 			}
-		}()
-	})
+			p.send("media.ice", map[string]any{"mediaPeerId": p.id(), "candidate": candidate})
+		})
+	pc.OnTrack( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+		@parameters:
+		  - track (*webrtc.TrackRemote): медиа-дорожка, которую обрабатывает или подписывает компонент.
+		  - _ (*webrtc.RTPReceiver): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+		*/func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+			p.mu.Lock()
+			if p.closing {
+				p.mu.Unlock()
+				return
+			}
+			p.wg.Add(1)
+			p.mu.Unlock()
+			go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+			Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+			*/func() {
+				defer p.wg.Done()
+				for {
+					if _, _, e := track.ReadRTP(); e != nil {
+						return
+					}
+					p.mu.Lock()
+					if p.received[track.StreamID()] == nil {
+						p.received[track.StreamID()] = make(map[string]int)
+					}
+					p.received[track.StreamID()][track.Kind().String()]++
+					p.mu.Unlock()
+				}
+			}()
+		})
 	p.wg.Add(2)
 	go p.events()
 	if publisher == nil {
@@ -215,7 +304,18 @@ func newMediaTestPeerWithPublisher(t *testing.T, f *stageTwoFixture, instance in
 	}
 	return p
 }
+
+// id проверяет и нормализует идентификатор ресурса из HTTP-маршрута.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func (p *mediaTestPeer) id() string { p.mu.Lock(); defer p.mu.Unlock(); return p.peerID }
+
+// report подготавливает или проверяет часть тестового сценария «report».
+//
+// @parameters:
+//   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func (p *mediaTestPeer) report(err error) {
 	if err == nil {
 		return
@@ -225,6 +325,13 @@ func (p *mediaTestPeer) report(err error) {
 	default:
 	}
 }
+
+// send подготавливает или проверяет часть тестового сценария «send».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+//   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
 func (p *mediaTestPeer) send(kind string, data any) {
 	if p.ctx.Err() != nil {
 		return
@@ -234,12 +341,18 @@ func (p *mediaTestPeer) send(kind string, data any) {
 	_ = p.socket.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	p.report(p.socket.conn.WriteJSON(realtime.Event(kind, p.conferenceID, data)))
 }
+
+// events подготавливает или проверяет часть тестового сценария «события».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (p *mediaTestPeer) events() {
 	defer p.wg.Done()
 	pending := ""
 	dirty := false
 	remoteSet := false
 	ice := []webrtc.ICECandidateInit{}
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	// Синхронизирует доступ к разделяемому состоянию блокировкой.
+	//
 	offer := func() {
 		if pending != "" {
 			dirty = true
@@ -355,6 +468,8 @@ func (p *mediaTestPeer) events() {
 		}
 	}
 }
+
+// publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
 func (p *mediaTestPeer) publish() {
 	defer p.wg.Done()
 	ticker := time.NewTicker(20 * time.Millisecond)
@@ -381,6 +496,9 @@ func (p *mediaTestPeer) publish() {
 		}
 	}
 }
+
+// close закрывает принадлежащие компоненту ресурсы и завершает связанный жизненный цикл.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (p *mediaTestPeer) close() {
 	p.mu.Lock()
 	if p.closing {
@@ -394,6 +512,13 @@ func (p *mediaTestPeer) close() {
 	_ = p.socket.conn.Close()
 	p.wg.Wait()
 }
+
+// assertReceived подготавливает или проверяет часть тестового сценария «проверка Received».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - publishers (...string): значение publishers типа ...string, используемое согласно назначению этой операции.
 func (p *mediaTestPeer) assertReceived(t *testing.T, publishers ...string) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
@@ -420,6 +545,13 @@ func (p *mediaTestPeer) assertReceived(t *testing.T, publishers ...string) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// waitMediaStats подготавливает или проверяет часть тестового сценария «ожидание медиа Stats».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - engine (*sfu.Manager): значение engine типа *sfu.Manager, используемое согласно назначению этой операции.
+//   - predicate (func(sfu.Stats) bool): условие выбора ожидаемого события в проверке.
 func waitMediaStats(t *testing.T, engine *sfu.Manager, predicate func(sfu.Stats) bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -435,6 +567,10 @@ func waitMediaStats(t *testing.T, engine *sfu.Manager, predicate func(sfu.Stats)
 	}
 }
 
+// TestStageThreeAuthenticatedSFUMedia проверяет сценарий «этап три Authenticated SFU медиа», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageThreeAuthenticatedSFUMedia(t *testing.T) {
 	f := stageTwo(t)
 	engine, cfg := startStageThreeMedia(t, f)
@@ -454,19 +590,45 @@ func TestStageThreeAuthenticatedSFUMedia(t *testing.T) {
 	c.assertReceived(t, a.id(), b.id())
 	a.assertReceived(t, b.id(), c.id())
 	b.assertReceived(t, a.id(), c.id())
-	waitMediaStats(t, engine, func(s sfu.Stats) bool { return s.Peers == 3 && s.Tracks == 6 && s.Subscriptions == 12 })
+	waitMediaStats(t, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - s (sfu.Stats): значение s типа sfu.Stats, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(s sfu.Stats) bool { return s.Peers == 3 && s.Tracks == 6 && s.Subscriptions == 12 })
 	// SDP removeTrack must clean publisher and every subscriber, not only UI.
-	a.actions <- func() { pErr := a.pc.RemoveTrack(a.senders[1]); a.report(pErr) }
-	waitMediaStats(t, engine, func(s sfu.Stats) bool { return s.Tracks == 5 && s.Subscriptions == 10 })
+	a.actions <- /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() { pErr := a.pc.RemoveTrack(a.senders[1]); a.report(pErr) }
+	waitMediaStats(t, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - s (sfu.Stats): значение s типа sfu.Stats, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(s sfu.Stats) bool { return s.Tracks == 5 && s.Subscriptions == 10 })
 	a.close()
-	waitMediaStats(t, engine, func(s sfu.Stats) bool { return s.Peers == 2 && s.Tracks == 4 })
+	waitMediaStats(t, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - s (sfu.Stats): значение s типа sfu.Stats, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(s sfu.Stats) bool { return s.Peers == 2 && s.Tracks == 4 })
 	a = newMediaTestPeer(t, f, 0, f.ownerToken)
 	a.assertReceived(t, b.id(), c.id())
 	b.assertReceived(t, a.id())
 	c.assertReceived(t, a.id())
 	oldPeer, oldConnection, participant := b.id(), b.socket.state.ConnectionID, b.socket.state.ParticipantID
 	b.close()
-	waitMediaStats(t, engine, func(s sfu.Stats) bool { return s.Peers == 2 && s.Tracks == 4 })
+	waitMediaStats(t, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - s (sfu.Stats): значение s типа sfu.Stats, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(s sfu.Stats) bool { return s.Peers == 2 && s.Tracks == 4 })
 	b2 := newMediaTestPeer(t, f, 1, f.memberToken)
 	if b2.id() == oldPeer || b2.socket.state.ConnectionID == oldConnection || b2.socket.state.ParticipantID != participant {
 		t.Fatal("reconnect replaced membership or reused media endpoint")
@@ -498,6 +660,12 @@ func TestStageThreeAuthenticatedSFUMedia(t *testing.T) {
 	a.close()
 	b2.close()
 	c.close()
-	waitMediaStats(t, engine, func(s sfu.Stats) bool { return s.Rooms == 0 && s.Peers == 0 && s.Tracks == 0 && s.Subscriptions == 0 })
+	waitMediaStats(t, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - s (sfu.Stats): значение s типа sfu.Stats, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(s sfu.Stats) bool { return s.Rooms == 0 && s.Peers == 0 && s.Tracks == 0 && s.Subscriptions == 0 })
 	t.Logf("authenticated API/WS/HTTP/Redis/SFU path: %+v", engine.Snapshot())
 }

@@ -17,31 +17,67 @@ import (
 	pion "github.com/pion/webrtc/v4"
 )
 
+// safeLogBuffer хранит изолированное состояние тестового компонента «безопасный Log буфер».
+// Состав:
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - b: контекст измерения производительности теста.
 type safeLogBuffer struct {
 	mu sync.Mutex
 	b  bytes.Buffer
 }
 
+// Write принимает байты вывода в ограниченный буфер и соблюдает контракт io.Writer.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - raw ([]byte): исходные байты JSON, пакета или сериализованного значения.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (b *safeLogBuffer) Write(raw []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.b.Write(raw)
 }
 
+// String возвращает строковое представление накопленного значения или ограниченного диагностического вывода.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func (b *safeLogBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.b.String()
 }
 
-// Any inspection/formatting of a supplied upstream argument is a test failure,
-// even if its resulting text would subsequently have been redacted.
+// unsafeLogArgument хранит изолированное состояние тестового компонента «unsafe Log Argument».
 type unsafeLogArgument struct{}
 
-func (unsafeLogArgument) String() string         { panic("upstream String invoked") }
-func (unsafeLogArgument) Error() string          { panic("upstream Error invoked") }
+// String возвращает строковое представление накопленного значения или ограниченного диагностического вывода.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
+func (unsafeLogArgument) String() string { panic("upstream String invoked") }
+
+// Error обрабатывает сообщение уровня ошибки через безопасный адаптер, не раскрывая текст и чувствительные аргументы Pion.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
+func (unsafeLogArgument) Error() string { panic("upstream Error invoked") }
+
+// Format обрабатывает сообщение соответствующего уровня через безопасный адаптер, не раскрывая текст и чувствительные аргументы Pion.
+//
+// @parameters:
+//   - аргумент 1 (fmt.State): значение для проверки, нормализации или преобразования.
+//   - аргумент 2 (rune): значение для проверки, нормализации или преобразования.
 func (unsafeLogArgument) Format(fmt.State, rune) { panic("upstream Format invoked") }
 
+// TestPionLoggerNeverFormatsOrRetainsUpstreamData проверяет сценарий «Pion Logger Never Formats Or Retains Upstream Data», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPionLoggerNeverFormatsOrRetainsUpstreamData(t *testing.T) {
 	const sensitive = "synthetic-sensitive-logger-marker"
 	output := &safeLogBuffer{}
@@ -90,6 +126,10 @@ func TestPionLoggerNeverFormatsOrRetainsUpstreamData(t *testing.T) {
 	}
 }
 
+// TestMalformedSDPCandidateCannotLeakIntoPionLogs проверяет сценарий «Malformed SDP Candidate Cannot раскрытие Into Pion Logs», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMalformedSDPCandidateCannotLeakIntoPionLogs(t *testing.T) {
 	const sensitive = "synthetic-sensitive-candidate-marker"
 	output := &safeLogBuffer{}
@@ -97,13 +137,15 @@ func TestMalformedSDPCandidateCannotLeakIntoPionLogs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		if err := m.Shutdown(ctx); err != nil {
-			t.Fatal("test manager cleanup failed")
-		}
-	})
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := m.Shutdown(ctx); err != nil {
+				t.Fatal("test manager cleanup failed")
+			}
+		})
 	// Build a real supported offer with the same API used by the worker. Do
 	// not expose its ICE credentials or whole SDP in assertions/failure output.
 	client, err := m.api.NewPeerConnection(pion.Configuration{})

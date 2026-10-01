@@ -21,12 +21,42 @@ import (
 	pion "github.com/pion/webrtc/v4"
 )
 
+// pionHarness хранит изолированное состояние тестового компонента «pion Harness».
+//   - manager: значение manager типа *Manager, используемое согласно назначению этой операции.
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - peers: индекс значений peers для поиска и согласования состояния.
+//   - errors: канал «ошибки» для передачи данных или завершения ожидания.
 type pionHarness struct {
-	manager *Manager
-	mu      sync.Mutex
-	peers   map[string]*testPeer
-	errors  chan error
+	manager      *Manager
+	mu           sync.Mutex
+	peers        map[string]*testPeer
+	errors       chan error
+	clientConfig pion.Configuration // Необязательная ICE-конфигурация только тестового клиента.
 }
+
+// testPeer хранит изолированное состояние тестового компонента «проверка Peer».
+//   - harness: значение harness типа *pionHarness, используемое согласно назначению этой операции.
+//   - binding: проверенная идентичность медиа-подключения, назначенная сервером.
+//   - id: идентификатор обрабатываемого ресурса.
+//   - pc: значение pc типа *pion.PeerConnection, используемое согласно назначению этой операции.
+//   - audio: значение audio типа *pion.TrackLocalStaticRTP, используемое согласно назначению этой операции.
+//   - video: значение video типа *pion.TrackLocalStaticRTP, используемое согласно назначению этой операции.
+//   - audioSender: значение audioSender типа *pion.RTPSender, используемое согласно назначению этой операции.
+//   - videoSender: значение videoSender типа *pion.RTPSender, используемое согласно назначению этой операции.
+//   - ctx: контекст отмены, дедлайна и времени жизни операции.
+//   - cancel: отмена контекста, завершающая принадлежащие ресурсу операции.
+//   - neg: значение neg типа sync.Mutex, используемое согласно назначению этой операции.
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - pending: набор значений pending для последовательной или пакетной обработки.
+//   - received: индекс значений received для поиска и согласования состояния.
+//   - packets: значение packets типа uint64, используемое согласно назначению этой операции.
+//   - pli: значение pli типа uint64, используемое согласно назначению этой операции.
+//   - renegotiate: канал «renegotiate» для передачи данных или завершения ожидания.
+//   - wg: счётчик принадлежащих компоненту фоновых горутин для ожидания завершения.
+//   - closed: логический признак closed, управляющий соответствующей веткой обработки.
+//   - publishingPaused: значение publishingPaused типа atomic.Bool, используемое согласно назначению этой операции.
+//   - sourceDeclarations: индекс значений sourceDeclarations для поиска и согласования состояния.
+//   - declarationGeneration: значение declarationGeneration типа string, используемое согласно назначению этой операции.
 type testPeer struct {
 	harness                  *pionHarness
 	binding                  media.Binding
@@ -50,6 +80,16 @@ type testPeer struct {
 	declarationGeneration    string                  // test capture generation, guarded by neg
 }
 
+// harness подготавливает или проверяет часть тестового сценария «harness».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - maxPeers (int): значение maxPeers типа int, используемое согласно назначению этой операции.
+//   - configured (...Options): значение configured типа ...Options, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*pionHarness): значение, подготовленное операцией для вызывающей стороны.
 func harness(t *testing.T, maxPeers int, configured ...Options) *pionHarness {
 	t.Helper()
 	h := &pionHarness{peers: map[string]*testPeer{}, errors: make(chan error, 128)}
@@ -60,6 +100,12 @@ func harness(t *testing.T, maxPeers int, configured ...Options) *pionHarness {
 	options.MaxPeers = maxPeers
 	options.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	intercept := options.Emit
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
+	//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+	//   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
 	options.Emit = func(binding media.Binding, kind string, data any) {
 		if intercept != nil {
 			intercept(binding, kind, data)
@@ -71,25 +117,35 @@ func harness(t *testing.T, maxPeers int, configured ...Options) *pionHarness {
 		t.Fatal(err)
 	}
 	h.manager = m
-	t.Cleanup(func() {
-		h.mu.Lock()
-		peers := make([]*testPeer, 0, len(h.peers))
-		for _, p := range h.peers {
-			peers = append(peers, p)
-		}
-		h.mu.Unlock()
-		for _, p := range peers {
-			p.close()
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := m.Shutdown(ctx); err != nil {
-			t.Errorf("manager shutdown: %v", err)
-		}
-	})
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+		*/func() {
+			h.mu.Lock()
+			peers := make([]*testPeer, 0, len(h.peers))
+			for _, p := range h.peers {
+				peers = append(peers, p)
+			}
+			h.mu.Unlock()
+			for _, p := range peers {
+				p.close()
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := m.Shutdown(ctx); err != nil {
+				t.Errorf("manager shutdown: %v", err)
+			}
+		})
 	return h
 }
 
+// emit формирует и передаёт исходящее событие через принадлежащий компоненту канал доставки.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
+//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+//   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
 func (h *pionHarness) emit(binding media.Binding, kind string, data any) {
 	h.mu.Lock()
 	p := h.peers[binding.ConnectionID]
@@ -125,6 +181,10 @@ func (h *pionHarness) emit(binding media.Binding, kind string, data any) {
 	}
 }
 
+// problem подготавливает или проверяет часть тестового сценария «problem».
+//
+// @parameters:
+//   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func (h *pionHarness) problem(err error) {
 	select {
 	case h.errors <- err:
@@ -132,10 +192,30 @@ func (h *pionHarness) problem(err error) {
 	}
 }
 
+// join назначает владельца медиа-комнаты и создаёт подключение для проверенной физической сессии.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - conference (string): конференция либо её идентификатор, ограничивающий область операции.
+//   - participant (string): значение participant типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*testPeer): значение, подготовленное операцией для вызывающей стороны.
 func (h *pionHarness) join(t *testing.T, conference string, participant string) *testPeer {
 	return h.joinSlots(t, conference, participant, h.manager.opts.MaxPeers-1)
 }
 
+// joinSlots подготавливает или проверяет часть тестового сценария «join Slots».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - conference (string): конференция либо её идентификатор, ограничивающий область операции.
+//   - participant (string): значение participant типа string, используемое согласно назначению этой операции.
+//   - receiveSlots (int): значение receiveSlots типа int, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*testPeer): значение, подготовленное операцией для вызывающей стороны.
 func (h *pionHarness) joinSlots(t *testing.T, conference string, participant string, receiveSlots int) *testPeer {
 	t.Helper()
 	if participant == "" {
@@ -144,7 +224,7 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 	b := media.Binding{ConferenceID: conference, ParticipantID: participant, SessionID: uuid.NewString(), ConnectionID: uuid.NewString(), UserID: uuid.NewString(), AuthorizationExpiresAt: time.Now().Add(time.Hour)}
 	settings := pion.SettingEngine{}
 	settings.SetNetworkTypes([]pion.NetworkType{pion.NetworkTypeUDP4})
-	pc, err := pion.NewAPI(pion.WithSettingEngine(settings)).NewPeerConnection(pion.Configuration{})
+	pc, err := pion.NewAPI(pion.WithSettingEngine(settings)).NewPeerConnection(h.clientConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,32 +247,41 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 			}
 		}
 	}
-	pc.OnTrack(func(remote *pion.TrackRemote, _ *pion.RTPReceiver) {
-		p.mu.Lock()
-		if p.closed {
-			p.mu.Unlock()
-			return
-		}
-		p.wg.Add(1)
-		p.mu.Unlock()
-		go func() {
-			defer p.wg.Done()
-			for {
-				packet, _, err := remote.ReadRTP()
-				if err != nil {
-					return
-				}
-				if len(packet.Payload) != 4 || packet.Payload[0] != 0x10 {
-					h.problem(fmt.Errorf("encoded RTP payload changed"))
-					return
-				}
-				p.mu.Lock()
-				p.received[remote.ID()] = remote.Kind().String()
-				p.packets++
+	pc.OnTrack( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+		@parameters:
+		  - remote (*pion.TrackRemote): значение remote типа *pion.TrackRemote, используемое согласно назначению этой операции.
+		  - _ (*pion.RTPReceiver): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+		*/func(remote *pion.TrackRemote, _ *pion.RTPReceiver) {
+			p.mu.Lock()
+			if p.closed {
 				p.mu.Unlock()
+				return
 			}
-		}()
-	})
+			p.wg.Add(1)
+			p.mu.Unlock()
+			go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+			Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+			*/func() {
+				defer p.wg.Done()
+				for {
+					packet, _, err := remote.ReadRTP()
+					if err != nil {
+						return
+					}
+					if len(packet.Payload) != 4 || packet.Payload[0] != 0x10 {
+						h.problem(fmt.Errorf("encoded RTP payload changed"))
+						return
+					}
+					p.mu.Lock()
+					p.received[remote.ID()] = remote.Kind().String()
+					p.packets++
+					p.mu.Unlock()
+				}
+			}()
+		})
 	h.mu.Lock()
 	h.peers[b.ConnectionID] = p
 	h.mu.Unlock()
@@ -205,7 +294,12 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 	// Explicitly drain every publisher sender's RTCP, just as a browser does.
 	for _, sender := range []*pion.RTPSender{p.audioSender, p.videoSender} {
 		p.wg.Add(1)
-		go func(s *pion.RTPSender) {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+		@parameters:
+		  - s (*pion.RTPSender): значение s типа *pion.RTPSender, используемое согласно назначению этой операции.
+		*/func(s *pion.RTPSender) {
 			defer p.wg.Done()
 			for {
 				packets, _, err := s.ReadRTCP()
@@ -227,7 +321,9 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 		t.Fatal(err)
 	}
 	p.wg.Add(2)
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer p.wg.Done()
 		for {
 			select {
@@ -244,6 +340,11 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 	return p
 }
 
+// negotiate подготавливает или проверяет часть тестового сценария «negotiate».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *testPeer) negotiate() error {
 	p.neg.Lock()
 	defer p.neg.Unlock()
@@ -297,6 +398,7 @@ func (p *testPeer) negotiate() error {
 	return nil
 }
 
+// publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
 func (p *testPeer) publish() {
 	defer p.wg.Done()
 	ticker := time.NewTicker(20 * time.Millisecond)
@@ -319,6 +421,8 @@ func (p *testPeer) publish() {
 	}
 }
 
+// close закрывает принадлежащие компоненту ресурсы и завершает связанный жизненный цикл.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (p *testPeer) close() {
 	p.mu.Lock()
 	if p.closed {
@@ -338,6 +442,13 @@ func (p *testPeer) close() {
 	p.wg.Wait()
 }
 
+// eventually подготавливает или проверяет часть тестового сценария «eventually».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - h (*pionHarness): значение h типа *pionHarness, используемое согласно назначению этой операции.
+//   - label (string): безопасная подпись диагностируемой операции.
+//   - fn (func() bool): вызываемый обработчик «fn» с контрактом, указанным в типе.
 func eventually(t *testing.T, h *pionHarness, label string, fn func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
@@ -354,112 +465,168 @@ func eventually(t *testing.T, h *pionHarness, label string, fn func() bool) {
 	}
 }
 
+// TestSFUMediaSmoke проверяет сценарий «SFU медиа контрольный сценарий», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSFUMediaSmoke(t *testing.T) {
 	for _, n := range []int{2, 3, 5} {
-		t.Run(fmt.Sprintf("%d_peers", n), func(t *testing.T) {
-			beforeG := runtime.NumGoroutine()
-			var beforeMem runtime.MemStats
-			runtime.ReadMemStats(&beforeMem)
-			started := time.Now()
-			var beforeCPU syscall.Rusage
-			_ = syscall.Getrusage(syscall.RUSAGE_SELF, &beforeCPU)
-			h := harness(t, 10)
-			conference := uuid.NewString()
-			peers := make([]*testPeer, 0, n)
-			for i := 0; i < n; i++ {
-				peers = append(peers, h.join(t, conference, ""))
-				eventually(t, h, "published audio/video", func() bool { return h.manager.Snapshot().Tracks == 2*(i+1) })
-			}
-			eventually(t, h, "bidirectional Opus/VP8 including late join", func() bool {
-				for _, p := range peers {
-					p.mu.Lock()
-					audio, video := 0, 0
-					for _, kind := range p.received {
-						if kind == "audio" {
-							audio++
-						}
-						if kind == "video" {
-							video++
-						}
-					}
-					p.mu.Unlock()
-					if audio != n-1 || video != n-1 {
-						return false
-					}
+		t.Run(fmt.Sprintf("%d_peers", n), /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+			Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+			@parameters:
+			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+			*/func(t *testing.T) {
+				beforeG := runtime.NumGoroutine()
+				var beforeMem runtime.MemStats
+				runtime.ReadMemStats(&beforeMem)
+				started := time.Now()
+				var beforeCPU syscall.Rusage
+				_ = syscall.Getrusage(syscall.RUSAGE_SELF, &beforeCPU)
+				h := harness(t, 10)
+				conference := uuid.NewString()
+				peers := make([]*testPeer, 0, n)
+				for i := 0; i < n; i++ {
+					peers = append(peers, h.join(t, conference, ""))
+					eventually(t, h, "published audio/video", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+						@return:
+						  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 2*(i+1) })
 				}
-				return true
-			})
-			stats := h.manager.Snapshot()
-			if stats.Subscriptions != n*(n-1)*2 {
-				t.Fatalf("subscriptions=%d", stats.Subscriptions)
-			}
-			eventually(t, h, "publisher received video keyframe requests", func() bool {
-				for _, p := range peers {
-					p.mu.Lock()
-					requested := p.pli > 0
-					p.mu.Unlock()
-					if !requested {
-						return false
-					}
+				eventually(t, h, "bidirectional Opus/VP8 including late join", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+					Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool {
+						for _, p := range peers {
+							p.mu.Lock()
+							audio, video := 0, 0
+							for _, kind := range p.received {
+								if kind == "audio" {
+									audio++
+								}
+								if kind == "video" {
+									video++
+								}
+							}
+							p.mu.Unlock()
+							if audio != n-1 || video != n-1 {
+								return false
+							}
+						}
+						return true
+					})
+				stats := h.manager.Snapshot()
+				if stats.Subscriptions != n*(n-1)*2 {
+					t.Fatalf("subscriptions=%d", stats.Subscriptions)
 				}
-				return true
+				eventually(t, h, "publisher received video keyframe requests", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+					Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool {
+						for _, p := range peers {
+							p.mu.Lock()
+							requested := p.pli > 0
+							p.mu.Unlock()
+							if !requested {
+								return false
+							}
+						}
+						return true
+					})
+				var during runtime.MemStats
+				runtime.ReadMemStats(&during)
+				// One sustained second after all routes are negotiated, not just a
+				// successful first packet. This is a synthetic baseline, not a codec
+				// decode or 720p bandwidth/capacity benchmark.
+				time.Sleep(time.Second)
+				stats = h.manager.Snapshot()
+				var duringCPU syscall.Rusage
+				_ = syscall.Getrusage(syscall.RUSAGE_SELF, &duringCPU)
+				// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+				//
+				// @parameters:
+				//   - r (syscall.Rusage): запрос либо состояние ресурса согласно указанному типу.
+				//
+				// @return:
+				//   - результат 1 (int64): значение, подготовленное операцией для вызывающей стороны.
+				cpuMicros := func(r syscall.Rusage) int64 {
+					return r.Utime.Sec*1000000 + int64(r.Utime.Usec) + r.Stime.Sec*1000000 + int64(r.Stime.Usec)
+				}
+				t.Logf("participants=%d duration=%s cpu=%s goroutines=%d->%d heap=%d->%d packets=%d bytes=%d dropped=%d", n, time.Since(started).Round(time.Millisecond), time.Duration(cpuMicros(duringCPU)-cpuMicros(beforeCPU))*time.Microsecond, beforeG, runtime.NumGoroutine(), beforeMem.HeapAlloc, during.HeapAlloc, stats.Packets, stats.Bytes, stats.Dropped)
+				// Stopping an actual publishing m-section must remove its subscriptions.
+				first := peers[0]
+				first.neg.Lock()
+				err := first.pc.RemoveTrack(first.videoSender)
+				first.neg.Unlock()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err = first.negotiate(); err != nil {
+					t.Fatal(err)
+				}
+				eventually(t, h, "SDP track stop cleanup", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { s := h.manager.Snapshot(); return s.Tracks == n*2-1 && s.Subscriptions == (n*2-1)*(n-1) })
+				oldID := first.id
+				binding := first.binding
+				first.close()
+				eventually(t, h, "publisher disconnect cleanup", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Peers == n-1 && h.manager.Snapshot().Tracks == 2*(n-1) })
+				replacement := h.join(t, conference, binding.ParticipantID)
+				if replacement.id == oldID {
+					t.Fatal("reconnect reused MediaPeer")
+				}
+				peers[0] = replacement
+				eventually(t, h, "reconnect media tracks", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 2*n })
+				for _, p := range peers {
+					p.close()
+				}
+				eventually(t, h, "empty room cleanup", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool {
+						s := h.manager.Snapshot()
+						return s.Rooms == 0 && s.Peers == 0 && s.Tracks == 0 && s.Subscriptions == 0
+					})
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := h.manager.Shutdown(ctx); err != nil {
+					t.Fatal(err)
+				}
+				eventually(t, h, "owned goroutines reclaimed", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return runtime.NumGoroutine() <= beforeG+10 })
+				runtime.GC()
+				var after runtime.MemStats
+				runtime.ReadMemStats(&after)
+				t.Logf("cleanup goroutines=%d heap=%d", runtime.NumGoroutine(), after.HeapAlloc)
 			})
-			var during runtime.MemStats
-			runtime.ReadMemStats(&during)
-			// One sustained second after all routes are negotiated, not just a
-			// successful first packet. This is a synthetic baseline, not a codec
-			// decode or 720p bandwidth/capacity benchmark.
-			time.Sleep(time.Second)
-			stats = h.manager.Snapshot()
-			var duringCPU syscall.Rusage
-			_ = syscall.Getrusage(syscall.RUSAGE_SELF, &duringCPU)
-			cpuMicros := func(r syscall.Rusage) int64 {
-				return r.Utime.Sec*1000000 + int64(r.Utime.Usec) + r.Stime.Sec*1000000 + int64(r.Stime.Usec)
-			}
-			t.Logf("participants=%d duration=%s cpu=%s goroutines=%d->%d heap=%d->%d packets=%d bytes=%d dropped=%d", n, time.Since(started).Round(time.Millisecond), time.Duration(cpuMicros(duringCPU)-cpuMicros(beforeCPU))*time.Microsecond, beforeG, runtime.NumGoroutine(), beforeMem.HeapAlloc, during.HeapAlloc, stats.Packets, stats.Bytes, stats.Dropped)
-			// Stopping an actual publishing m-section must remove its subscriptions.
-			first := peers[0]
-			first.neg.Lock()
-			err := first.pc.RemoveTrack(first.videoSender)
-			first.neg.Unlock()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err = first.negotiate(); err != nil {
-				t.Fatal(err)
-			}
-			eventually(t, h, "SDP track stop cleanup", func() bool { s := h.manager.Snapshot(); return s.Tracks == n*2-1 && s.Subscriptions == (n*2-1)*(n-1) })
-			oldID := first.id
-			binding := first.binding
-			first.close()
-			eventually(t, h, "publisher disconnect cleanup", func() bool { return h.manager.Snapshot().Peers == n-1 && h.manager.Snapshot().Tracks == 2*(n-1) })
-			replacement := h.join(t, conference, binding.ParticipantID)
-			if replacement.id == oldID {
-				t.Fatal("reconnect reused MediaPeer")
-			}
-			peers[0] = replacement
-			eventually(t, h, "reconnect media tracks", func() bool { return h.manager.Snapshot().Tracks == 2*n })
-			for _, p := range peers {
-				p.close()
-			}
-			eventually(t, h, "empty room cleanup", func() bool {
-				s := h.manager.Snapshot()
-				return s.Rooms == 0 && s.Peers == 0 && s.Tracks == 0 && s.Subscriptions == 0
-			})
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := h.manager.Shutdown(ctx); err != nil {
-				t.Fatal(err)
-			}
-			eventually(t, h, "owned goroutines reclaimed", func() bool { return runtime.NumGoroutine() <= beforeG+10 })
-			runtime.GC()
-			var after runtime.MemStats
-			runtime.ReadMemStats(&after)
-			t.Logf("cleanup goroutines=%d heap=%d", runtime.NumGoroutine(), after.HeapAlloc)
-		})
 	}
 }
 
+// TestOfferValidationAndNegotiationSerialization проверяет сценарий «SDP-предложение проверка входных данных и Negotiation Serialization», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestOfferValidationAndNegotiationSerialization(t *testing.T) {
 	h := harness(t, 3)
 	p := h.join(t, uuid.NewString(), "")
@@ -477,7 +644,9 @@ func TestOfferValidationAndNegotiationSerialization(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			if _, err := h.manager.Offer(context.Background(), p.id, uuid.NewString(), raw); err != nil {
 				h.problem(err)
@@ -516,12 +685,18 @@ func TestOfferValidationAndNegotiationSerialization(t *testing.T) {
 	}
 }
 
+// TestJoinShutdownRace проверяет сценарий «Join завершение гонка», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestJoinShutdownRace(t *testing.T) {
 	h := harness(t, 10)
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			b := media.Binding{ConferenceID: uuid.NewString(), ParticipantID: uuid.NewString(), SessionID: uuid.NewString(), ConnectionID: uuid.NewString()}
 			view, err := h.manager.Join(context.Background(), b)
@@ -548,20 +723,40 @@ func TestJoinShutdownRace(t *testing.T) {
 	}
 }
 
+// TestFailedTransportAndAdmissionTimeoutCleanup проверяет сценарий «Failed транспорт и допуск Timeout очистка», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFailedTransportAndAdmissionTimeoutCleanup(t *testing.T) {
 	h := harness(t, 3, Options{ICEDisconnectedTimeout: 100 * time.Millisecond, ICEFailedTimeout: 200 * time.Millisecond, ICEKeepaliveInterval: 50 * time.Millisecond, NegotiationTimeout: time.Second})
 	p := h.join(t, uuid.NewString(), "")
-	eventually(t, h, "transport connected", func() bool { return p.pc.ConnectionState() == pion.PeerConnectionStateConnected })
+	eventually(t, h, "transport connected", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return p.pc.ConnectionState() == pion.PeerConnectionStateConnected })
 	// Abrupt remote transport loss, not an explicit signaling Leave command.
 	_ = p.pc.Close()
-	eventually(t, h, "failed peer transport cleaned", func() bool { s := h.manager.Snapshot(); return s.Peers == 0 && s.Rooms == 0 && s.Tracks == 0 })
+	eventually(t, h, "failed peer transport cleaned", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { s := h.manager.Snapshot(); return s.Peers == 0 && s.Rooms == 0 && s.Tracks == 0 })
 	binding := media.Binding{ConferenceID: uuid.NewString(), ParticipantID: uuid.NewString(), SessionID: uuid.NewString(), ConnectionID: uuid.NewString()}
 	if _, err := h.manager.Join(context.Background(), binding); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, h, "joined without offer expires", func() bool { return h.manager.Snapshot().Peers == 0 && h.manager.Snapshot().Rooms == 0 })
+	eventually(t, h, "joined without offer expires", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Peers == 0 && h.manager.Snapshot().Rooms == 0 })
 }
 
+// TestManagerLimitsDuplicatesAndCleanup проверяет сценарий «Manager ограничения Duplicates и очистка», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestManagerLimitsDuplicatesAndCleanup(t *testing.T) {
 	h := harness(t, 2)
 	conf := uuid.NewString()
@@ -607,12 +802,20 @@ func TestManagerLimitsDuplicatesAndCleanup(t *testing.T) {
 	}
 }
 
+// TestSameParticipantEndpointsAreNotEchoed проверяет сценарий «Same участник Endpoints Are не Echoed», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSameParticipantEndpointsAreNotEchoed(t *testing.T) {
 	h := harness(t, 3)
 	conf, participant := uuid.NewString(), uuid.NewString()
 	a := h.join(t, conf, participant)
 	b := h.join(t, conf, participant)
-	eventually(t, h, "two endpoints published", func() bool { return h.manager.Snapshot().Tracks == 4 })
+	eventually(t, h, "two endpoints published", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 })
 	if s := h.manager.Snapshot(); s.Subscriptions != 0 {
 		t.Fatalf("own tracks echoed across tabs: %+v", s)
 	}
@@ -620,13 +823,22 @@ func TestSameParticipantEndpointsAreNotEchoed(t *testing.T) {
 	b.close()
 }
 
+// TestRepeatedRoomCyclesAndExplicitUnpublish проверяет сценарий «Repeated Room Cycles и Explicit Unpublish», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRepeatedRoomCyclesAndExplicitUnpublish(t *testing.T) {
 	h := harness(t, 3)
 	for i := 0; i < 3; i++ {
 		conf := uuid.NewString()
 		a := h.join(t, conf, "")
 		b := h.join(t, conf, "")
-		eventually(t, h, "room ready", func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
+		eventually(t, h, "room ready", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
 		p, _ := h.manager.get(a.id)
 		p.mu.Lock()
 		trackID := ""
@@ -642,7 +854,11 @@ func TestRepeatedRoomCyclesAndExplicitUnpublish(t *testing.T) {
 		if err := h.manager.Unpublish(context.Background(), a.id, trackID); err != nil {
 			t.Fatal(err)
 		}
-		eventually(t, h, "explicit track cleanup", func() bool { return h.manager.Snapshot().Tracks == 3 && h.manager.Snapshot().Subscriptions == 3 })
+		eventually(t, h, "explicit track cleanup", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 3 && h.manager.Snapshot().Subscriptions == 3 })
 		a.close()
 		b.close()
 		if s := h.manager.Snapshot(); s.Rooms != 0 {
@@ -651,6 +867,10 @@ func TestRepeatedRoomCyclesAndExplicitUnpublish(t *testing.T) {
 	}
 }
 
+// TestEarlyTrickleICEIsBoundedValidatedAndDrained проверяет сценарий «Early Trickle ICE является ограниченный Validated и Drained», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestEarlyTrickleICEIsBoundedValidatedAndDrained(t *testing.T) {
 	h := harness(t, 3)
 	b := media.Binding{ConferenceID: uuid.NewString(), ParticipantID: uuid.NewString(), SessionID: uuid.NewString(), ConnectionID: uuid.NewString()}
@@ -708,18 +928,31 @@ func TestEarlyTrickleICEIsBoundedValidatedAndDrained(t *testing.T) {
 	}
 }
 
+// TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie проверяет сценарий «Publication Registration одновременный Leave выполняет не Retain Zombie», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie(t *testing.T) {
 	h := harness(t, 3)
 	conference := uuid.NewString()
 	keeper := h.join(t, conference, "")
-	eventually(t, h, "keeper publications", func() bool { return h.manager.Snapshot().Tracks == 2 })
+	eventually(t, h, "keeper publications", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 2 })
 	for i := 0; i < 24; i++ {
 		publisher := h.join(t, conference, "")
 		// First RTP fires at 20ms; vary leave around the OnTrack/registration
 		// boundary while another member keeps the same room alive.
 		time.Sleep(time.Duration(17+i%7) * time.Millisecond)
 		publisher.close()
-		eventually(t, h, "publisher completely detached", func() bool { s := h.manager.Snapshot(); return s.Peers == 1 && s.Tracks == 2 && s.Subscriptions == 0 })
+		eventually(t, h, "publisher completely detached", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { s := h.manager.Snapshot(); return s.Peers == 1 && s.Tracks == 2 && s.Subscriptions == 0 })
 		p, _ := h.manager.get(keeper.id)
 		p.room.mu.Lock()
 		tracks := make([]*publishedTrack, 0, len(p.room.tracks))
@@ -742,102 +975,142 @@ func TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie(t *testing.T)
 	keeper.close()
 }
 
+// TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes проверяет сценарий «Batch закрытие Fences All Peers до Blocked Emit Completes», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes(t *testing.T) {
 	for _, action := range []string{"conference", "shutdown"} {
-		t.Run(action, func(t *testing.T) {
-			var block atomic.Bool
-			entered := make(chan string, 16)
-			release := make(chan struct{})
-			var releaseOnce sync.Once
-			unblock := func() { releaseOnce.Do(func() { close(release) }) }
-			defer unblock()
-			h := harness(t, 3, Options{Emit: func(binding media.Binding, _ string, _ any) {
-				if block.Load() {
-					select {
-					case entered <- binding.ConnectionID:
-					default:
+		t.Run(action, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+			@parameters:
+			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+			*/func(t *testing.T) {
+				var block atomic.Bool
+				entered := make(chan string, 16)
+				release := make(chan struct{})
+				var releaseOnce sync.Once
+				// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+				//
+				unblock := func() {
+					releaseOnce.Do( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+						 */func() { close(release) })
+				}
+				defer unblock()
+				h := harness(t, 3, Options{Emit: /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+				@parameters:
+				  - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
+				  - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+				  - _ (any): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+				*/func(binding media.Binding, _ string, _ any) {
+					if block.Load() {
+						select {
+						case entered <- binding.ConnectionID:
+						default:
+						}
+						<-release
 					}
-					<-release
+				}})
+				conference := uuid.NewString()
+				clients := []*testPeer{h.join(t, conference, ""), h.join(t, conference, ""), h.join(t, conference, "")}
+				eventually(t, h, "three media endpoints ready", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 6 && h.manager.Snapshot().Subscriptions == 12 })
+				serverPeers := make([]*peer, 0, 3)
+				for _, client := range clients {
+					p, _ := h.manager.get(client.id)
+					serverPeers = append(serverPeers, p)
 				}
-			}})
-			conference := uuid.NewString()
-			clients := []*testPeer{h.join(t, conference, ""), h.join(t, conference, ""), h.join(t, conference, "")}
-			eventually(t, h, "three media endpoints ready", func() bool { return h.manager.Snapshot().Tracks == 6 && h.manager.Snapshot().Subscriptions == 12 })
-			serverPeers := make([]*peer, 0, 3)
-			for _, client := range clients {
-				p, _ := h.manager.get(client.id)
-				serverPeers = append(serverPeers, p)
-			}
-			block.Store(true)
-			for _, p := range serverPeers {
-				p.emit("media.state", map[string]string{"mediaPeerId": p.id, "state": "connected"})
-			}
-			waiting := map[string]bool{}
-			deadline := time.After(2 * time.Second)
-			for len(waiting) < 3 {
-				select {
-				case id := <-entered:
-					waiting[id] = true
-				case <-deadline:
-					t.Fatal("event workers did not block")
-				}
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
-			var err error
-			if action == "conference" {
-				err = h.manager.CloseConference(ctx, conference)
-			} else {
-				err = h.manager.Shutdown(ctx)
-			}
-			cancel()
-			if !errors.Is(err, context.DeadlineExceeded) {
-				t.Fatalf("cleanup wait ignored context: %v", err)
-			}
-			if len(h.manager.Bindings()) != 0 {
-				t.Fatal("batch close retained authorized bindings")
-			}
-			for _, p := range serverPeers {
-				if p.ctx.Err() == nil {
-					t.Fatal("peer forwarding was not fenced immediately")
-				}
-			}
-			eventually(t, h, "every transport closed while emit blocked", func() bool {
+				block.Store(true)
 				for _, p := range serverPeers {
-					if p.pc.ConnectionState() != pion.PeerConnectionStateClosed {
-						return false
+					p.emit("media.state", map[string]string{"mediaPeerId": p.id, "state": "connected"})
+				}
+				waiting := map[string]bool{}
+				deadline := time.After(2 * time.Second)
+				for len(waiting) < 3 {
+					select {
+					case id := <-entered:
+						waiting[id] = true
+					case <-deadline:
+						t.Fatal("event workers did not block")
 					}
 				}
-				return true
-			})
-			packets := h.manager.Snapshot().Packets
-			time.Sleep(50 * time.Millisecond)
-			if h.manager.Snapshot().Packets != packets {
-				t.Fatal("media kept forwarding behind blocked event workers")
-			}
-			if action == "conference" {
-				binding := media.Binding{ConferenceID: conference, ParticipantID: uuid.NewString(), SessionID: uuid.NewString(), ConnectionID: uuid.NewString()}
-				if _, err = h.manager.Join(context.Background(), binding); !errors.Is(err, media.ErrUnavailable) {
-					t.Fatalf("join entered closing conference: %v", err)
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+				var err error
+				if action == "conference" {
+					err = h.manager.CloseConference(ctx, conference)
+				} else {
+					err = h.manager.Shutdown(ctx)
 				}
-			}
-			unblock()
-			ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			if err = h.manager.Shutdown(ctx); err != nil {
-				t.Fatal(err)
-			}
-		})
+				cancel()
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Fatalf("cleanup wait ignored context: %v", err)
+				}
+				if len(h.manager.Bindings()) != 0 {
+					t.Fatal("batch close retained authorized bindings")
+				}
+				for _, p := range serverPeers {
+					if p.ctx.Err() == nil {
+						t.Fatal("peer forwarding was not fenced immediately")
+					}
+				}
+				eventually(t, h, "every transport closed while emit blocked", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+					@return:
+					  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool {
+						for _, p := range serverPeers {
+							if p.pc.ConnectionState() != pion.PeerConnectionStateClosed {
+								return false
+							}
+						}
+						return true
+					})
+				packets := h.manager.Snapshot().Packets
+				time.Sleep(50 * time.Millisecond)
+				if h.manager.Snapshot().Packets != packets {
+					t.Fatal("media kept forwarding behind blocked event workers")
+				}
+				if action == "conference" {
+					binding := media.Binding{ConferenceID: conference, ParticipantID: uuid.NewString(), SessionID: uuid.NewString(), ConnectionID: uuid.NewString()}
+					if _, err = h.manager.Join(context.Background(), binding); !errors.Is(err, media.ErrUnavailable) {
+						t.Fatalf("join entered closing conference: %v", err)
+					}
+				}
+				unblock()
+				ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				if err = h.manager.Shutdown(ctx); err != nil {
+					t.Fatal(err)
+				}
+			})
 	}
 }
 
+// TestAnswerAppliedBarrierAndLateSubscriptionSnapshot проверяет сценарий «SDP-ответ Applied Barrier и Late Subscription Snapshot», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAnswerAppliedBarrierAndLateSubscriptionSnapshot(t *testing.T) {
 	h := harness(t, 5)
 	conf := uuid.NewString()
 	a, b := h.join(t, conf, ""), h.join(t, conf, "")
-	eventually(t, h, "initial media ready", func() bool { b.mu.Lock(); defer b.mu.Unlock(); return len(b.received) == 2 })
+	eventually(t, h, "initial media ready", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { b.mu.Lock(); defer b.mu.Unlock(); return len(b.received) == 2 })
 	b.neg.Lock()
 	locked := true
-	defer func() {
+	defer /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		if locked {
 			b.neg.Unlock()
 		}
@@ -875,7 +1148,11 @@ func TestAnswerAppliedBarrierAndLateSubscriptionSnapshot(t *testing.T) {
 	// C publishes only AFTER B's answer snapshot. Ready for that answer must
 	// activate A's streams, never C's unadvertised SSRCs.
 	c := h.join(t, conf, "")
-	eventually(t, h, "late publisher registered", func() bool { return h.manager.Snapshot().Tracks == 6 && h.manager.Snapshot().Subscriptions == 12 })
+	eventually(t, h, "late publisher registered", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 6 && h.manager.Snapshot().Subscriptions == 12 })
 	if err = b.pc.SetRemoteDescription(answer); err != nil {
 		t.Fatal(err)
 	}
@@ -911,26 +1188,40 @@ func TestAnswerAppliedBarrierAndLateSubscriptionSnapshot(t *testing.T) {
 	b.mu.Unlock()
 	b.neg.Unlock()
 	locked = false
-	eventually(t, h, "new answer and Ready activates late tracks", func() bool {
-		b.mu.Lock()
-		defer b.mu.Unlock()
-		for _, id := range lateIDs {
-			if _, exists := b.received[id]; !exists {
-				return false
+	eventually(t, h, "new answer and Ready activates late tracks", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool {
+			b.mu.Lock()
+			defer b.mu.Unlock()
+			for _, id := range lateIDs {
+				if _, exists := b.received[id]; !exists {
+					return false
+				}
 			}
-		}
-		return true
-	})
+			return true
+		})
 	a.close()
 	b.close()
 	c.close()
 }
 
+// TestMissingReadyExpiresEvenConnectedPeer проверяет сценарий «отсутствующий готовность Expires Even Connected Peer», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMissingReadyExpiresEvenConnectedPeer(t *testing.T) {
 	h := harness(t, 3, Options{NegotiationTimeout: time.Second})
 	a, b := h.join(t, uuid.NewString(), ""), (*testPeer)(nil)
 	b = h.join(t, a.binding.ConferenceID, "")
-	eventually(t, h, "connected recipient", func() bool { return b.pc.ConnectionState() == pion.PeerConnectionStateConnected })
+	eventually(t, h, "connected recipient", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return b.pc.ConnectionState() == pion.PeerConnectionStateConnected })
 	b.neg.Lock()
 	defer b.neg.Unlock()
 	offer, err := b.pc.CreateOffer(nil)
@@ -943,38 +1234,60 @@ func TestMissingReadyExpiresEvenConnectedPeer(t *testing.T) {
 	if _, err = h.manager.Offer(context.Background(), b.id, uuid.NewString(), offer.SDP); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, h, "missing Ready cleanup", func() bool { _, exists := h.manager.PeerBinding(b.id); return !exists })
+	eventually(t, h, "missing Ready cleanup", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { _, exists := h.manager.PeerBinding(b.id); return !exists })
 	b.cancel()
 }
 
+// TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs проверяет сценарий «Undersized Receive SDP-предложение только Activates Declared SSR Cs», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs(t *testing.T) {
 	h := harness(t, 5)
 	conf := uuid.NewString()
 	a, c := h.join(t, conf, ""), h.join(t, conf, "")
-	eventually(t, h, "existing publishers", func() bool { return h.manager.Snapshot().Tracks == 4 })
+	eventually(t, h, "existing publishers", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 })
 	// Only two sendrecv publishing m-lines: there are no extra receive slots
 	// to declare all four A/C publications in B's first answer.
 	b := h.joinSlots(t, conf, "", 0)
-	eventually(t, h, "all desired subscriptions registered", func() bool { return h.manager.Snapshot().Subscriptions == 12 })
+	eventually(t, h, "all desired subscriptions registered", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Subscriptions == 12 })
 	server, _ := h.manager.get(b.id)
 	var omitted *subscription
-	eventually(t, h, "undersized answer snapshot acknowledged", func() bool {
-		server.mu.Lock()
-		defer server.mu.Unlock()
-		if !server.ready.Load() {
-			return false
-		}
-		active, inactive := 0, 0
-		for _, sub := range server.subscriptions {
-			if sub.ready.Load() {
-				active++
-			} else {
-				inactive++
-				omitted = sub
+	eventually(t, h, "undersized answer snapshot acknowledged", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool {
+			server.mu.Lock()
+			defer server.mu.Unlock()
+			if !server.ready.Load() {
+				return false
 			}
-		}
-		return active == 2 && inactive == 2
-	})
+			active, inactive := 0, 0
+			for _, sub := range server.subscriptions {
+				if sub.ready.Load() {
+					active++
+				} else {
+					inactive++
+					omitted = sub
+				}
+			}
+			return active == 2 && inactive == 2
+		})
 	for _, p := range []*testPeer{a, b, c} {
 		p.publishingPaused.Store(true)
 	}
@@ -1011,12 +1324,21 @@ func TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs(t *testing.T) {
 	for _, p := range []*testPeer{a, b, c} {
 		p.publishingPaused.Store(false)
 	}
-	eventually(t, h, "expanded receive slots deliver existing media", func() bool { b.mu.Lock(); defer b.mu.Unlock(); return len(b.received) == 4 })
+	eventually(t, h, "expanded receive slots deliver existing media", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { b.mu.Lock(); defer b.mu.Unlock(); return len(b.received) == 4 })
 	a.close()
 	b.close()
 	c.close()
 }
 
+// TestAnsweredSSRCsExcludesInactiveRejectedAndRepair проверяет сценарий «Answered SSR Cs Excludes Inactive отклонённый и Repair», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAnsweredSSRCsExcludesInactiveRejectedAndRepair(t *testing.T) {
 	raw := "v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n" +
 		"m=video 9 UDP/TLS/RTP/SAVPF 96\r\na=sendonly\r\na=ssrc:100 cname:camera\r\na=ssrc:101 cname:camera\r\na=ssrc-group:FID 100 101\r\n" +

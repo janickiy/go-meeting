@@ -13,20 +13,28 @@ import (
 	"time"
 
 	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/operations"
 )
 
 const defaultTimeout = 10 * time.Minute
 
-// Client выполняет внутренние HTTP-запросы из API в recorder-worker.
+// Client объединяет настройки и соединения клиента соответствующего внешнего сервиса.
+//   - baseURL: значение baseURL типа string, используемое согласно назначению этой операции.
+//   - client: клиент внешнего сервиса или транспорта компонента.
 type Client struct {
 	baseURL string
 	client  *http.Client
+	secret  string
 }
 
+// SetSecret защищает внутренние команды recorder-worker. secret — отдельный
+// серверный ключ; возвращает клиент для связывания при запуске, до запросов.
+func (c *Client) SetSecret(secret string) *Client { c.secret = secret; return c }
+
 // NewClient создает HTTP-клиент recorder-worker.
-// Параметры:
+// @parameters:
 // - baseURL: внутренний URL worker-а, например http://worker:8090.
-// Возвращает: Client.
+// @return Client.
 func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
@@ -35,11 +43,11 @@ func NewClient(baseURL string) *Client {
 }
 
 // StartRecord просит worker подготовить WebRTC ingest для записи.
-// Параметры:
+// @parameters:
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - segmentDurationSec: длительность сегмента в секундах.
-// Возвращает: ошибку внутреннего HTTP-вызова.
+// @return ошибку внутреннего HTTP-вызова.
 func (c *Client) StartRecord(ctx context.Context, recordID string, segmentDurationSec int) error {
 	return c.sendCommand(ctx, recordID, "start", records.Command{
 		Type:               "record.start",
@@ -49,11 +57,11 @@ func (c *Client) StartRecord(ctx context.Context, recordID string, segmentDurati
 }
 
 // StopRecord просит worker остановить запись и выполнить финализацию.
-// Параметры:
+// @parameters:
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - reason: причина остановки.
-// Возвращает: ошибку внутреннего HTTP-вызова.
+// @return ошибку внутреннего HTTP-вызова.
 func (c *Client) StopRecord(ctx context.Context, recordID string, reason string) error {
 	return c.sendCommand(ctx, recordID, "stop", records.Command{
 		Type:     "record.stop",
@@ -63,11 +71,11 @@ func (c *Client) StopRecord(ctx context.Context, recordID string, reason string)
 }
 
 // Offer отправляет browser SDP offer во worker и возвращает SDP answer.
-// Параметры:
+// @parameters:
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - request: SDP offer браузера.
-// Возвращает: SDP answer или ошибку signaling.
+// @return SDP answer или ошибку signaling.
 func (c *Client) Offer(ctx context.Context, recordID string, request records.WebRTCOfferRequest) (records.WebRTCAnswerResponse, error) {
 	var response records.WebRTCAnswerResponse
 	if err := c.postJSON(ctx, c.recordEndpoint(recordID, "webrtc/offer"), request, &response); err != nil {
@@ -77,14 +85,42 @@ func (c *Client) Offer(ctx context.Context, recordID string, request records.Web
 	return response, nil
 }
 
+// sendCommand отправляет сериализованную команду управления записью.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - recordID (string): внешний UUID задачи записи.
+//   - action (string): действие управления, которое необходимо проверить или исполнить.
+//   - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) sendCommand(ctx context.Context, recordID string, action string, command records.Command) error {
 	return c.postJSON(ctx, c.recordEndpoint(recordID, action), command, nil)
 }
 
+// recordEndpoint строит адрес маршрута воркера для конкретной записи.
+//
+// @parameters:
+//   - recordID (string): внешний UUID задачи записи.
+//   - action (string): действие управления, которое необходимо проверить или исполнить.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func (c *Client) recordEndpoint(recordID string, action string) string {
 	return fmt.Sprintf("%s/records/%s/%s", c.baseURL, neturl.PathEscape(recordID), action)
 }
 
+// postJSON выполняет HTTP POST с JSON и обрабатывает результат внутреннего вызова.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - endpoint (string): адрес конечной точки вызываемого сервиса.
+//   - payload (any): типизированная нагрузка события или ссылочные сведения уведомления.
+//   - target (any): целевой объект, участник или состояние операции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) postJSON(ctx context.Context, endpoint string, payload any, target any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -95,6 +131,12 @@ func (c *Client) postJSON(ctx context.Context, endpoint string, payload any, tar
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.secret != "" {
+		req.Header.Set("Authorization", "Bearer "+c.secret)
+	}
+	if id := operations.ID(ctx); id != "" {
+		req.Header.Set("X-Request-ID", id)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -102,7 +144,7 @@ func (c *Client) postJSON(ctx context.Context, endpoint string, payload any, tar
 	}
 	defer resp.Body.Close()
 
-	responseBody, err := io.ReadAll(resp.Body)
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return err
 	}

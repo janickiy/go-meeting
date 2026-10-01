@@ -20,8 +20,11 @@ import (
 	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
 )
 
-// This opt-in browser test never uses or deletes the user's application data.
-// stageOneDatabase creates a random database and drops only that database on cleanup.
+// TestFrontendPostgres проверяет сценарий «интерфейс Postgres», фиксируя ошибки поведения как регрессию.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFrontendPostgres(t *testing.T) {
 	if os.Getenv("RECORDER_FRONTEND_E2E") != "true" {
 		t.Skip("set RECORDER_FRONTEND_E2E=true and RECORDER_STAGE1_TEST_POSTGRES_DSN to enable")

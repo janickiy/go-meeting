@@ -15,6 +15,12 @@ import { Brand } from "./ui";
 import { NotificationBell } from "./NotificationBell";
 import { useNotificationStream } from "../notifications";
 
+/**
+ * Layout собирает основную навигацию, учётную запись и личные уведомления авторизованного приложения.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function Layout() {
   const { user, logout } = useAuth();
   useNotificationStream(user?.id);
@@ -23,49 +29,77 @@ export function Layout() {
   const [leaving, setLeaving] = useState(false);
   const sidebar = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const desktop = window.matchMedia("(min-width: 761px)");
-    if (desktop.matches) {
-      setOpen(false);
-      return;
-    }
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    sidebar.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    const resize = () => {
-      if (desktop.matches) setOpen(false);
-    };
-    function key(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      if (!open) return;
+      const desktop = window.matchMedia("(min-width: 761px)");
+      if (desktop.matches) {
         setOpen(false);
+        return;
       }
-      if (event.key !== "Tab") return;
-      const items = Array.from(
-        sidebar.current?.querySelectorAll<HTMLElement>(
-          "a[href], button:not(:disabled)",
-        ) || [],
-      );
-      const first = items[0];
-      const last = items.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
+      const overflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      sidebar.current?.querySelector<HTMLButtonElement>("button")?.focus();
+      /**
+       * resize обновляет адаптивную навигацию при изменении ширины окна.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      const resize = () => {
+        if (desktop.matches) setOpen(false);
+      };
+      /**
+       * key обрабатывает клавиатурное действие интерфейса.
+       *
+       * @parameters:
+       *   - event (KeyboardEvent) — проверенный конверт события комнаты.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      function key(event: KeyboardEvent) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setOpen(false);
+        }
+        if (event.key !== "Tab") return;
+        const items = Array.from(
+          sidebar.current?.querySelectorAll<HTMLElement>(
+            "a[href], button:not(:disabled)",
+          ) || [],
+        );
+        const first = items[0];
+        const last = items.at(-1);
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
       }
-    }
-    desktop.addEventListener("change", resize);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.body.style.overflow = overflow;
-      desktop.removeEventListener("change", resize);
-      document.removeEventListener("keydown", key);
-      menuButton.current?.focus();
-    };
-  }, [open]);
+      desktop.addEventListener("change", resize);
+      document.addEventListener("keydown", key);
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      return () => {
+        document.body.style.overflow = overflow;
+        desktop.removeEventListener("change", resize);
+        document.removeEventListener("keydown", key);
+        menuButton.current?.focus();
+      };
+    },
+    [open],
+  );
   return (
     <div className="app-shell">
       <aside
@@ -80,7 +114,14 @@ export function Layout() {
           <button
             className="icon-button mobile-only"
             aria-label="Закрыть меню"
-            onClick={() => setOpen(false)}
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns вычисленное значение: setOpen(false).
+               */ () => setOpen(false)
+            }
           >
             <X />
           </button>
@@ -95,20 +136,44 @@ export function Layout() {
             },
             { to: "/app/recordings", label: "Записи", Icon: Clapperboard },
             { to: "/app/settings", label: "Настройки", Icon: Settings },
-          ].map(({ to, label, Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                isActive ? "nav-item nav-active" : "nav-item"
-              }
-            >
-              <Icon size={19} />
-              {label}
-            </NavLink>
-          ))}
+          ].map(
+            /**
+             * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+             *
+             * @parameters:
+             *   - объект параметров: to — верхняя граница фильтра либо локальный путь согласно типу; label — свойство текущего компонента; Icon — свойство текущего компонента; end — свойство текущего компонента.
+             *
+             * @returns преобразованное значение текущего элемента для результирующего набора.
+             */ ({ to, label, Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: setOpen(false).
+                   */ () => setOpen(false)
+                }
+                className={
+                  /**
+                   * className выбирает оформление ссылки по её активности.
+                   *
+                   * @parameters:
+                   *   - объект параметров: isActive — свойство текущего компонента.
+                   *
+                   * @returns вычисленное значение: isActive ? "nav-item nav-active" : "nav-item".
+                   */ ({ isActive }) =>
+                    isActive ? "nav-item nav-active" : "nav-item"
+                }
+              >
+                <Icon size={19} />
+                {label}
+              </NavLink>
+            ),
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="profile">
@@ -123,15 +188,36 @@ export function Layout() {
           <button
             className="logout-button"
             disabled={leaving}
-            onClick={() => {
-              setLeaving(true);
-              void logout()
-                .catch(() => {})
-                .finally(() => {
-                  setLeaving(false);
-                  navigate("/login", { replace: true });
-                });
-            }}
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ () => {
+                setLeaving(true);
+                void logout()
+                  .catch(
+                    /**
+                     * Обработчик catch выполняет переданный шаг вызова catch в интерфейсе Meet.
+                     *
+                     *
+                     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                     */ () => {},
+                  )
+                  .finally(
+                    /**
+                     * Обработчик finally выполняет переданный шаг вызова finally в интерфейсе Meet.
+                     *
+                     *
+                     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                     */ () => {
+                      setLeaving(false);
+                      navigate("/login", { replace: true });
+                    },
+                  );
+              }
+            }
           >
             <LogOut size={16} />
             {leaving ? "Выходим…" : "Выйти из аккаунта"}
@@ -142,7 +228,14 @@ export function Layout() {
         <button
           className="sidebar-shade"
           aria-label="Скрыть меню"
-          onClick={() => setOpen(false)}
+          onClick={
+            /**
+             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             *
+             * @returns вычисленное значение: setOpen(false).
+             */ () => setOpen(false)
+          }
         />
       )}
       <div className="workspace" inert={open}>
@@ -151,7 +244,14 @@ export function Layout() {
             className="icon-button mobile-only"
             aria-label="Открыть меню"
             ref={menuButton}
-            onClick={() => setOpen(true)}
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns вычисленное значение: setOpen(true).
+               */ () => setOpen(true)
+            }
           >
             <Menu />
           </button>

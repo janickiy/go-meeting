@@ -18,17 +18,39 @@ import (
 	s3 "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
 )
 
+// manifest перечисляет точные идентификаторы тестовых данных для ограниченной адресной очистки.
+// Состав:
+//   - RunID: идентификатор связанного ресурса, заданного параметром RunID.
+//   - ConferenceID: идентификатор конференции, ограничивающий область операции.
+//   - UserIDs: идентификаторы связанных ресурсов для пакетной операции.
 type manifest struct {
 	RunID        string   `json:"runId"`
 	ConferenceID string   `json:"conferenceId"`
 	UserIDs      []string `json:"userIds"`
 }
 
+// canonical проверяет канонический ненулевой UUID перед адресной очисткой тестовых данных.
+//
+// @parameters:
+//   - value (string): значение для проверки, нормализации или преобразования.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func canonical(value string) bool {
 	id, err := uuid.Parse(value)
 	return err == nil && id != uuid.Nil && id.String() == value
 }
 
+// sql выполняет SQL через локальное окружение тестовой очистки и возвращает результат.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - query (string): параметры выборки либо SQL-текст выполняемого запроса.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func sql(ctx context.Context, query string) (string, error) {
 	command := exec.CommandContext(ctx, "docker", "compose", "exec", "-T", "postgres", "sh", "-c", `exec psql -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"`)
 	command.Stdin = strings.NewReader(query)
@@ -39,6 +61,10 @@ func sql(ctx context.Context, query string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// run проверяет точный манифест и адресно удаляет только созданные тестом SQL-данные и приватные артефакты.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func run() error {
 	if len(os.Args) != 2 {
 		return fmt.Errorf("usage: stage_four_smoke_cleanup /absolute/cleanup.json")
@@ -163,6 +189,7 @@ func run() error {
 	return nil
 }
 
+// main запускает исполняемый компонент, собирает зависимости и обрабатывает завершение процесса.
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

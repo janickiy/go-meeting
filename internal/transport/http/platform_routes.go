@@ -7,6 +7,13 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/conferences"
 )
 
+// RegisterPlatformRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
+//
+// @parameters:
+//   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
+//   - auth (*authapp.Handler): значение auth типа *authapp.Handler, используемое согласно назначению этой операции.
+//   - conference (*conferencesapp.Handler): конференция либо её идентификатор, ограничивающий область операции.
+//   - authentication (gin.HandlerFunc): значение authentication типа gin.HandlerFunc, используемое согласно назначению этой операции.
 func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conference *conferencesapp.Handler, authentication gin.HandlerFunc) {
 	public := router.Group(APIV1Prefix + "/auth")
 	public.POST("/register", auth.Register)
@@ -37,6 +44,12 @@ func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conferenc
 	invites.POST("/:code/join", conference.JoinInvite)
 }
 
+// RegisterControlRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
+//
+// @parameters:
+//   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
+//   - handler (*conferencesapp.ControlHandler): обработчик вызываемой команды или маршрута.
+//   - authentication (gin.HandlerFunc): значение authentication типа gin.HandlerFunc, используемое согласно назначению этой операции.
 func RegisterControlRoutes(router gin.IRouter, handler *conferencesapp.ControlHandler, authentication gin.HandlerFunc) {
 	routes := router.Group(APIV1Prefix+"/conferences", authentication)
 	routes.PUT("/:id/participants/me/media", handler.Media)

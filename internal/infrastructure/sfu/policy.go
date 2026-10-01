@@ -6,8 +6,17 @@ import (
 	"sync"
 )
 
-// SetPolicy is called only by the authenticated service boundary. A persisted
-// monotonically increasing version prevents delayed joins/offers undoing mute.
+// SetPolicy применяет версионную политику медиа; устаревшее изменение не должно отменять более новую модерацию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - participantID (string): идентификатор членства участника внутри конференции.
+//   - policy (media.ParticipantPolicy): актуальные ограничения медиа и версия модерации участника.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (m *Manager) SetPolicy(ctx context.Context, conferenceID, participantID string, policy media.ParticipantPolicy) error {
 	if policy.Version < 0 {
 		return media.ErrInvalid
@@ -76,11 +85,17 @@ func (m *Manager) SetPolicy(ctx context.Context, conferenceID, participantID str
 		}
 		m.mu.Unlock()
 		done := make(chan struct{})
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
+
+		 */func() {
 			var workers sync.WaitGroup
 			for _, p := range detached {
 				workers.Add(1)
-				go func(p *peer) { defer workers.Done(); m.finishDetached(p) }(p)
+				go /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
+
+				@parameters:
+				  - p (*peer): байты, переданные по контракту io.Writer.
+				*/func(p *peer) { defer workers.Done(); m.finishDetached(p) }(p)
 			}
 			workers.Wait()
 			close(done)
@@ -90,6 +105,16 @@ func (m *Manager) SetPolicy(ctx context.Context, conferenceID, participantID str
 	return nil
 }
 
+// ParticipantPolicy возвращает актуальную политику конкретного участника для проверки медиа.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - participantID (string): идентификатор членства участника внутри конференции.
+//
+// @return:
+//   - результат 1 (media.ParticipantPolicy): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (bool): признак выполнения проверяемого условия или изменения состояния.
 func (m *Manager) ParticipantPolicy(conferenceID, participantID string) (media.ParticipantPolicy, bool) {
 	m.mu.Lock()
 	r := m.rooms[conferenceID]
@@ -102,6 +127,14 @@ func (m *Manager) ParticipantPolicy(conferenceID, participantID string) (media.P
 	return r.policies[participantID], true
 }
 
+// reserveSources резервирует источники участника с учётом политики и ограничений комнаты.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - sources (map[string]media.Source): набор источников медиа для публикации или композиции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *peer) reserveSources(sources map[string]media.Source) error {
 	p.room.mu.Lock()
 	defer p.room.mu.Unlock()

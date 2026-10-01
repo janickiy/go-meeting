@@ -41,26 +41,27 @@ local remaining = limit - count - 1
 return {1, remaining, 0, math.floor((now_ms + window_ms) / 1000)}
 `)
 
-// RateLimiter проверяет лимиты HTTP-запросов через Redis sliding window.
+// RateLimiter применяет Redis-ограничения частоты независимо для разных видов операций.
+//   - client: клиент внешнего сервиса или транспорта компонента.
 type RateLimiter struct {
 	client *goredis.Client
 }
 
 // NewRateLimiter создает Redis rate limiter.
-// Параметры:
+// @parameters:
 // - client: Redis client.
-// Возвращает: RateLimiter.
+// @return RateLimiter.
 func NewRateLimiter(client *goredis.Client) *RateLimiter {
 	return &RateLimiter{client: client}
 }
 
 // Allow проверяет, можно ли выполнить запрос по ключу лимита.
-// Параметры:
+// @parameters:
 // - ctx: контекст операции.
 // - key: Redis key лимита.
 // - limit: максимум запросов за окно.
 // - window: длительность окна.
-// Возвращает: результат проверки или ошибку Redis.
+// @return результат проверки или ошибку Redis.
 func (l *RateLimiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (ratelimit.Result, error) {
 	if l == nil || l.client == nil || limit <= 0 {
 		return ratelimit.Result{Allowed: true, Limit: limit}, nil
@@ -106,6 +107,14 @@ func (l *RateLimiter) Allow(ctx context.Context, key string, limit int, window t
 	}, nil
 }
 
+// redisInt приводит числовой ответ Redis к ожидаемому целочисленному виду.
+//
+// @parameters:
+//   - value (interface{}): значение для проверки, нормализации или преобразования.
+//
+// @return:
+//   - результат 1 (int64): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func redisInt(value interface{}) (int64, error) {
 	switch typed := value.(type) {
 	case int:

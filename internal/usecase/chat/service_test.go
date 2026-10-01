@@ -9,6 +9,10 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/chat"
 )
 
+// TestValidateAttachmentBytesNotBrowserMIME проверяет сценарий «Validate вложение байты не браузер MIME», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestValidateAttachmentBytesNotBrowserMIME(t *testing.T) {
 	for _, sample := range []struct {
 		mime string

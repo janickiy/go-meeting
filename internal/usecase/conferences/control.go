@@ -13,28 +13,121 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
+// ControlRepository задаёт контракт зависимого компонента ControlRepository в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+//   - Moderate: операция Moderate с контрактом, описанным у метода.
+//   - UpdateMediaState: операция обновление медиа состояние с контрактом, описанным у метода.
+//   - ReconcileParticipants: операция согласование Participants с контрактом, описанным у метода.
 type ControlRepository interface {
+	// Moderate применяет действие модерации с проверкой роли инициатора и ограничений целевого участника.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
+	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
+	//   - аргумент 4 (string): идентификатор членства участника внутри конференции.
+	//   - аргумент 5 (domain.ModerationRequest): входные параметры соответствующего прикладного запроса.
+	//
+	// @return:
+	//   - результат 1 (domain.Participant): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Moderate(context.Context, string, string, string, domain.ModerationRequest) (domain.Participant, error)
+	// UpdateMediaState сохраняет заявленное состояние источников медиа участника.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
+	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
+	//   - аргумент 4 (domain.MediaState): значение state типа domain.MediaState, используемое согласно назначению этой операции.
+	//
+	// @return:
+	//   - результат 1 (domain.Participant): значение, подготовленное операцией для вызывающей стороны.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	UpdateMediaState(context.Context, string, string, domain.MediaState) (domain.Participant, error)
+	// ReconcileParticipants выбирает участников, чью сохранённую политику необходимо повторно применить к медиа.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): значение after типа string, используемое согласно назначению этой операции.
+	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
+	//
+	// @return:
+	//   - результат 1 ([]domain.Participant): собранные элементы результата; состав ограничивается параметрами операции.
+	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	ReconcileParticipants(context.Context, string, int) ([]domain.Participant, error)
 }
+
+// PolicyController задаёт контракт зависимого компонента PolicyController в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+//   - SetParticipantPolicy: операция изменение участник политика с контрактом, описанным у метода.
 type PolicyController interface {
+	// SetParticipantPolicy передаёт актуальную политику участника владельцу медиа-комнаты.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
+	//   - аргумент 3 (string): идентификатор членства участника внутри конференции.
+	//   - аргумент 4 (media.ParticipantPolicy): актуальные ограничения медиа и версия модерации участника.
+	//
+	// @return:
+	//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	SetParticipantPolicy(context.Context, string, string, media.ParticipantPolicy) error
 }
+
+// ControlEvents задаёт контракт зависимого компонента ControlEvents в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+//   - Broadcast: операция Broadcast с контрактом, описанным у метода.
+//   - ConferenceChanged: операция конференция Changed с контрактом, описанным у метода.
 type ControlEvents interface {
+	// Broadcast публикует доверенное событие для разрешённых получателей конференции.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (realtime.Envelope): конверт входящего или публикуемого события.
+	//
+	// @return:
+	//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Broadcast(context.Context, realtime.Envelope) error
+	// ConferenceChanged уведомляет подключённые сессии о сохранённом изменении состояния конференции.
+	//
+	// @parameters:
+	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	ConferenceChanged(context.Context, string)
 }
+
+// ControlService координирует сохранение модерации и применение ограничений к живому медиа.
+//   - repo: хранилище постоянных данных прикладного сценария.
+//   - media: значение media типа PolicyController, используемое согласно назначению этой операции.
+//   - events: получатель или издатель событий прикладного сценария.
 type ControlService struct {
 	repo   ControlRepository
 	media  PolicyController
 	events ControlEvents
 }
 
+// NewControlService создаёт и связывает зависимости компонента ControlService, используемого в жизненном цикле конференций и правах участников.
+//
+// @parameters:
+//   - repo (ControlRepository): хранилище постоянных данных прикладного сценария.
+//   - controller (PolicyController): значение controller типа PolicyController, используемое согласно назначению этой операции.
+//   - events (ControlEvents): получатель или издатель событий прикладного сценария.
+//
+// @return:
+//   - результат 1 (*ControlService): созданный компонент с переданными зависимостями.
 func NewControlService(repo ControlRepository, controller PolicyController, events ControlEvents) *ControlService {
 	return &ControlService{repo: repo, media: controller, events: events}
 }
 
+// Moderate применяет действие модерации с проверкой роли инициатора и ограничений целевого участника.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - participantID (string): идентификатор членства участника внутри конференции.
+//   - request (domain.ModerationRequest): входные параметры соответствующего прикладного запроса.
+//
+// @return:
+//   - результат 1 (domain.ParticipantView): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *ControlService) Moderate(ctx context.Context, userID, conferenceID, participantID string, request domain.ModerationRequest) (domain.ParticipantView, error) {
 	p, err := s.repo.Moderate(ctx, conferenceID, userID, participantID, request)
 	if err != nil {
@@ -60,6 +153,17 @@ func (s *ControlService) Moderate(ctx context.Context, userID, conferenceID, par
 	return p.View(), nil
 }
 
+// UpdateMediaState сохраняет заявленное состояние источников медиа участника.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - state (domain.MediaState): значение state типа domain.MediaState, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (domain.ParticipantView): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *ControlService) UpdateMediaState(ctx context.Context, userID, conferenceID string, state domain.MediaState) (domain.ParticipantView, error) {
 	p, err := s.repo.UpdateMediaState(ctx, conferenceID, userID, state)
 	if err != nil {
@@ -71,7 +175,11 @@ func (s *ControlService) UpdateMediaState(ctx context.Context, userID, conferenc
 	return p.View(), nil
 }
 
-// Wire after session closure in Hub.Unregister, alongside media cleanup.
+// Disconnected обрабатывает закрытие физического соединения и запускает связанное освобождение ресурсов.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - session (realtime.Session): историческая физическая сессия или состояние текущего соединения.
 func (s *ControlService) Disconnected(ctx context.Context, session realtime.Session) {
 	repo, ok := s.repo.(interface {
 		ClearDisconnectedMedia(context.Context, string, string) (domain.Participant, bool, error)
@@ -85,12 +193,21 @@ func (s *ControlService) Disconnected(ctx context.Context, session realtime.Sess
 	}
 }
 
+// policy получает серверные ограничения медиа участника из сохранённой модели.
+//
+// @parameters:
+//   - p (domain.Participant): байты, переданные по контракту io.Writer.
+//
+// @return:
+//   - результат 1 (media.ParticipantPolicy): значение, подготовленное операцией для вызывающей стороны.
 func policy(p domain.Participant) media.ParticipantPolicy {
 	return media.ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: !p.CanParticipate()}
 }
 
-// Repairs a committed policy after a transient worker/Redis failure. Every API
-// instance may run this: worker policy versions make duplicate application safe.
+// Run выполняет основной цикл компонента до завершения работы или отмены контекста.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (s *ControlService) Run(ctx context.Context) {
 	if s.media == nil {
 		return
@@ -119,7 +236,9 @@ func (s *ControlService) Run(ctx context.Context) {
 		jobs := make(chan domain.Participant)
 		for range min(8, len(rows)) {
 			workers.Add(1)
-			go func() {
+			go /* Вложенный обработчик выполняет выделенный шаг обработки в жизненном цикле конференций и правах участников, используя состояние окружающей функции.
+
+			 */func() {
 				defer workers.Done()
 				for p := range jobs {
 					op, done := context.WithTimeout(ctx, 2*time.Second)

@@ -4,12 +4,26 @@ test.skip(
   !process.env.MEET_LIVE_TEST_URL,
   "Use the opt-in Go integration harness, which creates an isolated PostgreSQL database.",
 );
-test("real Go API: register, create, invite, join, leave, rejoin and finish", async ({
-  page,
-  browser,
-}, info) => {
+test("real Go API: register, create, invite, join, leave, rejoin and finish", /**
+ * Проверка: real Go API: register, create, invite, join, leave, rejoin and finish выполняет тестовый сценарий «real Go API: register, create, invite, join, leave, rejoin and finish» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: page — изолированная страница Playwright; browser — браузер Playwright с отдельными тестовыми контекстами.
+ *   - info — контекст запуска для диагностических вложений.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ page, browser }, info) => {
   const stamp = `${Date.now()}-${info.project.name}`;
   const password = "abcdefgh";
+  /**
+   * register отправляет данные регистрации с нормализацией необязательного отображаемого имени.
+   *
+   * @parameters:
+   *   - target (Page) — целевой браузерный объект или ресурс.
+   *   - name (string) — отображаемое имя пользователя для инициалов.
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   async function register(target: Page, name: string) {
     await target.goto("/register");
     await target

@@ -36,6 +36,12 @@ import {
   StatusBadge,
 } from "../components/ui";
 
+/**
+ * ConferencePage координирует сведения встречи, членство, единственный WebSocket, допуск, медиа, чат, запись и историю.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function ConferencePage() {
   const { id = "" } = useParams();
   const { user } = useAuth();
@@ -45,7 +51,17 @@ export function ConferencePage() {
   const membership = self.data || undefined;
   const admitted = isAdmitted(membership);
   const participants = useParticipants(id, admitted);
-  const people = participants.data?.pages.flatMap((page) => page.items) || [];
+  const people =
+    participants.data?.pages.flatMap(
+      /**
+       * Обработчик flatMap преобразует текущий элемент в данные или представление результирующего списка.
+       *
+       * @parameters:
+       *   - page — изолированная страница Playwright.
+       *
+       * @returns преобразованное значение текущего элемента для результирующего набора.
+       */ (page) => page.items,
+    ) || [];
   const closed = ["finished", "cancelled"].includes(
     query.data?.item.status || "",
   );
@@ -55,16 +71,52 @@ export function ConferencePage() {
   );
   const history = useQuery({
     queryKey: ["history", user?.id, id],
+    /**
+     * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
+     *
+     * @parameters:
+     *   - объект параметров: signal — сигнал отмены запроса или потока.
+     *
+     * @returns вычисленное значение: api.history(id, signal).
+     */
     queryFn: ({ signal }) => api.history(id, signal),
     enabled: admitted && closed,
   });
   const [confirm, setConfirm] = useState<"finish" | "cancel" | null>(null);
   const [editingSchedule, setEditingSchedule] = useState(false);
   const mutation = useMutation({
+    /**
+     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
+     *
+     * @parameters:
+     *   - action ("start" | "finish" | "cancel" | "join" | "leave") — разрешённое действие управления либо асинхронная операция.
+     *
+     * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+     */
     mutationFn: (action: "start" | "finish" | "cancel" | "join" | "leave") =>
       action === "join" || action === "leave"
-        ? api.membership(id, action).then(() => {})
-        : api.transition(id, action).then(() => {}),
+        ? api.membership(id, action).then(
+            /**
+             * Обработчик then выполняет переданный шаг вызова then в конференциях, расписании и истории.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ () => {},
+          )
+        : api.transition(id, action).then(
+            /**
+             * Обработчик then выполняет переданный шаг вызова then в конференциях, расписании и истории.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ () => {},
+          ),
+    /**
+     * onSettled обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+     *
+     *
+     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ["conference"] });
       void client.invalidateQueries({ queryKey: ["conferences"] });
@@ -72,9 +124,23 @@ export function ConferencePage() {
       void client.invalidateQueries({ queryKey: ["membership"] });
       void client.invalidateQueries({ queryKey: ["history"] });
     },
+    /**
+     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+     *
+     *
+     * @returns вычисленное значение: setConfirm(null).
+     */
     onSuccess: () => setConfirm(null),
   });
   const moderation = useMutation({
+    /**
+     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
+     *
+     * @parameters:
+     *   - объект параметров: participantId — идентификатор членства целевого участника; action — разрешённое действие управления либо асинхронная операция.
+     *
+     * @returns вычисленное значение: api.moderate(id, participantId, action).
+     */
     mutationFn: ({
       participantId,
       action,
@@ -82,6 +148,12 @@ export function ConferencePage() {
       participantId: string;
       action: ModerationAction;
     }) => api.moderate(id, participantId, action),
+    /**
+     * onSettled обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+     *
+     *
+     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+     */
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ["participants"] });
       void client.invalidateQueries({ queryKey: ["membership"] });
@@ -170,10 +242,16 @@ export function ConferencePage() {
                   variant={
                     membership?.status === "joined" ? "secondary" : "primary"
                   }
-                  onClick={() =>
-                    mutation.mutate(
-                      membership?.status === "joined" ? "leave" : "join",
-                    )
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: mutation.mutate( membership?.status === "joined" ? "leave" : "join", ).
+                     */ () =>
+                      mutation.mutate(
+                        membership?.status === "joined" ? "leave" : "join",
+                      )
                   }
                   disabled={self.isPending || self.isError}
                 >
@@ -195,7 +273,14 @@ export function ConferencePage() {
                 <Button
                   variant="outline"
                   busy={mutation.isPending}
-                  onClick={() => mutation.mutate("start")}
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: mutation.mutate("start").
+                     */ () => mutation.mutate("start")
+                  }
                 >
                   <Play size={17} />
                   Начать конференцию
@@ -203,7 +288,14 @@ export function ConferencePage() {
                 <Button
                   variant="secondary"
                   disabled={mutation.isPending}
-                  onClick={() => setConfirm("cancel")}
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: setConfirm("cancel").
+                     */ () => setConfirm("cancel")
+                  }
                 >
                   <X size={17} />
                   Отменить конференцию
@@ -211,7 +303,14 @@ export function ConferencePage() {
                 {conference.status === "scheduled" && (
                   <Button
                     variant="secondary"
-                    onClick={() => setEditingSchedule(true)}
+                    onClick={
+                      /**
+                       * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                       *
+                       *
+                       * @returns вычисленное значение: setEditingSchedule(true).
+                       */ () => setEditingSchedule(true)
+                    }
                     disabled={mutation.isPending}
                   >
                     Изменить расписание
@@ -223,7 +322,14 @@ export function ConferencePage() {
               <Button
                 variant="danger"
                 disabled={mutation.isPending}
-                onClick={() => setConfirm("finish")}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: setConfirm("finish").
+                   */ () => setConfirm("finish")
+                }
               >
                 <Square size={16} />
                 Завершить конференцию
@@ -388,139 +494,191 @@ export function ConferencePage() {
             <Loading />
           ) : (
             <div className="participant-list">
-              {people.map((person) => (
-                <div className="participant-row" key={person.id}>
-                  <span
-                    className={`avatar ${person.role === "owner" ? "avatar-owner" : ""}`}
-                  >
-                    {initials(person.displayName)}
-                  </span>
-                  {!closed &&
-                    membership?.status === "joined" &&
-                    person.id !== membership.id &&
-                    person.role !== "owner" &&
-                    isAdmitted(person) &&
-                    person.status !== "kicked" &&
-                    (membership.role === "owner" ||
-                      (membership.role === "co_host" &&
-                        person.role === "participant")) && (
-                      <div
-                        className="participant-controls"
-                        aria-label={`Управление: ${person.displayName}`}
-                      >
-                        {(
-                          [
-                            ["mute", "микрофон", !!person.microphoneBlocked],
-                            ["camera", "видео", !!person.cameraBlocked],
-                            ["screen", "экран", !!person.screenBlocked],
-                          ] as const
-                        )
-                          .filter(
-                            ([action]) =>
-                              action !== "camera" ||
-                              membership.role === "owner",
+              {people.map(
+                /**
+                 * Обработчик people.map преобразует один элемент набора в представление или данные следующего шага.
+                 *
+                 * @parameters:
+                 *   - person — целевое членство участника.
+                 *
+                 * @returns преобразованное значение текущего элемента для результирующего набора.
+                 */ (person) => (
+                  <div className="participant-row" key={person.id}>
+                    <span
+                      className={`avatar ${person.role === "owner" ? "avatar-owner" : ""}`}
+                    >
+                      {initials(person.displayName)}
+                    </span>
+                    {!closed &&
+                      membership?.status === "joined" &&
+                      person.id !== membership.id &&
+                      person.role !== "owner" &&
+                      isAdmitted(person) &&
+                      person.status !== "kicked" &&
+                      (membership.role === "owner" ||
+                        (membership.role === "co_host" &&
+                          person.role === "participant")) && (
+                        <div
+                          className="participant-controls"
+                          aria-label={`Управление: ${person.displayName}`}
+                        >
+                          {(
+                            [
+                              ["mute", "микрофон", !!person.microphoneBlocked],
+                              ["camera", "видео", !!person.cameraBlocked],
+                              ["screen", "экран", !!person.screenBlocked],
+                            ] as const
                           )
-                          .map(([action, label, blocked]) => (
+                            .filter(
+                              /**
+                               * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                               *
+                               * @parameters:
+                               *   - [action] — элементы записи набора, извлечённые по указанным позициям.
+                               *
+                               * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                               */
+                              ([action]) =>
+                                action !== "camera" ||
+                                membership.role === "owner",
+                            )
+                            .map(
+                              /**
+                               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+                               *
+                               * @parameters:
+                               *   - [action, label, blocked] — элементы записи набора, извлечённые по указанным позициям.
+                               *
+                               * @returns преобразованное значение текущего элемента для результирующего набора.
+                               */ ([action, label, blocked]) => (
+                                <Button
+                                  key={action}
+                                  variant="secondary"
+                                  disabled={moderation.isPending}
+                                  onClick={
+                                    /**
+                                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                                     *
+                                     *
+                                     * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+                                     */ () =>
+                                      moderation.mutate({
+                                        participantId: person.id,
+                                        action: { action, blocked: !blocked },
+                                      })
+                                  }
+                                >
+                                  {blocked ? "Разрешить" : "Отключить"} {label}
+                                </Button>
+                              ),
+                            )}
+                          {membership.role === "owner" && (
                             <Button
-                              key={action}
-                              variant="secondary"
+                              variant="outline"
                               disabled={moderation.isPending}
-                              onClick={() =>
-                                moderation.mutate({
-                                  participantId: person.id,
-                                  action: { action, blocked: !blocked },
-                                })
+                              onClick={
+                                /**
+                                 * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                                 *
+                                 *
+                                 * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+                                 */ () =>
+                                  moderation.mutate({
+                                    participantId: person.id,
+                                    action: {
+                                      action: "role",
+                                      role:
+                                        person.role === "co_host"
+                                          ? "participant"
+                                          : "co_host",
+                                    },
+                                  })
                               }
                             >
-                              {blocked ? "Разрешить" : "Отключить"} {label}
+                              {person.role === "co_host"
+                                ? "Убрать соорганизатора"
+                                : "Назначить соорганизатором"}
                             </Button>
-                          ))}
-                        {membership.role === "owner" && (
+                          )}
                           <Button
-                            variant="outline"
+                            variant="danger"
                             disabled={moderation.isPending}
-                            onClick={() =>
-                              moderation.mutate({
-                                participantId: person.id,
-                                action: {
-                                  action: "role",
-                                  role:
-                                    person.role === "co_host"
-                                      ? "participant"
-                                      : "co_host",
-                                },
-                              })
+                            onClick={
+                              /**
+                               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                               *
+                               *
+                               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                               */ () => {
+                                if (
+                                  window.confirm(
+                                    `Исключить ${person.displayName}? Повторное присоединение будет запрещено.`,
+                                  )
+                                )
+                                  moderation.mutate({
+                                    participantId: person.id,
+                                    action: { action: "kick" },
+                                  });
+                              }
                             }
                           >
-                            {person.role === "co_host"
-                              ? "Убрать соорганизатора"
-                              : "Назначить соорганизатором"}
+                            Исключить
                           </Button>
-                        )}
-                        <Button
-                          variant="danger"
-                          disabled={moderation.isPending}
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Исключить ${person.displayName}? Повторное присоединение будет запрещено.`,
-                              )
-                            )
-                              moderation.mutate({
-                                participantId: person.id,
-                                action: { action: "kick" },
-                              });
-                          }}
-                        >
-                          Исключить
-                        </Button>
-                      </div>
-                    )}
-                  <div className="participant-name">
-                    <strong>
-                      {person.displayName}
-                      {person.userId === user?.id && (
-                        <span className="muted"> (вы)</span>
+                        </div>
                       )}
-                    </strong>
-                    <span>{roleNames[person.role]}</span>
-                    {person.status === "joined" && (
-                      <span className="participant-media-status">
-                        {person.microphoneBlocked
-                          ? "Звук запрещён"
-                          : person.microphoneEnabled
-                            ? "Микрофон включён"
-                            : "Микрофон выключен"}
-                        {" · "}
-                        {person.cameraBlocked
-                          ? "Видео запрещено"
-                          : person.cameraEnabled
-                            ? "Камера включена"
-                            : "Камера выключена"}
-                        {person.screenSharing ? " · Показывает экран" : ""}
-                      </span>
-                    )}
+                    <div className="participant-name">
+                      <strong>
+                        {person.displayName}
+                        {person.userId === user?.id && (
+                          <span className="muted"> (вы)</span>
+                        )}
+                      </strong>
+                      <span>{roleNames[person.role]}</span>
+                      {person.status === "joined" && (
+                        <span className="participant-media-status">
+                          {person.microphoneBlocked
+                            ? "Звук запрещён"
+                            : person.microphoneEnabled
+                              ? "Микрофон включён"
+                              : "Микрофон выключен"}
+                          {" · "}
+                          {person.cameraBlocked
+                            ? "Видео запрещено"
+                            : person.cameraEnabled
+                              ? "Камера включена"
+                              : "Камера выключена"}
+                          {person.screenSharing ? " · Показывает экран" : ""}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`participant-status ${person.status === "joined" ? "participant-joined" : ""}`}
+                    >
+                      <span className="presence-dot" />
+                      {person.joinedAt ||
+                      ["waiting", "rejected", "kicked"].includes(person.status)
+                        ? presence[person.status]
+                        : "Ещё не присоединялся"}
+                    </span>
                   </div>
-                  <span
-                    className={`participant-status ${person.status === "joined" ? "participant-joined" : ""}`}
-                  >
-                    <span className="presence-dot" />
-                    {person.joinedAt ||
-                    ["waiting", "rejected", "kicked"].includes(person.status)
-                      ? presence[person.status]
-                      : "Ещё не присоединялся"}
-                  </span>
-                </div>
-              ))}
+                ),
+              )}
             </div>
           )}
           {participants.hasNextPage && (
             <Button
               variant="outline"
               busy={participants.isFetchingNextPage}
-              onClick={() => {
-                void participants.fetchNextPage();
-              }}
+              onClick={
+                /**
+                 * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                 *
+                 *
+                 * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                 */ () => {
+                  void participants.fetchNextPage();
+                }
+              }
             >
               Загрузить ещё участников
             </Button>
@@ -533,7 +691,14 @@ export function ConferencePage() {
       {editingSchedule && (
         <EditSchedule
           conference={conference}
-          onClose={() => setEditingSchedule(false)}
+          onClose={
+            /**
+             * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             *
+             * @returns вычисленное значение: setEditingSchedule(false).
+             */ () => setEditingSchedule(false)
+          }
         />
       )}
       {confirm && (
@@ -543,9 +708,16 @@ export function ConferencePage() {
               ? "Завершить конференцию?"
               : "Отменить конференцию?"
           }
-          onClose={() => {
-            if (!mutation.isPending) setConfirm(null);
-          }}
+          onClose={
+            /**
+             * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ () => {
+              if (!mutation.isPending) setConfirm(null);
+            }
+          }
         >
           <p className="modal-description">
             После этого участники не смогут присоединиться. Это действие нельзя
@@ -558,7 +730,14 @@ export function ConferencePage() {
             variant="danger"
             className="full-width"
             busy={mutation.isPending}
-            onClick={() => mutation.mutate(confirm)}
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns вычисленное значение: mutation.mutate(confirm).
+               */ () => mutation.mutate(confirm)
+            }
           >
             {confirm === "finish" ? "Да, завершить" : "Да, отменить"}
           </Button>
@@ -566,7 +745,14 @@ export function ConferencePage() {
             variant="secondary"
             className="full-width"
             disabled={mutation.isPending}
-            onClick={() => setConfirm(null)}
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns вычисленное значение: setConfirm(null).
+               */ () => setConfirm(null)
+            }
           >
             Вернуться к встрече
           </Button>

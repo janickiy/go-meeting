@@ -12,36 +12,68 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// InitAttachment создаёт или возвращает метаданные незавершённого вложения для безопасной повторной загрузки.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - request (chat.InitRequest): входные параметры соответствующего прикладного запроса.
+//
+// @return:
+//   - результат 1 (chat.Attachment): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (bool): признак выполнения проверяемого условия или изменения состояния.
+//   - результат 3 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ChatRepository) InitAttachment(ctx context.Context, userID, conferenceID string, request chat.InitRequest) (chat.Attachment, bool, error) {
 	var attachment chat.Attachment
 	created := false
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := authorizeChat(tx, userID, conferenceID, true, true); err != nil {
-			return err
-		}
-		err := tx.Where("conference_id=? AND owner_user_id=? AND client_request_id=?", conferenceID, userID, request.ClientRequestID).Take(&attachment).Error
-		if err == nil {
-			if attachment.Filename != request.Filename || attachment.Size != request.Size || attachment.MimeType != request.MimeType {
-				return apperrors.New(apperrors.ErrConflict, "clientRequestId was used for a different attachment")
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			if _, err := authorizeChat(tx, userID, conferenceID, true, true); err != nil {
+				return err
 			}
-			return nil
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		var count int64
-		if err := tx.Model(&chat.Attachment{}).Where("conference_id=? AND owner_user_id=? AND status IN ('pending','ready') AND expires_at>clock_timestamp()", conferenceID, userID).Count(&count).Error; err != nil {
-			return err
-		}
-		if count >= 20 {
-			return apperrors.New(apperrors.ErrConflict, "too many pending attachments")
-		}
-		attachment = chat.Attachment{ID: uuid.NewString(), ConferenceID: conferenceID, OwnerID: userID, ClientRequestID: request.ClientRequestID, Filename: request.Filename, MimeType: request.MimeType, Size: request.Size, Status: "pending", ExpiresAt: time.Now().UTC().Add(chat.AttachmentTTL)}
-		created = true
-		return tx.Create(&attachment).Error
-	})
+			err := tx.Where("conference_id=? AND owner_user_id=? AND client_request_id=?", conferenceID, userID, request.ClientRequestID).Take(&attachment).Error
+			if err == nil {
+				if attachment.Filename != request.Filename || attachment.Size != request.Size || attachment.MimeType != request.MimeType {
+					return apperrors.New(apperrors.ErrConflict, "clientRequestId was used for a different attachment")
+				}
+				return nil
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			var count int64
+			if err := tx.Model(&chat.Attachment{}).Where("conference_id=? AND owner_user_id=? AND status IN ('pending','ready') AND expires_at>clock_timestamp()", conferenceID, userID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count >= 20 {
+				return apperrors.New(apperrors.ErrConflict, "too many pending attachments")
+			}
+			attachment = chat.Attachment{ID: uuid.NewString(), ConferenceID: conferenceID, OwnerID: userID, ClientRequestID: request.ClientRequestID, Filename: request.Filename, MimeType: request.MimeType, Size: request.Size, Status: "pending", ExpiresAt: time.Now().UTC().Add(chat.AttachmentTTL)}
+			created = true
+			return tx.Create(&attachment).Error
+		})
 	return attachment, created, err
 }
+
+// attachmentOwned проверяет принадлежность вложения пользователю и конференции перед изменением.
+//
+// @parameters:
+//   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - write (bool): указывает, необходимо ли проверять право изменения, а не только чтения.
+//
+// @return:
+//   - результат 1 (chat.Attachment): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func attachmentOwned(tx *gorm.DB, userID, conferenceID, id string, write bool) (chat.Attachment, error) {
 	if _, err := authorizeChat(tx, userID, conferenceID, true, write); err != nil {
 		return chat.Attachment{}, err
@@ -56,142 +88,273 @@ func attachmentOwned(tx *gorm.DB, userID, conferenceID, id string, write bool) (
 	}
 	return attachment, nil
 }
+
+// ClaimUpload атомарно захватывает попытку загрузки ограниченным по времени токеном.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+//
+// @return:
+//   - результат 1 (chat.Attachment): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ChatRepository) ClaimUpload(ctx context.Context, userID, conferenceID, id, token string) (chat.Attachment, error) {
 	var attachment chat.Attachment
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var err error
-		attachment, err = attachmentOwned(tx, userID, conferenceID, id, true)
-		if err != nil {
-			return err
-		}
-		if attachment.Status != "pending" || !attachment.ExpiresAt.After(time.Now()) {
-			return apperrors.New(apperrors.ErrConflict, "attachment upload is no longer pending")
-		}
-		if attachment.UploadedAt != nil {
-			return nil
-		}
-		if attachment.UploadLeaseUntil != nil && attachment.UploadLeaseUntil.After(time.Now()) {
-			return apperrors.New(apperrors.ErrConflict, "attachment upload is already in progress")
-		}
-		until := time.Now().UTC().Add(chat.UploadLease)
-		attachment.UploadToken = &token
-		attachment.UploadLeaseUntil = &until
-		attachment.ObjectKey = attachment.Prefix() + token
-		return tx.Model(&chat.Attachment{}).Where("id=?", id).Updates(map[string]any{"upload_token": token, "upload_lease_until": until, "object_key": attachment.ObjectKey, "updated_at": gorm.Expr("clock_timestamp()")}).Error
-	})
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			var err error
+			attachment, err = attachmentOwned(tx, userID, conferenceID, id, true)
+			if err != nil {
+				return err
+			}
+			if attachment.Status != "pending" || !attachment.ExpiresAt.After(time.Now()) {
+				return apperrors.New(apperrors.ErrConflict, "attachment upload is no longer pending")
+			}
+			if attachment.UploadedAt != nil {
+				return nil
+			}
+			if attachment.UploadLeaseUntil != nil && attachment.UploadLeaseUntil.After(time.Now()) {
+				return apperrors.New(apperrors.ErrConflict, "attachment upload is already in progress")
+			}
+			until := time.Now().UTC().Add(chat.UploadLease)
+			attachment.UploadToken = &token
+			attachment.UploadLeaseUntil = &until
+			attachment.ObjectKey = attachment.Prefix() + token
+			return tx.Model(&chat.Attachment{}).Where("id=?", id).Updates(map[string]any{"upload_token": token, "upload_lease_until": until, "object_key": attachment.ObjectKey, "updated_at": gorm.Expr("clock_timestamp()")}).Error
+		})
 	return attachment, err
 }
+
+// CompleteUpload сохраняет результат передачи объекта только для действующей попытки загрузки.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+//   - checksum (string): контрольная сумма содержимого для проверки неизменности передачи.
+//
+// @return:
+//   - результат 1 (chat.Attachment): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ChatRepository) CompleteUpload(ctx context.Context, userID, conferenceID, id, token, checksum string) (chat.Attachment, error) {
 	var attachment chat.Attachment
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var err error
-		attachment, err = attachmentOwned(tx, userID, conferenceID, id, true)
-		if err != nil {
-			return err
-		}
-		if attachment.Status != "pending" || attachment.UploadToken == nil || *attachment.UploadToken != token || attachment.UploadLeaseUntil == nil || !attachment.UploadLeaseUntil.After(time.Now()) || !attachment.ExpiresAt.After(time.Now()) {
-			return apperrors.New(apperrors.ErrConflict, "upload lease expired")
-		}
-		result := tx.Model(&chat.Attachment{}).Where("id=? AND upload_token=? AND upload_lease_until>clock_timestamp()", id, token).Updates(map[string]any{"checksum": checksum, "uploaded_at": gorm.Expr("clock_timestamp()"), "upload_lease_until": nil, "updated_at": gorm.Expr("clock_timestamp()")})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected != 1 {
-			return apperrors.ErrConflict
-		}
-		return tx.Where("id=?", id).Take(&attachment).Error
-	})
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			var err error
+			attachment, err = attachmentOwned(tx, userID, conferenceID, id, true)
+			if err != nil {
+				return err
+			}
+			if attachment.Status != "pending" || attachment.UploadToken == nil || *attachment.UploadToken != token || attachment.UploadLeaseUntil == nil || !attachment.UploadLeaseUntil.After(time.Now()) || !attachment.ExpiresAt.After(time.Now()) {
+				return apperrors.New(apperrors.ErrConflict, "upload lease expired")
+			}
+			result := tx.Model(&chat.Attachment{}).Where("id=? AND upload_token=? AND upload_lease_until>clock_timestamp()", id, token).Updates(map[string]any{"checksum": checksum, "uploaded_at": gorm.Expr("clock_timestamp()"), "upload_lease_until": nil, "updated_at": gorm.Expr("clock_timestamp()")})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected != 1 {
+				return apperrors.ErrConflict
+			}
+			return tx.Where("id=?", id).Take(&attachment).Error
+		})
 	return attachment, err
 }
+
+// AttachmentForFinalize читает метаданные вложения, доступного владельцу для подтверждения загрузки.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 (chat.Attachment): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ChatRepository) AttachmentForFinalize(ctx context.Context, userID, conferenceID, id string) (chat.Attachment, error) {
 	var a chat.Attachment
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var err error
-		a, err = attachmentOwned(tx, userID, conferenceID, id, true)
-		if err != nil {
-			return err
-		}
-		if (a.Status != "pending" && a.Status != "ready") || a.UploadedAt == nil || !a.ExpiresAt.After(time.Now()) {
-			return apperrors.New(apperrors.ErrConflict, "attachment is not uploaded or has expired")
-		}
-		return nil
-	})
-	return a, err
-}
-func (r *ChatRepository) FinalizeAttachment(ctx context.Context, userID, conferenceID, id, objectKey string) (chat.Attachment, error) {
-	var a chat.Attachment
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var err error
-		a, err = attachmentOwned(tx, userID, conferenceID, id, true)
-		if err != nil {
-			return err
-		}
-		if (a.Status != "pending" && a.Status != "ready") || a.UploadedAt == nil || a.ObjectKey != objectKey || !a.ExpiresAt.After(time.Now()) {
-			return apperrors.New(apperrors.ErrConflict, "attachment is not uploaded or has expired")
-		}
-		if a.Status == "ready" {
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			var err error
+			a, err = attachmentOwned(tx, userID, conferenceID, id, true)
+			if err != nil {
+				return err
+			}
+			if (a.Status != "pending" && a.Status != "ready") || a.UploadedAt == nil || !a.ExpiresAt.After(time.Now()) {
+				return apperrors.New(apperrors.ErrConflict, "attachment is not uploaded or has expired")
+			}
 			return nil
-		}
-		if err := tx.Model(&chat.Attachment{}).Where("id=?", id).Updates(map[string]any{"status": "ready", "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
-			return err
-		}
-		a.Status = "ready"
-		return nil
-	})
-	return a, err
-}
-func (r *ChatRepository) DownloadAttachment(ctx context.Context, userID, conferenceID, id string) (chat.Attachment, error) {
-	var a chat.Attachment
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := authorizeChat(tx, userID, conferenceID, false, false); err != nil {
-			return err
-		}
-		if err := tx.Where("id=? AND conference_id=?", id, conferenceID).Take(&a).Error; err != nil {
-			return mapNotFound(err)
-		}
-		if a.Status == "ready" && a.OwnerID == userID && a.ExpiresAt.After(time.Now()) {
-			return nil
-		}
-		if a.Status != "attached" || a.MessageID == nil {
-			return apperrors.ErrNotFound
-		}
-		var count int64
-		if err := tx.Model(&chat.Message{}).Where("id=? AND conference_id=? AND deleted_at IS NULL", *a.MessageID, conferenceID).Count(&count).Error; err != nil {
-			return err
-		}
-		if count != 1 {
-			return apperrors.ErrNotFound
-		}
-		return nil
-	})
+		})
 	return a, err
 }
 
-// Cleanup uses immutable upload keys and a grace period beyond the bounded
-// upload deadline. Expire before deleting objects: finalize/attach then cannot
-// race a winning cleanup. Attached rows only discard non-winning upload keys.
+// FinalizeAttachment подтверждает готовность загруженного вложения к привязке к сообщению.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - objectKey (string): серверный ключ объекта внутри приватного бакета.
+//
+// @return:
+//   - результат 1 (chat.Attachment): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+func (r *ChatRepository) FinalizeAttachment(ctx context.Context, userID, conferenceID, id, objectKey string) (chat.Attachment, error) {
+	var a chat.Attachment
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			var err error
+			a, err = attachmentOwned(tx, userID, conferenceID, id, true)
+			if err != nil {
+				return err
+			}
+			if (a.Status != "pending" && a.Status != "ready") || a.UploadedAt == nil || a.ObjectKey != objectKey || !a.ExpiresAt.After(time.Now()) {
+				return apperrors.New(apperrors.ErrConflict, "attachment is not uploaded or has expired")
+			}
+			if a.Status == "ready" {
+				return nil
+			}
+			if err := tx.Model(&chat.Attachment{}).Where("id=?", id).Updates(map[string]any{"status": "ready", "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
+				return err
+			}
+			a.Status = "ready"
+			return nil
+		})
+	return a, err
+}
+
+// DownloadAttachment проверяет доступ к сообщению и возвращает метаданные прикреплённого файла для скачивания.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//
+// @return:
+//   - результат 1 (chat.Attachment): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+func (r *ChatRepository) DownloadAttachment(ctx context.Context, userID, conferenceID, id string) (chat.Attachment, error) {
+	var a chat.Attachment
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			if _, err := authorizeChat(tx, userID, conferenceID, false, false); err != nil {
+				return err
+			}
+			if err := tx.Where("id=? AND conference_id=?", id, conferenceID).Take(&a).Error; err != nil {
+				return mapNotFound(err)
+			}
+			if a.Status == "ready" && a.OwnerID == userID && a.ExpiresAt.After(time.Now()) {
+				return nil
+			}
+			if a.Status != "attached" || a.MessageID == nil {
+				return apperrors.ErrNotFound
+			}
+			var count int64
+			if err := tx.Model(&chat.Message{}).Where("id=? AND conference_id=? AND deleted_at IS NULL", *a.MessageID, conferenceID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 1 {
+				return apperrors.ErrNotFound
+			}
+			return nil
+		})
+	return a, err
+}
+
+// CleanupCandidates выбирает ограниченную порцию просроченных вложений, учитывая действующие попытки загрузки.
+// Операции с базой данных объединяет в транзакцию.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - limit (int): максимальное число элементов страницы или порции обработки.
+//
+// @return:
+//   - результат 1 ([]chat.Attachment): собранные элементы результата; состав ограничивается параметрами операции.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ChatRepository) CleanupCandidates(ctx context.Context, limit int) ([]chat.Attachment, error) {
 	var rows []chat.Attachment
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("cleaned_at IS NULL AND expires_at<clock_timestamp() AND (upload_lease_until IS NULL OR upload_lease_until<clock_timestamp()-INTERVAL '2 minutes')").Order("expires_at,id").Limit(limit).Find(&rows).Error; err != nil {
-			return err
-		}
-		for i := range rows {
-			if rows[i].Status == "pending" || rows[i].Status == "ready" {
-				if err := tx.Model(&chat.Attachment{}).Where("id=?", rows[i].ID).Updates(map[string]any{"status": "expired", "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
-					return err
-				}
-				rows[i].Status = "expired"
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+
+		@parameters:
+		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+
+		@return:
+		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("cleaned_at IS NULL AND expires_at<clock_timestamp() AND (upload_lease_until IS NULL OR upload_lease_until<clock_timestamp()-INTERVAL '2 minutes')").Order("expires_at,id").Limit(limit).Find(&rows).Error; err != nil {
+				return err
 			}
-		}
-		return nil
-	})
+			for i := range rows {
+				if rows[i].Status == "pending" || rows[i].Status == "ready" {
+					if err := tx.Model(&chat.Attachment{}).Where("id=?", rows[i].ID).Updates(map[string]any{"status": "expired", "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
+						return err
+					}
+					rows[i].Status = "expired"
+				}
+			}
+			return nil
+		})
 	return rows, err
 }
+
+// CompleteCleanup помечает завершённую очистку вложения после удаления ненужных объектов.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ChatRepository) CompleteCleanup(ctx context.Context, id, key string) error {
 	return r.db.WithContext(ctx).Model(&chat.Attachment{}).Where("id=? AND object_key=? AND status IN ('expired','attached')", id, key).Update("cleaned_at", gorm.Expr("clock_timestamp()")).Error
 }
 
+// AbortUpload освобождает только указанную попытку загрузки после ошибки.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ChatRepository) AbortUpload(ctx context.Context, id, token string) error {
 	return r.db.WithContext(ctx).Model(&chat.Attachment{}).Where("id=? AND upload_token=? AND uploaded_at IS NULL AND status='pending'", id, token).Update("upload_lease_until", nil).Error
 }

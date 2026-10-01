@@ -18,18 +18,56 @@ test.skip(
   process.env.MEET_STAGE5_DOCKER !== "true",
   "explicit local Compose acceptance opt-in required",
 );
+/**
+ * Actor объединяет страницу, авторизацию и тестовую идентичность участника.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - token — токен текущей авторизации; null отключает авторизованные запросы.
+ *   - email — адрес электронной почты.
+ *   - name — отображаемое имя пользователя для инициалов.
+ */
 type Actor = { id: string; token: string; email: string; name: string };
+/**
+ * RecordCard описывает минимальные сведения записи для сквозной проверки.
+ *
+ * Состав:
+ *   - uuid — внешний UUID записи.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - files — доступные артефакты и выданные сервером ссылки.
+ */
 type RecordCard = {
   uuid: string;
   status: string;
   files: { fileType: string; url?: string }[];
 };
+/**
+ * Message описывает серверное сообщение сквозной проверки чата.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - text — обычный текст сообщения.
+ *   - deletedAt — время мягкого удаления либо null.
+ *   - attachments — метаданные прикреплённых файлов.
+ */
 type Message = {
   id: string;
   text: string;
   deletedAt?: string;
   attachments: { id: string }[];
 };
+/**
+ * request отправляет JSON-запрос к API, добавляет Bearer-токен для приватного маршрута и проверяет ответ; при 401 уведомляет владельца использованной сессии.
+ *
+ * @parameters:
+ *   - client (APIRequestContext) — входное значение client текущего шага обработки.
+ *   - path (string) — локальный путь API без базового префикса.
+ *   - token (string) — токен текущей авторизации; null отключает авторизованные запросы (необязательный параметр).
+ *   - method — входное значение method текущего шага обработки (по умолчанию "GET").
+ *   - data (unknown) — нагрузка события, проверяемая перед чтением (необязательный параметр).
+ *
+ * @returns Promise<T> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
+ */
 async function request<T>(
   client: APIRequestContext,
   path: string,
@@ -52,7 +90,16 @@ async function request<T>(
       60,
       Math.max(1, Number(result.headers()["retry-after"]) || 60),
     );
-    await new Promise((resolve) => setTimeout(resolve, (seconds + 1) * 1000));
+    await new Promise(
+      /**
+       * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - resolve — завершает ожидающий Promise успешным результатом.
+       *
+       * @returns вычисленное значение: setTimeout(resolve, (seconds + 1) * 1000).
+       */ (resolve) => setTimeout(resolve, (seconds + 1) * 1000),
+    );
     result = await client.fetch(`${apiOrigin}/api/v1${path}`, {
       method,
       data,
@@ -65,6 +112,16 @@ async function request<T>(
     );
   return result.json() as Promise<T>;
 }
+/**
+ * login отправляет учётные данные и получает токен и сведения пользователя.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *   - actor (Actor) — входное значение actor текущего шага обработки.
+ *   - password (string) — пароль из формы; не предназначен для журналирования.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 async function login(page: Page, actor: Actor, password: string) {
   await page.goto(`${base}/login`);
   await page.getByLabel("Email").fill(actor.email);
@@ -72,6 +129,14 @@ async function login(page: Page, actor: Actor, password: string) {
   await page.getByRole("button", { name: "Войти", exact: true }).click();
   await expect(page).toHaveURL(/\/app/);
 }
+/**
+ * enableMedia включает тестовые источники через интерфейс и ожидает связи.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 async function enableMedia(page: Page) {
   await page
     .getByRole("button", { name: "Включить камеру и микрофон", exact: true })
@@ -81,15 +146,29 @@ async function enableMedia(page: Page) {
     { timeout: 30000 },
   );
 }
+/**
+ * send передаёт исходящее событие через действующее соединение.
+ *
+ * @parameters:
+ *   - page (Page) — изолированная страница Playwright.
+ *   - text (string) — обычный текст сообщения.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */
 async function send(page: Page, text: string) {
   await page.getByLabel("Сообщение", { exact: true }).fill(text);
   await page.getByRole("button", { name: "Отправить", exact: true }).click();
 }
 
-test("scheduled waiting room, durable chat/files, engagement, recording and history in real Docker", async ({
-  browser,
-  request: client,
-}, info) => {
+test("scheduled waiting room, durable chat/files, engagement, recording and history in real Docker", /**
+ * Проверка: scheduled waiting room, durable chat/files, engagement, recording and history in real Docker выполняет тестовый сценарий «scheduled waiting room, durable chat/files, engagement, recording and history in real Docker» и проверяет ожидаемые результаты.
+ *
+ * @parameters:
+ *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами; request — параметры сообщения или другого API-действия.
+ *   - info — контекст запуска для диагностических вложений.
+ *
+ * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ async ({ browser, request: client }, info) => {
   for (const address of [base, apiOrigin]) {
     const url = new URL(address);
     expect(["localhost", "127.0.0.1", "[::1]"]).toContain(url.hostname);
@@ -99,36 +178,81 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
   const password = `Smoke-${randomUUID()}`;
   const actors: Actor[] = [];
   const contexts = await Promise.all(
-    [0, 1, 2].map(() =>
-      browser.newContext({
-        ignoreHTTPSErrors: true,
-        timezoneId: "UTC",
-        viewport: { width: 1440, height: 1100 },
-      }),
+    [0, 1, 2].map(
+      /**
+       * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+       *
+       *
+       * @returns преобразованное значение текущего элемента для результирующего набора.
+       */ () =>
+        browser.newContext({
+          ignoreHTTPSErrors: true,
+          timezoneId: "UTC",
+          viewport: { width: 1440, height: 1100 },
+        }),
     ),
   );
-  const pages = await Promise.all(contexts.map((context) => context.newPage()));
+  const pages = await Promise.all(
+    contexts.map(
+      /**
+       * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
+       *
+       * @parameters:
+       *   - context — входное значение context текущего шага обработки.
+       *
+       * @returns преобразованное значение текущего элемента для результирующего набора.
+       */ (context) => context.newPage(),
+    ),
+  );
   const [owner, bob, rejected] = pages;
   const summary: Record<string, unknown> = { runId, fakeDevicesOnly: true };
   const roomSockets = [0, 0, 0];
   const socketErrors: unknown[] = [];
   const consoleErrors: string[] = [];
   for (const [index, page] of pages.entries()) {
-    page.on("pageerror", (error) =>
-      consoleErrors.push(`${index}:${error.message}`),
+    page.on(
+      "pageerror",
+      /**
+       * Обработчик page.on выполняет переданный шаг вызова page.on в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - error — пойманная ошибка API или сети.
+       *
+       * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+       */ (error) => consoleErrors.push(`${index}:${error.message}`),
     );
-    page.on("websocket", (socket) => {
-      roomSockets[index]++;
-      socket.on("framereceived", ({ payload }) => {
-        try {
-          const event = JSON.parse(String(payload));
-          if (event.type === "error")
-            socketErrors.push({ index, data: event.data });
-        } catch {
-          /* ping */
-        }
-      });
-    });
+    page.on(
+      "websocket",
+      /**
+       * Обработчик page.on выполняет переданный шаг вызова page.on в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - socket — входное значение socket текущего шага обработки.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ (socket) => {
+        roomSockets[index]++;
+        socket.on(
+          "framereceived",
+          /**
+           * Обработчик socket.on выполняет переданный шаг вызова socket.on в проверках клиентского поведения.
+           *
+           * @parameters:
+           *   - объект параметров: payload — ссылки и состояние уведомления без выдачи прав на ресурс.
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ ({ payload }) => {
+            try {
+              const event = JSON.parse(String(payload));
+              if (event.type === "error")
+                socketErrors.push({ index, data: event.data });
+            } catch {
+              /* ping */
+            }
+          },
+        );
+      },
+    );
   }
   let conferenceId = "";
   let phase = "setup";
@@ -159,7 +283,17 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       ).accessToken;
     }
     await Promise.all(
-      pages.map((page, index) => login(page, actors[index], password)),
+      pages.map(
+        /**
+         * Обработчик pages.map преобразует один элемент набора в представление или данные следующего шага.
+         *
+         * @parameters:
+         *   - page — изолированная страница Playwright.
+         *   - index — входное значение index текущего шага обработки.
+         *
+         * @returns преобразованное значение текущего элемента для результирующего набора.
+         */ (page, index) => login(page, actors[index], password),
+      ),
     );
     phase = "schedule-create";
     await owner
@@ -176,6 +310,14 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     await owner.getByLabel("Дата и время", { exact: true }).fill(scheduledAt);
     await owner.getByLabel(/Плановая длительность/).fill("30");
     const createResponse = owner.waitForResponse(
+      /**
+       * Обработчик owner.waitForResponse выполняет переданный шаг вызова owner.waitForResponse в проверках клиентского поведения.
+       *
+       * @parameters:
+       *   - response — входное значение response текущего шага обработки.
+       *
+       * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
+       */
       (response) =>
         response.url().endsWith("/api/v1/conferences") &&
         response.request().method() === "POST",
@@ -254,14 +396,28 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     await Promise.all([enableMedia(owner), enableMedia(bob)]);
     await expect(owner.getByTestId("remote-media")).toHaveCount(1);
     await expect
-      .poll(() =>
-        owner
-          .getByTestId("remote-media")
-          .locator("video")
-          .evaluate(
-            (video: HTMLVideoElement) =>
-              video.getVideoPlaybackQuality().totalVideoFrames,
-          ),
+      .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */ () =>
+          owner
+            .getByTestId("remote-media")
+            .locator("video")
+            .evaluate(
+              /**
+               * Обработчик evaluate выполняет переданный шаг вызова evaluate в проверках клиентского поведения.
+               *
+               * @parameters:
+               *   - video (HTMLVideoElement) — входное значение video текущего шага обработки.
+               *
+               * @returns вычисленное значение: video.getVideoPlaybackQuality().totalVideoFrames.
+               */
+              (video: HTMLVideoElement) =>
+                video.getVideoPlaybackQuality().totalVideoFrames,
+            ),
       )
       .toBeGreaterThan(10);
     await owner
@@ -274,19 +430,42 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       "Идёт запись",
     );
     phase = "chat-idempotency";
+    /**
+     * frameSample читает число декодированных кадров для проверки движения видео.
+     *
+     *
+     * @returns Promise, который после завершения операции возвращает: вычисленные данные текущего шага, которые использует вызывающая операция.
+     */
     const frameSample = async () =>
       owner
         .getByTestId("remote-media")
         .locator("video")
-        .evaluate((video: HTMLVideoElement) => ({
-          at: Date.now(),
-          frames: video.getVideoPlaybackQuality().totalVideoFrames,
-        }));
+        .evaluate(
+          /**
+           * Обработчик evaluate выполняет переданный шаг вызова evaluate в проверках клиентского поведения.
+           *
+           * @parameters:
+           *   - video (HTMLVideoElement) — входное значение video текущего шага обработки.
+           *
+           * @returns новый объект вычисленных данных.
+           */ (video: HTMLVideoElement) => ({
+            at: Date.now(),
+            frames: video.getVideoPlaybackQuality().totalVideoFrames,
+          }),
+        );
     const framesBeforeChat = await frameSample();
     await bob.getByRole("button", { name: "Свернуть чат" }).click();
     let loseFirstResponse = true;
     await owner.route(
       `**/api/v1/conferences/${conferenceId}/messages`,
+      /**
+       * Обработчик owner.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+       *
+       * @parameters:
+       *   - route — входное значение route текущего шага обработки.
+       *
+       * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
       async (route) => {
         if (route.request().method() === "POST" && loseFirstResponse) {
           loseFirstResponse = false;
@@ -302,6 +481,12 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       "",
     );
     await owner.unroute(`**/api/v1/conferences/${conferenceId}/messages`);
+    /**
+     * chat читает сообщения тестовой конференции для проверки постоянного состояния.
+     *
+     *
+     * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
+     */
     const chat = () =>
       request<{ items: Message[] }>(
         client,
@@ -310,8 +495,22 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       );
     await expect
       .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */
         async () =>
           (await chat()).items.filter(
+            /**
+             * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
+             *
+             * @parameters:
+             *   - message — текущий объект сообщения чата.
+             *
+             * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+             */
             (message) => message.text === "Сообщение после разрыва связи",
           ).length,
       )
@@ -322,6 +521,12 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     await bob.getByTestId(`chat-message-${first.id}`).scrollIntoViewIfNeeded();
     await expect
       .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */
         async () =>
           (
             await request<{ item: { unreadCount: number } }>(
@@ -372,6 +577,14 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       bob.getByText("private-notes.txt", { exact: false }),
     ).toBeVisible();
     const attached = (await chat()).items.find(
+      /**
+       * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+       *
+       * @parameters:
+       *   - message — текущий объект сообщения чата.
+       *
+       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+       */
       (message) => message.attachments.length,
     )!;
     expect(attached).toBeTruthy();
@@ -443,11 +656,26 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     ).stdout
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line));
+      .map(
+        /**
+         * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+         *
+         * @parameters:
+         *   - line — строка входящего текстового потока.
+         *
+         * @returns преобразованное значение текущего элемента для результирующего набора.
+         */ (line) => JSON.parse(line),
+      );
     phase = "recording-history-notifications";
     await owner
       .getByRole("button", { name: "Остановить запись", exact: true })
       .click();
+    /**
+     * records читает записи тестовой конференции для проверки готовности.
+     *
+     *
+     * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
+     */
     const records = () =>
       request<{ items: RecordCard[] }>(
         client,
@@ -455,13 +683,30 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
         actors[0].token,
       );
     await expect
-      .poll(async () => (await records()).items[0]?.status, { timeout: 90000 })
+      .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */ async () => (await records()).items[0]?.status,
+        { timeout: 90000 },
+      )
       .toBe("ready");
     const record = (await records()).items[0];
     summary.recordingId = record.uuid;
-    expect(record.files.some((file) => file.fileType === "preview_jpg")).toBe(
-      true,
-    );
+    expect(
+      record.files.some(
+        /**
+         * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+         *
+         * @parameters:
+         *   - file — выбранный пользователем файл для проверки или передачи.
+         *
+         * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+         */ (file) => file.fileType === "preview_jpg",
+      ),
+    ).toBe(true);
     await bob.getByRole("button", { name: "Уведомления", exact: true }).click();
     await expect(bob.getByRole("dialog")).toContainText(
       "Запись встречи готова",
@@ -475,6 +720,12 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       .click();
     await expect
       .poll(
+        /**
+         * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+         *
+         *
+         * @returns Promise, который после завершения операции возвращает: актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+         */
         async () =>
           (
             await request<{ items: { type: string; readAt: string | null }[] }>(
@@ -482,7 +733,16 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
               "/notifications",
               actors[1].token,
             )
-          ).items.find((item) => item.type === "recording.ready")?.readAt,
+          ).items.find(
+            /**
+             * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+             *
+             * @parameters:
+             *   - item — элемент списка, который обрабатывает текущий шаг.
+             *
+             * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+             */ (item) => item.type === "recording.ready",
+          )?.readAt,
       )
       .toBeTruthy();
     await bob.keyboard.press("Escape");
@@ -524,9 +784,27 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
             path: info.outputPath(`failure-${index}.png`),
             fullPage: true,
           })
-          .catch(() => {});
+          .catch(
+            /**
+             * Обработчик catch выполняет переданный шаг вызова catch в проверках клиентского поведения.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ () => {},
+          );
     }
-    await Promise.all(contexts.map((context) => context.close()));
+    await Promise.all(
+      contexts.map(
+        /**
+         * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
+         *
+         * @parameters:
+         *   - context — входное значение context текущего шага обработки.
+         *
+         * @returns преобразованное значение текущего элемента для результирующего набора.
+         */ (context) => context.close(),
+      ),
+    );
     let terminal = true;
     if (conferenceId && actors[0]?.token) {
       try {
@@ -553,6 +831,12 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
           );
         await expect
           .poll(
+            /**
+             * Обработчик expect.poll повторно читает проверяемое состояние до достижения ожидаемого результата или тайм-аута теста.
+             *
+             *
+             * @returns Promise, который после завершения операции возвращает: актуальное проверяемое значение; тест повторяет чтение до достижения ожидаемого состояния.
+             */
             async () =>
               (
                 await request<{ items: RecordCard[] }>(
@@ -560,8 +844,16 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
                   `/conferences/${conferenceId}/recordings`,
                   actors[0].token,
                 )
-              ).items.every((item) =>
-                ["ready", "failed", "cancelled"].includes(item.status),
+              ).items.every(
+                /**
+                 * Обработчик every проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                 *
+                 * @parameters:
+                 *   - item — элемент списка, который обрабатывает текущий шаг.
+                 *
+                 * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                 */ (item) =>
+                  ["ready", "failed", "cancelled"].includes(item.status),
               ),
             { timeout: 90000 },
           )
@@ -576,7 +868,16 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       JSON.stringify({
         runId,
         conferenceId,
-        userIds: actors.map((actor) => actor.id),
+        userIds: actors.map(
+          /**
+           * Обработчик actors.map преобразует один элемент набора в представление или данные следующего шага.
+           *
+           * @parameters:
+           *   - actor — входное значение actor текущего шага обработки.
+           *
+           * @returns преобразованное значение текущего элемента для результирующего набора.
+           */ (actor) => actor.id,
+        ),
       }),
     );
     if (terminal) {

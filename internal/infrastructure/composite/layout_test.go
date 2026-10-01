@@ -21,6 +21,10 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media/ivfreader"
 )
 
+// TestDeterministicGridAndScreenLayout проверяет сценарий «Deterministic сетка и экран Layout», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestDeterministicGridAndScreenLayout(t *testing.T) {
 	for _, count := range []int{1, 2, 3, 4, 5, 10} {
 		tracks := make([]media.Track, count)
@@ -50,6 +54,10 @@ func TestDeterministicGridAndScreenLayout(t *testing.T) {
 	}
 }
 
+// TestCompositionGraphMixesSourcesAndPreservesOffsets проверяет сценарий «Composition Graph Mixes источники и Preserves Offsets», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCompositionGraphMixesSourcesAndPreservesOffsets(t *testing.T) {
 	c := NewComposer("ffmpeg", 1280, 720, 30, 1)
 	chunk := Chunk{Duration: 5, Sources: []Source{{Track: media.Track{ID: "v", Kind: media.KindVideo, Source: media.SourceCamera}, File: "v.ivf", Offset: 0.25, End: 3}, {Track: media.Track{ID: "a", Kind: media.KindAudio, Source: media.SourceMicrophone}, File: "a.ogg", Offset: 0.12, End: 4}}}
@@ -69,6 +77,10 @@ func TestCompositionGraphMixesSourcesAndPreservesOffsets(t *testing.T) {
 	}
 }
 
+// TestVP8CaptureWaitsForKeyframeAndOrdersRTP проверяет сценарий «VP8Capture Waits для Keyframe и Orders RTP», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestVP8CaptureWaitsForKeyframeAndOrdersRTP(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, "sources"), 0o750); err != nil {
@@ -106,6 +118,10 @@ func TestVP8CaptureWaitsForKeyframeAndOrdersRTP(t *testing.T) {
 	}
 }
 
+// TestCaptureRejectsMissingHelloAndInvalidCodec проверяет сценарий «захват Rejects отсутствующий Hello и некорректный Codec», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCaptureRejectsMissingHelloAndInvalidCodec(t *testing.T) {
 	c := NewComposer("missing-ffmpeg", 640, 360, 25, 1)
 	for _, input := range []string{`{"type":"rtp","sequence":1,"capturedAt":1}`, `{"type":"hello","sequence":1,"capturedAt":1}` + "\n" + `{"type":"track","sequence":2,"capturedAt":1,"track":{"id":"` + uuid.NewString() + `","kind":"video","mimeType":"video/H264","clockRate":90000}}`} {
@@ -115,11 +131,22 @@ func TestCaptureRejectsMissingHelloAndInvalidCodec(t *testing.T) {
 	}
 }
 
+// cancelAtEOF хранит изолированное состояние тестового компонента «cancel At EOF».
+//   - reader: источник содержимого либо читатель карточек записи согласно типу.
+//   - cancel: отмена контекста, завершающая принадлежащие ресурсу операции.
 type cancelAtEOF struct {
 	reader io.Reader
 	cancel context.CancelFunc
 }
 
+// Read читает состояние ресурсов компонента для дальнейшей обработки или ответа.
+//
+// @parameters:
+//   - p ([]byte): байты, переданные по контракту io.Writer.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r cancelAtEOF) Read(p []byte) (int, error) {
 	n, err := r.reader.Read(p)
 	if err == io.EOF {
@@ -128,6 +155,10 @@ func (r cancelAtEOF) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// TestCapturePersistsShortFinalChunk проверяет сценарий «захват Persists Short итоговый Chunk», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCapturePersistsShortFinalChunk(t *testing.T) {
 	id := uuid.NewString()
 	track := media.EgressTrack{Track: media.Track{ID: id, Kind: media.KindVideo, Source: media.SourceCamera}, MimeType: "video/VP8", ClockRate: 90000}
@@ -135,6 +166,10 @@ func TestCapturePersistsShortFinalChunk(t *testing.T) {
 	encoder := json.NewEncoder(&input)
 	sequence := uint64(1)
 	epoch := int64(time.Second)
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - frame (media.EgressFrame): значение frame типа media.EgressFrame, используемое согласно назначению этой операции.
 	write := func(frame media.EgressFrame) {
 		frame.Sequence = sequence
 		sequence++
@@ -172,6 +207,10 @@ func TestCapturePersistsShortFinalChunk(t *testing.T) {
 	}
 }
 
+// TestSegmentBoundaryReusesVP8GOPAndOpusPreroll проверяет сценарий «Segment Boundary Reuses VP8GOP и Opus Preroll», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSegmentBoundaryReusesVP8GOPAndOpusPreroll(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, "sources"), 0o750); err != nil {
@@ -193,6 +232,13 @@ func TestSegmentBoundaryReusesVP8GOPAndOpusPreroll(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		//
+		// @parameters:
+		//   - i (int): значение i типа int, используемое согласно назначению этой операции.
+		//
+		// @return:
+		//   - результат 1 (*rtp.Packet): значение, подготовленное операцией для вызывающей стороны.
 		packet := func(i int) *rtp.Packet {
 			payload := []byte{0xf8, 0xff, 0xfe}
 			if kind == media.KindVideo {
@@ -241,10 +287,18 @@ func TestSegmentBoundaryReusesVP8GOPAndOpusPreroll(t *testing.T) {
 	}
 }
 
+// TestCaptureBoundsEndedTrackBuffersDuringRapidReplacement проверяет сценарий «захват Bounds Ended дорожка Buffers During Rapid Replacement», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCaptureBoundsEndedTrackBuffersDuringRapidReplacement(t *testing.T) {
 	var input bytes.Buffer
 	encoder := json.NewEncoder(&input)
 	sequence := uint64(1)
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - frame (media.EgressFrame): значение frame типа media.EgressFrame, используемое согласно назначению этой операции.
 	write := func(frame media.EgressFrame) {
 		frame.Sequence = sequence
 		sequence++
@@ -272,6 +326,10 @@ func TestCaptureBoundsEndedTrackBuffersDuringRapidReplacement(t *testing.T) {
 	}
 }
 
+// TestCaptureFailsPromptlyWhenCompositorExits проверяет сценарий «захват Fails Promptly когда Compositor Exits», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCaptureFailsPromptlyWhenCompositorExits(t *testing.T) {
 	reader, writer := io.Pipe()
 	defer reader.Close()
@@ -279,15 +337,26 @@ func TestCaptureFailsPromptlyWhenCompositorExits(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	finished := make(chan error, 1)
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		finished <- NewComposer("/usr/bin/false", 640, 360, 25, 1).Capture(ctx, ctx, reader, t.TempDir(), CaptureOptions{SegmentDuration: time.Second})
 	}()
 	written := make(chan struct{})
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer close(written)
 		encoder := json.NewEncoder(writer)
 		sequence := uint64(1)
 		at := int64(time.Second)
+		// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+		//
+		// @parameters:
+		//   - frame (media.EgressFrame): значение frame типа media.EgressFrame, используемое согласно назначению этой операции.
+		//
+		// @return:
+		//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 		send := func(frame media.EgressFrame) bool {
 			frame.Sequence = sequence
 			sequence++
@@ -332,6 +401,11 @@ func TestCaptureFailsPromptlyWhenCompositorExits(t *testing.T) {
 	<-written
 }
 
+// TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd проверяет сценарий «Sparse видео Holds Across Quiet Chunks Until Explicit End», фиксируя ошибки поведения как регрессию.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd(t *testing.T) {
 	ffmpegPath := os.Getenv("RECORDER_TEST_FFMPEG")
 	if ffmpegPath == "" {
@@ -367,6 +441,11 @@ func TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd(t *testing.T) {
 	encoder := json.NewEncoder(&input)
 	sequence := uint64(1)
 	epoch := int64(time.Second)
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - at (time.Duration): однозначное время планируемой операции; nil означает отсутствие значения, если это допускает тип.
+	//   - frame (media.EgressFrame): значение frame типа media.EgressFrame, используемое согласно назначению этой операции.
 	write := func(at time.Duration, frame media.EgressFrame) {
 		frame.Sequence = sequence
 		sequence++
@@ -421,6 +500,11 @@ func TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd(t *testing.T) {
 	}
 }
 
+// TestCompositeHandlesCameraResolutionChanges проверяет сценарий «общая запись Handles Camera Resolution Changes», фиксируя ошибки поведения как регрессию.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCompositeHandlesCameraResolutionChanges(t *testing.T) {
 	ffmpegPath := os.Getenv("RECORDER_TEST_FFMPEG")
 	if ffmpegPath == "" {

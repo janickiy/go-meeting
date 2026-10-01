@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -16,13 +15,23 @@ import (
 	"time"
 )
 
-// PostProcessor склеивает сегменты и генерирует preview.
+// PostProcessor объединяет сегменты, проверяет выход и создаёт итоговые артефакты записи.
+//   - ffmpegPath: значение ffmpegPath типа string, используемое согласно назначению этой операции.
+//   - ffprobePath: значение ffprobePath типа string, используемое согласно назначению этой операции.
 type PostProcessor struct {
 	ffmpegPath  string
 	ffprobePath string
 }
 
-// Result описывает созданные локальные артефакты.
+// Result передаёт результат операции и связанные метаданные компонента.
+//   - FinalPath: значение FinalPath типа string, используемое согласно назначению этой операции.
+//   - PreviewPath: значение PreviewPath типа string, используемое согласно назначению этой операции.
+//   - Segments: доступные сегменты записи для итоговой сборки.
+//   - FinalSizeBytes: значение FinalSizeBytes типа int64, используемое согласно назначению этой операции.
+//   - PreviewSizeBytes: значение PreviewSizeBytes типа int64, используемое согласно назначению этой операции.
+//   - DurationSec: длительность в секундах.
+//   - FinalChecksum: значение FinalChecksum типа string, используемое согласно назначению этой операции.
+//   - PreviewChecksum: значение PreviewChecksum типа string, используемое согласно назначению этой операции.
 type Result struct {
 	FinalPath        string
 	PreviewPath      string
@@ -34,7 +43,12 @@ type Result struct {
 	PreviewChecksum  string
 }
 
-// Segment описывает локальный media-сегмент, из которого собран итоговый файл.
+// Segment передаёт проверенные метаданные локального сегмента записи.
+//   - SeqNo: значение SeqNo типа int, используемое согласно назначению этой операции.
+//   - Path: путь к локальному файлу или каталогу операции.
+//   - FileName: значение FileName типа string, используемое согласно назначению этой операции.
+//   - SizeBytes: фактический размер объекта в байтах.
+//   - ChecksumSHA256: SHA-256 содержимого артефакта.
 type Segment struct {
 	SeqNo          int
 	Path           string
@@ -44,9 +58,9 @@ type Segment struct {
 }
 
 // NewPostProcessor создает FFmpeg post-processor.
-// Параметры:
+// @parameters:
 // - ffmpegPath: путь к ffmpeg, если пусто используется ffmpeg из PATH.
-// Возвращает: готовый PostProcessor.
+// @return готовый PostProcessor.
 func NewPostProcessor(ffmpegPath string) *PostProcessor {
 	if ffmpegPath == "" {
 		ffmpegPath = "ffmpeg"
@@ -59,21 +73,37 @@ func NewPostProcessor(ffmpegPath string) *PostProcessor {
 }
 
 // Finalize склеивает segment_* в final.mp4 и создает preview.jpg.
-// Параметры:
+// @parameters:
 // - ctx: контекст операции.
 // - recordDir: директория записи в локальном volume.
-// Возвращает: Result с путями/размерами/checksum или ошибку FFmpeg.
+// @return Result с путями/размерами/checksum или ошибку FFmpeg.
 func (p *PostProcessor) Finalize(ctx context.Context, recordDir string) (Result, error) {
 	return p.finalize(ctx, recordDir, false)
 }
 
-// FinalizeComposite reuses artifact validation, preview and checksums while
-// copying the uniformly encoded H.264/AAC composition chunks without a second
-// lossy video encode.
+// FinalizeComposite завершает сборку общей записи, проверяет файл и формирует превью.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - recordDir (string): каталог локальных артефактов конкретной записи.
+//
+// @return:
+//   - результат 1 (Result): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *PostProcessor) FinalizeComposite(ctx context.Context, recordDir string) (Result, error) {
 	return p.finalize(ctx, recordDir, true)
 }
 
+// finalize выполняет общую последовательность завершающей обработки локальных артефактов.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - recordDir (string): каталог локальных артефактов конкретной записи.
+//   - composite (bool): логический признак composite, управляющий соответствующей веткой обработки.
+//
+// @return:
+//   - результат 1 (Result): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *PostProcessor) finalize(ctx context.Context, recordDir string, composite bool) (Result, error) {
 	segments, err := findSegments(recordDir)
 	if err != nil {
@@ -144,11 +174,11 @@ func (p *PostProcessor) finalize(ctx context.Context, recordDir string, composit
 }
 
 // concat запускает FFmpeg concat demuxer и транскодирует результат в MP4/H.264/AAC.
-// Параметры:
+// @parameters:
 // - ctx: контекст операции.
 // - listPath: concat.txt со списком сегментов.
 // - finalPath: путь итогового MP4.
-// Возвращает: ошибку FFmpeg.
+// @return ошибку FFmpeg.
 func (p *PostProcessor) concat(ctx context.Context, listPath string, finalPath string) error {
 	runCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
@@ -169,7 +199,7 @@ func (p *PostProcessor) concat(ctx context.Context, listPath string, finalPath s
 		"-movflags", "+faststart",
 		finalPath,
 	}
-	output, err := exec.CommandContext(runCtx, p.ffmpegPath, args...).CombinedOutput()
+	output, err := runBounded(runCtx, p.ffmpegPath, args...)
 	if err != nil {
 		return fmt.Errorf("concat final video: %w; ffmpeg=%s", err, strings.TrimSpace(string(output)))
 	}
@@ -178,11 +208,11 @@ func (p *PostProcessor) concat(ctx context.Context, listPath string, finalPath s
 }
 
 // preview извлекает preview.jpg из итогового MP4.
-// Параметры:
+// @parameters:
 // - ctx: контекст операции.
 // - finalPath: путь итогового видео.
 // - previewPath: путь preview.jpg.
-// Возвращает: ошибку FFmpeg.
+// @return ошибку FFmpeg.
 func (p *PostProcessor) preview(ctx context.Context, finalPath string, previewPath string) error {
 	if err := p.previewAt(ctx, finalPath, previewPath, "1"); err == nil {
 		return nil
@@ -191,6 +221,17 @@ func (p *PostProcessor) preview(ctx context.Context, finalPath string, previewPa
 	return p.previewAt(ctx, finalPath, previewPath, "0")
 }
 
+// previewAt извлекает кадр предварительного просмотра в заданный момент видео.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - finalPath (string): значение finalPath типа string, используемое согласно назначению этой операции.
+//   - previewPath (string): значение previewPath типа string, используемое согласно назначению этой операции.
+//   - second (string): значение second типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *PostProcessor) previewAt(ctx context.Context, finalPath string, previewPath string, second string) error {
 	runCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
@@ -203,7 +244,7 @@ func (p *PostProcessor) previewAt(ctx context.Context, finalPath string, preview
 		"-q:v", "2",
 		previewPath,
 	}
-	output, err := exec.CommandContext(runCtx, p.ffmpegPath, args...).CombinedOutput()
+	output, err := runBounded(runCtx, p.ffmpegPath, args...)
 	if err != nil {
 		return fmt.Errorf("create preview: %w; ffmpeg=%s", err, strings.TrimSpace(string(output)))
 	}
@@ -214,6 +255,15 @@ func (p *PostProcessor) previewAt(ctx context.Context, finalPath string, preview
 	return nil
 }
 
+// durationSec получает длительность файла в целых секундах через ffprobe.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - path (string): путь к локальному файлу или каталогу операции.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *PostProcessor) durationSec(ctx context.Context, path string) (int, error) {
 	value, err := p.durationFloat(ctx, path)
 	if err != nil {
@@ -223,6 +273,16 @@ func (p *PostProcessor) durationSec(ctx context.Context, path string) (int, erro
 	return int(value + 0.5), nil
 }
 
+// durationFloat получает точную длительность файла через ffprobe.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - path (string): путь к локальному файлу или каталогу операции.
+//
+// @return:
+//   - результат 1 (float64): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *PostProcessor) durationFloat(ctx context.Context, path string) (float64, error) {
 	runCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
@@ -232,7 +292,7 @@ func (p *PostProcessor) durationFloat(ctx context.Context, path string) (float64
 		"-of", "json",
 		path,
 	}
-	output, err := exec.CommandContext(runCtx, p.ffprobePath, args...).Output()
+	output, err := runBounded(runCtx, p.ffprobePath, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -252,6 +312,14 @@ func (p *PostProcessor) durationFloat(ctx context.Context, path string) (float64
 	return value, nil
 }
 
+// usableSegments отбирает сегменты, пригодные для объединения в итоговую запись.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - segments ([]string): доступные сегменты записи для итоговой сборки.
+//
+// @return:
+//   - результат 1 ([]string): собранные элементы результата; состав ограничивается параметрами операции.
 func (p *PostProcessor) usableSegments(ctx context.Context, segments []string) []string {
 	result := make([]string, 0, len(segments))
 	for _, segment := range segments {
@@ -265,6 +333,14 @@ func (p *PostProcessor) usableSegments(ctx context.Context, segments []string) [
 	return result
 }
 
+// findSegments находит файлы сегментов в каталоге записи.
+//
+// @parameters:
+//   - recordDir (string): каталог локальных артефактов конкретной записи.
+//
+// @return:
+//   - результат 1 ([]string): собранные элементы результата; состав ограничивается параметрами операции.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func findSegments(recordDir string) ([]string, error) {
 	matches, err := filepath.Glob(filepath.Join(recordDir, "segment_*.*"))
 	if err != nil {
@@ -290,6 +366,14 @@ func findSegments(recordDir string) ([]string, error) {
 	return segments, nil
 }
 
+// segmentInfos собирает размеры, длительности и контрольные суммы сегментов.
+//
+// @parameters:
+//   - paths ([]string): набор значений paths для последовательной или пакетной обработки.
+//
+// @return:
+//   - результат 1 ([]Segment): собранные элементы результата; состав ограничивается параметрами операции.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func segmentInfos(paths []string) ([]Segment, error) {
 	result := make([]Segment, 0, len(paths))
 	for index, path := range paths {
@@ -317,6 +401,14 @@ func segmentInfos(paths []string) ([]Segment, error) {
 	return result, nil
 }
 
+// segmentSeqNo извлекает порядковый номер сегмента из имени файла.
+//
+// @parameters:
+//   - fileName (string): значение fileName типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func segmentSeqNo(fileName string) (int, error) {
 	trimmed := strings.TrimSuffix(strings.TrimPrefix(fileName, "segment_"), filepath.Ext(fileName))
 	value, err := strconv.Atoi(trimmed)
@@ -327,6 +419,14 @@ func segmentSeqNo(fileName string) (int, error) {
 	return value, nil
 }
 
+// writeConcatList создаёт входной список файлов для режима concat FFmpeg с безопасным экранированием путей.
+//
+// @parameters:
+//   - path (string): путь к локальному файлу или каталогу операции.
+//   - segments ([]string): доступные сегменты записи для итоговой сборки.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func writeConcatList(path string, segments []string) error {
 	var b strings.Builder
 	for _, segment := range segments {
@@ -338,6 +438,14 @@ func writeConcatList(path string, segments []string) error {
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
+// checksumSHA256 вычисляет SHA-256 содержимого локального файла потоковым чтением.
+//
+// @parameters:
+//   - path (string): путь к локальному файлу или каталогу операции.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func checksumSHA256(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -353,6 +461,13 @@ func checksumSHA256(path string) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+// ffprobePath определяет путь к ffprobe рядом с выбранным FFmpeg.
+//
+// @parameters:
+//   - ffmpegPath (string): значение ffmpegPath типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func ffprobePath(ffmpegPath string) string {
 	if ffmpegPath == "ffmpeg" {
 		return "ffprobe"

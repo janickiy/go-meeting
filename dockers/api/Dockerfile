@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine3.22 AS build
+FROM golang:1.26.6-alpine3.23 AS build
 
 WORKDIR /src
 
@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/go-recorder ./cmd/api
 
 FROM alpine:3.22 AS runtime
 
-RUN addgroup -S app && adduser -S app -G app
+RUN apk add --no-cache ca-certificates && addgroup -S app && adduser -S app -G app
 WORKDIR /app
 
 COPY --from=build /bin/go-recorder /app/go-recorder
@@ -21,7 +21,7 @@ EXPOSE 8085
 
 ENTRYPOINT ["/app/go-recorder"]
 
-FROM golang:1.24-alpine3.22 AS debug
+FROM golang:1.26.6-alpine3.23 AS debug
 
 RUN apk add --no-cache ca-certificates git \
 	&& go install github.com/go-delve/delve/cmd/dlv@latest

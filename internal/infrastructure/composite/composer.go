@@ -11,11 +11,19 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+
+	"github.com/janickiy/go-recorder/internal/operations"
 
 	"github.com/janickiy/go-recorder/internal/domain/media"
 )
 
+// Source описывает один устойчивый медиа-источник для общей композиции.
+//   - Track: медиа-дорожка, которую обрабатывает или подписывает компонент.
+//   - File: значение File типа string, используемое согласно назначению этой операции.
+//   - Offset: число элементов, пропускаемых перед началом страницы.
+//   - End: значение End типа float64, используемое согласно назначению этой операции.
 type Source struct {
 	Track  media.Track `json:"track"`
 	File   string      `json:"file"`
@@ -23,8 +31,11 @@ type Source struct {
 	End    float64     `json:"end"`
 }
 
-// Chunk is durable only after every elementary stream has been closed and its
-// manifest atomically renamed. A crash cannot mistake a partial tail for ready.
+// Chunk считает фрагмент устойчивым только после закрытия всех потоков и атомарной публикации манифеста.
+//   - Index: значение Index типа int, используемое согласно назначению этой операции.
+//   - Duration: плановая длительность или интервал в единицах, заданных типом.
+//   - Sources: набор источников медиа для публикации или композиции.
+//   - Layout: расположение источников в итоговом видеокадре.
 type Chunk struct {
 	Index    int      `json:"index"`
 	Duration float64  `json:"duration"`
@@ -32,6 +43,13 @@ type Chunk struct {
 	Layout   Layout   `json:"layout"`
 }
 
+// Composer строит общую запись из независимых источников через FFmpeg вне цикла пересылки SFU.
+//   - FFmpegPath: значение FFmpegPath типа string, используемое согласно назначению этой операции.
+//   - Width: ширина видеокадра или области в пикселях.
+//   - Height: высота видеокадра или области в пикселях.
+//   - FPS: значение FPS типа int, используемое согласно назначению этой операции.
+//   - Timeout: максимальное время ожидания операции.
+//   - slots: канал «slots» для передачи данных или завершения ожидания.
 type Composer struct {
 	FFmpegPath string
 	Width      int
@@ -41,6 +59,17 @@ type Composer struct {
 	slots      chan struct{}
 }
 
+// NewComposer создаёт и связывает зависимости компонента Composer, используемого в сборке и проверке аудио- и видеозаписи.
+//
+// @parameters:
+//   - path (string): путь к локальному файлу или каталогу операции.
+//   - width (int): ширина видеокадра или области в пикселях.
+//   - height (int): высота видеокадра или области в пикселях.
+//   - fps (int): частота видеокадров в секунду.
+//   - concurrency (int): значение concurrency типа int, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*Composer): созданный компонент с переданными зависимостями.
 func NewComposer(path string, width, height, fps, concurrency int) *Composer {
 	if path == "" {
 		path = "ffmpeg"
@@ -60,10 +89,22 @@ func NewComposer(path string, width, height, fps, concurrency int) *Composer {
 	return &Composer{FFmpegPath: path, Width: width, Height: height, FPS: fps, Timeout: 2 * time.Minute, slots: make(chan struct{}, concurrency)}
 }
 
+// Compose собирает общую аудио- и видеозапись из устойчивых фрагментов источников через FFmpeg.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
+//   - chunk (Chunk): устойчивый фрагмент захваченных источников записи.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Composer) Compose(ctx context.Context, dir string, chunk Chunk) error {
 	select {
 	case c.slots <- struct{}{}:
-		defer func() { <-c.slots }()
+		defer /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
+
+		 */func() { <-c.slots }()
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -92,9 +133,14 @@ func (c *Composer) Compose(ctx context.Context, dir string, chunk Chunk) error {
 	workCtx, cancel := context.WithTimeout(ctx, c.Timeout)
 	defer cancel()
 	cmd := exec.CommandContext(workCtx, c.FFmpegPath, args...)
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.WaitDelay = 3 * time.Second
+	operations.FFmpegActive(1)
+	defer operations.FFmpegActive(-1)
 	var stderr boundedLog
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
+		operations.Event("ffmpeg_failed")
 		return fmt.Errorf("compose segment %d: %w: %s", chunk.Index, err, stderr.String())
 	}
 	if err := os.Rename(output+".partial.mp4", output); err != nil {
@@ -103,6 +149,16 @@ func (c *Composer) Compose(ctx context.Context, dir string, chunk Chunk) error {
 	return nil
 }
 
+// Arguments формирует аргументы FFmpeg для композиции источников и выбранного расположения плиток.
+//
+// @parameters:
+//   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
+//   - chunk (Chunk): устойчивый фрагмент захваченных источников записи.
+//   - output (string): значение output типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 ([]string): собранные элементы результата; состав ограничивается параметрами операции.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Composer) Arguments(dir string, chunk Chunk, output string) ([]string, error) {
 	if chunk.Duration <= 0 || chunk.Duration > 31 {
 		return nil, fmt.Errorf("invalid composite chunk duration")
@@ -154,6 +210,14 @@ func (c *Composer) Arguments(dir string, chunk Chunk, output string) ([]string, 
 	return args, nil
 }
 
+// Recover восстанавливает доступные устойчивые фрагменты записи после прерывания обработки.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Composer) Recover(ctx context.Context, dir string) error {
 	paths, err := filepath.Glob(filepath.Join(dir, "chunk_*.json"))
 	if err != nil {
@@ -176,11 +240,23 @@ func (c *Composer) Recover(ctx context.Context, dir string) error {
 	return nil
 }
 
+// boundedLog сохраняет ограниченный диагностический вывод без бесконечного роста памяти.
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - data: полезная нагрузка события или байты обрабатываемого содержимого.
 type boundedLog struct {
 	mu   sync.Mutex
 	data []byte
 }
 
+// Write принимает байты вывода в ограниченный буфер и соблюдает контракт io.Writer.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - p ([]byte): байты, переданные по контракту io.Writer.
+//
+// @return:
+//   - результат 1 (int): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (b *boundedLog) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -190,4 +266,10 @@ func (b *boundedLog) Write(p []byte) (int, error) {
 	}
 	return len(p), nil
 }
+
+// String возвращает строковое представление накопленного значения или ограниченного диагностического вывода.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func (b *boundedLog) String() string { b.mu.Lock(); defer b.mu.Unlock(); return string(b.data) }

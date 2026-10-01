@@ -19,6 +19,14 @@ import {
 import { errorMessage, statusLabels } from "../api";
 import type { ConferenceStatus } from "../types";
 
+/**
+ * Brand показывает фирменный знак Meet со ссылкой на указанную страницу.
+ *
+ * @parameters:
+ *   - объект параметров: to — верхняя граница фильтра либо локальный путь согласно типу.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function Brand({ to = "/" }: { to?: string }) {
   return (
     <Link to={to} className="brand" aria-label="Meet — главная">
@@ -29,6 +37,14 @@ export function Brand({ to = "/" }: { to?: string }) {
     </Link>
   );
 }
+/**
+ * Button показывает единообразную кнопку и состояние ожидания действия.
+ *
+ * @parameters:
+ *   - объект параметров: children — вложенное содержимое компонента или диалога; busy — свойство текущего компонента; variant — свойство текущего компонента; className — дополнительное оформление элемента; disabled — запрещает действие в текущем состоянии; props — типизированные свойства компонента; передаются в отображаемый элемент.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function Button({
   children,
   busy,
@@ -52,6 +68,14 @@ export function Button({
     </button>
   );
 }
+/**
+ * PasswordInput показывает поле пароля с управляемым переключением видимости ввода.
+ *
+ * @parameters:
+ *   - props (InputHTMLAttributes<HTMLInputElement>) — типизированные свойства компонента; передаются в отображаемый элемент.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
   const [visible, setVisible] = useState(false);
   return (
@@ -62,13 +86,28 @@ export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
         className="eye-toggle"
         aria-label={visible ? "Скрыть пароль" : "Показать пароль"}
         aria-pressed={visible}
-        onClick={() => setVisible(!visible)}
+        onClick={
+          /**
+           * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+           *
+           *
+           * @returns вычисленное значение: setVisible(!visible).
+           */ () => setVisible(!visible)
+        }
       >
         {visible ? <EyeOff size={18} /> : <Eye size={18} />}
       </button>
     </div>
   );
 }
+/**
+ * ErrorNotice выводит доступное сообщение об ошибке действия или загрузки.
+ *
+ * @parameters:
+ *   - объект параметров: error — пойманная ошибка API или сети; children — вложенное содержимое компонента или диалога.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function ErrorNotice({
   error,
   children,
@@ -84,6 +123,12 @@ export function ErrorNotice({
     </div>
   );
 }
+/**
+ * Loading показывает индикатор ожидания данных страницы.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function Loading() {
   return (
     <div className="loading" role="status">
@@ -92,6 +137,14 @@ export function Loading() {
     </div>
   );
 }
+/**
+ * StatusBadge переводит серверное состояние конференции в подпись и оформление индикатора.
+ *
+ * @parameters:
+ *   - объект параметров: status — HTTP-статус либо состояние встречи.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function StatusBadge({ status }: { status: ConferenceStatus }) {
   return (
     <span className={`status-badge status-${status}`}>
@@ -99,6 +152,12 @@ export function StatusBadge({ status }: { status: ConferenceStatus }) {
     </span>
   );
 }
+/**
+ * SuccessMark показывает графическое подтверждение успешного действия.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function SuccessMark() {
   return (
     <span className="success-mark" aria-hidden="true">
@@ -106,6 +165,14 @@ export function SuccessMark() {
     </span>
   );
 }
+/**
+ * Modal создаёт диалог с управлением фокусом, закрытием и доступностью клавиатуры.
+ *
+ * @parameters:
+ *   - объект параметров: title — название встречи или диалога; children — вложенное содержимое компонента или диалога; onClose — обработчик закрытия формы или диалога; wide — свойство текущего компонента.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function Modal({
   title,
   children,
@@ -114,66 +181,108 @@ export function Modal({
 }: {
   title: string;
   children: ReactNode;
-  onClose: () => void;
+  onClose: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в интерфейсе Meet.
+   *
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ () => void;
   wide?: boolean;
 }) {
   const id = useId();
   const dialog = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const focusable = () =>
-      Array.from(
-        dialog.current?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), a[href], textarea:not(:disabled), [tabindex="0"]',
-        ) || [],
-      );
-    (
-      dialog.current?.querySelector<HTMLElement>("[data-autofocus]") ||
-      focusable()[0] ||
-      dialog.current
-    )?.focus();
-    function handle(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        close.current();
-      }
-      if (event.key === "Tab") {
-        const items = focusable();
-        const first = items[0];
-        const last = items.at(-1);
-        if (!first) {
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      const previous = document.activeElement as HTMLElement | null;
+      const overflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      /**
+       * focusable находит доступные элементы диалога для клавиатурного фокуса.
+       *
+       *
+       * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+       */
+      const focusable = () =>
+        Array.from(
+          dialog.current?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), input:not(:disabled), a[href], textarea:not(:disabled), [tabindex="0"]',
+          ) || [],
+        );
+      (
+        dialog.current?.querySelector<HTMLElement>("[data-autofocus]") ||
+        focusable()[0] ||
+        dialog.current
+      )?.focus();
+      /**
+       * handle ставит входящее медиа-событие в последовательную обработку, сохраняя порядок SDP и ICE.
+       *
+       * @parameters:
+       *   - event (KeyboardEvent) — проверенный конверт события комнаты.
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      function handle(event: KeyboardEvent) {
+        if (event.key === "Escape") {
           event.preventDefault();
-          dialog.current?.focus();
-        } else if (
-          event.shiftKey &&
-          (document.activeElement === first ||
-            document.activeElement === dialog.current)
-        ) {
-          event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
+          close.current();
+        }
+        if (event.key === "Tab") {
+          const items = focusable();
+          const first = items[0];
+          const last = items.at(-1);
+          if (!first) {
+            event.preventDefault();
+            dialog.current?.focus();
+          } else if (
+            event.shiftKey &&
+            (document.activeElement === first ||
+              document.activeElement === dialog.current)
+          ) {
+            event.preventDefault();
+            last?.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
         }
       }
-    }
-    document.addEventListener("keydown", handle);
-    return () => {
-      document.body.style.overflow = overflow;
-      document.removeEventListener("keydown", handle);
-      if (previous?.isConnected) previous.focus();
-    };
-  }, []);
+      document.addEventListener("keydown", handle);
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      return () => {
+        document.body.style.overflow = overflow;
+        document.removeEventListener("keydown", handle);
+        if (previous?.isConnected) previous.focus();
+      };
+    },
+    [],
+  );
   return createPortal(
     <div
       className="modal-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) close.current();
-      }}
+      onMouseDown={
+        /**
+         * onMouseDown обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+         *
+         * @parameters:
+         *   - event — проверенный конверт события комнаты.
+         *
+         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ (event) => {
+          if (event.target === event.currentTarget) close.current();
+        }
+      }
     >
       <div
         ref={dialog}
@@ -197,13 +306,43 @@ export function Modal({
     document.body,
   );
 }
+/**
+ * CopyLink показывает ссылку и копирует её в буфер обмена с индикацией результата.
+ *
+ * @parameters:
+ *   - объект параметров: value — значение для проверки, преобразования или отображения.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function CopyLink({ value }: { value: string }) {
   const [state, setState] = useState<"idle" | "copied" | "error">("idle");
-  useEffect(() => {
-    if (state !== "copied") return;
-    const timer = window.setTimeout(() => setState("idle"), 2500);
-    return () => window.clearTimeout(timer);
-  }, [state]);
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      if (state !== "copied") return;
+      const timer = window.setTimeout(
+        /**
+         * Обработчик window.setTimeout выполняет отложенную либо периодическую часть операции.
+         *
+         *
+         * @returns вычисленное значение: setState("idle").
+         */ () => setState("idle"),
+        2500,
+      );
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns вычисленное значение: window.clearTimeout(timer).
+       */
+      return () => window.clearTimeout(timer);
+    },
+    [state],
+  );
   return (
     <>
       <div className="copy-link">
@@ -211,17 +350,47 @@ export function CopyLink({ value }: { value: string }) {
           aria-label="Ссылка-приглашение"
           value={value}
           readOnly
-          onFocus={(event) => event.target.select()}
+          onFocus={
+            /**
+             * onFocus обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             * @parameters:
+             *   - event — проверенный конверт события комнаты.
+             *
+             * @returns вычисленное значение: event.target.select().
+             */ (event) => event.target.select()
+          }
         />
         <Button
           variant="outline"
-          onClick={() => {
-            navigator.clipboard
-              ?.writeText(value)
-              .then(() => setState("copied"))
-              .catch(() => setState("error"));
-            if (!navigator.clipboard) setState("error");
-          }}
+          onClick={
+            /**
+             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ () => {
+              navigator.clipboard
+                ?.writeText(value)
+                .then(
+                  /**
+                   * Обработчик then выполняет переданный шаг вызова then в интерфейсе Meet.
+                   *
+                   *
+                   * @returns вычисленное значение: setState("copied").
+                   */ () => setState("copied"),
+                )
+                .catch(
+                  /**
+                   * Обработчик catch выполняет переданный шаг вызова catch в интерфейсе Meet.
+                   *
+                   *
+                   * @returns вычисленное значение: setState("error").
+                   */ () => setState("error"),
+                );
+              if (!navigator.clipboard) setState("error");
+            }
+          }
         >
           {state === "copied" ? <Check size={17} /> : <Copy size={17} />}
           {state === "copied" ? "Скопировано" : "Копировать"}

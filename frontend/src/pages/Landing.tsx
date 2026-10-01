@@ -3,6 +3,12 @@ import { ArrowRight, CalendarDays, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "../auth";
 import { Brand } from "../components/ui";
 
+/**
+ * Landing показывает приветственную страницу Meet и переходы к регистрации и входу.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function Landing() {
   const { user } = useAuth();
   return (
@@ -58,17 +64,26 @@ export function Landing() {
                 title: "Всё в одном месте",
                 text: "Участники, приглашения и история встреч",
               },
-            ].map(({ Icon, title, text }) => (
-              <div className="hero-feature" key={title}>
-                <span className="feature-icon">
-                  <Icon size={23} />
-                </span>
-                <div>
-                  <strong>{title}</strong>
-                  <p>{text}</p>
+            ].map(
+              /**
+               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+               *
+               * @parameters:
+               *   - объект параметров: Icon — свойство текущего компонента; title — название встречи или диалога; text — обычный текст сообщения.
+               *
+               * @returns преобразованное значение текущего элемента для результирующего набора.
+               */ ({ Icon, title, text }) => (
+                <div className="hero-feature" key={title}>
+                  <span className="feature-icon">
+                    <Icon size={23} />
+                  </span>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{text}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
           </div>
           <Link
             to={user ? "/app" : "/register"}

@@ -1,3 +1,13 @@
+/**
+ * User описывает публичные сведения учётной записи без пароля.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - email — адрес электронной почты.
+ *   - displayName — необязательное отображаемое имя пользователя.
+ *   - createdAt — время создания.
+ *   - updatedAt — время последнего сохранённого изменения.
+ */
 export interface User {
   id: string;
   email: string;
@@ -5,8 +15,30 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 }
+/**
+ * ConferenceStatus ограничивает допустимые серверные состояния встречи.
+ *
+ */
 export type ConferenceStatus =
   "created" | "scheduled" | "active" | "finished" | "cancelled";
+/**
+ * Conference описывает встречу, её владельца, жизненный цикл, расписание и настройки ожидания.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - ownerId — идентификатор организатора.
+ *   - title — название встречи или диалога.
+ *   - inviteCode — код приглашения, который не заменяет авторизацию.
+ *   - inviteUrl — полная ссылка приглашения.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - createdAt — время создания.
+ *   - updatedAt — время последнего сохранённого изменения.
+ *   - startedAt — время фактического начала.
+ *   - finishedAt — время завершения встречи.
+ *   - waitingRoomEnabled — требует допуска перед входом в комнату.
+ *   - scheduledAt — однозначная ISO-временная отметка встречи.
+ *   - plannedDurationMin — длительность в минутах либо null, если она не указана.
+ */
 export interface Conference {
   id: string;
   ownerId: string;
@@ -22,6 +54,31 @@ export interface Conference {
   scheduledAt?: string | null;
   plannedDurationMin?: number | null;
 }
+/**
+ * Participant описывает членство, роль, допуск и сохранённые ограничения медиа участника.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - conferenceId — идентификатор конференции и области данных.
+ *   - userId — идентификатор текущего авторизованного пользователя.
+ *   - displayName — необязательное отображаемое имя пользователя.
+ *   - role — роль участника и его полномочия.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - joinedAt — время присоединения.
+ *   - leftAt — время выхода.
+ *   - createdAt — время создания.
+ *   - updatedAt — время последнего сохранённого изменения.
+ *   - microphoneEnabled — признак включённого микрофона.
+ *   - cameraEnabled — признак включённой камеры.
+ *   - screenSharing — признак демонстрации экрана.
+ *   - microphoneBlocked — серверный запрет микрофона.
+ *   - cameraBlocked — серверный запрет камеры.
+ *   - screenBlocked — серверный запрет экрана.
+ *   - mediaPolicyVersion — версия серверной политики.
+ *   - admissionState — состояние ожидания, допуска, отклонения или исключения.
+ *   - admissionDecidedAt — время решения допуска.
+ *   - admissionVersion — монотонная версия решения допуска.
+ */
 export interface Participant {
   id: string;
   conferenceId: string;
@@ -44,6 +101,16 @@ export interface Participant {
   admissionDecidedAt?: string | null;
   admissionVersion?: number;
 }
+/**
+ * ParticipantMediaState связывает признаки медиа с физическим подключением и порядковым номером изменения.
+ *
+ * Состав:
+ *   - connectionId — идентификатор физического подключения.
+ *   - sequence — серверный номер последовательности; строка чата сохраняет точность BIGSERIAL.
+ *   - microphoneEnabled — признак включённого микрофона.
+ *   - cameraEnabled — признак включённой камеры.
+ *   - screenSharing — признак демонстрации экрана.
+ */
 export interface ParticipantMediaState {
   connectionId: string;
   sequence: number;
@@ -51,11 +118,34 @@ export interface ParticipantMediaState {
   cameraEnabled: boolean;
   screenSharing: boolean;
 }
+/**
+ * ModerationAction ограничивает допустимые действия модерации и их параметры.
+ *
+ * Состав:
+ *   - action — разрешённое действие управления либо асинхронная операция.
+ *   - blocked — требуемое ограничение источника.
+ *   - role — роль участника и его полномочия.
+ */
 export interface ModerationAction {
   action: "mute" | "camera" | "screen" | "kick" | "role";
   blocked?: boolean;
   role?: "co_host" | "participant";
 }
+/**
+ * ConferenceRecording описывает общую запись конференции, её состояние и доступные артефакты.
+ *
+ * Состав:
+ *   - uuid — внешний UUID записи.
+ *   - conferenceId — идентификатор конференции и области данных.
+ *   - mode — режим записи конференции.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - createdAt — время создания.
+ *   - startedAt — время фактического начала.
+ *   - endedAt — время завершения записи.
+ *   - durationSec — измеренная длительность в секундах.
+ *   - errorMessage — безопасная причина отказа.
+ *   - files — доступные артефакты и выданные сервером ссылки.
+ */
 export interface ConferenceRecording {
   uuid: string;
   conferenceId: string;
@@ -75,6 +165,16 @@ export interface ConferenceRecording {
   errorMessage?: string;
   files: { fileType: string; url?: string; sizeBytes?: number }[];
 }
+/**
+ * Invite передаёт ограниченные сведения встречи по приглашению.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - title — название встречи или диалога.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - scheduledAt — однозначная ISO-временная отметка встречи.
+ *   - waitingRoomEnabled — требует допуска перед входом в комнату.
+ */
 export interface Invite {
   id: string;
   title: string;
@@ -82,20 +182,61 @@ export interface Invite {
   scheduledAt?: string | null;
   waitingRoomEnabled?: boolean;
 }
+/**
+ * LoginResponse описывает токен, его срок и пользователя успешного входа.
+ *
+ * Состав:
+ *   - accessToken — подписанный токен учётной записи.
+ *   - tokenType — схема Bearer авторизации.
+ *   - expiresIn — срок токена в секундах.
+ *   - user — публичные сведения пользователя.
+ */
 export interface LoginResponse {
   accessToken: string;
   tokenType: "Bearer";
   expiresIn: number;
   user: User;
 }
+/**
+ * Item задаёт стандартный API-ответ с одним типизированным элементом.
+ *
+ * Состав:
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - item — элемент списка, который обрабатывает текущий шаг.
+ */
 export type Item<T> = { status: string; item: T };
+/**
+ * Items задаёт стандартный API-ответ со списком типизированных элементов.
+ *
+ * Состав:
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - items — элементы результата для объединения или отображения.
+ */
 export type Items<T> = { status: string; items: T[] };
 
+/**
+ * PresenceParticipant добавляет к членству онлайн-присутствие и число физических подключений.
+ *
+ * Состав:
+ *   - online — наличие действующей физической сессии.
+ *   - connections — число действующих физических сессий.
+ *   - connectionIds — идентификаторы подключений.
+ */
 export interface PresenceParticipant extends Participant {
   online: boolean;
   connections: number;
   connectionIds: string[];
 }
+/**
+ * RealtimeState описывает начальный снимок комнаты, идентичность подключения и видимый состав участников.
+ *
+ * Состав:
+ *   - connectionId — идентификатор физического подключения.
+ *   - participantId — идентификатор членства целевого участника.
+ *   - status — HTTP-статус либо состояние встречи.
+ *   - participants — разрешённый состав участников.
+ *   - hands — снимок поднятых рук.
+ */
 export interface RealtimeState {
   connectionId: string;
   participantId: string;
@@ -103,6 +244,18 @@ export interface RealtimeState {
   participants: PresenceParticipant[];
   hands?: RaisedHand[];
 }
+/**
+ * RealtimeEvent описывает версионный конверт доверенного серверного события.
+ *
+ * Состав:
+ *   - version — версия изменения или протокола.
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - type — машинный тип события.
+ *   - conferenceId — идентификатор конференции и области данных.
+ *   - timestamp — время серверного события.
+ *   - data — нагрузка события, проверяемая перед чтением.
+ *   - replyTo — идентификатор исходного сообщения или запроса.
+ */
 export interface RealtimeEvent {
   version: 1;
   id: string;
@@ -112,6 +265,16 @@ export interface RealtimeEvent {
   data: unknown;
   replyTo?: string;
 }
+/**
+ * Signal описывает адресацию и нагрузку WebRTC-сигнализации.
+ *
+ * Состав:
+ *   - targetConnectionId — адресат физического подключения.
+ *   - senderConnectionId — подтверждённое сервером подключение отправителя.
+ *   - senderParticipantId — подтверждённое членство отправителя.
+ *   - sdp — описание согласуемого WebRTC-сеанса.
+ *   - candidate — кандидат ICE или null после завершения сбора.
+ */
 export interface Signal {
   targetConnectionId: string;
   senderConnectionId?: string;
@@ -120,9 +283,25 @@ export interface Signal {
   candidate?: RTCIceCandidateInit;
 }
 
+/**
+ * CursorItems добавляет курсор следующей страницы к списку API.
+ *
+ * Состав:
+ *   - nextCursor — граница следующей страницы либо отсутствие продолжения.
+ */
 export interface CursorItems<T> extends Items<T> {
   nextCursor: string | null;
 }
+/**
+ * ConferenceFilters задаёт серверные фильтры текущего пользователя по списку, области, состоянию и датам.
+ *
+ * Состав:
+ *   - view — раздел будущих, активных или прошедших встреч.
+ *   - scope — область собственных или доступных встреч.
+ *   - from — нижняя временная граница фильтра.
+ *   - to — верхняя граница фильтра либо локальный путь согласно типу.
+ *   - status — HTTP-статус либо состояние встречи.
+ */
 export interface ConferenceFilters {
   view?: "upcoming" | "active" | "past";
   scope?: "all" | "owned" | "participating";
@@ -130,12 +309,35 @@ export interface ConferenceFilters {
   to?: string;
   status?: ConferenceStatus;
 }
+/**
+ * ConferenceInput задаёт входные параметры создания немедленной либо запланированной встречи.
+ *
+ * Состав:
+ *   - title — название встречи или диалога.
+ *   - waitingRoomEnabled — требует допуска перед входом в комнату.
+ *   - scheduledAt — однозначная ISO-временная отметка встречи.
+ *   - plannedDurationMin — длительность в минутах либо null, если она не указана.
+ */
 export interface ConferenceInput {
   title: string;
   waitingRoomEnabled?: boolean;
   scheduledAt?: string | null;
   plannedDurationMin?: number | null;
 }
+/**
+ * ConferenceHistory описывает сводку завершённой встречи, участников, записей и доступность чата.
+ *
+ * Состав:
+ *   - conference — поле или операция этого контракта.
+ *   - owner — публичные сведения организатора.
+ *   - durationSec — измеренная длительность в секундах.
+ *   - participantCount — число видимых исторических членств.
+ *   - participants — разрешённый состав участников.
+ *   - participantsTruncated — признак ограниченной первой части участников.
+ *   - recordings — поле или операция этого контракта.
+ *   - chatAvailable — доступ текущего пользователя к постоянному чату.
+ *   - chatReadOnly — запрещает изменение чата после завершения встречи.
+ */
 export interface ConferenceHistory {
   conference: Conference;
   owner: { id: string; displayName: string | null };
@@ -152,6 +354,16 @@ export interface ConferenceHistory {
   chatAvailable: boolean;
   chatReadOnly: boolean;
 }
+/**
+ * ChatAttachment описывает публичные метаданные вложения без внутреннего object key и токена загрузки.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - filename — проверенное имя вложения без внутреннего пути.
+ *   - mimeType — проверенный тип содержимого.
+ *   - size — размер в байтах.
+ *   - status — HTTP-статус либо состояние встречи.
+ */
 export interface ChatAttachment {
   id: string;
   filename: string;
@@ -159,6 +371,24 @@ export interface ChatAttachment {
   size: number;
   status: string;
 }
+/**
+ * ChatMessage описывает сообщение, автора, версию, ответ и вложения; sequence хранится строкой для точности BIGSERIAL.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - sequence — серверный номер последовательности; строка чата сохраняет точность BIGSERIAL.
+ *   - conferenceId — идентификатор конференции и области данных.
+ *   - senderId — идентификатор отправителя.
+ *   - senderName — имя отправителя.
+ *   - text — обычный текст сообщения.
+ *   - replyTo — идентификатор исходного сообщения или запроса.
+ *   - replyPreview — краткое представление исходного сообщения.
+ *   - createdAt — время создания.
+ *   - updatedAt — время последнего сохранённого изменения.
+ *   - deletedAt — время мягкого удаления либо null.
+ *   - version — версия изменения или протокола.
+ *   - attachments — метаданные прикреплённых файлов.
+ */
 export interface ChatMessage {
   id: string;
   sequence: string;
@@ -179,19 +409,56 @@ export interface ChatMessage {
   version: number;
   attachments: ChatAttachment[];
 }
+/**
+ * ChatPage добавляет непрочитанные и границу прочтения к странице чата.
+ *
+ * Состав:
+ *   - unreadCount — число доступных непрочитанных элементов.
+ *   - lastReadMessageId — последнее сообщение границы прочтения.
+ */
 export interface ChatPage extends CursorItems<ChatMessage> {
   unreadCount: number;
   lastReadMessageId: string | null;
 }
+/**
+ * ChatReadState описывает сохранённую границу прочтения и число чужих непрочитанных сообщений.
+ *
+ * Состав:
+ *   - lastReadMessageId — последнее сообщение границы прочтения.
+ *   - unreadCount — число доступных непрочитанных элементов.
+ */
 export interface ChatReadState {
   lastReadMessageId: string | null;
   unreadCount: number;
 }
+/**
+ * RaisedHand описывает участника и время поднятия его временной руки.
+ *
+ * Состав:
+ *   - participantId — идентификатор членства целевого участника.
+ *   - raisedAt — время исходного поднятия руки.
+ */
 export interface RaisedHand {
   participantId: string;
   raisedAt: string;
 }
+/**
+ * ReactionEmoji ограничивает допустимые временные реакции четырьмя разрешёнными эмодзи.
+ *
+ */
 export type ReactionEmoji = "👍" | "👏" | "❤️" | "😂";
+/**
+ * Notification описывает личное уведомление с ссылочной нагрузкой и отметкой прочтения.
+ *
+ * Состав:
+ *   - id — идентификатор ресурса или конференции данного запроса.
+ *   - userId — идентификатор текущего авторизованного пользователя.
+ *   - type — машинный тип события.
+ *   - version — версия изменения или протокола.
+ *   - payload — ссылки и состояние уведомления без выдачи прав на ресурс.
+ *   - createdAt — время создания.
+ *   - readAt — время прочтения либо null.
+ */
 export interface Notification {
   id: string;
   userId: string;
@@ -206,6 +473,12 @@ export interface Notification {
   createdAt: string;
   readAt: string | null;
 }
+/**
+ * NotificationsPage добавляет число непрочитанных к странице личных уведомлений.
+ *
+ * Состав:
+ *   - unreadCount — число доступных непрочитанных элементов.
+ */
 export interface NotificationsPage extends CursorItems<Notification> {
   unreadCount: number;
 }

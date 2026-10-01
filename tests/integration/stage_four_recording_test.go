@@ -48,9 +48,10 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Real encoded A/V traverses authenticated signaling, SFU HTTP egress,
-// RabbitMQ/outbox orchestration, FFmpeg and private MinIO. All SQL/Redis/object
-// identities are isolated from the running application and cleaned afterwards.
+// TestStageFourCompositeRecording проверяет сценарий «этап четыре общая запись запись», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourCompositeRecording(t *testing.T) {
 	if os.Getenv("RECORDER_STAGE4_RECORDING_E2E") != "true" {
 		t.Skip("set RECORDER_STAGE4_RECORDING_E2E=true with local PostgreSQL/Redis/MinIO/RabbitMQ")
@@ -63,10 +64,13 @@ func TestStageFourCompositeRecording(t *testing.T) {
 		t.Fatal("FFmpeg is required for recording acceptance")
 	}
 	fixtures := encodedFixture(t, ffmpegPath)
+	// Разные участники не должны публиковать одну когерентную синусоиду:
+	// задержка сетевого пути способна погасить её при обычном суммировании.
+	secondFixtures := encodedFixtureFrequency(t, ffmpegPath, 660)
 	f := stageTwo(t)
 	engine, mediaConfig := startMediaWithLimits(t, f, 4, 2, 2)
 	a := newMediaTestPeerWithPublisher(t, f, 0, f.ownerToken, fixtures.publish)
-	b := newMediaTestPeerWithPublisher(t, f, 1, f.memberToken, fixtures.publish)
+	b := newMediaTestPeerWithPublisher(t, f, 1, f.memberToken, secondFixtures.publish)
 	a.assertReceived(t, b.id())
 	b.assertReceived(t, a.id())
 	endpoint := os.Getenv("RECORDER_STAGE4_TEST_MINIO_ENDPOINT")
@@ -107,7 +111,15 @@ func TestStageFourCompositeRecording(t *testing.T) {
 	lock := redisinfra.NewConferenceLock(f.redis, time.Minute)
 	config := config.CompositeConfig{Width: 640, Height: 360, FPS: 25, Concurrency: 1, MaxActive: 2, MaxBytes: 32 << 20, LeaseTTL: 10 * time.Second, PollInterval: 100 * time.Millisecond, MaxDuration: time.Minute, KeepLocal: true}
 	var starts, stops atomic.Int32
-	service := recorder.NewCompositeService(recorder.CompositeOptions{Repository: repository, Registry: redisinfra.NewMediaRegistry(f.redis, mediaConfig.Namespace), S3: storage, StoragePath: dir, FFmpegPath: ffmpegPath, WorkerID: name, InternalSecret: mediaConfig.InternalSecret, Config: config, ConferenceLock: lock, Logger: log.New(os.Stderr, "stage4-composite: ", 0), Publish: func(ctx context.Context, record records.Record, kind string) error {
+	service := recorder.NewCompositeService(recorder.CompositeOptions{Repository: repository, Registry: redisinfra.NewMediaRegistry(f.redis, mediaConfig.Namespace), S3: storage, StoragePath: dir, FFmpegPath: ffmpegPath, WorkerID: name, InternalSecret: mediaConfig.InternalSecret, Config: config, ConferenceLock: lock, Logger: log.New(os.Stderr, "stage4-composite: ", 0), Publish: /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	@parameters:
+	  - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+	  - record (records.Record): задача записи с её сохранённым состоянием.
+	  - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+
+	@return:
+	  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(ctx context.Context, record records.Record, kind string) error {
 		event := realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "status": records.PublicStatus(record.Status)})
 		return f.store.Publish(ctx, realtime.Bus{Kind: "event", ConferenceID: record.ConferenceID, Event: &event})
 	}})
@@ -116,7 +128,9 @@ func TestStageFourCompositeRecording(t *testing.T) {
 	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &usageBefore)
 	var peakFFmpeg atomic.Int32
 	sampled := make(chan struct{})
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer close(sampled)
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
@@ -136,49 +150,62 @@ func TestStageFourCompositeRecording(t *testing.T) {
 		}
 	}()
 	consumerDone := make(chan error, 1)
-	go func() {
-		consumerDone <- consumer.Consume(ctx, func(ctx context.Context, command records.Command) error {
-			if command.Type == "record.start" {
-				starts.Add(1)
-			}
-			if command.Type == "record.stop" {
-				stops.Add(1)
-			}
-			record, err := repository.FindByUUID(ctx, command.RecordID)
-			if err != nil {
-				return err
-			}
-			return service.HandleCommand(ctx, command, record)
-		})
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
+		consumerDone <- consumer.Consume(ctx, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+			  - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
+
+			@return:
+			  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(ctx context.Context, command records.Command) error {
+				if command.Type == "record.start" {
+					starts.Add(1)
+				}
+				if command.Type == "record.stop" {
+					stops.Add(1)
+				}
+				record, err := repository.FindByUUID(ctx, command.RecordID)
+				if err != nil {
+					return err
+				}
+				return service.HandleCommand(ctx, command, record)
+			})
 	}()
 	reader := recorder.NewService(repository, publisher, storage, lock)
 	orchestration := recordingusecase.NewConferenceService(pg.NewConferenceRecordingRepository(f.db), reader, publisher, lock, f.hubs[0])
 	outboxDone := make(chan struct{})
-	go func() { defer close(outboxDone); orchestration.Run(ctx) }()
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() { defer close(outboxDone); orchestration.Run(ctx) }()
 	router := gin.New()
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(orchestration), httpmiddleware.Authenticate(f.tokens))
 	api := httptest.NewServer(router)
-	t.Cleanup(func() {
-		cancel()
-		consumer.Close()
-		<-consumerDone
-		<-outboxDone
-		service.Wait()
-		<-sampled
-		publisher.Close()
-		api.Close()
-		cleanupRabbit, err := amqp.Dial(rabbitURL)
-		if err == nil {
-			defer cleanupRabbit.Close()
-			channel, err := cleanupRabbit.Channel()
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
+			cancel()
+			consumer.Close()
+			<-consumerDone
+			<-outboxDone
+			service.Wait()
+			<-sampled
+			publisher.Close()
+			api.Close()
+			cleanupRabbit, err := amqp.Dial(rabbitURL)
 			if err == nil {
-				defer channel.Close()
-				_, _ = channel.QueueDelete(name, false, false, false)
-				_ = channel.ExchangeDelete(name, false, false)
+				defer cleanupRabbit.Close()
+				channel, err := cleanupRabbit.Channel()
+				if err == nil {
+					defer channel.Close()
+					_, _ = channel.QueueDelete(name, false, false, false)
+					_ = channel.ExchangeDelete(name, false, false)
+				}
 			}
-		}
-		_ = storage.RemovePrefix(context.Background(), "recordings/"+f.conference.ID+"/")
-	})
+			_ = storage.RemovePrefix(context.Background(), "recordings/"+f.conference.ID+"/")
+		})
 	var created struct {
 		Item records.RecordCard `json:"item"`
 	}
@@ -247,7 +274,9 @@ func TestStageFourCompositeRecording(t *testing.T) {
 	}
 	c.close()
 	removed := make(chan struct{})
-	b.actions <- func() { b.report(b.pc.RemoveTrack(screenSender)); close(removed) }
+	b.actions <- /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() { b.report(b.pc.RemoveTrack(screenSender)); close(removed) }
 	<-removed
 	deadline = time.Now().Add(8 * time.Second)
 	for {
@@ -456,6 +485,12 @@ func TestStageFourCompositeRecording(t *testing.T) {
 	t.Logf("conference finish auto-stop validated duration=%.3fs", finishProbe.Duration)
 }
 
+// assertCompositeContent подготавливает или проверяет часть тестового сценария «проверка общая запись Content».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - ffmpegPath (string): значение ffmpegPath типа string, используемое согласно назначению этой операции.
+//   - path (string): путь к локальному файлу или каталогу операции.
 func assertCompositeContent(t *testing.T, ffmpegPath, path string) {
 	t.Helper()
 	// Synthetic fixtures are continuously colourful/voiced. Check decoded
@@ -498,6 +533,10 @@ func assertCompositeContent(t *testing.T, ffmpegPath, path string) {
 	t.Logf("decoded content validated: %d video frames at 4fps and %.2fs mixed audio", len(pixels)/frameBytes, float64(len(pcm)/4)/8000)
 }
 
+// TestStageFourRecorderLeaseFencing проверяет сценарий «этап четыре Recorder аренда защита версии владения», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageFourRecorderLeaseFencing(t *testing.T) {
 	f := stageTwo(t)
 	repository := pg.NewRecordRepository(f.db)
@@ -543,6 +582,17 @@ func TestStageFourRecorderLeaseFencing(t *testing.T) {
 	}
 }
 
+// waitRecording подготавливает или проверяет часть тестового сценария «ожидание запись».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - repo (*pg.RecordRepository): хранилище постоянных данных прикладного сценария.
+//   - id (string): идентификатор обрабатываемого ресурса.
+//   - status (string): состояние ресурса, ответа или фильтра выборки.
+//   - timeout (time.Duration): максимальное время ожидания операции.
+//
+// @return:
+//   - результат 1 (records.Record): значение, подготовленное операцией для вызывающей стороны.
 func waitRecording(t *testing.T, repo *pg.RecordRepository, id, status string, timeout time.Duration) records.Record {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
@@ -564,6 +614,17 @@ func waitRecording(t *testing.T, repo *pg.RecordRepository, id, status string, t
 	}
 }
 
+// recordingRequest подготавливает или проверяет часть тестового сценария «запись Request».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - base (string): значение base типа string, используемое согласно назначению этой операции.
+//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+//   - method (string): значение method типа string, используемое согласно назначению этой операции.
+//   - path (string): путь к локальному файлу или каталогу операции.
+//   - payload (any): типизированная нагрузка события или ссылочные сведения уведомления.
+//   - status (int): состояние ресурса, ответа или фильтра выборки.
+//   - result (any): результат проверки или обработки, передаваемый следующему шагу.
 func recordingRequest(t *testing.T, base, token, method, path string, payload any, status int, result any) {
 	t.Helper()
 	body, _ := json.Marshal(payload)
@@ -589,14 +650,34 @@ func recordingRequest(t *testing.T, base, token, method, path string, payload an
 	}
 }
 
+// recordingFixture хранит изолированное состояние тестового компонента «запись тестовое окружение».
+// Состав:
+//   - video: набор значений video для последовательной или пакетной обработки.
+//   - audio: набор значений audio для последовательной или пакетной обработки.
 type recordingFixture struct{ video, audio [][]byte }
 
+// encodedFixture подготавливает или проверяет часть тестового сценария «encoded тестовое окружение».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - ffmpegPath (string): значение ffmpegPath типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (recordingFixture): значение, подготовленное операцией для вызывающей стороны.
 func encodedFixture(t *testing.T, ffmpegPath string) recordingFixture {
+	return encodedFixtureFrequency(t, ffmpegPath, 440)
+}
+
+// encodedFixtureFrequency создаёт валидные VP8/Opus пакеты с независимым тоном.
+// t управляет временными файлами, ffmpegPath задаёт доверенный бинарник,
+// frequency — частоту синусоиды, чтобы смешивание не давало фазового погашения.
+// Возвращает повторяемый источник закодированных RTP payloads.
+func encodedFixtureFrequency(t *testing.T, ffmpegPath string, frequency int) recordingFixture {
 	t.Helper()
 	dir := t.TempDir()
 	video := filepath.Join(dir, "video.ivf")
 	audio := filepath.Join(dir, "audio.ogg")
-	for _, args := range [][]string{{"-f", "lavfi", "-i", "testsrc2=size=160x90:rate=25", "-t", "2", "-c:v", "libvpx", "-deadline", "realtime", "-g", "25", "-b:v", "150k", "-an", video}, {"-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "2", "-c:a", "libopus", "-ac", "2", "-frame_duration", "20", "-page_duration", "20000", audio}} {
+	for _, args := range [][]string{{"-f", "lavfi", "-i", "testsrc2=size=160x90:rate=25", "-t", "2", "-c:v", "libvpx", "-deadline", "realtime", "-g", "25", "-b:v", "150k", "-an", video}, {"-f", "lavfi", "-i", fmt.Sprintf("sine=frequency=%d:sample_rate=48000", frequency), "-t", "2", "-c:a", "libopus", "-ac", "2", "-frame_duration", "20", "-page_duration", "20000", audio}} {
 		output, err := exec.Command(ffmpegPath, append([]string{"-hide_banner", "-loglevel", "error", "-y"}, args...)...).CombinedOutput()
 		if err != nil {
 			t.Fatalf("fixture generation: %v %s", err, output)
@@ -650,6 +731,11 @@ func encodedFixture(t *testing.T, ffmpegPath string) recordingFixture {
 	return fixture
 }
 
+// publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - p (*mediaTestPeer): байты, переданные по контракту io.Writer.
 func (f recordingFixture) publish(p *mediaTestPeer) {
 	defer p.wg.Done()
 	ticker := time.NewTicker(20 * time.Millisecond)
@@ -695,10 +781,22 @@ func (f recordingFixture) publish(p *mediaTestPeer) {
 	}
 }
 
+// addRecordingScreen подготавливает или проверяет часть тестового сценария «add запись экран».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - p (*mediaTestPeer): байты, переданные по контракту io.Writer.
+//
+// @return:
+//   - результат 1 (*webrtc.RTPSender): значение, подготовленное операцией для вызывающей стороны.
 func addRecordingScreen(t *testing.T, p *mediaTestPeer) *webrtc.RTPSender {
 	t.Helper()
 	result := make(chan *webrtc.RTPSender, 1)
-	p.actions <- func() {
+	p.actions <- /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+	*/func() {
 		track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8, ClockRate: 90000}, uuid.NewString(), uuid.NewString())
 		if err != nil {
 			p.report(err)
@@ -719,7 +817,9 @@ func addRecordingScreen(t *testing.T, p *mediaTestPeer) *webrtc.RTPSender {
 		p.sources[track.ID()] = mediadomain.SourceVideoScreen
 		p.mu.Unlock()
 		p.wg.Add(1)
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer p.wg.Done()
 			for {
 				if _, _, err := sender.ReadRTCP(); err != nil {

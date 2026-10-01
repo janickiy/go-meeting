@@ -1,0 +1,14 @@
+{
+  "uid": "recorder-stage6", "title": "Recorder operations", "schemaVersion": 39,
+  "version": 1, "refresh": "15s", "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {"id":1,"title":"API requests / s","type":"timeseries","gridPos":{"x":0,"y":0,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"sum by(service,status) (rate(recorder_http_requests_total[5m]))","legendFormat":"{{service}} {{status}}"}]},
+    {"id":2,"title":"Realtime WS","type":"timeseries","gridPos":{"x":12,"y":0,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_ws_active","legendFormat":"{{service}}"}]},
+    {"id":3,"title":"SFU rooms / peers / tracks","type":"timeseries","gridPos":{"x":0,"y":8,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_state{resource=~\"media_rooms|media_peers|media_tracks|media_subscriptions\"}","legendFormat":"{{resource}}"}]},
+    {"id":4,"title":"Recording and FFmpeg","type":"timeseries","gridPos":{"x":12,"y":8,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_state{resource=~\"recordings_active|ffmpeg_active\"}","legendFormat":"{{resource}}"},{"refId":"B","expr":"rate(recorder_events_total{event=~\"recording_failed|ffmpeg_failed\"}[5m])","legendFormat":"{{event}} / s"}]},
+    {"id":5,"title":"Dependency readiness","type":"timeseries","gridPos":{"x":0,"y":16,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_dependency_up","legendFormat":"{{service}} {{dependency}}"}]},
+    {"id":6,"title":"Memory / goroutines / FD","type":"timeseries","gridPos":{"x":12,"y":16,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"go_goroutines","legendFormat":"{{service}} goroutines"},{"refId":"B","expr":"process_open_fds","legendFormat":"{{service}} FD"}]},
+    {"id":7,"title":"API p95 duration","type":"timeseries","gridPos":{"x":0,"y":24,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.95, sum by(le,service) (rate(recorder_http_duration_seconds_bucket{route!~\".*(events|ws).*\"}[5m])))","legendFormat":"{{service}}"}]},
+    {"id":8,"title":"RAM bytes","type":"timeseries","gridPos":{"x":12,"y":24,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"process_resident_memory_bytes","legendFormat":"{{service}}"}]}
+  ]
+}

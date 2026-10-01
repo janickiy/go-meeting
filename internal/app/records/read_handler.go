@@ -7,9 +7,9 @@ import (
 )
 
 // Read возвращает одну запись по UUID.
-// Параметры:
+// @parameters:
 // - c: Gin context HTTP-запроса.
-// Возвращает: JSON response.
+// @return JSON response.
 func (h *Handler) Read(c *gin.Context) {
 	item, err := h.service.Read(c.Request.Context(), c.Param("id"))
 	if err != nil {

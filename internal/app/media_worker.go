@@ -18,11 +18,15 @@ import (
 	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
 	"github.com/janickiy/go-recorder/internal/infrastructure/security"
 	"github.com/janickiy/go-recorder/internal/infrastructure/sfu"
+	"github.com/janickiy/go-recorder/internal/operations"
 	"github.com/janickiy/go-recorder/internal/transport/mediaworker"
 	"github.com/pion/webrtc/v4"
 )
 
-// RunMediaWorker has no PostgreSQL, RabbitMQ, MinIO or FFmpeg dependency.
+// RunMediaWorker собирает SFU, реестр владения и внутренний сервер медиа-воркера.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func RunMediaWorker() error {
 	base, err := config.Load()
 	if err != nil {
@@ -36,7 +40,7 @@ func RunMediaWorker() error {
 	if err != nil {
 		return err
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "media-worker", "instance_id", cfg.WorkerID)
 	slog.SetDefault(logger)
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -59,6 +63,12 @@ func RunMediaWorker() error {
 	}
 	var engine *sfu.Manager
 	failedPeers := make(chan string, 128)
+	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
+	//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+	//   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
 	emit := func(binding media.Binding, kind string, data any) {
 		op, stop := context.WithTimeout(ctx, cfg.OperationTimeout)
 		event := realtime.Event(kind, binding.ConferenceID, data)
@@ -82,7 +92,9 @@ func RunMediaWorker() error {
 		return err
 	}
 	cleanupDone := make(chan struct{})
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer close(cleanupDone)
 		for {
 			select {
@@ -95,8 +107,14 @@ func RunMediaWorker() error {
 			}
 		}
 	}()
-	handler := mediaworker.NewHandler(cfg, registry, store, tickets, engine, func() any { return engine.Snapshot() }, logger)
-	defer func() {
+	handler := mediaworker.NewHandler(cfg, registry, store, tickets, engine, /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (any): значение, подготовленное операцией для вызывающей стороны. */func() any { return engine.Snapshot() }, logger)
+	defer /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+
+	 */func() {
 		cancel()
 		<-cleanupDone
 		shutdown, done := context.WithTimeout(context.Background(), 10*time.Second)
@@ -112,9 +130,23 @@ func RunMediaWorker() error {
 		_ = listener.Close()
 		return err
 	}
-	server := &http.Server{Handler: handler.Routes(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: cfg.OperationTimeout + 5*time.Second, WriteTimeout: cfg.OperationTimeout + 5*time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+	ops := operations.New("media-worker", cfg.WorkerID, base.Operations, map[string]operations.Check{"redis": func(ctx context.Context) error { return client.Ping(ctx).Err() }, "ownership": func(ctx context.Context) error {
+		if !handler.Ready() {
+			return media.ErrUnavailable
+		}
+		return nil
+	}})
+	ops.Run(ctx)
+	go runProfiling(ctx, ops)
+	go sampleMedia(ctx, engine)
+	mux := http.NewServeMux()
+	ops.Register(mux)
+	mux.Handle("/", handler.Routes())
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: cfg.OperationTimeout + 5*time.Second, WriteTimeout: cfg.OperationTimeout + 5*time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
 	failed := make(chan error, 1)
-	go func() { failed <- server.Serve(listener) }()
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
+
+	 */func() { failed <- server.Serve(listener) }()
 	logger.Info("media worker ready", "worker_id", cfg.WorkerID, "internal_port", cfg.HTTPPort, "max_peers", cfg.MaxPeers, "udp_mux_port", cfg.UDPPort, "tcp_mux_port", cfg.TCPPort)
 	select {
 	case <-ctx.Done():
@@ -125,9 +157,10 @@ func RunMediaWorker() error {
 			return err
 		}
 	}
+	ops.Drain()
 	cancel()
 	<-done
-	shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdown, stop := context.WithTimeout(context.Background(), base.Operations.ShutdownTimeout)
 	defer stop()
 	// Long-lived recording egress must close before HTTP waits for active
 	// requests; otherwise shutdown always consumes its entire deadline.

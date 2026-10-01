@@ -8,6 +8,10 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 )
 
+// TestRegistrationPasswordCharacterLimits проверяет сценарий «Registration Password Character ограничения», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRegistrationPasswordCharacterLimits(t *testing.T) {
 	cases := []struct {
 		name, password string
@@ -31,18 +35,22 @@ func TestRegistrationPasswordCharacterLimits(t *testing.T) {
 		{"invalid UTF-8", string([]byte{0xff}) + "abcdefgh", false},
 	}
 	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			request, err := NormalizeRegister(RegisterRequest{Email: "test@example.com", Password: test.password})
-			if test.valid {
-				if err != nil {
-					t.Fatal(err)
+		t.Run(test.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
+
+			@parameters:
+			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+			*/func(t *testing.T) {
+				request, err := NormalizeRegister(RegisterRequest{Email: "test@example.com", Password: test.password})
+				if test.valid {
+					if err != nil {
+						t.Fatal(err)
+					}
+					if request.Password != test.password {
+						t.Fatal("password was modified")
+					}
+				} else if !errors.Is(err, apperrors.ErrInvalidInput) {
+					t.Fatal("invalid password was accepted")
 				}
-				if request.Password != test.password {
-					t.Fatal("password was modified")
-				}
-			} else if !errors.Is(err, apperrors.ErrInvalidInput) {
-				t.Fatal("invalid password was accepted")
-			}
-		})
+			})
 	}
 }

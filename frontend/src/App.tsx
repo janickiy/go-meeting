@@ -10,6 +10,12 @@ import { InvitePage } from "./pages/InvitePage";
 import { RecordingsPage, SettingsPage } from "./pages/AccountPages";
 import { Link } from "react-router";
 
+/**
+ * Protected проверяет восстановленную авторизацию и допускает защищённые страницы либо перенаправляет на вход.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 function Protected() {
   const auth = useAuth();
   const location = useLocation();
@@ -30,9 +36,23 @@ function Protected() {
           <Button onClick={auth.retry}>Попробовать снова</Button>
           <Button
             variant="secondary"
-            onClick={() => {
-              void auth.logout().catch(() => {});
-            }}
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ () => {
+                void auth.logout().catch(
+                  /**
+                   * Обработчик catch выполняет переданный шаг вызова catch в интерфейсе Meet.
+                   *
+                   *
+                   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                   */ () => {},
+                );
+              }
+            }
           >
             Выйти
           </Button>
@@ -48,6 +68,12 @@ function Protected() {
     );
   return <Outlet />;
 }
+/**
+ * NotFound показывает страницу неизвестного маршрута с переходом к приложению.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 function NotFound() {
   return (
     <div className="page-center">
@@ -63,6 +89,12 @@ function NotFound() {
     </div>
   );
 }
+/**
+ * App собирает публичные и защищённые маршруты Meet и провайдеры приложения.
+ *
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function App() {
   return (
     <Routes>

@@ -10,6 +10,10 @@ import (
 	pionwebrtc "github.com/pion/webrtc/v4"
 )
 
+// TestFailedSessionClosesBeforeFailureCallback проверяет сценарий «Failed сессия Closes до сбой Callback», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFailedSessionClosesBeforeFailureCallback(t *testing.T) {
 	m := &Manager{storage: t.TempDir(), logger: log.New(io.Discard, "", 0), sessions: make(map[string]*session)}
 	if err := m.Prepare("test-record", 1); err != nil {
@@ -26,6 +30,12 @@ func TestFailedSessionClosesBeforeFailureCallback(t *testing.T) {
 	defer pc.Close()
 	s.pc = pc
 	calls := 0
+	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+	//   - recordID (string): внешний UUID задачи записи.
+	//   - _ (error): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 	m.onFailed = func(_ context.Context, recordID string, _ error) {
 		calls++
 		if recordID != "test-record" || s.ctx.Err() == nil {
@@ -48,6 +58,10 @@ func TestFailedSessionClosesBeforeFailureCallback(t *testing.T) {
 	}
 }
 
+// TestDuplicatePreparePreservesSession проверяет сценарий «повторный Prepare Preserves сессия», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestDuplicatePreparePreservesSession(t *testing.T) {
 	m := &Manager{storage: t.TempDir(), sessions: make(map[string]*session)}
 	if err := m.Prepare("test-record", 5); err != nil {

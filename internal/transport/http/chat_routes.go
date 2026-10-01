@@ -9,7 +9,21 @@ import (
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 )
 
+// RegisterChatRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
+//
+// @parameters:
+//   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
+//   - handler (*chatapp.Handler): обработчик вызываемой команды или маршрута.
+//   - authentication (gin.HandlerFunc): значение authentication типа gin.HandlerFunc, используемое согласно назначению этой операции.
+//   - limiter (httpmiddleware.Limiter): ограничитель частоты запросов, общий для экземпляров API.
 func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentication gin.HandlerFunc, limiter httpmiddleware.Limiter) {
+	// Вложенный обработчик выполняет выделенный шаг обработки в постоянном чате и приватных вложениях, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+	//
+	// @return:
+	//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 	key := func(c *gin.Context) string {
 		id, err := uuid.Parse(c.Param("id"))
 		if err != nil || id == uuid.Nil {
@@ -29,6 +43,10 @@ func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentica
 	} {
 		rules = append(rules, httpmiddleware.Rule{Method: rule.method, Path: path + rule.suffix, Scope: rule.scope, Limit: rule.limit, Window: time.Minute, Key: key})
 	}
+	// Вложенный обработчик выполняет выделенный шаг обработки в постоянном чате и приватных вложениях, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	private := func(c *gin.Context) {
 		c.Header("Cache-Control", "private, no-store")
 		c.Header("X-Content-Type-Options", "nosniff")

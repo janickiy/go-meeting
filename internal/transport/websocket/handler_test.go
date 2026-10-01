@@ -14,6 +14,10 @@ import (
 	"github.com/janickiy/go-recorder/internal/infrastructure/security"
 )
 
+// TestBoundedQueueDisconnectsSlowClient проверяет сценарий «ограниченный очередь Disconnects Slow клиент», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestBoundedQueueDisconnectsSlowClient(t *testing.T) {
 	c := newClient(nil, &Handler{cfg: config.RealtimeConfig{QueueSize: 2}}, domain.Session{}, time.Now().Add(time.Hour))
 	if !c.Offer(domain.Event("one", "", nil)) || !c.Offer(domain.Event("two", "", nil)) {
@@ -33,7 +37,9 @@ func TestBoundedQueueDisconnectsSlowClient(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 100 {
 		wg.Add(1)
-		go func() {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
 			defer wg.Done()
 			c.Stop("duplicate")
 			if c.Offer(domain.Event("later", "", nil)) {
@@ -43,6 +49,11 @@ func TestBoundedQueueDisconnectsSlowClient(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// TestOriginAndSafeAuthentication проверяет сценарий «Origin и безопасный Authentication», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestOriginAndSafeAuthentication(t *testing.T) {
 	tokens, _ := security.NewTokenService(strings.Repeat("s", 32))
 	h := NewHandler(nil, tokens, nil, nil, config.RealtimeConfig{})
@@ -70,6 +81,11 @@ func TestOriginAndSafeAuthentication(t *testing.T) {
 		}
 	}
 }
+
+// TestStrictJSONAndBucket проверяет сценарий «строгий JSON и Bucket», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStrictJSONAndBucket(t *testing.T) {
 	for _, raw := range []string{`{} {}`, `{"unknown":true}`, `null true`} {
 		var e domain.Envelope

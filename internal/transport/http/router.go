@@ -1,6 +1,7 @@
 package httptransport
 
 import (
+	"github.com/janickiy/go-recorder/internal/operations"
 	"log/slog"
 	"net/http"
 	"time"
@@ -13,34 +14,48 @@ import (
 const APIV1Prefix = "/api/v1"
 
 // NewRouter создает Gin router API.
-// Параметры:
+// @parameters:
 // - recordsHandler: handler записей.
 // - debug: включить local debug pages.
 // - completedRecords: источник завершенных записей для debug pages.
 // - middleware: дополнительные Gin middleware.
-// Возвращает: готовый *gin.Engine.
+// @return готовый *gin.Engine.
 func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords CompletedRecordsLister, middleware ...gin.HandlerFunc) *gin.Engine {
 	router := gin.New()
-	router.Use(func(c *gin.Context) {
-		defer func() {
-			if recover() != nil {
-				slog.Error("http request panic", "method", c.Request.Method, "route", c.FullPath())
-				c.AbortWithStatusJSON(500, gin.H{"status": "failed", "message": "internal server error"})
-			}
-		}()
-		c.Next()
-	}, func(c *gin.Context) {
-		start := time.Now()
-		c.Next()
-		// Never log query strings: one-time WS tickets are credentials too.
-		slog.Info("http request", "method", c.Request.Method, "route", c.FullPath(), "status", c.Writer.Status(), "duration_ms", time.Since(start).Milliseconds())
-	})
+	router.Use( /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			defer /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
+
+			 */func() {
+				if recover() != nil {
+					slog.Error("http request panic", "method", c.Request.Method, "route", c.FullPath())
+					c.AbortWithStatusJSON(500, gin.H{"status": "failed", "message": "internal server error"})
+				}
+			}()
+			c.Next()
+		}, /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			start := time.Now()
+			c.Next()
+			// Never log query strings: one-time WS tickets are credentials too.
+			slog.Info("http request", "method", c.Request.Method, "route", c.FullPath(), "status", c.Writer.Status(), "duration_ms", time.Since(start).Milliseconds(), "request_id", operations.ID(c.Request.Context()))
+		})
 	if len(middleware) > 0 {
 		router.Use(middleware...)
 	}
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+	router.GET("/health", /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		})
 	RegisterRecordRoutes(router, recordsHandler)
 	if debug {
 		RegisterDebugRoutes(router, completedRecords)
@@ -50,19 +65,19 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 }
 
 // RegisterRecordRoutes регистрирует HTTP routes записей.
-// Параметры:
+// @parameters:
 // - router: Gin router group.
 // - recordsHandler: handler записей.
-// Возвращает: ничего.
+// @return ничего.
 func RegisterRecordRoutes(router gin.IRouter, recordsHandler *recordsapp.Handler) {
 	registerRecordRoutes(router.Group(APIV1Prefix), recordsHandler)
 }
 
 // registerRecordRoutes регистрирует endpoints records внутри переданного API-префикса.
-// Параметры:
+// @parameters:
 // - router: Gin group, например /api/v1.
 // - recordsHandler: handler записей.
-// Возвращает: ничего.
+// @return ничего.
 func registerRecordRoutes(router gin.IRouter, recordsHandler *recordsapp.Handler) {
 	router.POST("/records/start", recordsHandler.Start)
 	router.POST("/records/end", recordsHandler.End)

@@ -1,12 +1,42 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, configureAuth, uploadAttachment } from "./api";
 
-afterEach(() => {
-  configureAuth(null, () => {});
-  vi.unstubAllGlobals();
-});
+afterEach(
+  /**
+   * Обработчик afterEach выполняет переданный шаг вызова afterEach в проверках клиентского поведения.
+   *
+   *
+   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ () => {
+    configureAuth(
+      null,
+      /**
+       * Обработчик configureAuth выполняет переданный шаг вызова configureAuth в проверках клиентского поведения.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */ () => {},
+    );
+    vi.unstubAllGlobals();
+  },
+);
+/**
+ * fetchResponse создаёт изолированный HTTP-ответ для проверки клиента API.
+ *
+ * @parameters:
+ *   - status (number) — HTTP-статус либо состояние встречи.
+ *   - body (unknown) — типизированное тело запроса.
+ *
+ * @returns вычисленное значение: fetch.
+ */
 function fetchResponse(status: number, body: unknown) {
   const fetch = vi.fn().mockImplementation(
+    /**
+     * Обработчик mockImplementation выполняет переданный шаг вызова mockImplementation в проверках клиентского поведения.
+     *
+     *
+     * @returns Promise, который после завершения операции возвращает: вычисленные данные текущего шага, которые использует вызывающая операция.
+     */
     async () =>
       new Response(JSON.stringify(body), {
         status,
@@ -16,8 +46,18 @@ function fetchResponse(status: number, body: unknown) {
   vi.stubGlobal("fetch", fetch);
   return fetch;
 }
-describe("API contract", () => {
-  it("opens notification SSE with bearer header and an abortable fetch, not a query token", async () => {
+describe("API contract", /**
+ * Проверка: API contract выполняет тестовый сценарий «API contract» и проверяет ожидаемые результаты.
+ *
+ *
+ * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+ */ () => {
+  it("opens notification SSE with bearer header and an abortable fetch, not a query token", /**
+   * Проверка: opens notification SSE with bearer header and an abortable fetch, not a query token выполняет тестовый сценарий «opens notification SSE with bearer header and an abortable fetch, not a query token» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     configureAuth("private-test-token");
     const fetch = vi.fn().mockResolvedValue(
       new Response(": heartbeat\n\n", {
@@ -39,7 +79,12 @@ describe("API contract", () => {
       }),
     );
   });
-  it("never leaks an upload bearer token to a foreign or unexpected URL", async () => {
+  it("never leaks an upload bearer token to a foreign or unexpected URL", /**
+   * Проверка: never leaks an upload bearer token to a foreign or unexpected URL выполняет тестовый сценарий «never leaks an upload bearer token to a foreign or unexpected URL» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     configureAuth("private-test-token");
     const xhr = vi.fn();
     vi.stubGlobal("XMLHttpRequest", xhr);
@@ -50,11 +95,26 @@ describe("API contract", () => {
       "/api/v1/conferences/a/attachments/b/content?token=x",
     ])
       await expect(
-        uploadAttachment(url, file, () => {}, new AbortController().signal),
+        uploadAttachment(
+          url,
+          file,
+          /**
+           * Обработчик uploadAttachment выполняет переданный шаг вызова uploadAttachment в проверках клиентского поведения.
+           *
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ () => {},
+          new AbortController().signal,
+        ),
       ).rejects.toBeInstanceOf(ApiError);
     expect(xhr).not.toHaveBeenCalled();
   });
-  it("issues WebSocket tickets with bearer auth only in headers", async () => {
+  it("issues WebSocket tickets with bearer auth only in headers", /**
+   * Проверка: issues WebSocket tickets with bearer auth only in headers выполняет тестовый сценарий «issues WebSocket tickets with bearer auth only in headers» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     configureAuth("private-test-token");
     const fetch = fetchResponse(201, {
       ticket: "short-ticket",
@@ -69,7 +129,12 @@ describe("API contract", () => {
       "Bearer private-test-token",
     );
   });
-  it("sends only title for conference creation, with the active bearer token", async () => {
+  it("sends only title for conference creation, with the active bearer token", /**
+   * Проверка: sends only title for conference creation, with the active bearer token выполняет тестовый сценарий «sends only title for conference creation, with the active bearer token» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     configureAuth("private-test-token");
     const fetch = fetchResponse(201, { item: { title: "Обсуждение" } });
     await api.create("Обсуждение");
@@ -81,19 +146,37 @@ describe("API contract", () => {
     );
     expect(options.credentials).toBe("omit");
   });
-  it("never attaches a bearer token to login or registration", async () => {
+  it("never attaches a bearer token to login or registration", /**
+   * Проверка: never attaches a bearer token to login or registration выполняет тестовый сценарий «never attaches a bearer token to login or registration» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     configureAuth("private-test-token");
     const fetch = fetchResponse(200, { user: {} });
     await api.login("user@example.test", "password-test");
     await api.register("user@example.test", "password-test", "  ");
     expect(
       fetch.mock.calls.every(
+        /**
+         * Обработчик every проверяет, соответствует ли текущий элемент условию выборки или поиска.
+         *
+         * @parameters:
+         *   - [, options] — элементы записи набора, извлечённые по указанным позициям.
+         *
+         * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+         */
         ([, options]) => !options.headers.has("Authorization"),
       ),
     ).toBe(true);
     expect(JSON.parse(fetch.mock.calls[1][1].body).displayName).toBeNull();
   });
-  it("passes the used token to the expiry handler and does not retry a mutation", async () => {
+  it("passes the used token to the expiry handler and does not retry a mutation", /**
+   * Проверка: passes the used token to the expiry handler and does not retry a mutation выполняет тестовый сценарий «passes the used token to the expiry handler and does not retry a mutation» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const expired = vi.fn();
     configureAuth("old-token", expired);
     const fetch = fetchResponse(401, { message: "expired" });
@@ -101,7 +184,12 @@ describe("API contract", () => {
     expect(expired).toHaveBeenCalledWith("old-token");
     expect(fetch).toHaveBeenCalledTimes(1);
   });
-  it("does not log out a session on invalid login credentials", async () => {
+  it("does not log out a session on invalid login credentials", /**
+   * Проверка: does not log out a session on invalid login credentials выполняет тестовый сценарий «does not log out a session on invalid login credentials» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     const expired = vi.fn();
     configureAuth("old-token", expired);
     fetchResponse(401, { message: "invalid email or password" });
@@ -110,11 +198,21 @@ describe("API contract", () => {
     );
     expect(expired).not.toHaveBeenCalled();
   });
-  it("does not expose backend SQL or private error details", async () => {
+  it("does not expose backend SQL or private error details", /**
+   * Проверка: does not expose backend SQL or private error details выполняет тестовый сценарий «does not expose backend SQL or private error details» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     fetchResponse(500, { message: "postgres: password=secret, SQL SELECT..." });
     await expect(api.me()).rejects.toThrow("Сервис временно недоступен.");
   });
-  it("handles non-JSON upstream errors", async () => {
+  it("handles non-JSON upstream errors", /**
+   * Проверка: handles non-JSON upstream errors выполняет тестовый сценарий «handles non-JSON upstream errors» и проверяет ожидаемые результаты.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */ async () => {
     vi.stubGlobal(
       "fetch",
       vi

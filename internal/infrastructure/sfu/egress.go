@@ -13,8 +13,18 @@ import (
 
 var errEgressOverflow = errors.New("recording_egress_overflow")
 
-// egress is a passive encoded-packet observer. RTP forwarding never waits for
-// recording I/O: a full bounded queue fails only this recording subscription.
+// egress пассивно наблюдает закодированные пакеты; переполнение очереди завершает подписку записи и не задерживает RTP SFU.
+//   - manager: значение manager типа *Manager, используемое согласно назначению этой операции.
+//   - room: значение room типа *room, используемое согласно назначению этой операции.
+//   - id: идентификатор обрабатываемого ресурса.
+//   - mu: блокировка согласованного доступа к разделяемому состоянию.
+//   - frames: канал «frames» для передачи данных или завершения ожидания.
+//   - done: канал уведомления о завершении ресурса.
+//   - err: сохранённая причина ошибочного завершения.
+//   - closed: логический признак closed, управляющий соответствующей веткой обработки.
+//   - sequence: серверный монотонный номер сообщения или команды.
+//   - tracks: набор дорожек, входящих в операцию.
+//   - closeOnce: значение closeOnce типа sync.Once, используемое согласно назначению этой операции.
 type egress struct {
 	manager   *Manager
 	room      *room
@@ -29,6 +39,17 @@ type egress struct {
 	closeOnce sync.Once
 }
 
+// SubscribeRecording открывает пассивную ограниченную подписку записи на закодированные пакеты SFU.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//   - recordingID (string): идентификатор записи конференции.
+//
+// @return:
+//   - результат 1 (media.EgressSubscription): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (m *Manager) SubscribeRecording(ctx context.Context, conferenceID, recordingID string) (media.EgressSubscription, error) {
 	for _, id := range []string{conferenceID, recordingID} {
 		parsed, err := uuid.Parse(id)
@@ -69,10 +90,29 @@ func (m *Manager) SubscribeRecording(ctx context.Context, conferenceID, recordin
 	return e, nil
 }
 
+// Frames возвращает канал кадров подписки записи.
+//
+// @return:
+//   - результат 1 (<-chan media.EgressFrame): канал данных или уведомления о завершении, принадлежащий жизненному циклу компонента.
 func (e *egress) Frames() <-chan media.EgressFrame { return e.frames }
-func (e *egress) Done() <-chan struct{}            { return e.done }
-func (e *egress) Err() error                       { e.mu.Lock(); defer e.mu.Unlock(); return e.err }
 
+// Done возвращает канал, закрывающийся при завершении жизненного цикла ресурса.
+//
+// @return:
+//   - результат 1 (<-chan struct{}): канал данных или уведомления о завершении, принадлежащий жизненному циклу компонента.
+func (e *egress) Done() <-chan struct{} { return e.done }
+
+// Err возвращает сохранённую причину завершения ресурса, если оно было ошибочным.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @return:
+//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+func (e *egress) Err() error { e.mu.Lock(); defer e.mu.Unlock(); return e.err }
+
+// enqueueLocked добавляет пакет в ограниченную очередь записи; переполнение завершает только подписку записи.
+//
+// @parameters:
+//   - frame (media.EgressFrame): значение frame типа media.EgressFrame, используемое согласно назначению этой операции.
 func (e *egress) enqueueLocked(frame media.EgressFrame) {
 	if e.closed {
 		return
@@ -92,6 +132,11 @@ func (e *egress) enqueueLocked(frame media.EgressFrame) {
 	}
 }
 
+// addTrack добавляет описание дорожки в подписку записи.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func (e *egress) addTrack(t *publishedTrack) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -104,6 +149,11 @@ func (e *egress) addTrack(t *publishedTrack) {
 	e.enqueueLocked(media.EgressFrame{Type: "track", Track: &descriptor, TrackID: t.metadata.ID})
 }
 
+// endTrack обозначает завершение дорожки в подписке записи.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func (e *egress) endTrack(t *publishedTrack) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -114,6 +164,13 @@ func (e *egress) endTrack(t *publishedTrack) {
 	e.enqueueLocked(media.EgressFrame{Type: "track.end", TrackID: t.metadata.ID})
 }
 
+// packet передаёт закодированный пакет в ограниченную очередь подписки записи.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - raw ([]byte): исходные байты JSON, пакета или сериализованного значения.
+//   - at (int64): однозначное время планируемой операции; nil означает отсутствие значения, если это допускает тип.
 func (e *egress) packet(t *publishedTrack, raw []byte, at int64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -123,6 +180,11 @@ func (e *egress) packet(t *publishedTrack, raw []byte, at int64) {
 	e.enqueueLocked(media.EgressFrame{Type: "rtp", TrackID: t.metadata.ID, RTP: raw, CapturedAt: at})
 }
 
+// fail фиксирует ошибочное завершение и запускает предусмотренную очистку ресурса.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func (e *egress) fail(err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -133,22 +195,29 @@ func (e *egress) fail(err error) {
 	}
 }
 
+// Close закрывает принадлежащие компоненту ресурсы и завершает связанный жизненный цикл.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (e *egress) Close() {
-	e.closeOnce.Do(func() {
-		e.fail(nil)
-		e.manager.mu.Lock()
-		e.room.mu.Lock()
-		if e.room.egresses[e.id] == e {
-			delete(e.room.egresses, e.id)
-		}
-		if len(e.room.peers) == 0 && len(e.room.egresses) == 0 && e.manager.rooms[e.room.id] == e.room {
-			delete(e.manager.rooms, e.room.id)
-		}
-		e.room.mu.Unlock()
-		e.manager.mu.Unlock()
-	})
+	e.closeOnce.Do( /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
+		Синхронизирует доступ к разделяемому состоянию блокировкой.
+
+		*/func() {
+			e.fail(nil)
+			e.manager.mu.Lock()
+			e.room.mu.Lock()
+			if e.room.egresses[e.id] == e {
+				delete(e.room.egresses, e.id)
+			}
+			if len(e.room.peers) == 0 && len(e.room.egresses) == 0 && e.manager.rooms[e.room.id] == e.room {
+				delete(e.manager.rooms, e.room.id)
+			}
+			e.room.mu.Unlock()
+			e.manager.mu.Unlock()
+		})
 }
 
+// Keyframes запрашивает ключевые кадры для источников текущей подписки записи.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (e *egress) Keyframes() {
 	e.room.mu.Lock()
 	defer e.room.mu.Unlock()
@@ -157,12 +226,20 @@ func (e *egress) Keyframes() {
 	}
 }
 
+// Ping проверяет активность ресурса и связь с его владельцем.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
 func (e *egress) Ping() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.enqueueLocked(media.EgressFrame{Type: "ping"})
 }
 
+// recordPacket передаёт наблюдаемую копию закодированного пакета подписчикам записи.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - packet (*rtp.Packet): закодированный RTP- или управляющий пакет.
 func (m *Manager) recordPacket(t *publishedTrack, packet *rtp.Packet) {
 	t.publisher.room.mu.Lock()
 	egresses := make([]*egress, 0, len(t.publisher.room.egresses))

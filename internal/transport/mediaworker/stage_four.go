@@ -10,6 +10,13 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/media"
 )
 
+// serviceCommand обрабатывает доверенную команду модерации или закрытия медиа-комнаты.
+//
+// @parameters:
+//   - w (http.ResponseWriter): получатель HTTP-ответа.
+//   - r (*http.Request): входящий HTTP-запрос.
+//   - operation (string): имя внутренней операции обработки.
+//   - cmd (media.Command): значение cmd типа media.Command, используемое согласно назначению этой операции.
 func (h *Handler) serviceCommand(w http.ResponseWriter, r *http.Request, operation string, cmd media.Command) {
 	if !validUUID(cmd.ConferenceID) || !validUUID(cmd.Route.LeaseID) || cmd.Route.WorkerID != h.cfg.WorkerID || cmd.Route.Endpoint != h.cfg.WorkerInternalURL || cmd.MediaPeerID != "" || cmd.SDP != "" || len(cmd.Candidate) > 0 || cmd.Ticket != "" {
 		h.fail(w, media.ErrInvalid)
@@ -56,8 +63,12 @@ func (h *Handler) serviceCommand(w http.ResponseWriter, r *http.Request, operati
 	h.json(w, http.StatusOK, media.Result{})
 }
 
-// Egress is a dedicated bounded stream between media-worker and recorder. The
-// HTTP API process never receives media bytes, and writes have per-frame deadlines.
+// egress открывает защищённый поток закодированных медиа для общей записи и контролирует владение комнатой.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - w (http.ResponseWriter): получатель HTTP-ответа.
+//   - r (*http.Request): входящий HTTP-запрос.
 func (h *Handler) egress(w http.ResponseWriter, r *http.Request) {
 	var req media.EgressRequest
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
@@ -125,6 +136,13 @@ func (h *Handler) egress(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Request-ID", req.RequestID)
 	control := http.NewResponseController(w)
 	encoder := json.NewEncoder(w)
+	// Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
+	//
+	// @parameters:
+	//   - frame (media.EgressFrame): значение frame типа media.EgressFrame, используемое согласно назначению этой операции.
+	//
+	// @return:
+	//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 	write := func(frame media.EgressFrame) bool {
 		if err := control.SetWriteDeadline(time.Now().Add(h.cfg.OperationTimeout)); err != nil {
 			return false

@@ -39,6 +39,21 @@ import (
 
 const stageTwoSecret = "stage-two-isolated-integration-test-secret"
 
+// stageTwoFixture хранит изолированное состояние тестового компонента «этап два тестовое окружение».
+// Состав:
+//   - db: подключение или текущая транзакция GORM, задающая контекст доступа к базе.
+//   - redis: подключение Redis для распределённого состояния.
+//   - store: значение store типа *redisinfra.RealtimeStore, используемое согласно назначению этой операции.
+//   - hubs: набор значений hubs для последовательной или пакетной обработки.
+//   - servers: набор значений servers для последовательной или пакетной обработки.
+//   - tokens: сервис выпуска или проверки JWT авторизации.
+//   - service: значение service типа *conferenceusecase.Service, используемое согласно назначению этой операции.
+//   - config: настройки запуска и ограничений компонента.
+//   - owner: значение owner типа users.User, используемое согласно назначению этой операции.
+//   - member: значение member типа users.User, используемое согласно назначению этой операции.
+//   - ownerToken: значение ownerToken типа string, используемое согласно назначению этой операции.
+//   - memberToken: значение memberToken типа string, используемое согласно назначению этой операции.
+//   - conference: конференция либо её идентификатор, ограничивающий область операции.
 type stageTwoFixture struct {
 	db                      *gorm.DB
 	redis                   *goredis.Client
@@ -53,6 +68,13 @@ type stageTwoFixture struct {
 	conference              conferences.View
 }
 
+// stageTwo подготавливает или проверяет часть тестового сценария «этап два».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//
+// @return:
+//   - результат 1 (*stageTwoFixture): значение, подготовленное операцией для вызывающей стороны.
 func stageTwo(t *testing.T) *stageTwoFixture {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -116,26 +138,42 @@ func stageTwo(t *testing.T) *stageTwoFixture {
 		f.servers = append(f.servers, httptest.NewServer(router))
 	}
 	f.service.SetObserver(f.hubs[0])
-	t.Cleanup(func() {
-		for _, hub := range f.hubs {
-			hub.Shutdown()
-		}
-		for _, server := range f.servers {
-			server.Close()
-		}
-		// Delete only this test's random namespace; never FLUSHDB or app keys.
-		cleanup := goredis.NewClient(&goredis.Options{Addr: addr})
-		defer cleanup.Close()
-		keys, _ := cleanup.Keys(context.Background(), f.config.Namespace+":*").Result()
-		if len(keys) > 0 {
-			_ = cleanup.Del(context.Background(), keys...).Err()
-		}
-		_ = f.redis.Close()
-	})
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() {
+			for _, hub := range f.hubs {
+				hub.Shutdown()
+			}
+			for _, server := range f.servers {
+				server.Close()
+			}
+			// Delete only this test's random namespace; never FLUSHDB or app keys.
+			cleanup := goredis.NewClient(&goredis.Options{Addr: addr})
+			defer cleanup.Close()
+			keys, _ := cleanup.Keys(context.Background(), f.config.Namespace+":*").Result()
+			if len(keys) > 0 {
+				_ = cleanup.Del(context.Background(), keys...).Err()
+			}
+			_ = f.redis.Close()
+		})
 	return f
 }
+
+// ptr подготавливает или проверяет часть тестового сценария «ptr».
+//
+// @parameters:
+//   - s (string): значение s типа string, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (*string): значение, подготовленное операцией для вызывающей стороны.
 func ptr(s string) *string { return &s }
 
+// testSocket хранит изолированное состояние тестового компонента «проверка Socket».
+// Состав:
+//   - conn: действующее сетевое соединение операции.
+//   - events: получатель или издатель событий прикладного сценария.
+//   - done: канал уведомления о завершении ресурса.
+//   - state: значение state типа domain.State, используемое согласно назначению этой операции.
 type testSocket struct {
 	conn   *ws.Conn
 	events chan domain.Envelope
@@ -143,6 +181,16 @@ type testSocket struct {
 	state  domain.State
 }
 
+// connect подготавливает или проверяет часть тестового сценария «connect».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - instance (int): значение instance типа int, используемое согласно назначению этой операции.
+//   - token (string): подписанный токен или токен владения, который необходимо проверить.
+//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
+//
+// @return:
+//   - результат 1 (*testSocket): значение, подготовленное операцией для вызывающей стороны.
 func (f *stageTwoFixture) connect(t *testing.T, instance int, token, conferenceID string) *testSocket {
 	t.Helper()
 	conn, response, err := ws.DefaultDialer.Dial("ws"+strings.TrimPrefix(f.servers[instance].URL, "http")+"/api/v1/conferences/"+conferenceID+"/ws", http.Header{"Authorization": []string{"Bearer " + token}})
@@ -154,16 +202,34 @@ func (f *stageTwoFixture) connect(t *testing.T, instance int, token, conferenceI
 		t.Fatalf("connect: status %d, %v", status, err)
 	}
 	s := readSocket(conn)
-	t.Cleanup(func() { _ = conn.Close(); <-s.done })
-	state := s.wait(t, func(e domain.Envelope) bool { return e.Type == "conference.state" })
+	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		 */func() { _ = conn.Close(); <-s.done })
+	state := s.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.Type == "conference.state" })
 	if err = json.Unmarshal(state.Data, &s.state); err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
+
+// readSocket подготавливает или проверяет часть тестового сценария «чтение Socket».
+//
+// @parameters:
+//   - conn (*ws.Conn): действующее сетевое соединение операции.
+//
+// @return:
+//   - результат 1 (*testSocket): значение, подготовленное операцией для вызывающей стороны.
 func readSocket(conn *ws.Conn) *testSocket {
 	s := &testSocket{conn: conn, events: make(chan domain.Envelope, 4096), done: make(chan struct{})}
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer close(s.done)
 		for {
 			var event domain.Envelope
@@ -179,6 +245,15 @@ func readSocket(conn *ws.Conn) *testSocket {
 	}()
 	return s
 }
+
+// wait подготавливает или проверяет часть тестового сценария «ожидание».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - predicate (func(domain.Envelope) bool): условие выбора ожидаемого события в проверке.
+//
+// @return:
+//   - результат 1 (domain.Envelope): значение, подготовленное операцией для вызывающей стороны.
 func (s *testSocket) wait(t *testing.T, predicate func(domain.Envelope) bool) domain.Envelope {
 	t.Helper()
 	timeout := time.NewTimer(5 * time.Second)
@@ -196,6 +271,17 @@ func (s *testSocket) wait(t *testing.T, predicate func(domain.Envelope) bool) do
 		}
 	}
 }
+
+// signal подготавливает или проверяет часть тестового сценария «signal».
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
+//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
+//   - target (string): целевой объект, участник или состояние операции.
+//   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
+//
+// @return:
+//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 func (s *testSocket) signal(t *testing.T, kind, target string, data any) string {
 	t.Helper()
 	raw, _ := json.Marshal(data)
@@ -208,6 +294,16 @@ func (s *testSocket) signal(t *testing.T, kind, target string, data any) string 
 	}
 	return event.ID
 }
+
+// presenceCount подготавливает или проверяет часть тестового сценария «присутствие количество».
+//
+// @parameters:
+//   - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+//   - userID (string): идентификатор пользователя, для которого выполняется операция.
+//   - count (int): значение count типа int, используемое согласно назначению этой операции.
+//
+// @return:
+//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func presenceCount(e domain.Envelope, userID string, count int) bool {
 	if e.Type != "participant.connected" && e.Type != "participant.disconnected" && e.Type != "conference.state" {
 		return false
@@ -223,11 +319,22 @@ func presenceCount(e domain.Envelope, userID string, count int) bool {
 	}
 	return false
 }
+
+// TestStageTwoPresenceSignalingMultiInstance проверяет сценарий «этап два присутствие сигнализация Multi Instance», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoPresenceSignalingMultiInstance(t *testing.T) {
 	f := stageTwo(t)
 	a := f.connect(t, 0, f.ownerToken, f.conference.ID)
 	b := f.connect(t, 1, f.memberToken, f.conference.ID)
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 1) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 1) })
 	for _, step := range []struct {
 		kind             string
 		sender, receiver *testSocket
@@ -239,13 +346,25 @@ func TestStageTwoPresenceSignalingMultiInstance(t *testing.T) {
 		{"webrtc.ice", b, a, map[string]any{"candidate": map[string]any{"candidate": "candidate:two", "sdpMLineIndex": 0}}},
 	} {
 		id := step.sender.signal(t, step.kind, step.receiver.state.ConnectionID, step.payload)
-		e := step.receiver.wait(t, func(e domain.Envelope) bool { return e.Type == step.kind })
+		e := step.receiver.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.Type == step.kind })
 		var data domain.Signal
 		_ = json.Unmarshal(e.Data, &data)
 		if e.ReplyTo != id || data.SenderConnectionID != step.sender.state.ConnectionID || data.SenderParticipantID != step.sender.state.ParticipantID {
 			t.Fatal("sender attribution/replyTo incorrect")
 		}
-		step.sender.wait(t, func(e domain.Envelope) bool { return e.Type == "ack" && e.ReplyTo == id })
+		step.sender.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.Type == "ack" && e.ReplyTo == id })
 		select {
 		case duplicate := <-step.receiver.events:
 			if duplicate.Type == step.kind && duplicate.ReplyTo == id {
@@ -255,13 +374,31 @@ func TestStageTwoPresenceSignalingMultiInstance(t *testing.T) {
 		}
 	}
 	b2 := f.connect(t, 0, f.memberToken, f.conference.ID)
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 2) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 2) })
 	_ = b.conn.Close()
 	<-b.done
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 1) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 1) })
 	_ = b2.conn.Close()
 	<-b2.done
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 0) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 0) })
 	b3 := f.connect(t, 1, f.memberToken, f.conference.ID)
 	if b3.state.ConnectionID == b.state.ConnectionID || b3.state.ParticipantID != b.state.ParticipantID {
 		t.Fatal("reconnect did not replace only the connection")
@@ -276,7 +413,13 @@ func TestStageTwoPresenceSignalingMultiInstance(t *testing.T) {
 	}
 	foreign := f.connect(t, 1, f.memberToken, other.ID)
 	id := a.signal(t, "webrtc.offer", foreign.state.ConnectionID, map[string]any{"sdp": "cross conference"})
-	a.wait(t, func(e domain.Envelope) bool { return e.Type == "error" && e.ReplyTo == id })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.Type == "error" && e.ReplyTo == id })
 	select {
 	case e := <-foreign.events:
 		if e.Type == "webrtc.offer" {
@@ -304,6 +447,10 @@ func TestStageTwoPresenceSignalingMultiInstance(t *testing.T) {
 	}
 }
 
+// TestStageTwoBrokerFailureClosesSockets проверяет сценарий «этап два Broker сбой Closes Sockets», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoBrokerFailureClosesSockets(t *testing.T) {
 	f := stageTwo(t)
 	a := f.connect(t, 0, f.ownerToken, f.conference.ID)
@@ -330,6 +477,10 @@ func TestStageTwoBrokerFailureClosesSockets(t *testing.T) {
 	}
 }
 
+// TestStageTwoJWTExpiryClosesLiveSession проверяет сценарий «этап два JWT истечение срока Closes Live сессия», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoJWTExpiryClosesLiveSession(t *testing.T) {
 	f := stageTwo(t)
 	now := time.Now()
@@ -350,6 +501,10 @@ func TestStageTwoJWTExpiryClosesLiveSession(t *testing.T) {
 	}
 }
 
+// TestStageTwoAuthTicketsAndRestrictions проверяет сценарий «этап два авторизация билеты и Restrictions», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoAuthTicketsAndRestrictions(t *testing.T) {
 	f := stageTwo(t)
 	path := "/api/v1/conferences/" + f.conference.ID + "/ws"
@@ -442,6 +597,10 @@ func TestStageTwoAuthTicketsAndRestrictions(t *testing.T) {
 	}
 }
 
+// TestStageTwoPayloadLimitsAndHistoryConstraints проверяет сценарий «этап два Payload ограничения и история Constraints», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoPayloadLimitsAndHistoryConstraints(t *testing.T) {
 	f := stageTwo(t)
 	a := f.connect(t, 0, f.ownerToken, f.conference.ID)
@@ -456,7 +615,13 @@ func TestStageTwoPayloadLimitsAndHistoryConstraints(t *testing.T) {
 		{"webrtc.offer", map[string]any{"sdp": "x", "senderConnectionId": uuid.NewString()}, "invalid_signal"},
 	} {
 		id := a.signal(t, step.kind, b.state.ConnectionID, step.payload)
-		e := a.wait(t, func(e domain.Envelope) bool { return e.Type == "error" && e.ReplyTo == id })
+		e := a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+			@parameters:
+			  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+			@return:
+			  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.Type == "error" && e.ReplyTo == id })
 		var data struct{ Code string }
 		_ = json.Unmarshal(e.Data, &data)
 		if data.Code != step.code {
@@ -506,6 +671,10 @@ func TestStageTwoPayloadLimitsAndHistoryConstraints(t *testing.T) {
 	}
 }
 
+// TestStageTwoDeadLeaseAndShutdown проверяет сценарий «этап два недействующий аренда и завершение», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoDeadLeaseAndShutdown(t *testing.T) {
 	f := stageTwo(t)
 	a := f.connect(t, 0, f.ownerToken, f.conference.ID)
@@ -515,8 +684,20 @@ func TestStageTwoDeadLeaseAndShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dead.Close()
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 1) })
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 0) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 1) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 0) })
 	// Emulate process crash: lease expires but no local socket calls Unregister.
 	now := time.Now().UTC()
 	ghost := domain.Session{ID: uuid.NewString(), ConferenceID: f.conference.ID, ParticipantID: a.state.ParticipantID, UserID: f.owner.ID, ConnectionID: uuid.NewString(), Status: "connected", ConnectedAt: now, LastSeenAt: now}
@@ -527,8 +708,20 @@ func TestStageTwoDeadLeaseAndShutdown(t *testing.T) {
 	if err = f.store.Register(context.Background(), ghost, 50*time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.owner.ID, 2) })
-	a.wait(t, func(e domain.Envelope) bool { return presenceCount(e, f.owner.ID, 1) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.owner.ID, 2) })
+	a.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.owner.ID, 1) })
 	for _, hub := range f.hubs {
 		hub.Shutdown()
 		if hub.LocalCount() != 0 {
@@ -545,6 +738,10 @@ func TestStageTwoDeadLeaseAndShutdown(t *testing.T) {
 	}
 }
 
+// TestStageTwoLoad100Connections проверяет сценарий «этап два Load100Connections», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoLoad100Connections(t *testing.T) {
 	f := stageTwo(t)
 	start := time.Now()
@@ -569,7 +766,11 @@ func TestStageTwoLoad100Connections(t *testing.T) {
 	var wg sync.WaitGroup
 	for _, s := range sockets {
 		wg.Add(1)
-		go func(s *testSocket) { defer wg.Done(); _ = s.conn.Close(); <-s.done }(s)
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - s (*testSocket): значение s типа *testSocket, используемое согласно назначению этой операции.
+		*/func(s *testSocket) { defer wg.Done(); _ = s.conn.Close(); <-s.done }(s)
 	}
 	wg.Wait()
 	for _, hub := range f.hubs {
@@ -581,6 +782,11 @@ func TestStageTwoLoad100Connections(t *testing.T) {
 	}
 }
 
+// TestStageTwoBrowserProof проверяет сценарий «этап два браузер Proof», фиксируя ошибки поведения как регрессию.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageTwoBrowserProof(t *testing.T) {
 	if os.Getenv("RECORDER_FRONTEND_E2E") != "true" {
 		t.Skip("set RECORDER_FRONTEND_E2E=true for the two-browser DataChannel proof")

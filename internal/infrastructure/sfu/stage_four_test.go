@@ -13,6 +13,15 @@ import (
 	pion "github.com/pion/webrtc/v4"
 )
 
+// ownPublication подготавливает или проверяет часть тестового сценария «own Publication».
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - p (*peer): байты, переданные по контракту io.Writer.
+//   - source (media.Source): семантический источник медиа либо входной источник данных.
+//
+// @return:
+//   - результат 1 (*publishedTrack): значение, подготовленное операцией для вызывающей стороны.
 func ownPublication(p *peer, source media.Source) *publishedTrack {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -24,12 +33,21 @@ func ownPublication(p *peer, source media.Source) *publishedTrack {
 	return nil
 }
 
+// TestRepublishSameReceiverAndDeviceReplacement проверяет сценарий «Republish Same Receiver и Device Replacement», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRepublishSameReceiverAndDeviceReplacement(t *testing.T) {
 	h := harness(t, 3)
 	conf := uuid.NewString()
 	a := h.join(t, conf, "")
 	_ = h.join(t, conf, "")
-	eventually(t, h, "initial sources", func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
+	eventually(t, h, "initial sources", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
 	server, _ := h.manager.get(a.id)
 	a.neg.Lock()
 	a.sourceDeclarations = map[string]media.Source{"microphone": media.SourceMicrophone, "camera": media.SourceCamera}
@@ -41,7 +59,11 @@ func TestRepublishSameReceiverAndDeviceReplacement(t *testing.T) {
 	if err := h.manager.Unpublish(context.Background(), a.id, old.metadata.ID); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, h, "source retired", func() bool { return h.manager.Snapshot().Tracks == 3 && h.manager.Snapshot().Subscriptions == 3 })
+	eventually(t, h, "source retired", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 3 && h.manager.Snapshot().Subscriptions == 3 })
 	time.Sleep(60 * time.Millisecond)
 	if ownPublication(server, media.SourceCamera) != nil {
 		t.Fatal("RTP alone bypassed stopped publication")
@@ -52,7 +74,11 @@ func TestRepublishSameReceiverAndDeviceReplacement(t *testing.T) {
 	if err := a.negotiate(); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, h, "same receiver republished", func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
+	eventually(t, h, "same receiver republished", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
 	republished := ownPublication(server, media.SourceCamera)
 	if republished == nil || republished.metadata.ID == old.metadata.ID || republished.remote != old.remote {
 		t.Fatal("republish did not replace publication while retaining receiver")
@@ -71,19 +97,31 @@ func TestRepublishSameReceiverAndDeviceReplacement(t *testing.T) {
 	}
 }
 
+// TestScreenReservationAtomicAndPolicyCannotBeBypassed проверяет сценарий «экран Reservation Atomic и политика Cannot Be Bypassed», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestScreenReservationAtomicAndPolicyCannotBeBypassed(t *testing.T) {
 	h := harness(t, 3)
 	conf := uuid.NewString()
 	a := h.join(t, conf, "")
 	b := h.join(t, conf, "")
-	eventually(t, h, "initial media", func() bool { return h.manager.Snapshot().Tracks == 4 })
+	eventually(t, h, "initial media", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 })
 	pa, _ := h.manager.get(a.id)
 	pb, _ := h.manager.get(b.id)
 	var wg sync.WaitGroup
 	results := make(chan error, 2)
 	for _, p := range []*peer{pa, pb} {
 		wg.Add(1)
-		go func(p *peer) {
+		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - p (*peer): байты, переданные по контракту io.Writer.
+		*/func(p *peer) {
 			defer wg.Done()
 			results <- p.reserveSources(map[string]media.Source{"screen": media.SourceVideoScreen})
 		}(p)
@@ -107,7 +145,11 @@ func TestScreenReservationAtomicAndPolicyCannotBeBypassed(t *testing.T) {
 	if err := h.manager.SetPolicy(context.Background(), conf, a.binding.ParticipantID, policy); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, h, "microphone moderation", func() bool { return ownPublication(pa, media.SourceMicrophone) == nil })
+	eventually(t, h, "microphone moderation", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return ownPublication(pa, media.SourceMicrophone) == nil })
 	if err := h.manager.SetPolicy(context.Background(), conf, a.binding.ParticipantID, media.ParticipantPolicy{Version: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -129,6 +171,11 @@ func TestScreenReservationAtomicAndPolicyCannotBeBypassed(t *testing.T) {
 	}
 }
 
+// TestScreenTypedPublicationAlongsideCamera проверяет сценарий «экран Typed Publication Alongside Camera», фиксируя ошибки поведения как регрессию.
+// Синхронизирует доступ к разделяемому состоянию блокировкой.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestScreenTypedPublicationAlongsideCamera(t *testing.T) {
 	h := harness(t, 3)
 	conf := uuid.NewString()
@@ -148,7 +195,9 @@ func TestScreenTypedPublicationAlongsideCamera(t *testing.T) {
 	a.mu.Lock()
 	a.wg.Add(2)
 	a.mu.Unlock()
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer a.wg.Done()
 		for {
 			if _, _, err := sender.ReadRTCP(); err != nil {
@@ -156,7 +205,9 @@ func TestScreenTypedPublicationAlongsideCamera(t *testing.T) {
 			}
 		}
 	}()
-	go func() {
+	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+	 */func() {
 		defer a.wg.Done()
 		ticker := time.NewTicker(20 * time.Millisecond)
 		defer ticker.Stop()
@@ -171,7 +222,11 @@ func TestScreenTypedPublicationAlongsideCamera(t *testing.T) {
 			}
 		}
 	}()
-	eventually(t, h, "camera plus screen", func() bool { return h.manager.Snapshot().Tracks == 5 && h.manager.Snapshot().Subscriptions == 5 })
+	eventually(t, h, "camera plus screen", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 5 && h.manager.Snapshot().Subscriptions == 5 })
 	pa, _ := h.manager.get(a.id)
 	track := ownPublication(pa, media.SourceVideoScreen)
 	if track == nil || track.metadata.StreamID != a.id+"-screen" {
@@ -189,22 +244,38 @@ func TestScreenTypedPublicationAlongsideCamera(t *testing.T) {
 	if err = h.manager.Unpublish(context.Background(), a.id, track.metadata.ID); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, h, "screen stopped", func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
+	eventually(t, h, "screen stopped", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
 	a.neg.Lock()
 	a.declarationGeneration = "-new-display"
 	a.neg.Unlock()
 	if err = a.negotiate(); err != nil {
 		t.Fatal(err)
 	}
-	eventually(t, h, "screen restarted", func() bool { return h.manager.Snapshot().Tracks == 5 && h.manager.Snapshot().Subscriptions == 5 })
+	eventually(t, h, "screen restarted", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 5 && h.manager.Snapshot().Subscriptions == 5 })
 }
 
+// TestEgressOrderingAndSlowRecorderIsolation проверяет сценарий «выход медиа порядок и Slow Recorder Isolation», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestEgressOrderingAndSlowRecorderIsolation(t *testing.T) {
 	h := harness(t, 3, Options{EgressQueueSize: 32})
 	conf := uuid.NewString()
 	a := h.join(t, conf, "")
 	b := h.join(t, conf, "")
-	eventually(t, h, "media established", func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
+	eventually(t, h, "media established", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+
+		@return:
+		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 && h.manager.Snapshot().Subscriptions == 4 })
 	sub, err := h.manager.SubscribeRecording(context.Background(), conf, uuid.NewString())
 	if err != nil {
 		t.Fatal(err)

@@ -1,5 +1,13 @@
 import { localSchedule } from "../collaboration";
 
+/**
+ * ScheduleFields показывает управляемые поля локального времени и плановой длительности встречи.
+ *
+ * @parameters:
+ *   - объект параметров: value — значение для проверки, преобразования или отображения; onChange — обработчик изменения управляемого значения; duration — свойство текущего компонента; onDuration — свойство текущего компонента; disabled — запрещает действие в текущем состоянии.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function ScheduleFields({
   value,
   onChange,
@@ -8,9 +16,23 @@ export function ScheduleFields({
   disabled = false,
 }: {
   value: string;
-  onChange: (value: string) => void;
+  onChange: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в конференциях, расписании и истории.
+   *
+   * @parameters:
+   *   - value (string) — значение для проверки, преобразования или отображения.
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ (value: string) => void;
   duration: string;
-  onDuration: (value: string) => void;
+  onDuration: /**
+   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в конференциях, расписании и истории.
+   *
+   * @parameters:
+   *   - value (string) — значение для проверки, преобразования или отображения.
+   *
+   * @returns void — значение не возвращается; функция выполняет описанные действия.
+   */ (value: string) => void;
   disabled?: boolean;
 }) {
   const utc = localSchedule(value);
@@ -22,7 +44,16 @@ export function ScheduleFields({
           id="scheduled-at"
           type="datetime-local"
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={
+            /**
+             * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             * @parameters:
+             *   - event — проверенный конверт события комнаты.
+             *
+             * @returns вычисленное значение: onChange(event.target.value).
+             */ (event) => onChange(event.target.value)
+          }
           disabled={disabled}
         />
       </label>
@@ -41,7 +72,16 @@ export function ScheduleFields({
           min={1}
           max={1440}
           value={duration}
-          onChange={(event) => onDuration(event.target.value)}
+          onChange={
+            /**
+             * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             * @parameters:
+             *   - event — проверенный конверт события комнаты.
+             *
+             * @returns вычисленное значение: onDuration(event.target.value).
+             */ (event) => onDuration(event.target.value)
+          }
           disabled={disabled}
           placeholder="60"
         />

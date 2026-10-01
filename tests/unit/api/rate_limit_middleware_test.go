@@ -13,6 +13,10 @@ import (
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 )
 
+// TestRateLimitDisabledSkipsLimiter проверяет сценарий «Rate лимит Disabled Skips Limiter», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitDisabledSkipsLimiter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	limiter := &fakeLimiter{}
@@ -30,9 +34,13 @@ func TestRateLimitDisabledSkipsLimiter(t *testing.T) {
 			},
 		},
 	}))
-	router.GET("/api/v1/records", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "success"})
-	})
+	router.GET("/api/v1/records", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "success"})
+		})
 
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/records", nil))
@@ -43,6 +51,10 @@ func TestRateLimitDisabledSkipsLimiter(t *testing.T) {
 	}
 }
 
+// TestRateLimitExceededReturnsFailedJSON проверяет сценарий «Rate лимит Exceeded Returns Failed JSON», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitExceededReturnsFailedJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	resetAt := time.Unix(1_765_000_000, 0).UTC()
@@ -69,9 +81,13 @@ func TestRateLimitExceededReturnsFailedJSON(t *testing.T) {
 			},
 		},
 	}))
-	router.POST("/api/v1/records/start", func(c *gin.Context) {
-		t.Fatal("handler must not be called after rate limit exceeded")
-	})
+	router.POST("/api/v1/records/start", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			t.Fatal("handler must not be called after rate limit exceeded")
+		})
 
 	response := performJSON(router, http.MethodPost, "/api/v1/records/start", `{
 		"conferenceId":"11111111-1111-4111-8111-111111111111"
@@ -97,6 +113,10 @@ func TestRateLimitExceededReturnsFailedJSON(t *testing.T) {
 	}
 }
 
+// TestRateLimitJSONFieldRestoresBodyForHandler проверяет сценарий «Rate лимит JSON Field Restores Body для Handler», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitJSONFieldRestoresBodyForHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	limiter := &fakeLimiter{
@@ -121,15 +141,19 @@ func TestRateLimitJSONFieldRestoresBodyForHandler(t *testing.T) {
 			},
 		},
 	}))
-	router.POST("/api/v1/records/start", func(c *gin.Context) {
-		var request struct {
-			ConferenceID string `json:"conferenceId"`
-		}
-		if err := c.ShouldBindJSON(&request); err != nil {
-			t.Fatalf("ShouldBindJSON() error = %v", err)
-		}
-		c.JSON(http.StatusAccepted, request)
-	})
+	router.POST("/api/v1/records/start", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			var request struct {
+				ConferenceID string `json:"conferenceId"`
+			}
+			if err := c.ShouldBindJSON(&request); err != nil {
+				t.Fatalf("ShouldBindJSON() error = %v", err)
+			}
+			c.JSON(http.StatusAccepted, request)
+		})
 
 	response := performJSON(router, http.MethodPost, "/api/v1/records/start", `{
 		"conferenceId":"11111111-1111-4111-8111-111111111111"
@@ -145,6 +169,10 @@ func TestRateLimitJSONFieldRestoresBodyForHandler(t *testing.T) {
 	}
 }
 
+// TestRateLimitPathParamKey проверяет сценарий «Rate лимит путь Param ключ», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitPathParamKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	limiter := &fakeLimiter{
@@ -164,9 +192,13 @@ func TestRateLimitPathParamKey(t *testing.T) {
 			},
 		},
 	}))
-	router.POST("/api/v1/records/:id/webrtc/offer", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "success"})
-	})
+	router.POST("/api/v1/records/:id/webrtc/offer", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
+
+		@parameters:
+		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
+		*/func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "success"})
+		})
 
 	response := performJSON(router, http.MethodPost, "/api/v1/records/22222222-2222-4222-8222-222222222222/webrtc/offer", `{"type":"offer","sdp":"sdp"}`)
 
@@ -176,6 +208,13 @@ func TestRateLimitPathParamKey(t *testing.T) {
 	}
 }
 
+// fakeLimiter хранит изолированное состояние тестового компонента «fake Limiter».
+// Состав:
+//   - calls: значение calls типа int, используемое согласно назначению этой операции.
+//   - result: результат проверки или обработки, передаваемый следующему шагу.
+//   - err: сохранённая причина ошибочного завершения.
+//   - keys: набор значений keys для последовательной или пакетной обработки.
+//   - limits: настройки ограничений размера, частоты и количества ресурсов.
 type fakeLimiter struct {
 	calls  int
 	result ratelimit.Result
@@ -184,6 +223,17 @@ type fakeLimiter struct {
 	limits []int
 }
 
+// Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
+//
+// @parameters:
+//   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
+//   - limit (int): предел количества обрабатываемых элементов.
+//   - _ (time.Duration): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
+//
+// @return:
+//   - результат 1 (ratelimit.Result): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (l *fakeLimiter) Allow(_ context.Context, key string, limit int, _ time.Duration) (ratelimit.Result, error) {
 	l.calls++
 	l.keys = append(l.keys, key)

@@ -9,11 +9,22 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 
+# page_number извлекает номер страницы из имени изображения для правильной сортировки листов.
+#
+# @parameters:
+#   - path (Path): путь изображения страницы.
+#
+# @return: int — подготовленное значение согласно назначению функции.
 def page_number(path: Path) -> int:
     match = re.search(r"(\d+)$", path.stem)
     return int(match.group(1)) if match else 0
 
 
+# main читает параметры командной строки и собирает листы миниатюр страниц.
+#
+# входные пути и настройки читаются из командной строки.
+#
+# @return: возвращаемого значения нет; изменяет переданные объекты или сохраняет результат операции.
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("input_dir", type=Path)

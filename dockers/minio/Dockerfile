@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine3.22 AS build
+FROM golang:1.26.6-alpine3.23 AS build
 
 # The upstream community images are no longer available from the registries.
 # Build the pinned official source release instead of using a third-party image.

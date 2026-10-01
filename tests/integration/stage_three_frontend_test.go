@@ -8,8 +8,11 @@ import (
 	"time"
 )
 
-// Opt-in only: uses the fixture's random database/Redis namespace and isolated
-// Chromium fake devices. It never opens the user's browser or physical devices.
+// TestStageThreeBrowserMedia проверяет сценарий «этап три браузер медиа», фиксируя ошибки поведения как регрессию.
+// Внешняя команда или запрос использует контекст операции.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStageThreeBrowserMedia(t *testing.T) {
 	if os.Getenv("RECORDER_STAGE3_BROWSER_E2E") != "true" {
 		t.Skip("set RECORDER_STAGE3_BROWSER_E2E=true with local PostgreSQL/Redis test settings")

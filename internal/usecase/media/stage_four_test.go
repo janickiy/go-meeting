@@ -9,16 +9,33 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/media"
 )
 
+// testPolicyProvider хранит изолированное состояние тестового компонента «проверка политика Provider».
+//   - policy: актуальные ограничения медиа и версия модерации участника.
+//   - calls: значение calls типа int, используемое согласно назначению этой операции.
 type testPolicyProvider struct {
 	policy domain.ParticipantPolicy
 	calls  int
 }
 
+// MediaPolicy читает действующие серверные ограничения передачи медиа участника.
+//
+// @parameters:
+//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
+//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
+//   - аргумент 3 (string): идентификатор членства участника внутри конференции.
+//
+// @return:
+//   - результат 1 (domain.ParticipantPolicy): значение, подготовленное операцией для вызывающей стороны.
+//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *testPolicyProvider) MediaPolicy(context.Context, string, string) (domain.ParticipantPolicy, error) {
 	p.calls++
 	return p.policy, nil
 }
 
+// TestControllerRefreshesPolicyAndCarriesTypedSources проверяет сценарий «Controller Refreshes политика и Carries Typed источники», фиксируя ошибки поведения как регрессию.
+//
+// @parameters:
+//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerRefreshesPolicyAndCarriesTypedSources(t *testing.T) {
 	f := newControllerFixture()
 	provider := &testPolicyProvider{policy: domain.ParticipantPolicy{Version: 1}}

@@ -14,6 +14,14 @@ import { useMedia } from "../useMedia";
 import { Button, ErrorNotice } from "./ui";
 import type { Participant } from "../types";
 
+/**
+ * MediaTile привязывает MediaStream к аудио- или видеоэлементу и освобождает привязку при смене потока.
+ *
+ * @parameters:
+ *   - объект параметров: stream — свойство текущего компонента; name — отображаемое имя пользователя для инициалов; local — свойство текущего компонента; video — свойство текущего компонента; screen — свойство текущего компонента.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 function MediaTile({
   stream,
   name,
@@ -29,6 +37,12 @@ function MediaTile({
 }) {
   const element = useRef<HTMLMediaElement | null>(null);
   const [blocked, setBlocked] = useState(false);
+  /**
+   * play запускает воспроизведение потока, учитывая ограничения браузера.
+   *
+   *
+   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+   */
   const play = async () => {
     try {
       await element.current?.play();
@@ -37,19 +51,40 @@ function MediaTile({
       setBlocked(true);
     }
   };
-  useEffect(() => {
-    const media = element.current;
-    if (!media) return;
-    media.srcObject = stream;
-    let active = true;
-    void media.play().catch(() => {
-      if (active) setBlocked(true);
-    });
-    return () => {
-      active = false;
-      media.srcObject = null;
-    };
-  }, [stream, video]);
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      const media = element.current;
+      if (!media) return;
+      media.srcObject = stream;
+      let active = true;
+      void media.play().catch(
+        /**
+         * Обработчик catch выполняет переданный шаг вызова catch в интерфейсе Meet.
+         *
+         *
+         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+         */ () => {
+          if (active) setBlocked(true);
+        },
+      );
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      return () => {
+        active = false;
+        media.srcObject = null;
+      };
+    },
+    [stream, video],
+  );
   return (
     <div
       className={`media-tile ${local ? "media-tile-local" : ""} ${screen ? "media-tile-screen" : ""}`}
@@ -57,9 +92,18 @@ function MediaTile({
     >
       {video ? (
         <video
-          ref={(node) => {
-            element.current = node;
-          }}
+          ref={
+            /**
+             * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
+             *
+             * @parameters:
+             *   - node — DOM-элемент, к которому привязывается медиапоток.
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ (node) => {
+              element.current = node;
+            }
+          }
           autoPlay
           playsInline
           muted={local}
@@ -71,9 +115,18 @@ function MediaTile({
             <Volume2 size={34} />
           </div>
           <audio
-            ref={(node) => {
-              element.current = node;
-            }}
+            ref={
+              /**
+               * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
+               *
+               * @parameters:
+               *   - node — DOM-элемент, к которому привязывается медиапоток.
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ (node) => {
+                element.current = node;
+              }
+            }
             autoPlay
             muted={local}
             aria-label={name}
@@ -85,7 +138,17 @@ function MediaTile({
         {local ? " · вы" : ""}
       </div>
       {blocked && (
-        <Button variant="secondary" onClick={() => void play()}>
+        <Button
+          variant="secondary"
+          onClick={
+            /**
+             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+             *
+             *
+             * @returns вычисленное значение: void play().
+             */ () => void play()
+          }
+        >
           Включить воспроизведение
         </Button>
       )}
@@ -94,6 +157,14 @@ function MediaTile({
 }
 
 // Hardware capture always requires an explicit user action.
+/**
+ * RealtimePanel показывает состояние связи, локальные и удалённые медиа и действия устройств и экрана.
+ *
+ * @parameters:
+ *   - объект параметров: conferenceId — идентификатор конференции и области данных; membership — свойство текущего компонента; live — свойство текущего компонента.
+ *
+ * @returns JSX-представление компонента для текущих свойств и состояния.
+ */
 export function RealtimePanel({
   conferenceId,
   membership,
@@ -108,27 +179,63 @@ export function RealtimePanel({
     version: membership.mediaPolicyVersion,
   });
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  useEffect(() => {
-    if (!media.running) {
-      setDevices([]);
-      return;
-    }
-    let active = true;
-    const refresh = () => {
-      void navigator.mediaDevices
-        ?.enumerateDevices()
-        .then((items) => {
-          if (active) setDevices(items);
-        })
-        .catch(() => {});
-    };
-    refresh();
-    navigator.mediaDevices?.addEventListener("devicechange", refresh);
-    return () => {
-      active = false;
-      navigator.mediaDevices?.removeEventListener("devicechange", refresh);
-    };
-  }, [media.running, media.view.microphoneEnabled, media.view.cameraEnabled]);
+  useEffect(
+    /**
+     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
+     *
+     *
+     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
+     */ () => {
+      if (!media.running) {
+        setDevices([]);
+        return;
+      }
+      let active = true;
+      /**
+       * refresh обновляет устройства или данные текущего компонента.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      const refresh = () => {
+        void navigator.mediaDevices
+          ?.enumerateDevices()
+          .then(
+            /**
+             * Обработчик then выполняет переданный шаг вызова then в интерфейсе Meet.
+             *
+             * @parameters:
+             *   - items — элементы результата для объединения или отображения.
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ (items) => {
+              if (active) setDevices(items);
+            },
+          )
+          .catch(
+            /**
+             * Обработчик catch выполняет переданный шаг вызова catch в интерфейсе Meet.
+             *
+             *
+             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+             */ () => {},
+          );
+      };
+      refresh();
+      navigator.mediaDevices?.addEventListener("devicechange", refresh);
+      /**
+       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
+       *
+       *
+       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+       */
+      return () => {
+        active = false;
+        navigator.mediaDevices?.removeEventListener("devicechange", refresh);
+      };
+    },
+    [media.running, media.view.microphoneEnabled, media.view.cameraEnabled],
+  );
   const busy = media.view.controlBusy || !media.view.mediaPeerId;
   return (
     <section
@@ -150,23 +257,32 @@ export function RealtimePanel({
             <code data-testid="connection-id">{live.state.connectionId}</code>
           </p>
           <div className="realtime-people">
-            {live.state.participants.map((p) => (
-              <div
-                key={p.id}
-                className="realtime-person"
-                data-testid={`presence-${p.userId}`}
-              >
-                <span
-                  className={`presence-dot ${p.online ? "online-dot" : ""}`}
-                />
-                <strong>{p.displayName}</strong>
-                <span>
-                  {p.online
-                    ? `Онлайн · подключений: ${p.connections}`
-                    : "Не в сети"}
-                </span>
-              </div>
-            ))}
+            {live.state.participants.map(
+              /**
+               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+               *
+               * @parameters:
+               *   - p — сведения об участнике конференции.
+               *
+               * @returns преобразованное значение текущего элемента для результирующего набора.
+               */ (p) => (
+                <div
+                  key={p.id}
+                  className="realtime-person"
+                  data-testid={`presence-${p.userId}`}
+                >
+                  <span
+                    className={`presence-dot ${p.online ? "online-dot" : ""}`}
+                  />
+                  <strong>{p.displayName}</strong>
+                  <span>
+                    {p.online
+                      ? `Онлайн · подключений: ${p.connections}`
+                      : "Не в сети"}
+                  </span>
+                </div>
+              ),
+            )}
           </div>
         </>
       )}
@@ -188,7 +304,17 @@ export function RealtimePanel({
         <div className="meeting-actions">
           {!media.running && (
             <>
-              <Button disabled={!live.state} onClick={() => media.start()}>
+              <Button
+                disabled={!live.state}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: media.start().
+                   */ () => media.start()
+                }
+              >
                 <Video size={17} />
                 {media.view.error
                   ? "Подключить медиасвязь снова"
@@ -197,7 +323,14 @@ export function RealtimePanel({
               <Button
                 variant="secondary"
                 disabled={!live.state}
-                onClick={() => media.start(false)}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: media.start(false).
+                   */ () => media.start(false)
+                }
               >
                 Подключиться без камеры и микрофона
               </Button>
@@ -208,8 +341,13 @@ export function RealtimePanel({
               <Button
                 variant="secondary"
                 disabled={busy || membership.microphoneBlocked}
-                onClick={() =>
-                  void media.microphone(!media.view.microphoneEnabled)
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: void media.microphone(!media.view.microphoneEnabled).
+                   */ () => void media.microphone(!media.view.microphoneEnabled)
                 }
               >
                 {media.view.microphoneEnabled ? (
@@ -224,7 +362,14 @@ export function RealtimePanel({
               <Button
                 variant="secondary"
                 disabled={busy || membership.cameraBlocked}
-                onClick={() => void media.camera(!media.view.cameraEnabled)}
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: void media.camera(!media.view.cameraEnabled).
+                   */ () => void media.camera(!media.view.cameraEnabled)
+                }
               >
                 {media.view.cameraEnabled ? (
                   <Video size={17} />
@@ -240,10 +385,16 @@ export function RealtimePanel({
                 disabled={
                   busy || membership.screenBlocked || membership.cameraBlocked
                 }
-                onClick={() =>
-                  void (media.view.screenSharing
-                    ? media.stopScreen()
-                    : media.startScreen())
+                onClick={
+                  /**
+                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   *
+                   * @returns вычисленное значение: void (media.view.screenSharing ? media.stopScreen() : media.startScreen()).
+                   */ () =>
+                    void (media.view.screenSharing
+                      ? media.stopScreen()
+                      : media.startScreen())
                 }
               >
                 <MonitorUp size={17} />
@@ -275,49 +426,99 @@ export function RealtimePanel({
         )}
         {media.running && devices.length > 0 && (
           <div className="media-devices">
-            {(["audioinput", "videoinput"] as const).map((kind) => (
-              <label key={kind}>
-                {kind === "audioinput" ? "Микрофон" : "Камера"}
-                <select
-                  aria-label={
-                    kind === "audioinput" ? "Выбор микрофона" : "Выбор камеры"
-                  }
-                  defaultValue=""
-                  disabled={
-                    busy ||
-                    (kind === "audioinput"
-                      ? membership.microphoneBlocked
-                      : membership.cameraBlocked)
-                  }
-                  onChange={(event) =>
-                    void (kind === "audioinput"
-                      ? media.microphone(true, event.target.value)
-                      : media.camera(true, event.target.value))
-                  }
-                >
-                  <option value="" disabled>
-                    Выберите устройство
-                  </option>
-                  {devices
-                    .filter((device) => device.kind === kind)
-                    .map((device, i) => (
-                      <option
-                        key={device.deviceId || i}
-                        value={device.deviceId}
-                      >
-                        {device.label || `Устройство ${i + 1}`}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            ))}
+            {(["audioinput", "videoinput"] as const).map(
+              /**
+               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+               *
+               * @parameters:
+               *   - kind — вид устройства, медиаисточника или события, определяющий действие.
+               *
+               * @returns преобразованное значение текущего элемента для результирующего набора.
+               */ (kind) => (
+                <label key={kind}>
+                  {kind === "audioinput" ? "Микрофон" : "Камера"}
+                  <select
+                    aria-label={
+                      kind === "audioinput" ? "Выбор микрофона" : "Выбор камеры"
+                    }
+                    defaultValue=""
+                    disabled={
+                      busy ||
+                      (kind === "audioinput"
+                        ? membership.microphoneBlocked
+                        : membership.cameraBlocked)
+                    }
+                    onChange={
+                      /**
+                       * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                       *
+                       * @parameters:
+                       *   - event — проверенный конверт события комнаты.
+                       *
+                       * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
+                       */ (event) =>
+                        void (kind === "audioinput"
+                          ? media.microphone(true, event.target.value)
+                          : media.camera(true, event.target.value))
+                    }
+                  >
+                    <option value="" disabled>
+                      Выберите устройство
+                    </option>
+                    {devices
+                      .filter(
+                        /**
+                         * Обработчик devices.filter проверяет, должен ли элемент войти в отфильтрованный набор.
+                         *
+                         * @parameters:
+                         *   - device — сведения браузера об одном доступном устройстве.
+                         *
+                         * @returns логический признак соответствия элемента условию.
+                         */ (device) => device.kind === kind,
+                      )
+                      .map(
+                        /**
+                         * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+                         *
+                         * @parameters:
+                         *   - device — сведения браузера об одном доступном устройстве.
+                         *   - i — индекс элемента в текущем наборе.
+                         *
+                         * @returns преобразованное значение текущего элемента для результирующего набора.
+                         */ (device, i) => (
+                          <option
+                            key={device.deviceId || i}
+                            value={device.deviceId}
+                          >
+                            {device.label || `Устройство ${i + 1}`}
+                          </option>
+                        ),
+                      )}
+                  </select>
+                </label>
+              ),
+            )}
           </div>
         )}
         {(media.view.localStream ||
           media.view.localScreen ||
           media.view.remoteStreams.length > 0) && (
           <div
-            className={`media-grid ${media.view.localScreen || media.view.remoteStreams.some((stream) => stream.screen) ? "media-grid-sharing" : ""}`}
+            className={`media-grid ${
+              media.view.localScreen ||
+              media.view.remoteStreams.some(
+                /**
+                 * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                 *
+                 * @parameters:
+                 *   - stream — поток браузерных медиа-дорожек.
+                 *
+                 * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                 */ (stream) => stream.screen,
+              )
+                ? "media-grid-sharing"
+                : ""
+            }`}
           >
             {media.view.localScreen && (
               <MediaTile
@@ -335,20 +536,37 @@ export function RealtimePanel({
                 name="Локальное видео"
               />
             )}
-            {media.view.remoteStreams.map((remote) => (
-              <MediaTile
-                key={remote.id}
-                screen={remote.screen}
-                stream={remote.stream}
-                video={remote.kinds.includes("video")}
-                name={
-                  (remote.screen ? "Экран · " : "") +
-                  (live.state?.participants.find(
-                    (p) => p.id === remote.participantId,
-                  )?.displayName || "Участник")
-                }
-              />
-            ))}
+            {media.view.remoteStreams.map(
+              /**
+               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+               *
+               * @parameters:
+               *   - remote — снимок медиа одного удалённого подключения.
+               *
+               * @returns преобразованное значение текущего элемента для результирующего набора.
+               */ (remote) => (
+                <MediaTile
+                  key={remote.id}
+                  screen={remote.screen}
+                  stream={remote.stream}
+                  video={remote.kinds.includes("video")}
+                  name={
+                    (remote.screen ? "Экран · " : "") +
+                    (live.state?.participants.find(
+                      /**
+                       * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                       *
+                       * @parameters:
+                       *   - p — сведения об участнике конференции.
+                       *
+                       * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                       */
+                      (p) => p.id === remote.participantId,
+                    )?.displayName || "Участник")
+                  }
+                />
+              ),
+            )}
           </div>
         )}
         {media.view.mediaPeerId && (
@@ -382,10 +600,17 @@ export function RealtimePanel({
       </div>
       <Button
         variant="secondary"
-        onClick={() => {
-          media.stop();
-          live.reconnect();
-        }}
+        onClick={
+          /**
+           * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+           *
+           *
+           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+           */ () => {
+            media.stop();
+            live.reconnect();
+          }
+        }
       >
         <RefreshCw size={16} />
         Переподключиться
