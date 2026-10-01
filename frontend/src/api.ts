@@ -95,6 +95,13 @@ async function request<T>(
   return data as T;
 }
 export const api = {
+  wsTicket: (id: string, signal?: AbortSignal) =>
+    request<{ ticket: string; expiresAt: string }>(
+      `/conferences/${encodeURIComponent(id)}/ws-ticket`,
+      { method: "POST", signal },
+    ),
+  iceConfig: (signal?: AbortSignal) =>
+    request<{ iceServers: RTCIceServer[] }>("/webrtc/config", { signal }),
   register: (email: string, password: string, displayName: string) =>
     request<{ user: User }>("/auth/register", {
       method: "POST",

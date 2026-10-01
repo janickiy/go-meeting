@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "../api";
+import { RealtimePanel } from "../components/RealtimePanel";
 import { useAuth } from "../auth";
 import { useConference, useParticipants } from "../queries";
 import { formatDate, initials, inviteLink } from "../utils";
@@ -235,6 +236,9 @@ export function ConferencePage() {
           </p>
         </aside>
       </div>
+      {membership?.status === "joined" && !closed && (
+        <RealtimePanel conferenceId={id} />
+      )}
       <section className="content-card participants-card">
         <div className="section-heading">
           <h2>

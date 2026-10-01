@@ -1,7 +1,9 @@
 package httptransport
 
 import (
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
@@ -18,7 +20,21 @@ const APIV1Prefix = "/api/v1"
 // - middleware: дополнительные Gin middleware.
 // Возвращает: готовый *gin.Engine.
 func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords CompletedRecordsLister, middleware ...gin.HandlerFunc) *gin.Engine {
-	router := gin.Default()
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		defer func() {
+			if recover() != nil {
+				slog.Error("http request panic", "method", c.Request.Method, "route", c.FullPath())
+				c.AbortWithStatusJSON(500, gin.H{"status": "failed", "message": "internal server error"})
+			}
+		}()
+		c.Next()
+	}, func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		// Never log query strings: one-time WS tickets are credentials too.
+		slog.Info("http request", "method", c.Request.Method, "route", c.FullPath(), "status", c.Writer.Status(), "duration_ms", time.Since(start).Milliseconds())
+	})
 	if len(middleware) > 0 {
 		router.Use(middleware...)
 	}

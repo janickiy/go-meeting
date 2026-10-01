@@ -38,19 +38,25 @@ func (s *TokenService) Issue(userID string) (string, error) {
 }
 
 func (s *TokenService) Verify(raw string) (string, error) {
+	id, _, err := s.VerifyWithExpiry(raw)
+	return id, err
+}
+
+// VerifyWithExpiry lets realtime connections end when their verified JWT expires.
+func (s *TokenService) VerifyWithExpiry(raw string) (string, time.Time, error) {
 	if len(raw) == 0 || len(raw) > 4096 {
-		return "", apperrors.ErrUnauthorized
+		return "", time.Time{}, apperrors.ErrUnauthorized
 	}
 	claims := &jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(raw, claims, func(_ *jwt.Token) (any, error) { return s.secret, nil },
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(), jwt.WithIssuer(tokenIssuer), jwt.WithAudience(tokenAudience), jwt.WithTimeFunc(s.now))
 	if err != nil || !token.Valid || claims.IssuedAt == nil {
-		return "", apperrors.ErrUnauthorized
+		return "", time.Time{}, apperrors.ErrUnauthorized
 	}
 	id, err := uuid.Parse(claims.Subject)
 	if err != nil || id == uuid.Nil {
-		return "", apperrors.ErrUnauthorized
+		return "", time.Time{}, apperrors.ErrUnauthorized
 	}
-	return id.String(), nil
+	return id.String(), claims.ExpiresAt.Time, nil
 }

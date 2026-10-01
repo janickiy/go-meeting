@@ -2,7 +2,15 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	authapp "github.com/janickiy/go-recorder/internal/app/auth"
 	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
@@ -16,8 +24,10 @@ import (
 	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
 	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	wstransport "github.com/janickiy/go-recorder/internal/transport/websocket"
 	authusecase "github.com/janickiy/go-recorder/internal/usecase/auth"
 	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
+	realtimeusecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
 
@@ -34,10 +44,21 @@ func RunAPI() error {
 	if err != nil {
 		return err
 	}
+	realtimeConfig, err := config.LoadRealtime()
+	if err != nil {
+		return err
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
 	db, err := postgresinfra.Connect(cfg.PostgresDSN)
 	if err != nil {
 		return err
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	defer sqlDB.Close()
 	if err := postgresinfra.RunMigrations(db, "database/migrations"); err != nil {
 		return err
 	}
@@ -78,9 +99,42 @@ func RunAPI() error {
 		return err
 	}
 	conferenceService := conferenceusecase.NewService(postgresinfra.NewConferenceRepository(db), users, security.GenerateInviteCode)
+	store := redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace)
+	hub, err := realtimeusecase.NewHub(postgresinfra.NewSessionRepository(db), store, realtimeConfig.SessionTTL, logger)
+	if err != nil {
+		return err
+	}
+	defer hub.Shutdown()
+	conferenceService.SetObserver(hub)
 	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(tokens))
+	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).RegisterRoutes(router)
 
-	return router.Run(fmt.Sprintf(":%d", cfg.APIPort))
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.APIPort))
+	if err != nil {
+		return err
+	}
+	server := &http.Server{Handler: router, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	failed := make(chan error, 1)
+	go func() { failed <- server.Serve(listener) }()
+	select {
+	case err := <-failed:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+	case <-ctx.Done():
+	}
+	// Hijacked WebSockets are not closed by http.Server.Shutdown.
+	_ = listener.Close()
+	hub.Shutdown()
+	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err = server.Shutdown(shutdown)
+	if errors.Is(err, net.ErrClosed) || errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
 }
 
 func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {

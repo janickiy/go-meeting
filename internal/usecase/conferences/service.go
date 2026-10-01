@@ -32,10 +32,21 @@ type Service struct {
 	repository repository
 	users      userRepository
 	invite     func() (string, error)
+	observer   interface{ ConferenceChanged(context.Context, string) }
 }
 
 func NewService(repository repository, users userRepository, invite func() (string, error)) *Service {
 	return &Service{repository: repository, users: users, invite: invite}
+}
+
+// Configure once during bootstrap, before serving any requests.
+func (s *Service) SetObserver(observer interface{ ConferenceChanged(context.Context, string) }) {
+	s.observer = observer
+}
+func (s *Service) changed(ctx context.Context, id string) {
+	if s.observer != nil {
+		s.observer.ConferenceChanged(ctx, id)
+	}
 }
 
 func (s *Service) Create(ctx context.Context, userID string, request domain.CreateRequest) (domain.View, error) {
@@ -99,6 +110,7 @@ func (s *Service) Transition(ctx context.Context, userID, id string, target doma
 	if err != nil {
 		return domain.View{}, err
 	}
+	s.changed(ctx, id)
 	return conference.View(), nil
 }
 
@@ -132,6 +144,7 @@ func (s *Service) Join(ctx context.Context, userID, id string, request domain.Jo
 	if err != nil {
 		return domain.ParticipantView{}, err
 	}
+	s.changed(ctx, id)
 	return participant.View(), nil
 }
 
@@ -140,6 +153,7 @@ func (s *Service) Leave(ctx context.Context, userID, id string) (domain.Particip
 	if err != nil {
 		return domain.ParticipantView{}, err
 	}
+	s.changed(ctx, id)
 	return participant.View(), nil
 }
 

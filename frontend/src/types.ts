@@ -43,3 +43,31 @@ export interface LoginResponse {
 }
 export type Item<T> = { status: string; item: T };
 export type Items<T> = { status: string; items: T[] };
+
+export interface PresenceParticipant extends Participant {
+  online: boolean;
+  connections: number;
+  connectionIds: string[];
+}
+export interface RealtimeState {
+  connectionId: string;
+  participantId: string;
+  status: ConferenceStatus;
+  participants: PresenceParticipant[];
+}
+export interface RealtimeEvent {
+  version: 1;
+  id: string;
+  type: string;
+  conferenceId: string;
+  timestamp: string;
+  data: unknown;
+  replyTo?: string;
+}
+export interface Signal {
+  targetConnectionId: string;
+  senderConnectionId?: string;
+  senderParticipantId?: string;
+  sdp?: string;
+  candidate?: RTCIceCandidateInit;
+}

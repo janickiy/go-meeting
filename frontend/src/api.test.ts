@@ -17,6 +17,21 @@ function fetchResponse(status: number, body: unknown) {
   return fetch;
 }
 describe("API contract", () => {
+  it("issues WebSocket tickets with bearer auth only in headers", async () => {
+    configureAuth("private-test-token");
+    const fetch = fetchResponse(201, {
+      ticket: "short-ticket",
+      expiresAt: "future",
+    });
+    await api.wsTicket("room");
+    const [url, options] = fetch.mock.calls[0];
+    expect(url).toBe("/api/v1/conferences/room/ws-ticket");
+    expect(url).not.toContain("private-test-token");
+    expect(options.method).toBe("POST");
+    expect(options.headers.get("Authorization")).toBe(
+      "Bearer private-test-token",
+    );
+  });
   it("sends only title for conference creation, with the active bearer token", async () => {
     configureAuth("private-test-token");
     const fetch = fetchResponse(201, { item: { title: "Обсуждение" } });

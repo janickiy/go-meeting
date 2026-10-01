@@ -1844,3 +1844,49 @@ textarea:disabled {
     scroll-behavior: auto !important;
   }
 }
+
+.realtime-panel {
+  margin: 24px 0;
+}
+.realtime-panel code {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.realtime-people {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+.realtime-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.realtime-person > span:last-child {
+  color: var(--muted);
+  margin-left: auto;
+}
+.online-dot {
+  background: #25b46f;
+}
+.signaling-proof {
+  padding: 16px 0;
+  border-top: 1px solid #e7ecf5;
+}
+.signaling-proof summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #1766eb;
+}
+.signaling-proof select {
+  width: 100%;
+  border: 1px solid #d7dfed;
+  background: white;
+  border-radius: 10px;
+  padding: 12px;
+  color: #172136;
+}
