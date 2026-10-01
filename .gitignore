@@ -1,5 +1,6 @@
 .env
 .env.local
+.env.*.local
 .DS_Store
 
 dockers/postgres/data/
@@ -16,3 +17,10 @@ tmp/
 
 dockers/https/certs/*
 !dockers/https/certs/.gitkeep
+
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/coverage/
+frontend/*.tsbuildinfo

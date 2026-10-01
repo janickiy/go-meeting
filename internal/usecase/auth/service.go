@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
@@ -59,7 +60,9 @@ func (s *Service) Register(ctx context.Context, request users.RegisterRequest) (
 
 func (s *Service) Login(ctx context.Context, request users.LoginRequest) (users.LoginResponse, error) {
 	request.Email = users.NormalizeEmail(request.Email)
-	if users.ValidateEmail(request.Email) != nil || len(request.Password) == 0 || len(request.Password) > 128 {
+	// Existing accounts may have fewer than eight characters under the old byte-based policy.
+	// Apply the new minimum only at registration; never reject a valid existing password.
+	if users.ValidateEmail(request.Email) != nil || request.Password == "" || !utf8.ValidString(request.Password) || utf8.RuneCountInString(request.Password) > users.MaxPasswordCharacters {
 		return users.LoginResponse{}, invalidCredentials()
 	}
 	user, err := s.repository.GetByEmail(ctx, request.Email)

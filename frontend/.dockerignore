@@ -1,0 +1,8 @@
+node_modules
+dist
+test-results
+playwright-report
+coverage
+.env*
+e2e
+*.log

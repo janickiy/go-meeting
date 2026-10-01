@@ -18,6 +18,11 @@ type User struct {
 	UpdatedAt    time.Time `json:"-"`
 }
 
+const (
+	MinPasswordCharacters = 8
+	MaxPasswordCharacters = 128
+)
+
 func (User) TableName() string { return "users" }
 
 type View struct {
@@ -73,8 +78,9 @@ func NormalizeRegister(request RegisterRequest) (RegisterRequest, error) {
 	if err := ValidateEmail(request.Email); err != nil {
 		return request, err
 	}
-	if !utf8.ValidString(request.Password) || len(request.Password) < 12 || len(request.Password) > 128 {
-		return request, apperrors.New(apperrors.ErrInvalidInput, "password must contain 12 to 128 UTF-8 bytes")
+	length := utf8.RuneCountInString(request.Password)
+	if !utf8.ValidString(request.Password) || length < MinPasswordCharacters || length > MaxPasswordCharacters {
+		return request, apperrors.New(apperrors.ErrInvalidInput, "password must contain 8 to 128 characters")
 	}
 	if request.DisplayName != nil {
 		name := strings.TrimSpace(*request.DisplayName)

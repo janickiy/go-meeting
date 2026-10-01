@@ -37,11 +37,27 @@ services:
         aliases:
           - record-api
 
+  frontend:
+    image: go-recorder-frontend:local
+    restart: unless-stopped
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      API_UPSTREAM: "api:${APP_PORT:-8085}"
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-5173}:8080"
+    networks:
+      - app-network
+
   https:
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
       - api
+      - frontend
     ports:
       - "${HTTPS_HOST_PORT:-18482}:443"
     volumes:

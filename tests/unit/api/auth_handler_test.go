@@ -98,6 +98,46 @@ func TestAuthLoginMeAndStatelessLogout(t *testing.T) {
 	assertStatus(t, result.Code, 200)
 }
 
+func TestAuthPasswordCharacterPolicy(t *testing.T) {
+	cases := []struct {
+		name, password string
+		status         int
+	}{
+		{"eight latin characters", "abcdefgh", 201},
+		{"digits without composition rules", "12345678", 201},
+		{"eight cyrillic characters", "абвгдежз", 201},
+		{"128 cyrillic characters", strings.Repeat("я", 128), 201},
+		{"128 supplementary unicode characters", strings.Repeat("😀", 128), 201},
+		{"seven latin characters", "abcdefg", 422},
+		{"seven cyrillic characters", "абвгдеж", 422},
+		{"129 cyrillic characters", strings.Repeat("я", 129), 422},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			router, _ := authRouter(t, nil)
+			body, err := json.Marshal(users.RegisterRequest{Email: "policy@example.com", Password: test.password})
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertStatus(t, performJSON(router, "POST", "/api/v1/auth/register", string(body)).Code, test.status)
+			if test.status == 201 {
+				loginBody, err := json.Marshal(users.LoginRequest{Email: "policy@example.com", Password: test.password})
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertStatus(t, performJSON(router, "POST", "/api/v1/auth/login", string(loginBody)).Code, 200)
+			}
+		})
+	}
+}
+
+func TestAuthExistingShortUnicodePasswordStillWorks(t *testing.T) {
+	router, repo := authRouter(t, nil)
+	// Six Cyrillic characters met the old 12-byte registration minimum.
+	repo.user = users.User{ID: uuid.NewString(), Email: "legacy@example.com", PasswordHash: "test-hash:пароль"}
+	assertStatus(t, performJSON(router, "POST", "/api/v1/auth/login", `{"email":"legacy@example.com","password":"пароль"}`).Code, 200)
+}
+
 func TestPlatformRoutesRequireBearerAuthentication(t *testing.T) {
 	router, _ := authRouter(t, nil)
 	expired, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{

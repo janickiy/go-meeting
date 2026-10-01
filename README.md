@@ -9,6 +9,11 @@ API отвечает за управление задачами записи: с
 миграции, ограничения совместимости и примеры запросов: [Stage 1 API](docs/stage-1-api.md).
 Новый API требует `JWT_SECRET`; существующий recorder pipeline не изменён.
 
+В `frontend/` добавлен интерфейс **Meet** на React + TypeScript + Vite по макету:
+регистрация/вход, личный кабинет, конференции, приглашения и участники.
+Запуск, тесты и ограничения: [Frontend](docs/frontend.md).
+Локальный интерфейс: **http://localhost:5173**, HTTPS: **https://localhost:18482**.
+
 ## Структура проекта
 
 ```text
@@ -30,6 +35,7 @@ API отвечает за управление задачами записи: с
 │   └── transport/
 │       └── http/             # Gin HTTP routes
 ├── database/migrations/      # SQL-миграции DB
+├── frontend/                 # Meet: React + TypeScript + Vite
 ├── scripts/                  # cron/helper scripts
 ├── docs/                     # документация и Postman collection
 ├── tests/                    # unit-tests
@@ -42,6 +48,7 @@ API отвечает за управление задачами записи: с
 ## Сервисы
 
 - `api` - Go + Gin REST API.
+- `frontend` - production-сборка Meet, Nginx и same-origin proxy к API.
 - `worker` - Go recorder-worker: читает команды из RabbitMQ, поднимает WebRTC ingest через Pion и управляет FFmpeg.
 - `postgres` - PostgreSQL 16.
 - `redis` - Redis 7, используется для lock-а активной записи по `conferenceId` и HTTP rate limit.
@@ -70,6 +77,7 @@ cp .env.example .env
 
 ```text
 API:        http://localhost:8085
+Frontend:   http://localhost:5173 / https://localhost:18482
 Worker:     http://localhost:8090
 PostgreSQL: localhost:5433
 Redis:      localhost:6380
