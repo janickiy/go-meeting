@@ -6,7 +6,7 @@ test.skip(
 test("two browsers: presence, two tabs and reconnect without opening camera or microphone", /**
  * Проверка: two browsers: presence, two tabs and reconnect without opening camera or microphone выполняет тестовый сценарий «two browsers: presence, two tabs and reconnect without opening camera or microphone» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

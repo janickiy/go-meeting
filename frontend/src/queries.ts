@@ -7,7 +7,7 @@ import type { ConferenceFilters } from "./types";
 /**
  * useConferences читает бесконечный серверный список встреч и изолирует его кеш по пользователю и фильтрам.
  *
- * @parameters:
+ * @args
  *   - filters (ConferenceFilters) — серверные фильтры списка встреч (по умолчанию {}).
  *
  * @returns состояние, данные или действия React-хука; ресурсы освобождаются при изменении зависимостей.
@@ -21,7 +21,7 @@ export function useConferences(filters: ConferenceFilters = {}) {
     /**
      * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
      *
-     * @parameters:
+     * @args
      *   - объект параметров: pageParam — свойство текущего компонента; signal — сигнал отмены запроса или потока.
      *
      * @returns вычисленное значение: api.myConferences(filters, pageParam, signal).
@@ -31,7 +31,7 @@ export function useConferences(filters: ConferenceFilters = {}) {
     /**
      * getNextPageParam извлекает курсор продолжения серверной страницы.
      *
-     * @parameters:
+     * @args
      *   - last — последняя загруженная страница, по которой определяется продолжение.
      *
      * @returns вычисленное значение: last.nextCursor || undefined.
@@ -43,7 +43,7 @@ export function useConferences(filters: ConferenceFilters = {}) {
 /**
  * useConference читает и обновляет сведения одной доступной конференции.
  *
- * @parameters:
+ * @args
  *   - id (string) — идентификатор ресурса или конференции данного запроса.
  *
  * @returns состояние, данные или действия React-хука; ресурсы освобождаются при изменении зависимостей.
@@ -55,7 +55,7 @@ export function useConference(id: string) {
     /**
      * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
      *
-     * @parameters:
+     * @args
      *   - объект параметров: signal — сигнал отмены запроса или потока.
      *
      * @returns вычисленное значение: api.conference(id, signal).
@@ -67,7 +67,7 @@ export function useConference(id: string) {
 /**
  * useParticipants читает состав встречи только при включённом запросе и обновляет его по принятому интервалу.
  *
- * @parameters:
+ * @args
  *   - id (string) — идентификатор ресурса или конференции данного запроса.
  *   - enabled — разрешает выполнение запроса или подключение при выполненных условиях доступа (по умолчанию true).
  *
@@ -82,7 +82,7 @@ export function useParticipants(id: string, enabled = true) {
     /**
      * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
      *
-     * @parameters:
+     * @args
      *   - объект параметров: pageParam — свойство текущего компонента; signal — сигнал отмены запроса или потока.
      *
      * @returns вычисленное значение: api.participants(id, pageParam, signal).
@@ -91,7 +91,7 @@ export function useParticipants(id: string, enabled = true) {
     /**
      * getNextPageParam извлекает курсор продолжения серверной страницы.
      *
-     * @parameters:
+     * @args
      *   - last — последняя загруженная страница, по которой определяется продолжение.
      *   - _pages — входное значение _pages текущего шага обработки.
      *   - offset — смещение страницы списка.
@@ -106,7 +106,7 @@ export function useParticipants(id: string, enabled = true) {
 /**
  * useMembership читает собственное членство, чтобы ожидание не требовало доступа к общей комнате.
  *
- * @parameters:
+ * @args
  *   - id (string) — идентификатор ресурса или конференции данного запроса.
  *
  * @returns состояние, данные или действия React-хука; ресурсы освобождаются при изменении зависимостей.
@@ -118,7 +118,7 @@ export function useMembership(id: string) {
     /**
      * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
      *
-     * @parameters:
+     * @args
      *   - объект параметров: signal — сигнал отмены запроса или потока.
      *
      * @returns Promise, который после завершения операции возвращает: вычисленное значение: (await api.myMembership(id, signal)).item; null.

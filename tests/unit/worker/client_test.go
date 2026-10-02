@@ -13,13 +13,13 @@ import (
 
 // TestClientSendsStartRecordCommand проверяет сценарий «клиент Sends запуск запись Command», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestClientSendsStartRecordCommand(t *testing.T) {
 	var got records.Command
 	server := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) {
@@ -45,13 +45,13 @@ func TestClientSendsStartRecordCommand(t *testing.T) {
 
 // TestClientSendsStopRecordCommand проверяет сценарий «клиент Sends остановка запись Command», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestClientSendsStopRecordCommand(t *testing.T) {
 	var got records.Command
 	server := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) {
@@ -77,12 +77,12 @@ func TestClientSendsStopRecordCommand(t *testing.T) {
 
 // TestClientReturnsWorkerError проверяет сценарий «клиент Returns воркер ошибка», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestClientReturnsWorkerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - _ (*http.Request): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		*/func(w http.ResponseWriter, _ *http.Request) {

@@ -24,6 +24,7 @@ type outboundEvent struct {
 }
 
 // peer хранит физическое WebRTC-соединение, сигнализацию, политику и подписки участника.
+// @params
 //   - id: идентификатор обрабатываемого ресурса.
 //   - binding: проверенная идентичность медиа-подключения, назначенная сервером.
 //   - manager: значение manager типа *Manager, используемое согласно назначению этой операции.
@@ -103,7 +104,7 @@ func (p *peer) view() media.PeerView {
 // start запускает обработку ресурсов компонента и подготавливает связанные ресурсы.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - fn (func()): вызываемый обработчик «fn» с контрактом, указанным в типе.
 //
 // @return:
@@ -128,7 +129,7 @@ func (p *peer) install() {
 	p.start(p.negotiationNotifications)
 	p.pc.OnTrack( /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - t (*pion.TrackRemote): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 		  - r (*pion.RTPReceiver): запрос либо состояние ресурса согласно указанному типу.
 		*/func(t *pion.TrackRemote, r *pion.RTPReceiver) {
@@ -138,7 +139,7 @@ func (p *peer) install() {
 		})
 	p.pc.OnICECandidate( /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - candidate (*pion.ICECandidate): проверенный кандидат ICE для WebRTC-соединения.
 		*/func(candidate *pion.ICECandidate) {
 			var value *pion.ICECandidateInit
@@ -150,7 +151,7 @@ func (p *peer) install() {
 		})
 	p.pc.OnConnectionStateChange( /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - state (pion.PeerConnectionState): значение state типа pion.PeerConnectionState, используемое согласно назначению этой операции.
 		*/func(state pion.PeerConnectionState) {
 			p.manager.log(p, "peer_connection_state", []any{"state", state.String()})
@@ -165,7 +166,7 @@ func (p *peer) install() {
 		})
 	p.pc.OnICEConnectionStateChange( /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - state (pion.ICEConnectionState): значение state типа pion.ICEConnectionState, используемое согласно назначению этой операции.
 		*/func(state pion.ICEConnectionState) {
 			p.manager.log(p, "ice_state", []any{"state", state.String()})
@@ -251,7 +252,7 @@ func (p *peer) classifyTransport() {
 
 // emit формирует и передаёт исходящее событие через принадлежащий компоненту канал доставки.
 //
-// @parameters:
+// @args
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 //   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
 func (p *peer) emit(kind string, data any) {
@@ -375,7 +376,7 @@ func (p *peer) close() {
 
 // Offer обрабатывает или передаёт SDP-предложение действующего WebRTC-подключения.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - negotiationID (string): идентификатор связанного ресурса, заданного параметром negotiationID.
@@ -391,7 +392,7 @@ func (m *Manager) Offer(ctx context.Context, id, negotiationID, raw string) (pio
 // OfferSources обрабатывает SDP-предложение с привязкой секций к заявленным источникам медиа.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - negotiationID (string): идентификатор связанного ресурса, заданного параметром negotiationID.
@@ -530,7 +531,7 @@ func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw strin
 // Ready принимает подтверждение установки SDP-ответа клиентом и разрешает дорожки только для текущего согласования.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - negotiationID (string): идентификатор связанного ресурса, заданного параметром negotiationID.
@@ -588,7 +589,7 @@ func (m *Manager) Ready(ctx context.Context, id, negotiationID string) error {
 // ICE передаёт проверенного кандидата ICE действующему медиа-соединению.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - candidate (*pion.ICECandidateInit): проверенный кандидат ICE для WebRTC-соединения.
@@ -668,7 +669,7 @@ func (m *Manager) ICE(ctx context.Context, id string, candidate *pion.ICECandida
 // Unpublish останавливает публикацию указанного медиа-источника.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - trackID (string): идентификатор связанного ресурса, заданного параметром trackID.
@@ -701,7 +702,7 @@ func (m *Manager) Unpublish(ctx context.Context, id, trackID string) error {
 
 // validateOffer проверяет SDP-предложение и допустимость его дорожек.
 //
-// @parameters:
+// @args
 //   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 //   - maxPeers (int): значение maxPeers типа int, используемое согласно назначению этой операции.
 //
@@ -722,7 +723,7 @@ func validateOffer(raw string, maxPeers int) (map[string]bool, error) {
 
 // validateSourceOffer проверяет соответствие SDP-секций заявленным источникам и действующей политике.
 //
-// @parameters:
+// @args
 //   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 //   - maxPeers (int): значение maxPeers типа int, используемое согласно назначению этой операции.
 //   - publications ([]media.Publication): набор значений publications для последовательной или пакетной обработки.
@@ -853,7 +854,7 @@ func validateSourceOffer(raw string, maxPeers int, publications []media.Publicat
 
 // answeredSSRCs извлекает согласованные идентификаторы RTP-источников из SDP-ответа.
 //
-// @parameters:
+// @args
 //   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 //
 // @return:

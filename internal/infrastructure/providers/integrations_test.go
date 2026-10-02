@@ -16,7 +16,7 @@ import (
 )
 
 // TestIntegrationProviderModes проверяет отключение, детерминированный mock и idempotent calendar identifiers.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestIntegrationProviderModes(t *testing.T) {
 	p, err := NewIntegrations(IntegrationConfig{})
 	if err != nil {
@@ -47,7 +47,7 @@ func TestIntegrationProviderModes(t *testing.T) {
 }
 
 // TestIntegrationHTTPClassification проверяет bounded safe errors, rate limit и provider dedup key.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestIntegrationHTTPClassification(t *testing.T) {
 	status := http.StatusTooManyRequests
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +80,7 @@ func TestIntegrationHTTPClassification(t *testing.T) {
 }
 
 // TestOAuthPKCERefreshAndRevoke проверяет серверный S256 flow, точный redirect URI и отсутствие redirect-following с секретом.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestOAuthPKCERefreshAndRevoke(t *testing.T) {
 	calls := map[string]int{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +126,7 @@ func TestOAuthPKCERefreshAndRevoke(t *testing.T) {
 }
 
 // TestProviderRedirectIsNotFollowed гарантирует, что credentials не пересылаются произвольному redirect destination.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestProviderRedirectIsNotFollowed(t *testing.T) {
 	calls := 0
 	destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++ }))

@@ -19,6 +19,7 @@ import (
 const defaultTimeout = 10 * time.Minute
 
 // Client объединяет настройки и соединения клиента соответствующего внешнего сервиса.
+// @params
 //   - baseURL: значение baseURL типа string, используемое согласно назначению этой операции.
 //   - client: клиент внешнего сервиса или транспорта компонента.
 type Client struct {
@@ -32,7 +33,7 @@ type Client struct {
 func (c *Client) SetSecret(secret string) *Client { c.secret = secret; return c }
 
 // NewClient создает HTTP-клиент recorder-worker.
-// @parameters:
+// @args
 // - baseURL: внутренний URL worker-а, например http://worker:8090.
 // @return Client.
 func NewClient(baseURL string) *Client {
@@ -43,7 +44,7 @@ func NewClient(baseURL string) *Client {
 }
 
 // StartRecord просит worker подготовить WebRTC ingest для записи.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - segmentDurationSec: длительность сегмента в секундах.
@@ -57,7 +58,7 @@ func (c *Client) StartRecord(ctx context.Context, recordID string, segmentDurati
 }
 
 // StopRecord просит worker остановить запись и выполнить финализацию.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - reason: причина остановки.
@@ -71,7 +72,7 @@ func (c *Client) StopRecord(ctx context.Context, recordID string, reason string)
 }
 
 // Offer отправляет browser SDP offer во worker и возвращает SDP answer.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - request: SDP offer браузера.
@@ -87,7 +88,7 @@ func (c *Client) Offer(ctx context.Context, recordID string, request records.Web
 
 // sendCommand отправляет сериализованную команду управления записью.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - recordID (string): внешний UUID задачи записи.
 //   - action (string): действие управления, которое необходимо проверить или исполнить.
@@ -101,7 +102,7 @@ func (c *Client) sendCommand(ctx context.Context, recordID string, action string
 
 // recordEndpoint строит адрес маршрута воркера для конкретной записи.
 //
-// @parameters:
+// @args
 //   - recordID (string): внешний UUID задачи записи.
 //   - action (string): действие управления, которое необходимо проверить или исполнить.
 //
@@ -113,7 +114,7 @@ func (c *Client) recordEndpoint(recordID string, action string) string {
 
 // postJSON выполняет HTTP POST с JSON и обрабатывает результат внутреннего вызова.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - endpoint (string): адрес конечной точки вызываемого сервиса.
 //   - payload (any): типизированная нагрузка события или ссылочные сведения уведомления.

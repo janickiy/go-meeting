@@ -16,14 +16,14 @@ import (
 
 // TestHTTPMediaClientIdentityCorrelationAndSafeErrors проверяет сценарий «HTTP медиа клиент Identity Correlation и безопасный ошибки», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestHTTPMediaClientIdentityCorrelationAndSafeErrors(t *testing.T) {
 	id := uuid.NewString()
 	secret := strings.Repeat("i", 32)
 	server := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) {
@@ -45,20 +45,20 @@ func TestHTTPMediaClientIdentityCorrelationAndSafeErrors(t *testing.T) {
 
 // TestHTTPMediaClientRedirectTimeoutAndBoundedResponse проверяет сценарий «HTTP медиа клиент Redirect Timeout и ограниченный Response», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestHTTPMediaClientRedirectTimeoutAndBoundedResponse(t *testing.T) {
 	var redirected atomic.Int32
 	other := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) { redirected.Add(1) }))
 	defer other.Close()
 	redirect := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +75,7 @@ func TestHTTPMediaClientRedirectTimeoutAndBoundedResponse(t *testing.T) {
 	}
 	slow := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +88,7 @@ func TestHTTPMediaClientRedirectTimeoutAndBoundedResponse(t *testing.T) {
 	}
 	huge := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(strings.Repeat("x", 262145))) }))

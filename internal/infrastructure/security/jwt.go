@@ -23,7 +23,7 @@ type TokenService struct {
 
 // NewTokenService создаёт и связывает зависимости компонента TokenService, используемого в проверке учётных данных и ограниченных разрешений.
 //
-// @parameters:
+// @args
 //   - secret (string): секрет подписи или внутренней авторизации компонента.
 //
 // @return:
@@ -38,7 +38,7 @@ func NewTokenService(secret string) (*TokenService, error) {
 
 // Issue выпускает подписанный JWT пользователя с настроенным сроком действия.
 //
-// @parameters:
+// @args
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //
 // @return:
@@ -58,7 +58,7 @@ func (s *TokenService) Issue(userID string) (string, error) {
 
 // Verify проверяет подпись и срок JWT и извлекает идентификатор пользователя.
 //
-// @parameters:
+// @args
 //   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 //
 // @return:
@@ -71,7 +71,7 @@ func (s *TokenService) Verify(raw string) (string, error) {
 
 // VerifyWithExpiry проверяет подпись и содержимое JWT и возвращает идентификатор пользователя вместе со сроком действия.
 //
-// @parameters:
+// @args
 //   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 //
 // @return:
@@ -85,7 +85,7 @@ func (s *TokenService) VerifyWithExpiry(raw string) (string, time.Time, error) {
 	claims := &jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(raw, claims, /* Вложенный обработчик выполняет выделенный шаг обработки в проверке учётных данных и ограниченных разрешений, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - _ (*jwt.Token): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 
 		@return:

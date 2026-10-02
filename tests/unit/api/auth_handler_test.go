@@ -26,7 +26,7 @@ const authTestSecret = "unit-test-secret-at-least-32-bytes-long"
 
 // authRouter подготавливает или проверяет часть тестового сценария «авторизация Router».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - limiter (httpmiddleware.Limiter): ограничитель частоты запросов, общий для экземпляров API.
 //
@@ -58,7 +58,7 @@ func authRouter(t *testing.T, limiter httpmiddleware.Limiter) (*gin.Engine, *aut
 
 // TestAuthRegistrationValidationAndNoSecrets проверяет сценарий «авторизация Registration проверка входных данных и без Secrets», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthRegistrationValidationAndNoSecrets(t *testing.T) {
 	router, repo := authRouter(t, nil)
@@ -80,7 +80,7 @@ func TestAuthRegistrationValidationAndNoSecrets(t *testing.T) {
 
 // TestAuthLoginMeAndStatelessLogout проверяет сценарий «авторизация Login Me и Stateless Logout», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthLoginMeAndStatelessLogout(t *testing.T) {
 	router, _ := authRouter(t, nil)
@@ -117,7 +117,7 @@ func TestAuthLoginMeAndStatelessLogout(t *testing.T) {
 
 // TestAuthPasswordCharacterPolicy проверяет сценарий «авторизация Password Character политика», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthPasswordCharacterPolicy(t *testing.T) {
 	cases := []struct {
@@ -136,7 +136,7 @@ func TestAuthPasswordCharacterPolicy(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				router, _ := authRouter(t, nil)
@@ -158,7 +158,7 @@ func TestAuthPasswordCharacterPolicy(t *testing.T) {
 
 // TestAuthExistingShortUnicodePasswordStillWorks проверяет сценарий «авторизация Existing Short Unicode Password Still Works», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthExistingShortUnicodePasswordStillWorks(t *testing.T) {
 	router, repo := authRouter(t, nil)
@@ -169,7 +169,7 @@ func TestAuthExistingShortUnicodePasswordStillWorks(t *testing.T) {
 
 // TestPlatformRoutesRequireBearerAuthentication проверяет сценарий «Platform Routes Require Bearer Authentication», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPlatformRoutesRequireBearerAuthentication(t *testing.T) {
 	router, _ := authRouter(t, nil)
@@ -193,7 +193,7 @@ func TestPlatformRoutesRequireBearerAuthentication(t *testing.T) {
 
 // TestLoginRateLimitCannotBeBypassedWithForwardedIP проверяет сценарий «Login Rate лимит Cannot Be Bypassed с Forwarded IP», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLoginRateLimitCannotBeBypassedWithForwardedIP(t *testing.T) {
 	limiter := &loginLimiter{}
@@ -217,7 +217,7 @@ func TestLoginRateLimitCannotBeBypassedWithForwardedIP(t *testing.T) {
 
 // assertNoCredentials подготавливает или проверяет часть тестового сценария «проверка без Credentials».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 func assertNoCredentials(t *testing.T, raw string) {
@@ -229,13 +229,13 @@ func assertNoCredentials(t *testing.T, raw string) {
 }
 
 // authRepository реализует постоянное хранение ресурсов компонента через GORM.
-// Состав:
+// @params:
 //   - user: пользователь либо его идентификатор, определяющий область доступа.
 type authRepository struct{ user users.User }
 
 // Create создаёт новое состояние ресурсов компонента по переданным параметрам.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - user (users.User): пользователь либо его идентификатор, определяющий область доступа.
 //
@@ -252,7 +252,7 @@ func (r *authRepository) Create(_ context.Context, user users.User) (users.User,
 
 // GetByID читает учётную запись по её идентификатору.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -268,7 +268,7 @@ func (r *authRepository) GetByID(_ context.Context, id string) (users.User, erro
 
 // GetByEmail читает учётную запись по нормализованному адресу электронной почты.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - email (string): адрес электронной почты пользователя.
 //
@@ -287,7 +287,7 @@ type authPasswords struct{}
 
 // Hash вычисляет защищённый хеш пароля для сохранения вместо открытого текста.
 //
-// @parameters:
+// @args
 //   - password (string): открытый пароль для хеширования или проверки; не предназначен для журналирования.
 //
 // @return:
@@ -297,7 +297,7 @@ func (authPasswords) Hash(password string) (string, error) { return "test-hash:"
 
 // Verify проверяет подпись, срок и содержимое переданного разрешения согласно контракту сервиса.
 //
-// @parameters:
+// @args
 //   - password (string): открытый пароль для хеширования или проверки; не предназначен для журналирования.
 //   - hash (string): сохранённый хеш пароля либо контрольная сумма данных.
 //
@@ -309,13 +309,13 @@ func (authPasswords) Verify(password, hash string) (bool, error) {
 }
 
 // loginLimiter хранит изолированное состояние тестового компонента «login Limiter».
-// Состав:
+// @params:
 //   - keys: индекс значений keys для поиска и согласования состояния.
 type loginLimiter struct{ keys map[string]int }
 
 // Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - limit (int): предел количества обрабатываемых элементов.

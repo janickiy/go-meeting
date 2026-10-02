@@ -11,7 +11,7 @@ import (
 )
 
 // RunMigrations применяет SQL-файлы из database/migrations.
-// @parameters:
+// @args
 // - db: GORM-подключение.
 // - dir: директория миграций.
 // @return ошибку чтения или выполнения SQL.
@@ -23,7 +23,7 @@ func RunMigrations(db *gorm.DB, dir string) error {
 	sort.Strings(matches)
 	return db.Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:

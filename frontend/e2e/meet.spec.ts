@@ -25,7 +25,7 @@ const initial: Conference = {
 /**
  * member создаёт тестовое членство участника.
  *
- * @parameters:
+ * @args
  *   - id (string) — идентификатор ресурса или конференции данного запроса.
  *   - userId (string) — идентификатор текущего авторизованного пользователя.
  *   - role (Participant["role"]) — роль участника и его полномочия (по умолчанию "participant").
@@ -53,7 +53,7 @@ function member(
 /**
  * mockApi устанавливает ответы HTTP API и сохраняет состояние тестового сценария.
  *
- * @parameters:
+ * @args
  *   - page (Page) — изолированная страница Playwright.
  *   - options ({ participant?: boolean; large?: boolean; expired?: boolean; failList?: boolean; failLogin?: boolean; failRegistrationLogin?: boolean; empty?: boolean; }) — метод, тело, отмена и признаки авторизации запроса (по умолчанию {}).
  *
@@ -85,7 +85,7 @@ async function mockApi(
         /**
          * Обработчик Array.from выполняет переданный шаг вызова Array.from в проверках клиентского поведения.
          *
-         * @parameters:
+         * @args
          *   - _ — входное значение _ текущего шага обработки.
          *   - i — индекс элемента в текущем наборе.
          *
@@ -102,7 +102,7 @@ async function mockApi(
     /**
      * Обработчик page.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
      *
-     * @parameters:
+     * @args
      *   - route — входное значение route текущего шага обработки.
      *
      * @returns Promise, который после завершения операции возвращает: вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -114,7 +114,7 @@ async function mockApi(
       /**
        * respond возвращает подготовленный ответ перехваченному запросу теста.
        *
-       * @parameters:
+       * @args
        *   - body (unknown) — типизированное тело запроса.
        *   - status — HTTP-статус либо состояние встречи (по умолчанию 200).
        *
@@ -153,7 +153,7 @@ async function mockApi(
             /**
              * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
              *
-             * @parameters:
+             * @args
              *   - key — идентификатор строки загрузки.
              *
              * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
@@ -200,7 +200,7 @@ async function mockApi(
           /**
            * Обработчик participants.find проверяет условие поиска элемента или соответствия элементов набора.
            *
-           * @parameters:
+           * @args
            *   - item — элемент списка, который обрабатывает текущий шаг.
            *
            * @returns логический признак соответствия элемента условию.
@@ -258,7 +258,7 @@ async function mockApi(
           /**
            * Обработчик participants.find проверяет условие поиска элемента или соответствия элементов набора.
            *
-           * @parameters:
+           * @args
            *   - item — элемент списка, который обрабатывает текущий шаг.
            *
            * @returns логический признак соответствия элемента условию.
@@ -287,7 +287,7 @@ async function mockApi(
             /**
              * Обработчик participants.forEach выполняет переданный шаг вызова participants.forEach в проверках клиентского поведения.
              *
-             * @parameters:
+             * @args
              *   - item — элемент списка, который обрабатывает текущий шаг.
              *
              * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -310,7 +310,7 @@ async function mockApi(
 /**
  * login отправляет учётные данные и получает токен и сведения пользователя.
  *
- * @parameters:
+ * @args
  *   - page (Page) — изолированная страница Playwright.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -328,7 +328,7 @@ async function login(page: Page) {
 /**
  * noOverflow проверяет отсутствие выхода элементов за доступную ширину страницы.
  *
- * @parameters:
+ * @args
  *   - page (Page) — изолированная страница Playwright.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -350,7 +350,7 @@ async function noOverflow(page: Page) {
 test("landing, login, registration and success match the reference at desktop size", /**
  * Проверка: landing, login, registration and success match the reference at desktop size выполняет тестовый сценарий «landing, login, registration and success match the reference at desktop size» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *   - info — контекст запуска для диагностических вложений.
  *
@@ -368,7 +368,7 @@ test("landing, login, registration and success match the reference at desktop si
       /**
        * Обработчик hero.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
        *
-       * @parameters:
+       * @args
        *   - node — DOM-элемент, к которому привязывается медиапоток.
        *
        * @returns вычисленное значение: (node as HTMLImageElement).naturalWidth.
@@ -414,7 +414,7 @@ test("landing, login, registration and success match the reference at desktop si
 test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
  * Проверка: login -> dashboard -> create -> share -> lifecycle -> logout выполняет тестовый сценарий «login -> dashboard -> create -> share -> lifecycle -> logout» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *   - info — контекст запуска для диагностических вложений.
  *
@@ -449,7 +449,7 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
       /**
        * Обработчик writes.find проверяет условие поиска элемента или соответствия элементов набора.
        *
-       * @parameters:
+       * @args
        *   - item — элемент списка, который обрабатывает текущий шаг.
        *
        * @returns логический признак соответствия элемента условию.
@@ -502,7 +502,7 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
 test("an invitation survives login and a participant cannot see owner controls", /**
  * Проверка: an invitation survives login and a participant cannot see owner controls выполняет тестовый сценарий «an invitation survives login and a participant cannot see owner controls» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -534,7 +534,7 @@ test("an invitation survives login and a participant cannot see owner controls",
 test("finds current membership after the first 100 participants", /**
  * Проверка: finds current membership after the first 100 participants выполняет тестовый сценарий «finds current membership after the first 100 participants» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -552,7 +552,7 @@ test("finds current membership after the first 100 participants", /**
 test("restores a session, but an expired token redirects safely to login", /**
  * Проверка: restores a session, but an expired token redirects safely to login выполняет тестовый сценарий «restores a session, but an expired token redirects safely to login» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -568,7 +568,7 @@ test("restores a session, but an expired token redirects safely to login", /**
     /**
      * Обработчик page.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
      *
-     * @parameters:
+     * @args
      *   - route — входное значение route текущего шага обработки.
      *
      * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -597,7 +597,7 @@ test("restores a session, but an expired token redirects safely to login", /**
 test("handles errors without leaking server details or pretending registration failed", /**
  * Проверка: handles errors without leaking server details or pretending registration failed выполняет тестовый сценарий «handles errors without leaking server details or pretending registration failed» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -635,7 +635,7 @@ test("handles errors without leaking server details or pretending registration f
 test("registration counts characters, not bytes, and accepts eight plain letters", /**
  * Проверка: registration counts characters, not bytes, and accepts eight plain letters выполняет тестовый сценарий «registration counts characters, not bytes, and accepts eight plain letters» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -664,7 +664,7 @@ test("registration counts characters, not bytes, and accepts eight plain letters
       /**
        * Обработчик writes.filter проверяет, должен ли элемент войти в отфильтрованный набор.
        *
-       * @parameters:
+       * @args
        *   - item — элемент списка, который обрабатывает текущий шаг.
        *
        * @returns логический признак соответствия элемента условию.
@@ -681,7 +681,7 @@ test("registration counts characters, not bytes, and accepts eight plain letters
       /**
        * Обработчик writes.filter проверяет, должен ли элемент войти в отфильтрованный набор.
        *
-       * @parameters:
+       * @args
        *   - item — элемент списка, который обрабатывает текущий шаг.
        *
        * @returns логический признак соответствия элемента условию.
@@ -693,7 +693,7 @@ test("registration counts characters, not bytes, and accepts eight plain letters
 test("mobile layouts, menu, keyboard dialog dismissal and deep-link refresh", /**
  * Проверка: mobile layouts, menu, keyboard dialog dismissal and deep-link refresh выполняет тестовый сценарий «mobile layouts, menu, keyboard dialog dismissal and deep-link refresh» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright.
  *   - info — контекст запуска для диагностических вложений.
  *

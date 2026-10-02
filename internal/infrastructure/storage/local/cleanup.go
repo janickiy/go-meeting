@@ -7,7 +7,7 @@ import (
 )
 
 // RemoveEmptyTrees удаляет переданные директории только если они пустые.
-// @parameters:
+// @args
 // - paths: пути к директориям, внутри которых нужно удалить пустые поддиректории.
 // @return ошибку чтения или удаления директории.
 func RemoveEmptyTrees(paths ...string) error {
@@ -22,7 +22,7 @@ func RemoveEmptyTrees(paths ...string) error {
 
 // removeEmptyTree рекурсивно проверяет каталог и удаляет его только после опустошения дочерних каталогов.
 //
-// @parameters:
+// @args
 //   - path (string): путь к локальному файлу или каталогу операции.
 //
 // @return:

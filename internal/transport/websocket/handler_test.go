@@ -16,7 +16,7 @@ import (
 
 // TestBoundedQueueDisconnectsSlowClient проверяет сценарий «ограниченный очередь Disconnects Slow клиент», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestBoundedQueueDisconnectsSlowClient(t *testing.T) {
 	c := newClient(nil, &Handler{cfg: config.RealtimeConfig{QueueSize: 2}}, domain.Session{}, time.Now().Add(time.Hour))
@@ -52,7 +52,7 @@ func TestBoundedQueueDisconnectsSlowClient(t *testing.T) {
 
 // TestOriginAndSafeAuthentication проверяет сценарий «Origin и безопасный Authentication», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestOriginAndSafeAuthentication(t *testing.T) {
 	tokens, _ := security.NewTokenService(strings.Repeat("s", 32))
@@ -84,7 +84,7 @@ func TestOriginAndSafeAuthentication(t *testing.T) {
 
 // TestStrictJSONAndBucket проверяет сценарий «строгий JSON и Bucket», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStrictJSONAndBucket(t *testing.T) {
 	for _, raw := range []string{`{} {}`, `{"unknown":true}`, `null true`} {

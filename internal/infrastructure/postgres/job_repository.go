@@ -13,13 +13,13 @@ import (
 type JobRepository struct{ db *gorm.DB }
 
 // NewJobRepository связывает очередь с существующим ограниченным пулом PostgreSQL.
-// @parameters db — подключение к базе с настроенными таймаутами.
+// @args db — подключение к базе с настроенными таймаутами.
 // @return репозиторий фоновых заданий.
 func NewJobRepository(db *gorm.DB) *JobRepository { return &JobRepository{db: db} }
 
 // Claim атомарно получает одно задание, не ожидая блокировок другого работника.
 // Последний просроченный захват разрешён для фиксации terminal failure, но не вызова провайдера.
-// @parameters ctx — предел SQL; kind — фиксированная категория; lease — срок владения.
+// @args ctx — предел SQL; kind — фиксированная категория; lease — срок владения.
 // @return задание, признак наличия работы и ошибка базы.
 func (r *JobRepository) Claim(ctx context.Context, kind string, lease time.Duration) (jobs.Job, bool, error) {
 	var job jobs.Job
@@ -32,7 +32,7 @@ func (r *JobRepository) Claim(ctx context.Context, kind string, lease time.Durat
 }
 
 // Finish фиксирует результат с fencing-проверкой UUID аренды и её срока.
-// @parameters ctx — срок записи; job — захваченная версия; state/code — безопасный исход;
+// @args ctx — срок записи; job — захваченная версия; state/code — безопасный исход;
 // retryAt — время следующей попытки либо nil для окончательного завершения.
 // @return ошибка SQL или ErrLeaseLost, если владение уже прекратилось.
 func (r *JobRepository) Finish(ctx context.Context, job jobs.Job, state, code string, retryAt *time.Time) error {
@@ -57,7 +57,7 @@ func (r *JobRepository) Finish(ctx context.Context, job jobs.Job, state, code st
 }
 
 // Counts читает размер очереди по ограниченному набору категорий без содержимого заданий.
-// @parameters ctx — общий срок SQL-запроса.
+// @args ctx — общий срок SQL-запроса.
 // @return агрегаты очереди и ошибка базы.
 func (r *JobRepository) Counts(ctx context.Context) ([]jobs.Count, error) {
 	items := []jobs.Count{}

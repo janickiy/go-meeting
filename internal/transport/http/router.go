@@ -14,7 +14,7 @@ import (
 const APIV1Prefix = "/api/v1"
 
 // NewRouter создает Gin router API.
-// @parameters:
+// @args
 // - recordsHandler: handler записей.
 // - debug: включить local debug pages.
 // - completedRecords: источник завершенных записей для debug pages.
@@ -24,7 +24,7 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 	router := gin.New()
 	router.Use( /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			defer /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
@@ -38,7 +38,7 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 			c.Next()
 		}, /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			start := time.Now()
@@ -51,7 +51,7 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 	}
 	router.GET("/health", /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -65,7 +65,7 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 }
 
 // RegisterRecordRoutes регистрирует HTTP routes записей.
-// @parameters:
+// @args
 // - router: Gin router group.
 // - recordsHandler: handler записей.
 // @return ничего.
@@ -74,7 +74,7 @@ func RegisterRecordRoutes(router gin.IRouter, recordsHandler *recordsapp.Handler
 }
 
 // registerRecordRoutes регистрирует endpoints records внутри переданного API-префикса.
-// @parameters:
+// @args
 // - router: Gin group, например /api/v1.
 // - recordsHandler: handler записей.
 // @return ничего.

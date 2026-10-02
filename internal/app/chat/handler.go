@@ -19,7 +19,7 @@ type Handler struct{ service *chatusecase.Service }
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в постоянном чате и приватных вложениях.
 //
-// @parameters:
+// @args
 //   - service (*chatusecase.Service): значение service типа *chatusecase.Service, используемое согласно назначению этой операции.
 //
 // @return:
@@ -28,7 +28,7 @@ func NewHandler(service *chatusecase.Service) *Handler { return &Handler{service
 
 // parameter проверяет обязательный параметр HTTP-маршрута перед прикладной операцией.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //
@@ -46,7 +46,7 @@ func parameter(c *gin.Context, key string) (string, bool) {
 
 // List возвращает ограниченный список сообщений и вложений конференции с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) List(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -72,7 +72,7 @@ func (h *Handler) List(c *gin.Context) {
 
 // Send сохраняет сообщение чата с проверкой доступа, ответа и вложений; ключ запроса защищает повторную отправку от дубля.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Send(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -97,7 +97,7 @@ func (h *Handler) Send(c *gin.Context) {
 
 // Edit изменяет текст собственного неудалённого сообщения с проверкой доступа и состояния встречи.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Edit(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -122,7 +122,7 @@ func (h *Handler) Edit(c *gin.Context) {
 
 // Delete мягко удаляет доступное сообщение, проверяя автора или полномочия модератора и сохраняя историю.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Delete(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -143,7 +143,7 @@ func (h *Handler) Delete(c *gin.Context) {
 
 // ReadState возвращает сохранённую границу прочтения и число доступных непрочитанных сообщений.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) ReadState(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -160,7 +160,7 @@ func (h *Handler) ReadState(c *gin.Context) {
 
 // MarkRead продвигает сохранённое состояние прочтения; повторные и запоздалые запросы не должны уменьшать курсор.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) MarkRead(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -181,7 +181,7 @@ func (h *Handler) MarkRead(c *gin.Context) {
 
 // InitAttachment создаёт или возвращает метаданные незавершённого вложения для безопасной повторной загрузки.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) InitAttachment(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -206,7 +206,7 @@ func (h *Handler) InitAttachment(c *gin.Context) {
 
 // Upload принимает ограниченное тело загрузки, проверяет содержимое и сохраняет объект действующей попытки.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Upload(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -233,7 +233,7 @@ func (h *Handler) Upload(c *gin.Context) {
 
 // FinalizeAttachment подтверждает готовность загруженного вложения к привязке к сообщению.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) FinalizeAttachment(c *gin.Context) {
 	id, ok := parameter(c, "id")
@@ -257,7 +257,7 @@ func (h *Handler) FinalizeAttachment(c *gin.Context) {
 
 // Download проверяет доступ к прикреплённому файлу и выдаёт временную подписанную ссылку чтения.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Download(c *gin.Context) {
 	id, ok := parameter(c, "id")

@@ -16,7 +16,7 @@ import (
 
 // mediaRegistryFixture подготавливает или проверяет часть тестового сценария «медиа Registry тестовое окружение».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //
 // @return:
@@ -49,7 +49,7 @@ func mediaRegistryFixture(t *testing.T) *MediaRegistry {
 
 // TestMediaOwnershipAtomicClaimAndFencing проверяет сценарий «медиа Ownership Atomic Claim и защита версии владения», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaOwnershipAtomicClaimAndFencing(t *testing.T) {
 	s := mediaRegistryFixture(t)
@@ -68,7 +68,7 @@ func TestMediaOwnershipAtomicClaimAndFencing(t *testing.T) {
 		wg.Add(1)
 		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - index (int): значение index типа int, используемое согласно назначению этой операции.
 		*/func(index int) {
 			defer wg.Done()
@@ -137,7 +137,7 @@ func TestMediaOwnershipAtomicClaimAndFencing(t *testing.T) {
 
 // TestMediaWorkerExpiryAndRegistrationBinding проверяет сценарий «медиа воркер истечение срока и Registration Binding», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaWorkerExpiryAndRegistrationBinding(t *testing.T) {
 	s := mediaRegistryFixture(t)

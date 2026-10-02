@@ -26,7 +26,7 @@ const contentLabels = {
 
 /**
  * Выбирает готовую запись по UUID, сохраняя глубокую ссылку из поиска.
- * @parameters conferenceId, membership — встреча и актуальный допуск; recordings — доступные записи.
+ * @args conferenceId, membership — встреча и актуальный допуск; recordings — доступные записи.
  * @return Приватный проигрыватель и вкладки материалов либо пустое представление.
  */
 export function RecordingInsights({
@@ -83,7 +83,7 @@ export function RecordingInsights({
 
 /**
  * Стабильно воспроизводит приватный MP4 и загружает авторизованные материалы.
- * @parameters conferenceId, recordingId — идентификаторы; membership — текущие права участника.
+ * @args conferenceId, recordingId — идентификаторы; membership — текущие права участника.
  * @return Проигрыватель, состояния обработки и разрешённые действия организаторов.
  */
 function RecordingMaterial({
@@ -98,7 +98,7 @@ function RecordingMaterial({
   const [params, setParams] = useSearchParams();
   const client = useQueryClient();
   const key = [membership.userId, conferenceId, recordingId];
-  const video = useRef<HTMLVideoElement>(null);
+  const video = useRef<HTMLMediaElement | null>(null);
   const pendingSeek = useRef<number | null>(null);
   const [source, setSource] = useState<string>();
   const [playbackError, setPlaybackError] = useState(false);
@@ -189,7 +189,7 @@ function RecordingMaterial({
 
   /**
    * Переводит выбранный сегмент в позицию записи и воспроизводимую ссылку.
-   * @parameters segment — сегмент с проверенным сервером временем.
+   * @args segment — сегмент с проверенным сервером временем.
    * @return Ничего; обновляет позицию и адрес вкладки.
    */
   function seek(segment: TranscriptSegment) {
@@ -205,7 +205,8 @@ function RecordingMaterial({
   }
   useEffect(() => {
     const url = record.data?.item.files?.find(
-      (file) => file.fileType === "final_mp4",
+      (file) =>
+        file.fileType === "final_mp4" || file.fileType === "final_audio",
     )?.url;
     if (available && url) setSource((current) => current || url);
   }, [record.data, available]);
@@ -242,16 +243,33 @@ function RecordingMaterial({
   return (
     <>
       {source ? (
-        <video
-          ref={video}
-          className="recording-video"
-          aria-label="Запись встречи"
-          controls
-          preload="metadata"
-          src={source}
-          onLoadedMetadata={applySeek}
-          onError={() => setPlaybackError(true)}
-        />
+        record.data?.item.mode === "audio_only" ||
+        record.data?.item.mode === "individual_tracks" ? (
+          <audio
+            ref={(element) => {
+              video.current = element;
+            }}
+            aria-label="Аудиозапись встречи"
+            controls
+            preload="metadata"
+            src={source}
+            onLoadedMetadata={applySeek}
+            onError={() => setPlaybackError(true)}
+          />
+        ) : (
+          <video
+            ref={(element) => {
+              video.current = element;
+            }}
+            className="recording-video"
+            aria-label="Запись встречи"
+            controls
+            preload="metadata"
+            src={source}
+            onLoadedMetadata={applySeek}
+            onError={() => setPlaybackError(true)}
+          />
+        )
       ) : (
         <p className="field-hint">Файл записи пока недоступен.</p>
       )}
@@ -268,7 +286,9 @@ function RecordingMaterial({
               if (result.data && !result.error) {
                 setSource(
                   result.data.item.files.find(
-                    (file) => file.fileType === "final_mp4",
+                    (file) =>
+                      file.fileType === "final_mp4" ||
+                      file.fileType === "final_audio",
                   )?.url,
                 );
                 setPlaybackError(false);

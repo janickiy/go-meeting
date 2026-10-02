@@ -9,7 +9,7 @@ import (
 
 // RegisterPlatformRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
 //
-// @parameters:
+// @args
 //   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
 //   - auth (*authapp.Handler): значение auth типа *authapp.Handler, используемое согласно назначению этой операции.
 //   - conference (*conferencesapp.Handler): конференция либо её идентификатор, ограничивающий область операции.
@@ -46,7 +46,7 @@ func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conferenc
 
 // RegisterControlRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
 //
-// @parameters:
+// @args
 //   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
 //   - handler (*conferencesapp.ControlHandler): обработчик вызываемой команды или маршрута.
 //   - authentication (gin.HandlerFunc): значение authentication типа gin.HandlerFunc, используемое согласно назначению этой операции.

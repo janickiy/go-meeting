@@ -17,6 +17,7 @@ import (
 )
 
 // Client объединяет настройки и соединения клиента соответствующего внешнего сервиса.
+// @params
 //   - minio: значение minio типа *minio.Client, используемое согласно назначению этой операции.
 //   - presignMinio: значение presignMinio типа *minio.Client, используемое согласно назначению этой операции.
 //   - bucket: имя бакета объектного хранилища.
@@ -35,6 +36,7 @@ type Client struct {
 }
 
 // UploadedObject возвращает путь, размер и метаданные объекта после загрузки артефакта.
+// @params
 //   - Bucket: имя бакета объектного хранилища.
 //   - ObjectKey: серверный ключ объекта внутри приватного бакета.
 //   - SizeBytes: фактический размер объекта в байтах.
@@ -45,6 +47,7 @@ type UploadedObject struct {
 }
 
 // CompletedRecord собирает найденные в бакете итоговые объекты одной завершённой записи.
+// @params
 //   - RecordID: внешний UUID задачи записи.
 //   - Status: состояние ресурса, ответа или фильтра выборки.
 //   - Bucket: имя бакета объектного хранилища.
@@ -67,7 +70,7 @@ type CompletedRecord struct {
 }
 
 // NewClient создает S3-клиент и bucket при необходимости.
-// @parameters:
+// @args
 // - endpoint: host:port MinIO.
 // - accessKey: access key.
 // - secretKey: secret key.
@@ -132,7 +135,7 @@ func (c *Client) Check(ctx context.Context) error {
 }
 
 // SetPublicEndpoint задает внешний endpoint MinIO для ссылок, которые открываются с хоста.
-// @parameters:
+// @args
 // - endpoint: host:port или URL, например localhost:9000.
 // @return ничего.
 func (c *Client) SetPublicEndpoint(endpoint string) {
@@ -166,7 +169,7 @@ func (c *Client) SetPublicEndpoint(endpoint string) {
 
 // publicEndpointTransport создаёт транспорт запросов подписания с корректным внешним адресом хранилища.
 //
-// @parameters:
+// @args
 //   - publicEndpoint (string): значение publicEndpoint типа string, используемое согласно назначению этой операции.
 //
 // @return:
@@ -177,7 +180,7 @@ func (c *Client) publicEndpointTransport(publicEndpoint string) http.RoundTrippe
 	internalEndpoint := c.endpoint
 	// Вложенный обработчик выполняет выделенный шаг обработки в хранении и очистке артефактов, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - network (string): значение network типа string, используемое согласно назначению этой операции.
 	//   - address (string): адрес целевого внутреннего сервиса или сети.
@@ -197,14 +200,14 @@ func (c *Client) publicEndpointTransport(publicEndpoint string) http.RoundTrippe
 }
 
 // Bucket возвращает имя bucket, куда сохраняются записи.
-// @parameters: нет.
+// @args нет.
 // @return имя bucket.
 func (c *Client) Bucket() string {
 	return c.bucket
 }
 
 // UploadFile загружает локальный файл в bucket.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - objectKey: ключ объекта в bucket.
 // - path: локальный путь.
@@ -235,7 +238,7 @@ func (c *Client) UploadFile(ctx context.Context, objectKey string, path string, 
 }
 
 // RemovePrefix удаляет все объекты по prefix из bucket.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - prefix: префикс объектов, например records/{recordId}/segments/.
 // @return ошибку удаления первого проблемного объекта.
@@ -258,7 +261,7 @@ func (c *Client) RemovePrefix(ctx context.Context, prefix string) error {
 }
 
 // ListCompletedRecords возвращает записи, у которых в MinIO есть final.mp4 и preview.jpg.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - limit: максимум записей в ответе.
 // @return список завершенных записей с presigned URLs или ошибку MinIO.
@@ -323,7 +326,7 @@ func (c *Client) ListCompletedRecords(ctx context.Context, limit int) ([]Complet
 	}
 	sort.Slice(result, /* Вложенный обработчик выполняет выделенный шаг обработки в хранении и очистке артефактов, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - i (int): значение i типа int, используемое согласно назначению этой операции.
 		  - j (int): значение j типа int, используемое согласно назначению этой операции.
 
@@ -340,7 +343,7 @@ func (c *Client) ListCompletedRecords(ctx context.Context, limit int) ([]Complet
 
 // completedRecordObject разбирает ключ объекта готовой записи и определяет его роль.
 //
-// @parameters:
+// @args
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //
 // @return:
@@ -360,7 +363,7 @@ func completedRecordObject(key string) (string, string, bool) {
 }
 
 // PresignedGetURL создает временную ссылку на объект MinIO.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - objectKey: ключ объекта в bucket.
 // - expiry: срок жизни ссылки.

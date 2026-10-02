@@ -26,6 +26,10 @@ export function SearchPage() {
   const [params, setParams] = useSearchParams();
   const initialSource = params.get("source") as SearchSource;
   const [query, setQuery] = useState(params.get("q") || "");
+  const [mode, setMode] = useState<SearchFilters["mode"]>("keyword");
+  const [membership, setMembership] =
+    useState<SearchFilters["membership"]>("all");
+  const [participantId, setParticipantId] = useState("");
   const [source, setSource] = useState<SearchSource>(
     initialSource in labels ? initialSource : "all",
   );
@@ -48,6 +52,17 @@ export function SearchPage() {
       ? {
           q: text,
           source: nextSource,
+          mode: ["keyword", "semantic", "hybrid"].includes(
+            params.get("mode") || "",
+          )
+            ? (params.get("mode") as SearchFilters["mode"])
+            : "keyword",
+          membership: ["all", "owned", "participating"].includes(
+            params.get("membership") || "",
+          )
+            ? (params.get("membership") as SearchFilters["membership"])
+            : "all",
+          participantId: params.get("participantId") || undefined,
           conferenceId: params.get("conferenceId") || undefined,
           from: startDate,
           to: endDate,
@@ -58,11 +73,25 @@ export function SearchPage() {
     setQuery(filters?.q || "");
     setSource(filters?.source || "all");
     setConferenceId(filters?.conferenceId || "");
+    setMode(filters?.mode || "keyword");
+    setMembership(filters?.membership || "all");
+    setParticipantId(filters?.participantId || "");
     setFrom(filters?.from ? toLocalInput(filters.from).slice(0, 10) : "");
     setTo(filters?.to ? toLocalInput(filters.to).slice(0, 10) : "");
   }, [filters]);
   const conferences = useConferences();
   const rows = conferences.data?.pages.flatMap((page) => page.items) || [];
+  const participants = useInfiniteQuery({
+    queryKey: ["search-participants", user?.id, conferenceId],
+    initialPageParam: 0,
+    queryFn: ({ pageParam, signal }) =>
+      api.participants(conferenceId, pageParam, signal),
+    enabled: !!conferenceId,
+    getNextPageParam: (page, _pages, lastOffset) =>
+      page.items.length === 100 ? lastOffset + 100 : undefined,
+    retry: false,
+  });
+  const people = participants.data?.pages.flatMap((page) => page.items) || [];
   const result = useInfiniteQuery({
     queryKey: ["content-search", user?.id, filters],
     initialPageParam: 0,
@@ -110,6 +139,9 @@ export function SearchPage() {
               to: to ? localDayEnd(to) || undefined : undefined,
             };
             const url = new URLSearchParams({ q: text, source });
+            url.set("mode", mode || "keyword");
+            url.set("membership", membership || "all");
+            if (participantId) url.set("participantId", participantId);
             if (conferenceId) url.set("conferenceId", conferenceId);
             if (next.from) url.set("from", next.from);
             if (next.to) url.set("to", next.to);
@@ -130,6 +162,34 @@ export function SearchPage() {
           </label>
           <div className="search-filters">
             <label>
+              Способ поиска
+              <select
+                value={mode}
+                onChange={(event) =>
+                  setMode(event.target.value as SearchFilters["mode"])
+                }
+              >
+                <option value="keyword">По ключевым словам</option>
+                <option value="semantic">По смыслу</option>
+                <option value="hybrid">Слова и смысл</option>
+              </select>
+            </label>
+            <label>
+              Моё участие
+              <select
+                value={membership}
+                onChange={(event) =>
+                  setMembership(
+                    event.target.value as SearchFilters["membership"],
+                  )
+                }
+              >
+                <option value="all">Все доступные встречи</option>
+                <option value="owned">Я организатор</option>
+                <option value="participating">Я участник</option>
+              </select>
+            </label>
+            <label>
               Где искать
               <select
                 value={source}
@@ -148,7 +208,10 @@ export function SearchPage() {
               Встреча
               <select
                 value={conferenceId}
-                onChange={(event) => setConferenceId(event.target.value)}
+                onChange={(event) => {
+                  setConferenceId(event.target.value);
+                  setParticipantId("");
+                }}
               >
                 <option value="">Все доступные</option>
                 {conferenceId &&
@@ -162,6 +225,26 @@ export function SearchPage() {
                 ))}
               </select>
             </label>
+            {conferenceId && (
+              <label>
+                Автор реплики
+                <select
+                  value={participantId}
+                  onChange={(event) => setParticipantId(event.target.value)}
+                >
+                  <option value="">Все участники</option>
+                  {participantId &&
+                    !people.some((p) => p.id === participantId) && (
+                      <option value={participantId}>Выбранный участник</option>
+                    )}
+                  {people.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.displayName || "Участник"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               С даты
               <input
@@ -189,6 +272,17 @@ export function SearchPage() {
               Загрузить ещё встречи в фильтр
             </Button>
           )}
+          {participants.hasNextPage && (
+            <Button
+              type="button"
+              variant="outline"
+              busy={participants.isFetchingNextPage}
+              onClick={() => void participants.fetchNextPage()}
+            >
+              Загрузить ещё участников
+            </Button>
+          )}
+          <ErrorNotice error={participants.error} />
           <p className="field-hint">
             Даты — в часовом поясе{" "}
             {Intl.DateTimeFormat().resolvedOptions().timeZone}. Учитываются
@@ -209,6 +303,12 @@ export function SearchPage() {
           Результаты{result.data ? ` · ${result.data.pages[0].total}` : ""}
         </h2>
         <ErrorNotice error={result.error} />
+        {result.data?.pages[0].fallbackReason && (
+          <p role="status">
+            Поиск по смыслу сейчас недоступен для выбранных материалов. Показаны
+            результаты по ключевым словам.
+          </p>
+        )}
         {!filters ? (
           <p className="muted">Введите запрос, чтобы начать поиск.</p>
         ) : result.isPending ? (
@@ -232,6 +332,7 @@ export function SearchPage() {
                     </Link>
                     <p className="field-hint">
                       {labels[item.type]}
+                      {item.speaker ? ` · ${item.speaker}` : ""}
                       {typeof item.startMs === "number"
                         ? ` · ${recordingTime(item.startMs)}`
                         : ""}

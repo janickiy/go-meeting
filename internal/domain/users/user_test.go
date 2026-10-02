@@ -10,7 +10,7 @@ import (
 
 // TestRegistrationPasswordCharacterLimits проверяет сценарий «Registration Password Character ограничения», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRegistrationPasswordCharacterLimits(t *testing.T) {
 	cases := []struct {
@@ -37,7 +37,7 @@ func TestRegistrationPasswordCharacterLimits(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				request, err := NormalizeRegister(RegisterRequest{Email: "test@example.com", Password: test.password})

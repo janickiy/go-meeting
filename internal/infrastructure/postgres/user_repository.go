@@ -17,7 +17,7 @@ type UserRepository struct{ db *gorm.DB }
 
 // NewUserRepository создаёт и связывает зависимости компонента UserRepository, используемого в постоянном хранении данных PostgreSQL.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //
 // @return:
@@ -29,7 +29,7 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 
 // Create создаёт новое состояние ресурсов компонента по переданным параметрам.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - user (users.User): пользователь либо его идентификатор, определяющий область доступа.
 //
@@ -47,7 +47,7 @@ func (r *UserRepository) Create(ctx context.Context, user users.User) (users.Use
 
 // GetByID читает учётную запись по её идентификатору.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -62,7 +62,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (users.User, er
 
 // GetByEmail читает учётную запись по нормализованному адресу электронной почты.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - email (string): адрес электронной почты пользователя.
 //
@@ -77,7 +77,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (users.Us
 
 // mapNotFound преобразует отсутствие строки GORM в принятую приложением ошибку отсутствующего ресурса.
 //
-// @parameters:
+// @args
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 //
 // @return:

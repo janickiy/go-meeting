@@ -17,6 +17,8 @@ import {
 import { api } from "../api";
 import { RealtimePanel } from "../components/RealtimePanel";
 import { RecordingPanel } from "../components/RecordingPanel";
+import { CaptionsPanel } from "../components/CaptionsPanel";
+import { AnalyticsPanel } from "../components/AnalyticsPanel";
 import { ConferenceCalendarStatus } from "../components/IntegrationsSettings";
 import type { ModerationAction } from "../types";
 import { useAuth } from "../auth";
@@ -57,7 +59,7 @@ export function ConferencePage() {
       /**
        * Обработчик flatMap преобразует текущий элемент в данные или представление результирующего списка.
        *
-       * @parameters:
+       * @args
        *   - page — изолированная страница Playwright.
        *
        * @returns преобразованное значение текущего элемента для результирующего набора.
@@ -75,7 +77,7 @@ export function ConferencePage() {
     /**
      * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
      *
-     * @parameters:
+     * @args
      *   - объект параметров: signal — сигнал отмены запроса или потока.
      *
      * @returns вычисленное значение: api.history(id, signal).
@@ -89,7 +91,7 @@ export function ConferencePage() {
     /**
      * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
      *
-     * @parameters:
+     * @args
      *   - action ("start" | "finish" | "cancel" | "join" | "leave") — разрешённое действие управления либо асинхронная операция.
      *
      * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -137,7 +139,7 @@ export function ConferencePage() {
     /**
      * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
      *
-     * @parameters:
+     * @args
      *   - объект параметров: participantId — идентификатор членства целевого участника; action — разрешённое действие управления либо асинхронная операция.
      *
      * @returns вычисленное значение: api.moderate(id, participantId, action).
@@ -424,6 +426,23 @@ export function ConferencePage() {
         membership={membership}
         showInsights
       />
+      {admitted && (
+        <CaptionsPanel
+          key={`captions-${id}`}
+          conferenceId={id}
+          active={
+            conference.status === "active" && membership?.status === "joined"
+          }
+          live={live}
+        />
+      )}
+      {admitted && (
+        <AnalyticsPanel
+          key={`analytics-${id}`}
+          conferenceId={id}
+          active={conference.status === "active"}
+        />
+      )}
       {admitted &&
         user &&
         (membership?.role === "owner" || membership?.role === "co_host") && (
@@ -511,7 +530,7 @@ export function ConferencePage() {
                 /**
                  * Обработчик people.map преобразует один элемент набора в представление или данные следующего шага.
                  *
-                 * @parameters:
+                 * @args
                  *   - person — целевое членство участника.
                  *
                  * @returns преобразованное значение текущего элемента для результирующего набора.
@@ -546,7 +565,7 @@ export function ConferencePage() {
                               /**
                                * Обработчик filter проверяет, соответствует ли текущий элемент условию выборки или поиска.
                                *
-                               * @parameters:
+                               * @args
                                *   - [action] — элементы записи набора, извлечённые по указанным позициям.
                                *
                                * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
@@ -559,7 +578,7 @@ export function ConferencePage() {
                               /**
                                * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
                                *
-                               * @parameters:
+                               * @args
                                *   - [action, label, blocked] — элементы записи набора, извлечённые по указанным позициям.
                                *
                                * @returns преобразованное значение текущего элемента для результирующего набора.

@@ -18,14 +18,14 @@ type testQueue struct {
 }
 
 // Claim сообщает отсутствие новых заданий для проверки остановки фиксированного пула.
-// @parameters ctx/kind/lease — параметры тестового захвата.
+// @args ctx/kind/lease — параметры тестового захвата.
 // @return отсутствие задания без ошибки.
 func (q *testQueue) Claim(context.Context, string, time.Duration) (domain.Job, bool, error) {
 	return domain.Job{}, false, nil
 }
 
 // Finish сохраняет исход обработчика для последующих утверждений теста.
-// @parameters job — тестовая задача; state/code/retryAt — решение механизма повторов.
+// @args job — тестовая задача; state/code/retryAt — решение механизма повторов.
 // @return nil: тестовый репозиторий не отказывает.
 func (q *testQueue) Finish(_ context.Context, _ domain.Job, state, code string, retryAt *time.Time) error {
 	q.mu.Lock()
@@ -35,12 +35,12 @@ func (q *testQueue) Finish(_ context.Context, _ domain.Job, state, code string, 
 }
 
 // Counts возвращает пустые технические агрегаты тестовой очереди.
-// @parameters ctx — неиспользуемый контекст теста.
+// @args ctx — неиспользуемый контекст теста.
 // @return пустая очередь без ошибки.
 func (q *testQueue) Counts(context.Context) ([]domain.Count, error) { return nil, nil }
 
 // TestRetryClassification проверяет pointer/value ошибки, secrets, timeout и явно пропущенную работу.
-// @parameters t — контекст утверждений.
+// @args t — контекст утверждений.
 func TestRetryClassification(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -65,7 +65,7 @@ func TestRetryClassification(t *testing.T) {
 }
 
 // TestBoundedRetriesAndExpiredFinalLease исключает дополнительный дорогой вызов после исчерпания попыток.
-// @parameters t — контекст теста политики повторов и terminal callback.
+// @args t — контекст теста политики повторов и terminal callback.
 func TestBoundedRetriesAndExpiredFinalLease(t *testing.T) {
 	q := &testQueue{}
 	called, failed := 0, 0
@@ -95,7 +95,7 @@ func TestBoundedRetriesAndExpiredFinalLease(t *testing.T) {
 }
 
 // TestBackoffAndPanic проверяет конечные задержки и отсутствие panic payload в технической ошибке.
-// @parameters t — контекст проверки границ.
+// @args t — контекст проверки границ.
 func TestBackoffAndPanic(t *testing.T) {
 	for i := -1; i < 30; i++ {
 		d := Backoff(i, 0)
@@ -113,7 +113,7 @@ func TestBackoffAndPanic(t *testing.T) {
 }
 
 // TestRunnerShutdown подтверждает завершение фиксированных работников без задания и таймеров встреч.
-// @parameters t — контекст проверки остановки.
+// @args t — контекст проверки остановки.
 func TestRunnerShutdown(t *testing.T) {
 	r, err := New(&testQueue{}, []Pool{{Kind: "integrations.delivery", Concurrency: 2, Timeout: time.Second, Handler: Handler{Handle: func(context.Context, domain.Job) error { return nil }}}}, time.Second, nil)
 	if err != nil {
@@ -131,7 +131,7 @@ func TestRunnerShutdown(t *testing.T) {
 }
 
 // TestOperatorAttemptCapAppliesToOldJobs проверяет снижение расходов для уже сохранённых задач.
-// @parameters t — контекст проверки общего операторского предела поверх SQL defaults.
+// @args t — контекст проверки общего операторского предела поверх SQL defaults.
 func TestOperatorAttemptCapAppliesToOldJobs(t *testing.T) {
 	q := &testQueue{}
 	called := 0

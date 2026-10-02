@@ -37,7 +37,7 @@ type Runner struct {
 }
 
 // New проверяет бюджет работников, чтобы неверный конфиг не вызвал неограниченный fanout.
-// @parameters repo — очередь; pools — категории и бюджеты; interval — период опроса;
+// @args repo — очередь; pools — категории и бюджеты; interval — период опроса;
 // observe — необязательный сборщик метрик с ограниченными метками.
 // @return готовый исполнитель или ошибка конфигурации.
 func New(repo domain.Repository, pools []Pool, interval time.Duration, observe func(string, string, time.Duration)) (*Runner, error) {
@@ -55,7 +55,7 @@ func New(repo domain.Repository, pools []Pool, interval time.Duration, observe f
 }
 
 // Run запускает выделенные пулы и ждёт их освобождения при отмене общего контекста.
-// @parameters ctx — срок жизни процесса; новые задания после отмены не захватываются.
+// @args ctx — срок жизни процесса; новые задания после отмены не захватываются.
 func (r *Runner) Run(ctx context.Context) {
 	var workers sync.WaitGroup
 	for _, pool := range r.pools {
@@ -67,7 +67,7 @@ func (r *Runner) Run(ctx context.Context) {
 }
 
 // work последовательно обрабатывает задания категории с отдельным конечным сроком аренды.
-// @parameters ctx — остановка процесса; pool — тип, таймаут и обработчики категории.
+// @args ctx — остановка процесса; pool — тип, таймаут и обработчики категории.
 func (r *Runner) work(ctx context.Context, pool Pool) {
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
@@ -91,7 +91,7 @@ func (r *Runner) work(ctx context.Context, pool Pool) {
 }
 
 // execute отделяет вызов провайдера от короткой записи результата и ограниченных повторов.
-// @parameters ctx — остановка; pool — политика исполнения; job — арендованное задание.
+// @args ctx — остановка; pool — политика исполнения; job — арендованное задание.
 func (r *Runner) execute(ctx context.Context, pool Pool, job domain.Job) {
 	start := time.Now()
 	if pool.MaxAttempts > 0 && pool.MaxAttempts < job.MaxAttempts {
@@ -133,7 +133,7 @@ func (r *Runner) execute(ctx context.Context, pool Pool, job domain.Job) {
 var safeCode = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 // callHandler изолирует панику адаптера и не выводит её содержимое, которое может быть секретным.
-// @parameters ctx — срок вызова; handle — обработчик; job — ограниченная нагрузка.
+// @args ctx — срок вызова; handle — обработчик; job — ограниченная нагрузка.
 // @return безопасная permanent ошибка при панике либо исходный результат.
 func callHandler(ctx context.Context, handle func(context.Context, domain.Job) error, job domain.Job) (err error) {
 	defer func() {
@@ -145,7 +145,7 @@ func callHandler(ctx context.Context, handle func(context.Context, domain.Job) e
 }
 
 // classify преобразует произвольный отказ в безопасные метаданные, не сохраняя vendor body.
-// @parameters err — результат обработчика.
+// @args err — результат обработчика.
 // @return состояние, безопасный код, возможность повтора и пожелание провайдера к паузе.
 func classify(err error) (string, string, bool, time.Duration) {
 	if err == nil {
@@ -178,7 +178,7 @@ func classify(err error) (string, string, bool, time.Duration) {
 }
 
 // Backoff вычисляет ограниченную экспоненциальную задержку с jitter без общего генератора состояния.
-// @parameters attempt — номер попытки; requested — Retry-After внешнего сервиса.
+// @args attempt — номер попытки; requested — Retry-After внешнего сервиса.
 // @return пауза от секунды до часа.
 func Backoff(attempt int, requested time.Duration) time.Duration {
 	if attempt < 1 {

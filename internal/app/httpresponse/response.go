@@ -13,7 +13,7 @@ import (
 
 // Fail сопоставляет прикладную ошибку с HTTP-статусом и безопасным JSON-ответом.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func Fail(c *gin.Context, err error) {
@@ -41,7 +41,7 @@ func Fail(c *gin.Context, err error) {
 
 // BindJSON строго разбирает JSON-тело HTTP-запроса и сообщает безопасную ошибку формата.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - target (any): целевой объект, участник или состояние операции.
 //   - optional (bool): логический признак optional, управляющий соответствующей веткой обработки.
@@ -71,7 +71,7 @@ func BindJSON(c *gin.Context, target any, optional bool) bool {
 
 // Pagination разбирает предел и смещение страницы из URL и проверяет допустимые границы.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
 // @return:

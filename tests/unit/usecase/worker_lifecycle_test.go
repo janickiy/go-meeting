@@ -17,14 +17,14 @@ const workerTestRecordID = "22222222-2222-4222-8222-222222222222"
 
 // TestWorkerIgnoresCommandsForTerminalRecords проверяет сценарий «воркер Ignores Commands для Terminal Records», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestWorkerIgnoresCommandsForTerminalRecords(t *testing.T) {
 	for _, status := range []string{records.StatusReady, records.StatusPartialReady, records.StatusFailed, records.StatusCancelled} {
 		for _, commandType := range []string{"record.start", "record.stop"} {
 			t.Run(status+"/"+commandType, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-				@parameters:
+				@args
 				  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 				*/func(t *testing.T) {
 					repo := newWorkerRepository(status)
@@ -52,7 +52,7 @@ func TestWorkerIgnoresCommandsForTerminalRecords(t *testing.T) {
 
 // TestWorkerReleasesLockAfterMediaStopsBeforeFinalization проверяет сценарий «воркер Releases Lock после медиа Stops до Finalization», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestWorkerReleasesLockAfterMediaStopsBeforeFinalization(t *testing.T) {
 	repo := newWorkerRepository(records.StatusStopping)
@@ -77,7 +77,7 @@ func TestWorkerReleasesLockAfterMediaStopsBeforeFinalization(t *testing.T) {
 
 // TestWorkerPrepareFailureReleasesLock проверяет сценарий «воркер Prepare сбой Releases Lock», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestWorkerPrepareFailureReleasesLock(t *testing.T) {
 	repo := newWorkerRepository(records.StatusStarting)
@@ -94,7 +94,7 @@ func TestWorkerPrepareFailureReleasesLock(t *testing.T) {
 
 // TestWorkerDoesNotAcknowledgeDatabaseFailure проверяет сценарий «воркер выполняет не Acknowledge Database сбой», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestWorkerDoesNotAcknowledgeDatabaseFailure(t *testing.T) {
 	wantErr := errors.New("database unavailable")
@@ -112,7 +112,7 @@ func TestWorkerDoesNotAcknowledgeDatabaseFailure(t *testing.T) {
 
 // TestWorkerRejectsUnsafeIDBeforeTouchingStorage проверяет сценарий «воркер Rejects Unsafe ID до Touching Storage», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestWorkerRejectsUnsafeIDBeforeTouchingStorage(t *testing.T) {
 	storage := t.TempDir()
@@ -129,7 +129,7 @@ func TestWorkerRejectsUnsafeIDBeforeTouchingStorage(t *testing.T) {
 }
 
 // fakeWorkerRepository реализует постоянное хранение ресурсов компонента через GORM.
-// Состав:
+// @params:
 //   - failureRepository: встроенный тип, добавляющий свой контракт или данные.
 //   - record: задача записи с её сохранённым состоянием.
 //   - finalizing: логический признак finalizing, управляющий соответствующей веткой обработки.
@@ -143,7 +143,7 @@ type fakeWorkerRepository struct {
 
 // TestConcurrentDuplicateStopsRunMediaStopOnce проверяет сценарий «одновременный повторный Stops выполнение медиа остановка Once», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestConcurrentDuplicateStopsRunMediaStopOnce(t *testing.T) {
 	repo := newWorkerRepository(records.StatusStopping)
@@ -169,7 +169,7 @@ func TestConcurrentDuplicateStopsRunMediaStopOnce(t *testing.T) {
 
 // newWorkerRepository подготавливает или проверяет часть тестового сценария «новый воркер Repository».
 //
-// @parameters:
+// @args
 //   - status (string): состояние ресурса, ответа или фильтра выборки.
 //
 // @return:
@@ -180,7 +180,7 @@ func newWorkerRepository(status string) *fakeWorkerRepository {
 
 // FindByUUID читает задачу записи по её внешнему UUID.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //
@@ -193,7 +193,7 @@ func (r *fakeWorkerRepository) FindByUUID(context.Context, string) (records.Reco
 
 // MarkFailed условно переводит задачу записи в состояние «Failed», соблюдая ограничения жизненного цикла.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - cause (error): значение cause типа error, используемое согласно назначению этой операции.
@@ -210,7 +210,7 @@ func (r *fakeWorkerRepository) MarkFailed(ctx context.Context, id string, cause 
 
 // MarkFinalizing условно переводит задачу записи в состояние «Finalizing», соблюдая ограничения жизненного цикла.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //
@@ -226,7 +226,7 @@ func (r *fakeWorkerRepository) MarkFinalizing(context.Context, string) error {
 
 // MarkUploading условно переводит задачу записи в состояние «Uploading», соблюдая ограничения жизненного цикла.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //
@@ -236,7 +236,7 @@ func (r *fakeWorkerRepository) MarkUploading(context.Context, string) error { re
 
 // SaveFinalArtifacts сохраняет итоговый файл, превью и сегменты после успешной обработки записи.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //   - аргумент 3 (records.RecordFile): значение finalFile типа records.RecordFile, используемое согласно назначению этой операции.
@@ -250,7 +250,7 @@ func (r *fakeWorkerRepository) SaveFinalArtifacts(context.Context, string, recor
 }
 
 // fakeIngest хранит изолированное состояние тестового компонента «fake Ingest».
-// Состав:
+// @params:
 //   - prepared: логический признак prepared, управляющий соответствующей веткой обработки.
 //   - stopped: логический признак stopped, управляющий соответствующей веткой обработки.
 //   - prepareErr: значение prepareErr типа error, используемое согласно назначению этой операции.
@@ -263,7 +263,7 @@ type fakeIngest struct {
 
 // Prepare подготавливает состояние WebRTC-приёма конкретной записи до обмена SDP.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (string): внешний UUID задачи записи.
 //   - аргумент 2 (int): плановая длительность сегмента записи в секундах.
 //
@@ -273,7 +273,7 @@ func (i *fakeIngest) Prepare(string, int) error { i.prepared = true; return i.pr
 
 // Stop останавливает активную обработку ресурсов компонента и освобождает связанные ресурсы.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (string): внешний UUID задачи записи.
 //
 // @return:
@@ -282,7 +282,7 @@ func (i *fakeIngest) Stop(string) error { i.stopped = true; i.stopCalls++; retur
 
 // HandleOffer обрабатывает SDP-предложение и возвращает SDP-ответ приёмника записи.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID задачи записи.
 //   - аргумент 3 (records.WebRTCOfferRequest): входные параметры соответствующего прикладного запроса.
@@ -295,7 +295,7 @@ func (i *fakeIngest) HandleOffer(context.Context, string, records.WebRTCOfferReq
 }
 
 // orderedRelease хранит изолированное состояние тестового компонента «ordered освобождение».
-// Состав:
+// @params:
 //   - t: контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - ingest: значение ingest типа *fakeIngest, используемое согласно назначению этой операции.
 //   - released: логический признак released, управляющий соответствующей веткой обработки.
@@ -307,7 +307,7 @@ type orderedRelease struct {
 
 // Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 //   - аргумент 3 (string): внешний UUID задачи записи.

@@ -13,12 +13,13 @@ import (
 )
 
 // ControlService задаёт контракт зависимого компонента ControlService в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params:
 //   - Moderate: операция Moderate с контрактом, описанным у метода.
 //   - UpdateMediaState: операция обновление медиа состояние с контрактом, описанным у метода.
 type ControlService interface {
 	// Moderate применяет действие модерации с проверкой роли инициатора и ограничений целевого участника.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -31,7 +32,7 @@ type ControlService interface {
 	Moderate(context.Context, string, string, string, conferences.ModerationRequest) (conferences.ParticipantView, error)
 	// UpdateMediaState сохраняет заявленное состояние источников медиа участника.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -50,7 +51,7 @@ type ControlHandler struct{ service ControlService }
 
 // NewControlHandler создаёт и связывает зависимости компонента ControlHandler, используемого в жизненном цикле конференций и правах участников.
 //
-// @parameters:
+// @args
 //   - service (ControlService): значение service типа ControlService, используемое согласно назначению этой операции.
 //
 // @return:
@@ -61,7 +62,7 @@ func NewControlHandler(service ControlService) *ControlHandler {
 
 // Moderate применяет действие модерации с проверкой роли инициатора и ограничений целевого участника.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *ControlHandler) Moderate(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -87,7 +88,7 @@ func (h *ControlHandler) Moderate(c *gin.Context) {
 
 // Media принимает новое состояние микрофона, камеры и экрана текущего участника.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *ControlHandler) Media(c *gin.Context) {
 	id, ok := conferenceID(c)

@@ -12,7 +12,7 @@ import (
 // DecideAdmission сериализует решение допуска блокировкой конференции, сохраняет состояние и версию решения.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -29,7 +29,7 @@ func (r *ConferenceRepository) DecideAdmission(ctx context.Context, conferenceID
 	}
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -85,7 +85,7 @@ func (r *ConferenceRepository) DecideAdmission(ctx context.Context, conferenceID
 // UpdateSchedule обновляет расписание только запланированной встречи под той же блокировкой, что используется при старте.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -98,7 +98,7 @@ func (r *ConferenceRepository) UpdateSchedule(ctx context.Context, conferenceID,
 	var c conferences.Conference
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -128,7 +128,7 @@ func (r *ConferenceRepository) UpdateSchedule(ctx context.Context, conferenceID,
 
 // ParticipantsVisible возвращает страницу членств, скрывая недопущенных участников от обычного пользователя.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -159,7 +159,7 @@ const timelineDate = "COALESCE(conferences.finished_at, conferences.scheduled_at
 
 // Timeline возвращает страницу встреч текущего пользователя с фильтрами будущих, активных и прошедших встреч.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - query (conferences.TimelineQuery): параметры выборки либо SQL-текст выполняемого запроса.
@@ -212,7 +212,7 @@ func (r *ConferenceRepository) Timeline(ctx context.Context, userID string, quer
 // History собирает сведения завершённой встречи, историю участников и сводку записей с проверкой доступа.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -226,7 +226,7 @@ func (r *ConferenceRepository) History(ctx context.Context, conferenceID, userID
 	// changing authorization while the bounded historical snapshot is assembled.
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -275,7 +275,7 @@ func (r *ConferenceRepository) History(ctx context.Context, conferenceID, userID
 			COUNT(*) FILTER (WHERE status IN ('ready','partial_ready')) AS ready,
 			COUNT(*) FILTER (WHERE status IN ('starting','recording','degraded','stopping','finalizing','uploading')) AS processing,
 			COUNT(*) FILTER (WHERE status IN ('failed','cancelled')) AS failed`).
-				Where("platform_conference_id = ? AND mode = 'composite'", conferenceID).Scan(&result.Recordings).Error
+				Where("platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", conferenceID).Scan(&result.Recordings).Error
 		})
 	return result, err
 }

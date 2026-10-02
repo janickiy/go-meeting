@@ -50,7 +50,7 @@ let clients: QueryClient[] = [];
 
 /**
  * Монтирует материалы с отдельным кешем и адресом выбранной записи.
- * @parameters url — адрес с глубокой ссылкой; membership — проверяемые права.
+ * @args url — адрес с глубокой ссылкой; membership — проверяемые права.
  * @return Кеш и контейнер для проверки позиции видео.
  */
 function show(url = "/conferences/room?recording=record", membership = member) {

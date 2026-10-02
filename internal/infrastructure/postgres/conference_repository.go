@@ -21,7 +21,7 @@ type ConferenceRepository struct{ db *gorm.DB }
 
 // NewConferenceRepository создаёт и связывает зависимости компонента ConferenceRepository, используемого в жизненном цикле конференций и правах участников.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //
 // @return:
@@ -31,7 +31,7 @@ func NewConferenceRepository(db *gorm.DB) *ConferenceRepository { return &Confer
 // Create создаёт новое состояние конференций и членств участников по переданным параметрам.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conference (conferences.Conference): конференция либо её идентификатор, ограничивающий область операции.
 //   - owner (conferences.Participant): значение owner типа conferences.Participant, используемое согласно назначению этой операции.
@@ -42,7 +42,7 @@ func NewConferenceRepository(db *gorm.DB) *ConferenceRepository { return &Confer
 func (r *ConferenceRepository) Create(ctx context.Context, conference conferences.Conference, owner conferences.Participant) (conferences.Conference, error) {
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -61,7 +61,7 @@ func (r *ConferenceRepository) Create(ctx context.Context, conference conference
 
 // Get читает состояние конференций и членств участников для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -74,7 +74,7 @@ func (r *ConferenceRepository) Get(ctx context.Context, id string) (conferences.
 
 // GetByInvite находит конференцию по действующему коду приглашения.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - code (string): код приглашения или машинный код результата.
 //
@@ -89,7 +89,7 @@ func (r *ConferenceRepository) GetByInvite(ctx context.Context, code string) (co
 
 // ListForUser возвращает конференции, доступные указанному пользователю.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - limit (int): максимальное число элементов страницы или порции обработки.
@@ -109,7 +109,7 @@ func (r *ConferenceRepository) ListForUser(ctx context.Context, userID string, l
 
 // Membership читает членство пользователя в заданной конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -123,7 +123,7 @@ func (r *ConferenceRepository) Membership(ctx context.Context, id, userID string
 
 // Participants возвращает разрешённую страницу участников конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - limit (int): максимальное число элементов страницы или порции обработки.
@@ -142,7 +142,7 @@ func (r *ConferenceRepository) Participants(ctx context.Context, id string, limi
 // Transition выполняет разрешённый переход состояния конференции или записи.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -155,7 +155,7 @@ func (r *ConferenceRepository) Transition(ctx context.Context, id, userID string
 	var conference conferences.Conference
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -200,7 +200,7 @@ func (r *ConferenceRepository) Transition(ctx context.Context, id, userID string
 // Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - user (users.User): пользователь либо его идентификатор, определяющий область доступа.
@@ -213,7 +213,7 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 	var participant conferences.Participant
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -273,7 +273,7 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 // Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -285,7 +285,7 @@ func (r *ConferenceRepository) Leave(ctx context.Context, id, userID string) (co
 	var participant conferences.Participant
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -318,7 +318,7 @@ func (r *ConferenceRepository) Leave(ctx context.Context, id, userID string) (co
 
 // findConference читает конференцию, при необходимости блокируя строку для изменения.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - locked (bool): указывает, требуется ли чтение с блокировкой строки для согласованного изменения.
@@ -337,7 +337,7 @@ func findConference(db *gorm.DB, id string, locked bool) (conferences.Conference
 
 // findMembership читает членство пользователя внутри конкретной конференции.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.

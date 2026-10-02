@@ -59,6 +59,8 @@ func sampleMedia(ctx context.Context, engine *sfu.Manager) {
 		s := engine.Snapshot()
 		operations.State("media_relay_total", float64(s.RelayConnections))
 		operations.State("media_direct_total", float64(s.DirectConnections))
+		operations.State("audio_taps", float64(s.AudioTaps))
+		operations.State("audio_tap_drops_total", float64(s.AudioTapDrops))
 		for k, v := range map[string]float64{"media_rooms": float64(s.Rooms), "media_peers": float64(s.Peers), "media_tracks": float64(s.Tracks), "media_subscriptions": float64(s.Subscriptions), "media_connections_total": float64(s.PeerConnections), "media_failures_total": float64(s.Failures), "rtp_packets_total": float64(s.Packets), "rtp_bytes_total": float64(s.Bytes), "rtp_dropped_total": float64(s.Dropped), "recording_outputs": float64(s.RecordingOutputs), "recording_drops_total": float64(s.RecordingDrops)} {
 			operations.State(k, v)
 		}

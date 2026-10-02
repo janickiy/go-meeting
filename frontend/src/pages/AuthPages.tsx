@@ -16,7 +16,7 @@ import { passwordLength, safeNext, utf8Bytes } from "../utils";
 /**
  * AuthPage показывает форму входа либо регистрации и обрабатывает проверку данных и ошибки API.
  *
- * @parameters:
+ * @args
  *   - объект параметров: register — выбирает форму регистрации вместо входа.
  *
  * @returns JSX-представление компонента для текущих свойств и состояния.
@@ -40,7 +40,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
   /**
    * submit проверяет поля формы, отправляет изменение и показывает результат либо ошибку.
    *
-   * @parameters:
+   * @args
    *   - event (SubmitEvent<HTMLFormElement>) — событие отправки формы.
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -128,7 +128,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
                 /**
                  * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                  *
-                 * @parameters:
+                 * @args
                  *   - event — проверенный конверт события комнаты.
                  *
                  * @returns вычисленное значение: setEmail(event.target.value).
@@ -149,7 +149,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
                 /**
                  * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                  *
-                 * @parameters:
+                 * @args
                  *   - event — проверенный конверт события комнаты.
                  *
                  * @returns вычисленное значение: setPassword(event.target.value).
@@ -175,7 +175,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
                     /**
                      * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                      *
-                     * @parameters:
+                     * @args
                      *   - event — проверенный конверт события комнаты.
                      *
                      * @returns вычисленное значение: setName(event.target.value).

@@ -22,14 +22,14 @@ type Preferences struct {
 func (Preferences) TableName() string { return "notification_preferences" }
 
 // DefaultPreferences включает полезные внутренние события, но не передаёт данные внешним провайдерам без согласия.
-// @parameters: userID — владелец настроек.
+// @args userID — владелец настроек.
 // @return: первоначальные настройки пользователя.
 func DefaultPreferences(userID string) Preferences {
 	return Preferences{UserID: userID, Invitation: true, Reminder: true, Recording: true, Summary: true}
 }
 
 // Allows проверяет разрешённую категорию события без изменения настроек.
-// @parameters: kind — техническое имя события.
+// @args kind — техническое имя события.
 // @return: true для включённой категории; неизвестные события запрещены.
 func (p Preferences) Allows(kind string) bool {
 	switch kind {
@@ -164,7 +164,7 @@ type CalendarCredentials struct {
 // EmailProvider отделяет прикладную доставку от конкретного сервиса и требует идемпотентности по ключу сообщения.
 type EmailProvider interface {
 	// Send доставляет письмо, дедуплицируя повтор по IdempotencyKey.
-	// @parameters: контекст — deadline; письмо — получатель и escaped HTML/plain text.
+	// @args контекст — deadline; письмо — получатель и escaped HTML/plain text.
 	// @return: классифицированная ошибка либо nil после приёма провайдером.
 	Send(context.Context, EmailMessage) error
 }
@@ -172,7 +172,7 @@ type EmailProvider interface {
 // PushProvider заменяет платформенную отправку push без зависимости домена от vendor SDK.
 type PushProvider interface {
 	// Send отправляет минимальное push-событие конкретному устройству.
-	// @parameters: контекст — deadline; сообщение — sensitive token, текст, ссылка и dedup key.
+	// @args контекст — deadline; сообщение — sensitive token, текст, ссылка и dedup key.
 	// @return: классифицированная ошибка либо nil.
 	Send(context.Context, PushMessage) error
 }
@@ -180,19 +180,19 @@ type PushProvider interface {
 // CalendarProvider задаёт минимальный контракт create/update/cancel/get; CreateEvent обязан учитывать idempotency key.
 type CalendarProvider interface {
 	// CreateEvent создаёт не более одного event на стабильный idempotency key.
-	// @parameters: контекст — deadline; credentials — серверный OAuth grant; event — расписание и версия.
+	// @args контекст — deadline; credentials — серверный OAuth grant; event — расписание и версия.
 	// @return: внешний event со стабильным ID либо ошибка.
 	CreateEvent(context.Context, CalendarCredentials, CalendarEvent) (CalendarEvent, error)
 	// UpdateEvent меняет существующий event; более старая SourceVersion не должна вытеснять новую.
-	// @parameters: контекст — deadline; credentials — серверный grant; event — прежний ID и новое расписание.
+	// @args контекст — deadline; credentials — серверный grant; event — прежний ID и новое расписание.
 	// @return: актуальный event либо ошибка.
 	UpdateEvent(context.Context, CalendarCredentials, CalendarEvent) (CalendarEvent, error)
 	// CancelEvent идемпотентно отменяет ранее сопоставленный event.
-	// @parameters: контекст — deadline; credentials — серверный grant; event — существующий ID.
+	// @args контекст — deadline; credentials — серверный grant; event — существующий ID.
 	// @return: безопасная ошибка отмены либо nil.
 	CancelEvent(context.Context, CalendarCredentials, CalendarEvent) error
 	// GetEvent читает event для восстановления либо диагностики mapping.
-	// @parameters: контекст — deadline; credentials — серверный grant; event — внешний ID.
+	// @args контекст — deadline; credentials — серверный grant; event — внешний ID.
 	// @return: актуальный event либо ошибка.
 	GetEvent(context.Context, CalendarCredentials, CalendarEvent) (CalendarEvent, error)
 }
@@ -200,19 +200,19 @@ type CalendarProvider interface {
 // OAuthProvider реализует серверную авторизацию, refresh и revoke с ограниченными настроенными scopes.
 type OAuthProvider interface {
 	// AuthorizeURL строит redirect без client secret в query.
-	// @parameters: state — одноразовое состояние; challenge — S256 PKCE challenge.
+	// @args state — одноразовое состояние; challenge — S256 PKCE challenge.
 	// @return: authorization URL либо ошибка.
 	AuthorizeURL(string, string) (string, error)
 	// Exchange выполняет server-side authorization-code exchange.
-	// @parameters: контекст — deadline; code — одноразовый code; verifier — секрет PKCE.
+	// @args контекст — deadline; code — одноразовый code; verifier — секрет PKCE.
 	// @return: credentials, которые должны быть зашифрованы перед сохранением, либо ошибка.
 	Exchange(context.Context, string, string) (CalendarCredentials, error)
 	// Refresh обновляет access token и обрабатывает refresh token rotation.
-	// @parameters: контекст — deadline; token — серверный refresh token.
+	// @args контекст — deadline; token — серверный refresh token.
 	// @return: новые credentials либо ошибка.
 	Refresh(context.Context, string) (CalendarCredentials, error)
 	// Revoke отзывает внешний grant, не изменяя локальную политику подключения.
-	// @parameters: контекст — deadline; token — server-only access/refresh token.
+	// @args контекст — deadline; token — server-only access/refresh token.
 	// @return: ошибка провайдера либо nil.
 	Revoke(context.Context, string) error
 }

@@ -27,6 +27,7 @@ import (
 )
 
 // Engine задаёт контракт зависимого компонента Engine в защищённом управлении медиа-комнатой; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Join: операция Join с контрактом, описанным у метода.
 //   - Offer: операция SDP-предложение с контрактом, описанным у метода.
 //   - Ready: операция готовность с контрактом, описанным у метода.
@@ -42,7 +43,7 @@ import (
 type Engine interface {
 	// Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
 	//
@@ -52,7 +53,7 @@ type Engine interface {
 	Join(context.Context, media.Binding) (media.PeerView, error)
 	// Offer обрабатывает или передаёт SDP-предложение действующего WebRTC-подключения.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор связанного ресурса, заданного параметром negotiationID.
@@ -64,7 +65,7 @@ type Engine interface {
 	Offer(context.Context, string, string, string) (webrtc.SessionDescription, error)
 	// Ready принимает подтверждение установки SDP-ответа клиентом и разрешает дорожки только для текущего согласования.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор связанного ресурса, заданного параметром negotiationID.
@@ -74,7 +75,7 @@ type Engine interface {
 	Ready(context.Context, string, string) error
 	// ICE передаёт проверенного кандидата ICE действующему медиа-соединению.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (*webrtc.ICECandidateInit): проверенный кандидат ICE для WebRTC-соединения.
@@ -84,7 +85,7 @@ type Engine interface {
 	ICE(context.Context, string, *webrtc.ICECandidateInit) error
 	// Unpublish останавливает публикацию указанного медиа-источника.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор связанного ресурса, заданного параметром trackID.
@@ -94,7 +95,7 @@ type Engine interface {
 	Unpublish(context.Context, string, string) error
 	// Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//
@@ -103,13 +104,13 @@ type Engine interface {
 	Leave(context.Context, string) error
 	// LeaveConnection отключает только указанное физическое медиа-соединение.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор физического медиа-соединения.
 	LeaveConnection(context.Context, string)
 	// PeerBinding возвращает серверную идентичность медиа-пира по физическому соединению.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): идентификатор обрабатываемого ресурса.
 	//
 	// @return:
@@ -124,7 +125,7 @@ type Engine interface {
 	Bindings() []media.Binding
 	// Tracks возвращает снимок доступных опубликованных дорожек комнаты.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): идентификатор обрабатываемого ресурса.
 	//
 	// @return:
@@ -132,7 +133,7 @@ type Engine interface {
 	Tracks(string) []media.Track
 	// CloseConference закрывает все медиа-подключения и ресурсы конкретной конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//
@@ -141,7 +142,7 @@ type Engine interface {
 	CloseConference(context.Context, string) error
 	// Shutdown останавливает менеджер и ожидает завершения принадлежащих ему ресурсов.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//
 	// @return:
@@ -150,7 +151,7 @@ type Engine interface {
 }
 
 // Registry задаёт контракт зависимого компонента Registry в защищённом управлении медиа-комнатой; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-// Состав:
+// @params:
 //   - RegisterWorker: операция Register воркер с контрактом, описанным у метода.
 //   - GetOwner: операция получение владелец с контрактом, описанным у метода.
 //   - Renew: операция Renew с контрактом, описанным у метода.
@@ -159,7 +160,7 @@ type Engine interface {
 type Registry interface {
 	// RegisterWorker сохраняет сведения и срок присутствия доступного медиа-воркера.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (media.Worker): значение worker типа media.Worker, используемое согласно назначению этой операции.
 	//   - аргумент 3 (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
@@ -169,7 +170,7 @@ type Registry interface {
 	RegisterWorker(context.Context, media.Worker, time.Duration) error
 	// GetOwner читает актуального владельца медиа-комнаты и его версию владения.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//
@@ -179,7 +180,7 @@ type Registry interface {
 	GetOwner(context.Context, string) (media.Route, error)
 	// Renew продлевает владение только при совпадении идентичности текущего владельца.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (media.Route): адрес и версия действующего владельца медиа-комнаты.
@@ -190,7 +191,7 @@ type Registry interface {
 	Renew(context.Context, string, media.Route, time.Duration) error
 	// Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (media.Route): адрес и версия действующего владельца медиа-комнаты.
@@ -200,7 +201,7 @@ type Registry interface {
 	Release(context.Context, string, media.Route) error
 	// RemoveWorker удаляет присутствие воркера из реестра.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор воркера-владельца операции.
 	//   - аргумент 3 (string): адрес конечной точки вызываемого сервиса.
@@ -211,12 +212,12 @@ type Registry interface {
 }
 
 // Sessions задаёт контракт зависимого компонента Sessions в защищённом управлении медиа-комнатой; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-// Состав:
+// @params:
 //   - Get: операция получение с контрактом, описанным у метода.
 type Sessions interface {
 	// Get читает состояние ресурсов компонента для дальнейшей обработки или ответа.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//
@@ -227,12 +228,12 @@ type Sessions interface {
 }
 
 // Tickets задаёт контракт зависимого компонента Tickets в защищённом управлении медиа-комнатой; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-// Состав:
+// @params:
 //   - Verify: операция Verify с контрактом, описанным у метода.
 type Tickets interface {
 	// Verify проверяет подпись, срок и содержимое переданного разрешения согласно контракту сервиса.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): исходные байты JSON, пакета или сериализованного значения.
 	//
 	// @return:
@@ -243,7 +244,7 @@ type Tickets interface {
 }
 
 // offerCache сохраняет результат согласования SDP для безопасной повторной обработки предложения.
-// Состав:
+// @params:
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - id: идентификатор обрабатываемого ресурса.
 //   - hash: сохранённый хеш пароля либо контрольная сумма данных.
@@ -256,7 +257,7 @@ type offerCache struct {
 }
 
 // roomGate сериализует управляющие операции одной медиа-комнаты.
-// Состав:
+// @params:
 //   - token: подписанный токен или токен владения, который необходимо проверить.
 //   - refs: значение refs типа int, используемое согласно назначению этой операции.
 type roomGate struct {
@@ -265,7 +266,7 @@ type roomGate struct {
 }
 
 // roomLease хранит локальное подтверждение владения комнатой и срок его действия.
-// Состав:
+// @params:
 //   - route: адрес и версия действующего владельца медиа-комнаты.
 //   - deadline: момент, после которого ожидание или действие прекращается.
 type roomLease struct {
@@ -274,7 +275,7 @@ type roomLease struct {
 }
 
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.
-// Состав:
+// @params:
 //   - cfg: проверенные настройки соответствующего компонента.
 //   - registry: распределённый реестр воркеров и владения комнатами.
 //   - sessions: хранилище и авторизация физических сессий подключения.
@@ -312,7 +313,7 @@ type Handler struct {
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в защищённом управлении медиа-комнатой.
 //
-// @parameters:
+// @args
 //   - cfg (config.MediaConfig): проверенные настройки соответствующего компонента.
 //   - registry (Registry): распределённый реестр воркеров и владения комнатами.
 //   - sessions (Sessions): хранилище и авторизация физических сессий подключения.
@@ -330,7 +331,7 @@ func NewHandler(cfg config.MediaConfig, registry Registry, sessions Sessions, ti
 // lockRoom сериализует управляющую операцию по одной комнате и возвращает освобождение блокировки.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -380,7 +381,7 @@ func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", /* Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - _ (*http.Request): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		*/func(w http.ResponseWriter, _ *http.Request) {
@@ -392,7 +393,7 @@ func (h *Handler) Routes() http.Handler {
 		})
 	mux.HandleFunc("GET /internal/media/metrics", h.auth( /* Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - _ (*http.Request): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		*/func(w http.ResponseWriter, _ *http.Request) { h.json(w, http.StatusOK, h.metrics()) }))
@@ -400,7 +401,7 @@ func (h *Handler) Routes() http.Handler {
 		op := operation
 		mux.HandleFunc("POST /internal/media/"+op, h.auth( /* Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - w (http.ResponseWriter): получатель HTTP-ответа.
 			  - r (*http.Request): входящий HTTP-запрос.
 			*/func(w http.ResponseWriter, r *http.Request) { h.command(w, r, op) }))
@@ -411,7 +412,7 @@ func (h *Handler) Routes() http.Handler {
 
 // auth проверяет секрет защищённого внутреннего запроса API к медиа-воркеру.
 //
-// @parameters:
+// @args
 //   - next (http.HandlerFunc): значение next типа http.HandlerFunc, используемое согласно назначению этой операции.
 //
 // @return:
@@ -419,7 +420,7 @@ func (h *Handler) Routes() http.Handler {
 func (h *Handler) auth(next http.HandlerFunc) http.HandlerFunc {
 	// Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - w (http.ResponseWriter): получатель HTTP-ответа.
 	//   - r (*http.Request): входящий HTTP-запрос.
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -435,7 +436,7 @@ func (h *Handler) auth(next http.HandlerFunc) http.HandlerFunc {
 
 // strictJSON строго разбирает JSON-пакет и отвергает неизвестные поля и лишние данные.
 //
-// @parameters:
+// @args
 //   - raw ([]byte): исходные байты JSON, пакета или сериализованного значения.
 //   - target (any): целевой объект, участник или состояние операции.
 //
@@ -458,7 +459,7 @@ func strictJSON(raw []byte, target any) error {
 
 // validUUID проверяет корректность и ненулевое значение UUID.
 //
-// @parameters:
+// @args
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
 // @return:
@@ -470,7 +471,7 @@ func validUUID(id string) bool {
 
 // sameBinding сравнивает серверную идентичность двух медиа-подключений.
 //
-// @parameters:
+// @args
 //   - a (media.Binding): значение a типа media.Binding, используемое согласно назначению этой операции.
 //   - b (media.Binding): контекст измерения производительности теста.
 //
@@ -482,7 +483,7 @@ func sameBinding(a, b media.Binding) bool {
 
 // sameRoute сравнивает владельца, адрес и версию двух маршрутов медиа-комнаты.
 //
-// @parameters:
+// @args
 //   - a (media.Route): значение a типа media.Route, используемое согласно назначению этой операции.
 //   - b (media.Route): контекст измерения производительности теста.
 //
@@ -494,7 +495,7 @@ func sameRoute(a, b media.Route) bool {
 
 // active проверяет наличие активного медиа-ресурса и его действующей серверной идентичности.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
 //
@@ -520,7 +521,7 @@ func (h *Handler) active(ctx context.Context, binding media.Binding) error {
 // command разбирает и исполняет разрешённую внутреннюю команду управления медиа.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - w (http.ResponseWriter): получатель HTTP-ответа.
 //   - r (*http.Request): входящий HTTP-запрос.
 //   - operation (string): имя внутренней операции обработки.
@@ -803,7 +804,7 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 
 // fail фиксирует ошибочное завершение и запускает предусмотренную очистку ресурса.
 //
-// @parameters:
+// @args
 //   - w (http.ResponseWriter): получатель HTTP-ответа.
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func (h *Handler) fail(w http.ResponseWriter, err error) {
@@ -827,7 +828,7 @@ func (h *Handler) fail(w http.ResponseWriter, err error) {
 
 // json сериализует данные и записывает JSON-ответ с заданным HTTP-статусом.
 //
-// @parameters:
+// @args
 //   - w (http.ResponseWriter): получатель HTTP-ответа.
 //   - status (int): состояние ресурса, ответа или фильтра выборки.
 //   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
@@ -840,7 +841,7 @@ func (h *Handler) json(w http.ResponseWriter, status int, data any) {
 // Start запускает обработку ресурсов компонента и подготавливает связанные ресурсы.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -862,7 +863,7 @@ func (h *Handler) Start(ctx context.Context) (<-chan struct{}, error) {
 	var workers sync.WaitGroup
 	// Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - interval (time.Duration): значение interval типа time.Duration, используемое согласно назначению этой операции.
 	//   - tick (func(context.Context)): вызываемый обработчик «tick» с контрактом, указанным в типе.
 	run := func(interval time.Duration, tick func(context.Context)) {
@@ -911,7 +912,7 @@ func (h *Handler) updateReadyLocked() {
 // leaseValid проверяет, принадлежит ли медиа-комната этому воркеру с действующей версией аренды.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - route (media.Route): адрес и версия действующего владельца медиа-комнаты.
 //
@@ -927,7 +928,7 @@ func (h *Handler) leaseValid(conferenceID string, route media.Route) bool {
 // watchdog проверяет сохранение авторизации и владения ресурсами и закрывает утратившие право ресурсы.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (h *Handler) watchdog(ctx context.Context) {
 	h.mu.Lock()
@@ -948,7 +949,7 @@ func (h *Handler) watchdog(ctx context.Context) {
 // fence прекращает действия компонента после потери действующего владения, чтобы устаревший воркер не продолжил медиа.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - reason (string): причина завершения, отказа или изменения состояния.
 func (h *Handler) fence(ctx context.Context, reason string) {
@@ -989,7 +990,7 @@ func (h *Handler) fence(ctx context.Context, reason string) {
 		closed.Add(1)
 		go /* Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - id (string): идентификатор обрабатываемого ресурса.
 		*/func(id string) { defer closed.Done(); _ = h.engine.CloseConference(ctx, id) }(id)
 	}
@@ -1005,7 +1006,7 @@ func (h *Handler) fence(ctx context.Context, reason string) {
 // heartbeat периодически продлевает активность компонента в распределённом реестре.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (h *Handler) heartbeat(ctx context.Context) {
 	operation, cancel := context.WithTimeout(ctx, h.cfg.OperationTimeout)
@@ -1064,7 +1065,7 @@ func (h *Handler) heartbeat(ctx context.Context) {
 
 // sweep периодически удаляет истёкшие сессии и освобождает утратившие доступ ресурсы.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (h *Handler) sweep(ctx context.Context) {
 	operation, cancel := context.WithTimeout(ctx, h.cfg.OperationTimeout)
@@ -1095,7 +1096,7 @@ func (h *Handler) sweep(ctx context.Context) {
 // releaseEmpty освобождает владение комнатами, в которых больше нет активных подключений.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (h *Handler) releaseEmpty(ctx context.Context) {
 	h.mu.Lock()
@@ -1139,7 +1140,7 @@ func (h *Handler) releaseEmpty(ctx context.Context) {
 // Stop останавливает активную обработку ресурсов компонента и освобождает связанные ресурсы.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:

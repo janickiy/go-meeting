@@ -20,6 +20,7 @@ import (
 )
 
 // Source описывает один устойчивый медиа-источник для общей композиции.
+// @params
 //   - Track: медиа-дорожка, которую обрабатывает или подписывает компонент.
 //   - File: значение File типа string, используемое согласно назначению этой операции.
 //   - Offset: число элементов, пропускаемых перед началом страницы.
@@ -32,18 +33,22 @@ type Source struct {
 }
 
 // Chunk считает фрагмент устойчивым только после закрытия всех потоков и атомарной публикации манифеста.
+// @params
 //   - Index: значение Index типа int, используемое согласно назначению этой операции.
 //   - Duration: плановая длительность или интервал в единицах, заданных типом.
 //   - Sources: набор источников медиа для публикации или композиции.
 //   - Layout: расположение источников в итоговом видеокадре.
 type Chunk struct {
-	Index    int      `json:"index"`
-	Duration float64  `json:"duration"`
-	Sources  []Source `json:"sources"`
-	Layout   Layout   `json:"layout"`
+	Mode        string   `json:"mode,omitempty"`
+	StartedAtNS int64    `json:"startedAtNs,omitempty"`
+	Index       int      `json:"index"`
+	Duration    float64  `json:"duration"`
+	Sources     []Source `json:"sources"`
+	Layout      Layout   `json:"layout"`
 }
 
 // Composer строит общую запись из независимых источников через FFmpeg вне цикла пересылки SFU.
+// @params
 //   - FFmpegPath: значение FFmpegPath типа string, используемое согласно назначению этой операции.
 //   - Width: ширина видеокадра или области в пикселях.
 //   - Height: высота видеокадра или области в пикселях.
@@ -61,7 +66,7 @@ type Composer struct {
 
 // NewComposer создаёт и связывает зависимости компонента Composer, используемого в сборке и проверке аудио- и видеозаписи.
 //
-// @parameters:
+// @args
 //   - path (string): путь к локальному файлу или каталогу операции.
 //   - width (int): ширина видеокадра или области в пикселях.
 //   - height (int): высота видеокадра или области в пикселях.
@@ -92,7 +97,7 @@ func NewComposer(path string, width, height, fps, concurrency int) *Composer {
 // Compose собирает общую аудио- и видеозапись из устойчивых фрагментов источников через FFmpeg.
 // Внешняя команда или запрос использует контекст операции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
 //   - chunk (Chunk): устойчивый фрагмент захваченных источников записи.
@@ -151,7 +156,7 @@ func (c *Composer) Compose(ctx context.Context, dir string, chunk Chunk) error {
 
 // Arguments формирует аргументы FFmpeg для композиции источников и выбранного расположения плиток.
 //
-// @parameters:
+// @args
 //   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
 //   - chunk (Chunk): устойчивый фрагмент захваченных источников записи.
 //   - output (string): значение output типа string, используемое согласно назначению этой операции.
@@ -162,6 +167,9 @@ func (c *Composer) Compose(ctx context.Context, dir string, chunk Chunk) error {
 func (c *Composer) Arguments(dir string, chunk Chunk, output string) ([]string, error) {
 	if chunk.Duration <= 0 || chunk.Duration > 31 {
 		return nil, fmt.Errorf("invalid composite chunk duration")
+	}
+	if chunk.Mode == "audio_only" || chunk.Mode == "individual_tracks" {
+		return c.audioArguments(dir, chunk, output)
 	}
 	args := []string{"-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-filter_complex_threads", "1"}
 	tracks := make([]media.Track, 0, len(chunk.Sources))
@@ -179,6 +187,9 @@ func (c *Composer) Arguments(dir string, chunk Chunk, output string) ([]string, 
 		index[source.Track.ID] = i
 	}
 	layout := GridLayout(tracks, c.Width, c.Height)
+	if chunk.Mode == "screen_focus" && layout.Name == "screen" {
+		layout.Tiles = []Tile{{TrackID: layout.Tiles[0].TrackID, Width: layout.Width, Height: layout.Height}}
+	}
 	duration := strconv.FormatFloat(chunk.Duration, 'f', 6, 64)
 	graph := []string{fmt.Sprintf("color=c=0x101827:s=%dx%d:r=%d:d=%s[base]", layout.Width, layout.Height, c.FPS, duration)}
 	previous := "base"
@@ -212,7 +223,7 @@ func (c *Composer) Arguments(dir string, chunk Chunk, output string) ([]string, 
 
 // Recover восстанавливает доступные устойчивые фрагменты записи после прерывания обработки.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
 //
@@ -251,7 +262,7 @@ type boundedLog struct {
 // Write принимает байты вывода в ограниченный буфер и соблюдает контракт io.Writer.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - p ([]byte): байты, переданные по контракту io.Writer.
 //
 // @return:

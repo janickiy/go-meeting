@@ -1,7 +1,7 @@
 /**
  * User описывает публичные сведения учётной записи без пароля.
  *
- * Состав:
+ * @params:
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - email — адрес электронной почты.
  *   - displayName — необязательное отображаемое имя пользователя.
@@ -24,7 +24,7 @@ export type ConferenceStatus =
 /**
  * Conference описывает встречу, её владельца, жизненный цикл, расписание и настройки ожидания.
  *
- * Состав:
+ * @params:
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - ownerId — идентификатор организатора.
  *   - title — название встречи или диалога.
@@ -57,7 +57,7 @@ export interface Conference {
 /**
  * Participant описывает членство, роль, допуск и сохранённые ограничения медиа участника.
  *
- * Состав:
+ * @params:
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - conferenceId — идентификатор конференции и области данных.
  *   - userId — идентификатор текущего авторизованного пользователя.
@@ -104,7 +104,7 @@ export interface Participant {
 /**
  * ParticipantMediaState связывает признаки медиа с физическим подключением и порядковым номером изменения.
  *
- * Состав:
+ * @params:
  *   - connectionId — идентификатор физического подключения.
  *   - sequence — серверный номер последовательности; строка чата сохраняет точность BIGSERIAL.
  *   - microphoneEnabled — признак включённого микрофона.
@@ -121,7 +121,7 @@ export interface ParticipantMediaState {
 /**
  * ModerationAction ограничивает допустимые действия модерации и их параметры.
  *
- * Состав:
+ * @params:
  *   - action — разрешённое действие управления либо асинхронная операция.
  *   - blocked — требуемое ограничение источника.
  *   - role — роль участника и его полномочия.
@@ -134,7 +134,7 @@ export interface ModerationAction {
 /**
  * ConferenceRecording описывает общую запись конференции, её состояние и доступные артефакты.
  *
- * Состав:
+ * @params:
  *   - uuid — внешний UUID записи.
  *   - conferenceId — идентификатор конференции и области данных.
  *   - mode — режим записи конференции.
@@ -149,7 +149,7 @@ export interface ModerationAction {
 export interface ConferenceRecording {
   uuid: string;
   conferenceId: string;
-  mode: "composite";
+  mode: RecordingMode;
   status:
     | "starting"
     | "recording"
@@ -168,7 +168,7 @@ export interface ConferenceRecording {
 /**
  * Invite передаёт ограниченные сведения встречи по приглашению.
  *
- * Состав:
+ * @params:
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - title — название встречи или диалога.
  *   - status — HTTP-статус либо состояние встречи.
@@ -185,7 +185,7 @@ export interface Invite {
 /**
  * LoginResponse описывает токен, его срок и пользователя успешного входа.
  *
- * Состав:
+ * @params:
  *   - accessToken — подписанный токен учётной записи.
  *   - tokenType — схема Bearer авторизации.
  *   - expiresIn — срок токена в секундах.
@@ -200,7 +200,7 @@ export interface LoginResponse {
 /**
  * Item задаёт стандартный API-ответ с одним типизированным элементом.
  *
- * Состав:
+ * @params:
  *   - status — HTTP-статус либо состояние встречи.
  *   - item — элемент списка, который обрабатывает текущий шаг.
  */
@@ -208,7 +208,7 @@ export type Item<T> = { status: string; item: T };
 /**
  * Items задаёт стандартный API-ответ со списком типизированных элементов.
  *
- * Состав:
+ * @params:
  *   - status — HTTP-статус либо состояние встречи.
  *   - items — элементы результата для объединения или отображения.
  */
@@ -217,7 +217,7 @@ export type Items<T> = { status: string; items: T[] };
 /**
  * PresenceParticipant добавляет к членству онлайн-присутствие и число физических подключений.
  *
- * Состав:
+ * @params:
  *   - online — наличие действующей физической сессии.
  *   - connections — число действующих физических сессий.
  *   - connectionIds — идентификаторы подключений.
@@ -230,7 +230,7 @@ export interface PresenceParticipant extends Participant {
 /**
  * RealtimeState описывает начальный снимок комнаты, идентичность подключения и видимый состав участников.
  *
- * Состав:
+ * @params:
  *   - connectionId — идентификатор физического подключения.
  *   - participantId — идентификатор членства целевого участника.
  *   - status — HTTP-статус либо состояние встречи.
@@ -247,7 +247,7 @@ export interface RealtimeState {
 /**
  * RealtimeEvent описывает версионный конверт доверенного серверного события.
  *
- * Состав:
+ * @params:
  *   - version — версия изменения или протокола.
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - type — машинный тип события.
@@ -268,7 +268,7 @@ export interface RealtimeEvent {
 /**
  * Signal описывает адресацию и нагрузку WebRTC-сигнализации.
  *
- * Состав:
+ * @params:
  *   - targetConnectionId — адресат физического подключения.
  *   - senderConnectionId — подтверждённое сервером подключение отправителя.
  *   - senderParticipantId — подтверждённое членство отправителя.
@@ -286,7 +286,7 @@ export interface Signal {
 /**
  * CursorItems добавляет курсор следующей страницы к списку API.
  *
- * Состав:
+ * @params:
  *   - nextCursor — граница следующей страницы либо отсутствие продолжения.
  */
 export interface CursorItems<T> extends Items<T> {
@@ -295,7 +295,7 @@ export interface CursorItems<T> extends Items<T> {
 /**
  * ConferenceFilters задаёт серверные фильтры текущего пользователя по списку, области, состоянию и датам.
  *
- * Состав:
+ * @params:
  *   - view — раздел будущих, активных или прошедших встреч.
  *   - scope — область собственных или доступных встреч.
  *   - from — нижняя временная граница фильтра.
@@ -312,7 +312,7 @@ export interface ConferenceFilters {
 /**
  * ConferenceInput задаёт входные параметры создания немедленной либо запланированной встречи.
  *
- * Состав:
+ * @params:
  *   - title — название встречи или диалога.
  *   - waitingRoomEnabled — требует допуска перед входом в комнату.
  *   - scheduledAt — однозначная ISO-временная отметка встречи.
@@ -327,7 +327,7 @@ export interface ConferenceInput {
 /**
  * ConferenceHistory описывает сводку завершённой встречи, участников, записей и доступность чата.
  *
- * Состав:
+ * @params:
  *   - conference — поле или операция этого контракта.
  *   - owner — публичные сведения организатора.
  *   - durationSec — измеренная длительность в секундах.
@@ -357,7 +357,7 @@ export interface ConferenceHistory {
 /**
  * ChatAttachment описывает публичные метаданные вложения без внутреннего object key и токена загрузки.
  *
- * Состав:
+ * @params:
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - filename — проверенное имя вложения без внутреннего пути.
  *   - mimeType — проверенный тип содержимого.
@@ -374,7 +374,7 @@ export interface ChatAttachment {
 /**
  * ChatMessage описывает сообщение, автора, версию, ответ и вложения; sequence хранится строкой для точности BIGSERIAL.
  *
- * Состав:
+ * @params:
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - sequence — серверный номер последовательности; строка чата сохраняет точность BIGSERIAL.
  *   - conferenceId — идентификатор конференции и области данных.
@@ -412,7 +412,7 @@ export interface ChatMessage {
 /**
  * ChatPage добавляет непрочитанные и границу прочтения к странице чата.
  *
- * Состав:
+ * @params:
  *   - unreadCount — число доступных непрочитанных элементов.
  *   - lastReadMessageId — последнее сообщение границы прочтения.
  */
@@ -423,7 +423,7 @@ export interface ChatPage extends CursorItems<ChatMessage> {
 /**
  * ChatReadState описывает сохранённую границу прочтения и число чужих непрочитанных сообщений.
  *
- * Состав:
+ * @params:
  *   - lastReadMessageId — последнее сообщение границы прочтения.
  *   - unreadCount — число доступных непрочитанных элементов.
  */
@@ -434,7 +434,7 @@ export interface ChatReadState {
 /**
  * RaisedHand описывает участника и время поднятия его временной руки.
  *
- * Состав:
+ * @params:
  *   - participantId — идентификатор членства целевого участника.
  *   - raisedAt — время исходного поднятия руки.
  */
@@ -450,7 +450,7 @@ export type ReactionEmoji = "👍" | "👏" | "❤️" | "😂";
 /**
  * Notification описывает личное уведомление с ссылочной нагрузкой и отметкой прочтения.
  *
- * Состав:
+ * @params:
  *   - id — идентификатор ресурса или конференции данного запроса.
  *   - userId — идентификатор текущего авторизованного пользователя.
  *   - type — машинный тип события.
@@ -478,7 +478,7 @@ export interface Notification {
 /**
  * NotificationsPage добавляет число непрочитанных к странице личных уведомлений.
  *
- * Состав:
+ * @params:
  *   - unreadCount — число доступных непрочитанных элементов.
  */
 export interface NotificationsPage extends CursorItems<Notification> {
@@ -577,6 +577,9 @@ export interface SummaryView extends Item<MeetingSummary | null> {
 }
 export type SearchSource = "all" | "conference" | "transcript" | "summary";
 export interface SearchFilters {
+  mode?: "keyword" | "semantic" | "hybrid";
+  membership?: "all" | "owned" | "participating";
+  participantId?: string;
   q: string;
   source: SearchSource;
   conferenceId?: string;
@@ -584,6 +587,8 @@ export interface SearchFilters {
   to?: string;
 }
 export interface SearchResult {
+  speaker?: string;
+  speakerId?: string;
   type: Exclude<SearchSource, "all">;
   conferenceId: string;
   conferenceTitle: string;
@@ -593,4 +598,57 @@ export interface SearchResult {
   startMs?: number;
   snippet: string;
   rank: number;
+}
+
+/** RecordingMode ограничивает выбор серверными стратегиями, без параметров FFmpeg. */
+export type RecordingMode =
+  "composite" | "audio_only" | "individual_tracks" | "screen_focus";
+/** Caption содержит серверную идентичность реплики, порядок версий и время внутри встречи. */
+export interface Caption {
+  id: string;
+  conferenceId: string;
+  sessionId: string;
+  participantId: string;
+  speaker: string;
+  trackInstanceId: string;
+  generation: number;
+  cursor: number;
+  sequence: number;
+  revision: number;
+  startMs: number;
+  endMs: number;
+  text: string;
+  language: string;
+  final: boolean;
+}
+/** CaptionState отделяет согласие на распознавание от локального отображения субтитров. */
+export interface CaptionState {
+  conferenceId: string;
+  sessionId: string;
+  enabled: boolean;
+  available: boolean;
+  canManage: boolean;
+  language: string;
+  status: string;
+  generation: number;
+  canonicalRecordingId?: string;
+}
+/** MeetingAnalytics содержит агрегаты без оценки продуктивности или ранжирования участников. */
+export interface MeetingAnalytics {
+  enabled: boolean;
+  durationMs: number;
+  participantCount: number;
+  recordingAvailable: boolean;
+  transcriptAvailable: boolean;
+  timeline: { atMs: number; count: number }[];
+  participants: {
+    participantId: string;
+    displayName: string;
+    participationMs: number;
+    speakingMs: number;
+    observedAudioMs: number;
+    screenMs: number;
+    messageCount: number;
+    handRaises: number;
+  }[];
 }

@@ -11,7 +11,7 @@ import (
 
 // TestOutOfOrderHandEventsUseCurrentState проверяет сценарий «Out Of Order рука события Use текущий состояние», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestOutOfOrderHandEventsUseCurrentState(t *testing.T) {
 	allowed := map[string]bool{"member": true}
@@ -33,7 +33,7 @@ func TestOutOfOrderHandEventsUseCurrentState(t *testing.T) {
 
 // TestStateVisibilityIsPerRecipient проверяет сценарий «состояние Visibility является Per Recipient», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStateVisibilityIsPerRecipient(t *testing.T) {
 	state := domain.State{Participants: []domain.Presence{
@@ -54,7 +54,7 @@ func TestStateVisibilityIsPerRecipient(t *testing.T) {
 
 // TestInitialStateRequiresCurrentAdmission проверяет сценарий «Initial состояние Requires текущий допуск», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestInitialStateRequiresCurrentAdmission(t *testing.T) {
 	for _, test := range []struct {

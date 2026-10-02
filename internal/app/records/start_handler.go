@@ -9,7 +9,7 @@ import (
 )
 
 // Start запускает запись.
-// @parameters:
+// @args
 // - c: Gin context HTTP-запроса.
 // @return JSON response.
 func (h *Handler) Start(c *gin.Context) {

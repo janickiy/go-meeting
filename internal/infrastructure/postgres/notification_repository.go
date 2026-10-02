@@ -26,7 +26,7 @@ func (r *NotificationRepository) DisableLegacyReminders() *NotificationRepositor
 
 // NewNotificationRepository создаёт и связывает зависимости компонента NotificationRepository, используемого в личных уведомлениях и их фоновой доставке.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //
 // @return:
@@ -37,7 +37,7 @@ func NewNotificationRepository(db *gorm.DB) *NotificationRepository {
 
 // List возвращает ограниченный список личных уведомлений пользователя с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - cursor (string): непрозрачная граница продолжения предыдущей страницы.
@@ -73,7 +73,7 @@ func (r *NotificationRepository) List(ctx context.Context, userID, cursor string
 
 // Read читает состояние личных уведомлений пользователя для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -96,7 +96,7 @@ func (r *NotificationRepository) Read(ctx context.Context, userID, id string) (d
 // Generate создаёт постоянные уведомления из расписания и транзакционных заданий, ограничивая порцию обработки.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -118,7 +118,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 		}
 	}
 	// job задаёт согласованное представление данных «задание» для личных уведомлениях и их фоновой доставке.
-	// Состав:
+	// @params:
 	//   - ID: уникальный идентификатор данной сущности.
 	//   - Kind: тип события, ошибки или медиа, определяющий ветку обработки.
 	//   - ConferenceID: идентификатор конференции, ограничивающий область операции.
@@ -135,7 +135,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 	}
 	return r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -162,7 +162,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 				} else {
 					limit := min(100, budget)
 					ids := []string{}
-					q := tx.Table("conference_participants p").Joins("JOIN record r ON r.uuid = ? AND r.platform_conference_id = p.conference_id AND r.mode = 'composite' AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL", item.RecordingID).
+					q := tx.Table("conference_participants p").Joins("JOIN record r ON r.uuid = ? AND r.platform_conference_id = p.conference_id AND r.mode IN ('composite','audio_only','individual_tracks','screen_focus') AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL", item.RecordingID).
 						Where("p.conference_id = ? AND p.user_id IS NOT NULL AND p.admission_state='admitted' AND p.status IN ('joined','left')", item.ConferenceID).
 						Where("COALESCE((SELECT pref.recording FROM notification_preferences pref WHERE pref.user_id=p.user_id),TRUE)").
 						Where("p.created_at <= ? AND (p.admission_decided_at IS NULL OR p.admission_decided_at <= ?)", item.CreatedAt, item.CreatedAt)
@@ -182,7 +182,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
                         JOIN conference_participants p ON p.conference_id=j.conference_id
                         WHERE j.id=? AND p.id IN ? AND p.user_id IS NOT NULL AND p.admission_state='admitted' AND p.status IN ('joined','left')
                           AND p.created_at <= j.created_at AND (p.admission_decided_at IS NULL OR p.admission_decided_at <= j.created_at)
-                          AND r.mode='composite' AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL
+                          AND r.mode IN ('composite','audio_only','individual_tracks','screen_focus') AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL
                           AND COALESCE((SELECT pref.recording FROM notification_preferences pref WHERE pref.user_id=p.user_id),TRUE)
                         ON CONFLICT(user_id,dedup_key) DO NOTHING`, item.ID, ids).Error; err != nil {
 							return err
@@ -207,7 +207,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 
 // Pending возвращает порцию сохранённых уведомлений, ещё не отмеченных как опубликованные.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -221,7 +221,7 @@ func (r *NotificationRepository) Pending(ctx context.Context) ([]domain.Notifica
 
 // Published фиксирует успешную публикацию уведомления, сохраняя возможность безопасного повторения после сбоя.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //

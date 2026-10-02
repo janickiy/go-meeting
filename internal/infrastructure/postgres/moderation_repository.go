@@ -15,7 +15,7 @@ import (
 // Moderate применяет действие модерации с проверкой роли инициатора и ограничений целевого участника.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -32,7 +32,7 @@ func (r *ConferenceRepository) Moderate(ctx context.Context, conferenceID, userI
 	}
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -131,7 +131,7 @@ func (r *ConferenceRepository) Moderate(ctx context.Context, conferenceID, userI
 
 // nullRole представляет отсутствие роли nullable-значением для сохранения в базе.
 //
-// @parameters:
+// @args
 //   - role (conferences.Role): роль участника, определяющая полномочия.
 //
 // @return:
@@ -145,7 +145,7 @@ func nullRole(role conferences.Role) any {
 
 // membershipError переводит отсутствие или ограничение членства в безопасную прикладную ошибку.
 //
-// @parameters:
+// @args
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 //
 // @return:
@@ -160,7 +160,7 @@ func membershipError(err error) error {
 // UpdateMediaState сохраняет заявленное состояние источников медиа участника.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -177,7 +177,7 @@ func (r *ConferenceRepository) UpdateMediaState(ctx context.Context, conferenceI
 	}
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -221,7 +221,7 @@ func (r *ConferenceRepository) UpdateMediaState(ctx context.Context, conferenceI
 
 // MediaPolicy читает действующие серверные ограничения передачи медиа участника.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
@@ -248,7 +248,7 @@ func (r *ConferenceRepository) MediaPolicy(ctx context.Context, conferenceID, pa
 
 // ParticipantPolicy возвращает актуальную политику конкретного участника для проверки медиа.
 //
-// @parameters:
+// @args
 //   - p (conferences.Participant): байты, переданные по контракту io.Writer.
 //
 // @return:
@@ -259,7 +259,7 @@ func ParticipantPolicy(p conferences.Participant) media.ParticipantPolicy {
 
 // ReconcileParticipants выбирает участников, чью сохранённую политику необходимо повторно применить к медиа.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - after (string): значение after типа string, используемое согласно назначению этой операции.
 //   - limit (int): предел количества обрабатываемых элементов.
@@ -277,7 +277,7 @@ func (r *ConferenceRepository) ReconcileParticipants(ctx context.Context, after 
 // ClearDisconnectedMedia сбрасывает сохранённые признаки передачи медиа после закрытия последней действующей сессии.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
@@ -291,7 +291,7 @@ func (r *ConferenceRepository) ClearDisconnectedMedia(ctx context.Context, confe
 	changed := false
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -311,7 +311,7 @@ func (r *ConferenceRepository) ClearDisconnectedMedia(ctx context.Context, confe
 
 // aggregateParticipantMedia объединяет признаки медиа нескольких физических соединений одного участника.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - p (*conferences.Participant): байты, переданные по контракту io.Writer.
 //

@@ -15,7 +15,7 @@ import (
 )
 
 // TestHTTPTranscription проверяет streaming multipart и stable idempotency header.
-// @parameters: t — test runner; server работает только на loopback.
+// @args t — test runner; server работает только на loopback.
 func TestHTTPTranscription(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer secret" || r.Header.Get("Idempotency-Key") != "same-job" {
@@ -51,7 +51,7 @@ func TestHTTPTranscription(t *testing.T) {
 }
 
 // TestProviderFailureClassification проверяет bounded Retry-After и safe errors без ответа сервера.
-// @parameters: t — test runner.
+// @args t — test runner.
 func TestProviderFailureClassification(t *testing.T) {
 	for _, status := range []int{400, 401, 429, 503} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
@@ -72,7 +72,7 @@ func TestProviderFailureClassification(t *testing.T) {
 }
 
 // TestNoopMockAndRedirectPrivacy проверяет честные режимы и запрет переноса Bearer на redirect host.
-// @parameters: t — test runner.
+// @args t — test runner.
 func TestNoopMockAndRedirectPrivacy(t *testing.T) {
 	noop, _ := NewTranscriptionProvider("noop", "", "", time.Second)
 	if _, e := noop.Transcribe(context.Background(), domain.TranscriptionRequest{}); !errors.Is(e, jobs.ErrSkip) {

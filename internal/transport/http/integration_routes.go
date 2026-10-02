@@ -8,7 +8,7 @@ import (
 )
 
 // RegisterIntegrationRoutes подключает preferences/devices/calendar только с общей Bearer авторизацией.
-// @parameters: router — HTTP transport; handler — прикладные обработчики; auth — проверка пользовательского токена;
+// @args router — HTTP transport; handler — прикладные обработчики; auth — проверка пользовательского токена;
 // limiters — необязательный общий Redis limiter, отключаемый только в изолированных тестах.
 func RegisterIntegrationRoutes(router gin.IRouter, handler *app.Handler, auth gin.HandlerFunc, limiters ...middleware.Limiter) {
 	var limiter middleware.Limiter
@@ -16,14 +16,14 @@ func RegisterIntegrationRoutes(router gin.IRouter, handler *app.Handler, auth gi
 		limiter = limiters[0]
 	}
 	// Middleware исключает caching любых интеграционных ответов, включая ошибки.
-	// @parameters: c — HTTP запрос/ответ текущей цепочки.
+	// @args c — HTTP запрос/ответ текущей цепочки.
 	private := func(c *gin.Context) {
 		c.Header("Cache-Control", "private, no-store")
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Next()
 	}
 	// Ключ использует только ранее проверенную Bearer identity, не пользовательский input.
-	// @parameters: c — authenticated запрос.
+	// @args c — authenticated запрос.
 	// @return: идентификатор владельца rate limit bucket.
 	key := func(c *gin.Context) string { return middleware.UserID(c) }
 	rules := []middleware.Rule{}

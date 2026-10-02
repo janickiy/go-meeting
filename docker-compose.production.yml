@@ -83,6 +83,24 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       minio: {condition: service_healthy}
+  live-worker:
+    <<: *process
+    build: {context: ., dockerfile: dockers/live-worker/Dockerfile, target: runtime}
+    environment: {APP_ENV: production, GIN_MODE: release, LIVE_WORKER_PORT: "8093"}
+    mem_limit: 768m
+    cpus: 2
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, "http://127.0.0.1:8093/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      media-worker: {condition: service_healthy}
   frontend:
     build: {context: ./frontend, dockerfile: Dockerfile}
     restart: unless-stopped

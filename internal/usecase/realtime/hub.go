@@ -17,6 +17,7 @@ import (
 )
 
 // Repository задаёт контракт зависимого компонента Repository в присутствии участников и доставке realtime-событий; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Authorize: операция Authorize с контрактом, описанным у метода.
 //   - Open: операция открытие с контрактом, описанным у метода.
 //   - Close: операция закрытие с контрактом, описанным у метода.
@@ -25,7 +26,7 @@ import (
 type Repository interface {
 	// Authorize проверяет право пользователя участвовать в операции до работы с защищёнными ресурсами.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -36,7 +37,7 @@ type Repository interface {
 	Authorize(context.Context, string, string) (conferences.Participant, error)
 	// Open создаёт историческое физическое соединение после проверки права участника.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (domain.Session): историческая физическая сессия или состояние текущего соединения.
 	//
@@ -45,7 +46,7 @@ type Repository interface {
 	Open(context.Context, domain.Session) error
 	// Close закрывает принадлежащие компоненту ресурсы и завершает связанный жизненный цикл.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор физического медиа-соединения.
 	//   - аргумент 3 (time.Time): временная отметка seen; указатель допускает отсутствие значения.
@@ -55,7 +56,7 @@ type Repository interface {
 	Close(context.Context, string, time.Time) error
 	// Stale находит незакрытые исторические сессии старше контрольной границы.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (time.Time): временная отметка before; указатель допускает отсутствие значения.
 	//   - аргумент 3 (string): непрозрачная граница продолжения предыдущей страницы.
@@ -66,7 +67,7 @@ type Repository interface {
 	Stale(context.Context, time.Time, string) ([]domain.Session, error)
 	// Roster читает конференцию и членства для авторизации и построения снимка комнаты.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//
@@ -78,6 +79,7 @@ type Repository interface {
 }
 
 // Store задаёт контракт зависимого компонента Store в присутствии участников и доставке realtime-событий; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Register: операция Register с контрактом, описанным у метода.
 //   - Unregister: операция Unregister с контрактом, описанным у метода.
 //   - Touch: операция Touch с контрактом, описанным у метода.
@@ -89,7 +91,7 @@ type Repository interface {
 type Store interface {
 	// Register регистрирует физическое соединение и его ограниченное по времени присутствие.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (domain.Session): историческая физическая сессия или состояние текущего соединения.
 	//   - аргумент 3 (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
@@ -99,7 +101,7 @@ type Store interface {
 	Register(context.Context, domain.Session, time.Duration) error
 	// Unregister закрывает физическую сессию и обновляет распределённое присутствие участника.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//
@@ -108,7 +110,7 @@ type Store interface {
 	Unregister(context.Context, string) error
 	// Touch продлевает срок активности зарегистрированной физической сессии.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
@@ -118,7 +120,7 @@ type Store interface {
 	Touch(context.Context, string, time.Duration) error
 	// Get читает состояние физических сессий и событий комнаты для дальнейшей обработки или ответа.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//
@@ -128,7 +130,7 @@ type Store interface {
 	Get(context.Context, string) (domain.Session, error)
 	// Active возвращает действующие сессии, учитывая срок их активности.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//
@@ -138,7 +140,7 @@ type Store interface {
 	Active(context.Context, string) ([]domain.Session, error)
 	// Prune удаляет просроченные сессии и возвращает сведения для восстановления присутствия.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//
 	// @return:
@@ -146,7 +148,7 @@ type Store interface {
 	Prune(context.Context) error
 	// Publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (domain.Bus): транспорт публикации и подписки на доверенные события.
 	//
@@ -155,7 +157,7 @@ type Store interface {
 	Publish(context.Context, domain.Bus) error
 	// Subscribe открывает ограниченную по времени подписку на изолированный канал событий.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//
 	// @return:
@@ -165,12 +167,13 @@ type Store interface {
 }
 
 // Socket задаёт контракт зависимого компонента Socket в присутствии участников и доставке realtime-событий; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Offer: операция SDP-предложение с контрактом, описанным у метода.
 //   - Stop: операция остановка с контрактом, описанным у метода.
 type Socket interface {
 	// Offer обрабатывает или передаёт SDP-предложение действующего WebRTC-подключения.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (domain.Envelope): конверт входящего или публикуемого события.
 	//
 	// @return:
@@ -178,7 +181,7 @@ type Socket interface {
 	Offer(domain.Envelope) bool
 	// Stop останавливает активную обработку физических сессий и событий комнаты и освобождает связанные ресурсы.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): причина завершения, отказа или изменения состояния.
 	Stop(string)
 }
@@ -188,7 +191,7 @@ type Socket interface {
 type DisconnectObserver interface {
 	// Disconnected обрабатывает закрытие физического соединения и запускает связанное освобождение ресурсов.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (domain.Session): историческая физическая сессия или состояние текущего соединения.
 	Disconnected(context.Context, domain.Session)
@@ -200,7 +203,7 @@ type DisconnectObservers []DisconnectObserver
 
 // Disconnected обрабатывает закрытие физического соединения и запускает связанное освобождение ресурсов.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 func (observers DisconnectObservers) Disconnected(ctx context.Context, session domain.Session) {
@@ -222,7 +225,7 @@ type localSocket struct {
 }
 
 // Hub координирует локальные сокеты, распределённое присутствие и события с фильтрацией доступа и отдельными приоритетами.
-// Состав:
+// @params
 //   - repo: хранилище постоянных данных прикладного сценария.
 //   - store: значение store типа Store, используемое согласно назначению этой операции.
 //   - ttl: срок жизни сохраняемого значения или выданного разрешения.
@@ -260,7 +263,7 @@ type Hub struct {
 
 // NewHub создаёт и связывает зависимости компонента Hub, используемого в присутствии участников и доставке realtime-событий.
 //
-// @parameters:
+// @args
 //   - repo (Repository): хранилище постоянных данных прикладного сценария.
 //   - store (Store): значение store типа Store, используемое согласно назначению этой операции.
 //   - ttl (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
@@ -292,7 +295,7 @@ func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger
 
 // Authorize проверяет право пользователя участвовать в операции до работы с защищёнными ресурсами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -307,7 +310,7 @@ func (h *Hub) Authorize(ctx context.Context, conferenceID, userID string) (confe
 // SetDisconnectObserver подключает обработчик завершения физической сессии до запуска обслуживания сокетов.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - observer (DisconnectObserver): получатель сохранённых изменений конференции или закрытия сессии.
 func (h *Hub) SetDisconnectObserver(observer DisconnectObserver) {
 	h.mu.Lock()
@@ -318,13 +321,13 @@ func (h *Hub) SetDisconnectObserver(observer DisconnectObserver) {
 // SetHands подключает хранилище поднятых рук для начальных снимков и восстановления состояния.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - store (HandStore): значение store типа HandStore, используемое согласно назначению этой операции.
 func (h *Hub) SetHands(store HandStore) { h.mu.Lock(); h.hands = store; h.mu.Unlock() }
 
 // ValidateSession связывает медиа-команду с действующей разрешённой физической WebSocket-сессией.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 //
@@ -348,7 +351,7 @@ func (h *Hub) ValidateSession(ctx context.Context, session domain.Session) error
 // Prepare подготавливает состояние WebRTC-приёма конкретной записи до обмена SDP.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -374,7 +377,7 @@ func (h *Hub) Prepare(ctx context.Context, conferenceID, userID string) (domain.
 
 // Abort закрывает неудачно зарегистрированную физическую сессию и освобождает её присутствие.
 //
-// @parameters:
+// @args
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 func (h *Hub) Abort(session domain.Session) {
 	ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
@@ -385,7 +388,7 @@ func (h *Hub) Abort(session domain.Session) {
 // Register регистрирует физическое соединение и его ограниченное по времени присутствие.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 //   - socket (Socket): значение socket типа Socket, используемое согласно назначению этой операции.
@@ -434,7 +437,7 @@ func (h *Hub) Register(ctx context.Context, session domain.Session, socket Socke
 // Unregister закрывает физическую сессию и обновляет распределённое присутствие участника.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 func (h *Hub) Unregister(session domain.Session) {
 	h.mu.Lock()
@@ -468,7 +471,7 @@ func (h *Hub) Unregister(session domain.Session) {
 
 // Touch продлевает срок активности зарегистрированной физической сессии.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 //
@@ -483,7 +486,7 @@ func (h *Hub) Touch(ctx context.Context, session domain.Session) error {
 
 // GetActiveSessions возвращает действующие физические сессии для проверки медиа-команд.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //
@@ -496,7 +499,7 @@ func (h *Hub) GetActiveSessions(ctx context.Context, conferenceID string) ([]dom
 
 // Broadcast публикует доверенное событие для разрешённых получателей конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - event (domain.Envelope): конверт входящего или публикуемого события.
 //
@@ -508,7 +511,7 @@ func (h *Hub) Broadcast(ctx context.Context, event domain.Envelope) error {
 
 // SendToParticipant публикует адресное событие физическим сессиям указанного участника.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
@@ -522,7 +525,7 @@ func (h *Hub) SendToParticipant(ctx context.Context, conferenceID, participantID
 
 // SendToConnection публикует доверенное адресное событие конкретному физическому соединению.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 //   - targetID (string): идентификатор связанного ресурса, заданного параметром targetID.
@@ -560,7 +563,7 @@ func (h *Hub) SendToConnection(ctx context.Context, session domain.Session, targ
 
 // ConferenceChanged уведомляет подключённые сессии о сохранённом изменении состояния конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 func (h *Hub) ConferenceChanged(ctx context.Context, conferenceID string) {
@@ -574,7 +577,7 @@ func (h *Hub) ConferenceChanged(ctx context.Context, conferenceID string) {
 // state собирает канонический снимок конференции, участников и поднятых рук.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 //
@@ -627,7 +630,7 @@ func (h *Hub) state(ctx context.Context, session domain.Session) (domain.State, 
 
 // stateFor фильтрует общий снимок под конкретного получателя, скрывая очередь ожидания от обычных участников.
 //
-// @parameters:
+// @args
 //   - state (domain.State): значение state типа domain.State, используемое согласно назначению этой операции.
 //   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
 //
@@ -656,7 +659,7 @@ func stateFor(state domain.State, session domain.Session) domain.State {
 
 // stateAllows проверяет, допускает ли актуальный снимок подключение данной сессии к комнате.
 //
-// @parameters:
+// @args
 //   - state (domain.State): значение state типа domain.State, используемое согласно назначению этой операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
 //
@@ -713,7 +716,7 @@ func (h *Hub) receiveLowPriority() {
 // entries снимает список локальных сокетов под блокировкой для дальнейшей работы вне неё.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //
 // @return:
@@ -733,7 +736,7 @@ func (h *Hub) entries(conferenceID string) []*localSocket {
 // deliver проверяет получателей события и ставит его в соответствующие локальные очереди сокетов.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - bus (domain.Bus): транспорт публикации и подписки на доверенные события.
 func (h *Hub) deliver(bus domain.Bus) {
 	ctx, c := context.WithTimeout(h.ctx, 5*time.Second)
@@ -755,7 +758,7 @@ func (h *Hub) deliver(bus domain.Bus) {
 		// Revalidate recipients from current durable membership, not the socket's
 		// cached identity. A kick/finish can commit before its changed event arrives.
 		kind := bus.Event.Type
-		restricted := strings.HasPrefix(kind, "chat.") || strings.HasPrefix(kind, "recording.") || strings.HasPrefix(kind, "hand.") || strings.HasPrefix(kind, "reaction.") || strings.HasPrefix(kind, "participant.")
+		restricted := strings.HasPrefix(kind, "caption.") || strings.HasPrefix(kind, "chat.") || strings.HasPrefix(kind, "recording.") || strings.HasPrefix(kind, "hand.") || strings.HasPrefix(kind, "reaction.") || strings.HasPrefix(kind, "participant.")
 		allowed := map[string]bool{}
 		if restricted {
 			status, roster, err := h.repo.Roster(ctx, bus.ConferenceID)
@@ -833,7 +836,7 @@ func (h *Hub) deliver(bus domain.Bus) {
 
 // currentHandEvent сверяет событие руки с текущим Redis-состоянием, чтобы запоздалое событие не отменило новое действие.
 //
-// @parameters:
+// @args
 //   - event (domain.Envelope): конверт входящего или публикуемого события.
 //   - hands ([]domain.Hand): временное хранилище поднятых рук в Redis.
 //   - allowed (map[string]bool): индекс значений allowed для поиска и согласования состояния.
@@ -902,7 +905,7 @@ func (h *Hub) janitor() {
 // stopSockets закрывает выбранные локальные сокеты после отзыва доступа или смены состояния конференции.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - reason (string): причина завершения, отказа или изменения состояния.
 func (h *Hub) stopSockets(reason string) {
 	h.mu.Lock()
@@ -958,7 +961,7 @@ func (h *Hub) LocalCount() int { h.mu.Lock(); defer h.mu.Unlock(); return len(h.
 
 // log записывает ограниченную диагностику компонента с указанными параметрами.
 //
-// @parameters:
+// @args
 //   - s (domain.Session): значение s типа domain.Session, используемое согласно назначению этой операции.
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 func (h *Hub) log(s domain.Session, kind string) {

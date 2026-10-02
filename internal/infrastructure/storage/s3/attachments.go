@@ -15,7 +15,7 @@ import (
 
 // CheckAttachmentPrivacy проверяет отсутствие публичной политики бакета для приватных вложений.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -33,7 +33,7 @@ func (c *Client) CheckAttachmentPrivacy(ctx context.Context) error {
 
 // PutAttachment сохраняет байты вложения по ключу, сформированному сервером.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - reader (io.Reader): источник содержимого либо читатель карточек записи согласно типу.
@@ -53,7 +53,7 @@ func (c *Client) PutAttachment(ctx context.Context, key string, reader io.Reader
 
 // StatAttachment читает фактический размер и метаданные объекта перед финализацией.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //
@@ -75,7 +75,7 @@ func (c *Client) StatAttachment(ctx context.Context, key string) (int64, string,
 
 // AttachmentDownloadURL создаёт краткоживущую подписанную ссылку с принудительным скачиванием файла.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - filename (string): проверяемое или формируемое имя файла без управляемого пользователем пути.
@@ -105,7 +105,7 @@ func (c *Client) AttachmentDownloadURL(ctx context.Context, key, filename string
 
 // CleanAttachmentObjects удаляет объекты точного префикса вложения, сохраняя выигравший прикреплённый объект.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - prefix (string): ограниченный префикс объектов, относящихся к одной операции.
 //   - keep (string): объект или значение, которое необходимо сохранить при очистке.
@@ -133,7 +133,7 @@ func (c *Client) CleanAttachmentObjects(ctx context.Context, prefix, keep string
 
 // attachmentID проверяет канонический UUID для безопасного построения ключа объекта.
 //
-// @parameters:
+// @args
 //   - value (string): значение для проверки, нормализации или преобразования.
 //
 // @return:
@@ -145,7 +145,7 @@ func attachmentID(value string) bool {
 
 // attachmentKey проверяет структуру серверного пути вложения и идентификаторы его сегментов.
 //
-// @parameters:
+// @args
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //
 // @return:

@@ -14,6 +14,7 @@ import (
 var errEgressOverflow = errors.New("recording_egress_overflow")
 
 // egress пассивно наблюдает закодированные пакеты; переполнение очереди завершает подписку записи и не задерживает RTP SFU.
+// @params
 //   - manager: значение manager типа *Manager, используемое согласно назначению этой операции.
 //   - room: значение room типа *room, используемое согласно назначению этой операции.
 //   - id: идентификатор обрабатываемого ресурса.
@@ -26,6 +27,7 @@ var errEgressOverflow = errors.New("recording_egress_overflow")
 //   - tracks: набор дорожек, входящих в операцию.
 //   - closeOnce: значение closeOnce типа sync.Once, используемое согласно назначению этой операции.
 type egress struct {
+	audioOnly bool
 	manager   *Manager
 	room      *room
 	id        string
@@ -42,7 +44,7 @@ type egress struct {
 // SubscribeRecording открывает пассивную ограниченную подписку записи на закодированные пакеты SFU.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - recordingID (string): идентификатор записи конференции.
@@ -51,6 +53,20 @@ type egress struct {
 //   - результат 1 (media.EgressSubscription): значение, подготовленное операцией для вызывающей стороны.
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (m *Manager) SubscribeRecording(ctx context.Context, conferenceID, recordingID string) (media.EgressSubscription, error) {
+	return m.subscribeEgress(ctx, conferenceID, recordingID, false)
+}
+
+// SubscribeAudio создаёт отдельную ограниченную подписку только на аудио; запись не занимает её слот.
+// @args ctx — контекст открытия; conferenceID — встреча; sessionID — UUID вспомогательного процесса.
+// @return подписка, деградирующая независимо от RTP и записи, либо ошибка лимита/владения.
+func (m *Manager) SubscribeAudio(ctx context.Context, conferenceID, sessionID string) (media.EgressSubscription, error) {
+	return m.subscribeEgress(ctx, conferenceID, sessionID, true)
+}
+
+// subscribeEgress резервирует не более одной подписки каждого назначения в комнате.
+// @args ctx — отмена; conferenceID/recordingID — UUID; audioOnly — вспомогательный audio tap.
+// @return ограниченный поток или ошибка.
+func (m *Manager) subscribeEgress(ctx context.Context, conferenceID, recordingID string, audioOnly bool) (media.EgressSubscription, error) {
 	for _, id := range []string{conferenceID, recordingID} {
 		parsed, err := uuid.Parse(id)
 		if err != nil || parsed == uuid.Nil {
@@ -75,16 +91,24 @@ func (m *Manager) SubscribeRecording(ctx context.Context, conferenceID, recordin
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if len(r.egresses) > 0 {
-		return nil, media.ErrNegotiation
+	for id, existing := range r.egresses {
+		if id == recordingID || existing.audioOnly == audioOnly {
+			return nil, media.ErrNegotiation
+		}
 	}
-	e := &egress{manager: m, room: r, id: recordingID, frames: make(chan media.EgressFrame, m.opts.EgressQueueSize), done: make(chan struct{}), tracks: map[string]bool{}}
+	queueSize := m.opts.EgressQueueSize
+	if audioOnly {
+		queueSize = min(queueSize, 256)
+	}
+	e := &egress{audioOnly: audioOnly, manager: m, room: r, id: recordingID, frames: make(chan media.EgressFrame, queueSize), done: make(chan struct{}), tracks: map[string]bool{}}
 	e.mu.Lock()
 	e.enqueueLocked(media.EgressFrame{Type: "hello"})
 	e.mu.Unlock()
 	for _, t := range r.tracks {
 		e.addTrack(t)
-		t.requestPLI()
+		if !audioOnly {
+			t.requestPLI()
+		}
 	}
 	r.egresses[recordingID] = e
 	return e, nil
@@ -111,7 +135,7 @@ func (e *egress) Err() error { e.mu.Lock(); defer e.mu.Unlock(); return e.err }
 
 // enqueueLocked добавляет пакет в ограниченную очередь записи; переполнение завершает только подписку записи.
 //
-// @parameters:
+// @args
 //   - frame (media.EgressFrame): значение frame типа media.EgressFrame, используемое согласно назначению этой операции.
 func (e *egress) enqueueLocked(frame media.EgressFrame) {
 	if e.closed {
@@ -125,7 +149,11 @@ func (e *egress) enqueueLocked(frame media.EgressFrame) {
 	select {
 	case e.frames <- frame:
 	default:
-		e.manager.egressDropped.Add(1)
+		if e.audioOnly {
+			e.manager.audioTapDropped.Add(1)
+		} else {
+			e.manager.egressDropped.Add(1)
+		}
 		e.closed = true
 		e.err = errEgressOverflow
 		close(e.done)
@@ -135,12 +163,12 @@ func (e *egress) enqueueLocked(frame media.EgressFrame) {
 // addTrack добавляет описание дорожки в подписку записи.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func (e *egress) addTrack(t *publishedTrack) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.closed || e.tracks[t.metadata.ID] || !t.permitted.Load() {
+	if e.closed || e.tracks[t.metadata.ID] || !t.permitted.Load() || (e.audioOnly && t.metadata.Kind != media.KindAudio) {
 		return
 	}
 	e.tracks[t.metadata.ID] = true
@@ -152,7 +180,7 @@ func (e *egress) addTrack(t *publishedTrack) {
 // endTrack обозначает завершение дорожки в подписке записи.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func (e *egress) endTrack(t *publishedTrack) {
 	e.mu.Lock()
@@ -167,7 +195,7 @@ func (e *egress) endTrack(t *publishedTrack) {
 // packet передаёт закодированный пакет в ограниченную очередь подписки записи.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - raw ([]byte): исходные байты JSON, пакета или сериализованного значения.
 //   - at (int64): однозначное время планируемой операции; nil означает отсутствие значения, если это допускает тип.
@@ -183,7 +211,7 @@ func (e *egress) packet(t *publishedTrack, raw []byte, at int64) {
 // fail фиксирует ошибочное завершение и запускает предусмотренную очистку ресурса.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func (e *egress) fail(err error) {
 	e.mu.Lock()
@@ -237,13 +265,16 @@ func (e *egress) Ping() {
 // recordPacket передаёт наблюдаемую копию закодированного пакета подписчикам записи.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - packet (*rtp.Packet): закодированный RTP- или управляющий пакет.
 func (m *Manager) recordPacket(t *publishedTrack, packet *rtp.Packet) {
 	t.publisher.room.mu.Lock()
 	egresses := make([]*egress, 0, len(t.publisher.room.egresses))
 	for _, e := range t.publisher.room.egresses {
+		if e.audioOnly && t.metadata.Kind != media.KindAudio {
+			continue
+		}
 		egresses = append(egresses, e)
 	}
 	t.publisher.room.mu.Unlock()

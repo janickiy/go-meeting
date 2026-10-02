@@ -15,6 +15,7 @@ import (
 )
 
 // repository задаёт контракт зависимого компонента repository в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Create: операция создание с контрактом, описанным у метода.
 //   - Get: операция получение с контрактом, описанным у метода.
 //   - GetByInvite: операция получение By Invite с контрактом, описанным у метода.
@@ -27,7 +28,7 @@ import (
 type repository interface {
 	// Create создаёт новое состояние конференций и членств участников по переданным параметрам.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (domain.Conference): конференция либо её идентификатор, ограничивающий область операции.
 	//   - аргумент 3 (domain.Participant): значение owner типа domain.Participant, используемое согласно назначению этой операции.
@@ -38,7 +39,7 @@ type repository interface {
 	Create(context.Context, domain.Conference, domain.Participant) (domain.Conference, error)
 	// Get читает состояние конференций и членств участников для дальнейшей обработки или ответа.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//
@@ -48,7 +49,7 @@ type repository interface {
 	Get(context.Context, string) (domain.Conference, error)
 	// GetByInvite находит конференцию по действующему коду приглашения.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): код приглашения или машинный код результата.
 	//
@@ -58,7 +59,7 @@ type repository interface {
 	GetByInvite(context.Context, string) (domain.Conference, error)
 	// ListForUser возвращает конференции, доступные указанному пользователю.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
@@ -70,7 +71,7 @@ type repository interface {
 	ListForUser(context.Context, string, int, int) ([]domain.Conference, error)
 	// Membership читает членство пользователя в заданной конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -81,7 +82,7 @@ type repository interface {
 	Membership(context.Context, string, string) (domain.Participant, error)
 	// Participants возвращает разрешённую страницу участников конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
@@ -93,7 +94,7 @@ type repository interface {
 	Participants(context.Context, string, int, int) ([]domain.Participant, error)
 	// Transition выполняет разрешённый переход состояния конференции или записи.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -105,7 +106,7 @@ type repository interface {
 	Transition(context.Context, string, string, domain.Status) (domain.Conference, error)
 	// Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (users.User): пользователь либо его идентификатор, определяющий область доступа.
@@ -117,7 +118,7 @@ type repository interface {
 	Join(context.Context, string, users.User, string) (domain.Participant, error)
 	// Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -133,7 +134,7 @@ type repository interface {
 type userRepository interface {
 	// GetByID читает учётную запись по её идентификатору.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//
@@ -144,6 +145,7 @@ type userRepository interface {
 }
 
 // Service объединяет зависимости прикладного сценария и координирует его операции.
+// @params
 //   - repository: хранилище постоянных данных прикладного сценария.
 //   - users: хранилище учётных записей пользователей.
 //   - invite: операция invite с контрактом, описанным у метода.
@@ -157,7 +159,7 @@ type Service struct {
 
 // NewService создаёт и связывает зависимости компонента Service, используемого в жизненном цикле конференций и правах участников.
 //
-// @parameters:
+// @args
 //   - repository (repository): хранилище постоянных данных прикладного сценария.
 //   - users (userRepository): хранилище учётных записей пользователей.
 //   - invite (func() (string, error)): вызываемый обработчик «invite» с контрактом, указанным в типе.
@@ -170,7 +172,7 @@ func NewService(repository repository, users userRepository, invite func() (stri
 
 // SetObserver подключает обработчик изменений конференции при сборке приложения.
 //
-// @parameters:
+// @args
 //   - observer (interface{ ConferenceChanged(context.Context, string) }): получатель сохранённых изменений конференции или закрытия сессии.
 func (s *Service) SetObserver(observer interface{ ConferenceChanged(context.Context, string) }) {
 	s.observer = observer
@@ -178,7 +180,7 @@ func (s *Service) SetObserver(observer interface{ ConferenceChanged(context.Cont
 
 // changed сообщает зависимым обработчикам об изменении локального или сохранённого состояния.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 func (s *Service) changed(ctx context.Context, id string) {
@@ -189,7 +191,7 @@ func (s *Service) changed(ctx context.Context, id string) {
 
 // Create создаёт новое состояние конференций и членств участников по переданным параметрам.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - request (domain.CreateRequest): входные параметры соответствующего прикладного запроса.
@@ -241,7 +243,7 @@ func (s *Service) Create(ctx context.Context, userID string, request domain.Crea
 
 // List возвращает ограниченный список конференций и членств участников с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - limit (int): максимальное число элементов страницы или порции обработки.
@@ -266,7 +268,7 @@ func (s *Service) List(ctx context.Context, userID string, limit, offset int) ([
 
 // Read читает состояние конференций и членств участников для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -295,7 +297,7 @@ func (s *Service) Read(ctx context.Context, userID, id string) (domain.View, err
 
 // Transition выполняет разрешённый переход состояния конференции или записи.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -315,7 +317,7 @@ func (s *Service) Transition(ctx context.Context, userID, id string, target doma
 
 // Participants возвращает разрешённую страницу участников конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -362,7 +364,7 @@ func (s *Service) Participants(ctx context.Context, userID, id string, limit, of
 
 // Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -392,7 +394,7 @@ func (s *Service) Join(ctx context.Context, userID, id string, request domain.Jo
 
 // Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -411,7 +413,7 @@ func (s *Service) Leave(ctx context.Context, userID, id string) (domain.Particip
 
 // LookupInvite находит ограниченные сведения о конференции по коду приглашения.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - code (string): код приглашения или машинный код результата.
 //
@@ -431,7 +433,7 @@ func (s *Service) LookupInvite(ctx context.Context, code string) (domain.InviteV
 
 // JoinInvite присоединяет авторизованного пользователя по коду приглашения с сохранением существующего членства.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - code (string): код приглашения или машинный код результата.
@@ -449,7 +451,7 @@ func (s *Service) JoinInvite(ctx context.Context, userID, code string) (domain.P
 
 // currentUser читает учётную запись и подготавливает сведения участника текущей операции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -466,7 +468,7 @@ func (s *Service) currentUser(ctx context.Context, id string) (users.User, error
 
 // event формирует серверное событие сохранённого изменения членства конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -481,7 +483,7 @@ func (s *Service) event(ctx context.Context, kind, id string, participant domain
 
 // validInvite проверяет форму кода приглашения перед обращением к хранилищу.
 //
-// @parameters:
+// @args
 //   - code (string): код приглашения или машинный код результата.
 //
 // @return:

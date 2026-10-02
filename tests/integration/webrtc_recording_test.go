@@ -21,7 +21,7 @@ import (
 
 // TestSyntheticWebRTCRecording проверяет сценарий «Synthetic Web RTC запись», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSyntheticWebRTCRecording(t *testing.T) {
 	base, fixture := os.Getenv("RECORDER_TEST_URL"), os.Getenv("RECORDER_TEST_IVF")
@@ -71,7 +71,7 @@ func TestSyntheticWebRTCRecording(t *testing.T) {
 	states := make(chan webrtc.PeerConnectionState, 8)
 	pc.OnConnectionStateChange( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - state (webrtc.PeerConnectionState): значение state типа webrtc.PeerConnectionState, используемое согласно назначению этой операции.
 		*/func(state webrtc.PeerConnectionState) {
 			select {
@@ -220,7 +220,7 @@ connected:
 }
 
 // localAPI хранит изолированное состояние тестового компонента «локальный API».
-// Состав:
+// @params:
 //   - base: значение base типа string, используемое согласно назначению этой операции.
 //   - client: клиент внешнего сервиса или транспорта компонента.
 type localAPI struct {
@@ -230,7 +230,7 @@ type localAPI struct {
 
 // record подготавливает или проверяет часть тестового сценария «запись».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -247,7 +247,7 @@ func (a *localAPI) record(t *testing.T, id string) records.RecordCard {
 
 // json сериализует данные и записывает JSON-ответ с заданным HTTP-статусом.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - method (string): значение method типа string, используемое согласно назначению этой операции.
 //   - path (string): путь к локальному файлу или каталогу операции.

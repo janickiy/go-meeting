@@ -12,7 +12,7 @@ import (
 
 // TestStartReturnsConflictWhenConferenceLockExists проверяет сценарий «запуск Returns Conflict когда конференция Lock Exists», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStartReturnsConflictWhenConferenceLockExists(t *testing.T) {
 	repository := &fakeRepository{}
@@ -39,7 +39,7 @@ func TestStartReturnsConflictWhenConferenceLockExists(t *testing.T) {
 
 // TestStartKeepsConferenceLockAfterWorkerPrepare проверяет сценарий «запуск Keeps конференция Lock после воркер Prepare», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStartKeepsConferenceLockAfterWorkerPrepare(t *testing.T) {
 	repository := &fakeRepository{}
@@ -81,7 +81,7 @@ func TestStartKeepsConferenceLockAfterWorkerPrepare(t *testing.T) {
 
 // TestStartReleasesConferenceLockWhenWorkerPrepareFails проверяет сценарий «запуск Releases конференция Lock когда воркер Prepare Fails», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStartReleasesConferenceLockWhenWorkerPrepareFails(t *testing.T) {
 	repository := &fakeRepository{}
@@ -108,7 +108,7 @@ func TestStartReleasesConferenceLockWhenWorkerPrepareFails(t *testing.T) {
 
 // TestStopKeepsConferenceLockUntilWorkerStopsMedia проверяет сценарий «остановка Keeps конференция Lock Until воркер Stops медиа», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStopKeepsConferenceLockUntilWorkerStopsMedia(t *testing.T) {
 	repository := &fakeRepository{
@@ -143,13 +143,13 @@ func TestStopKeepsConferenceLockUntilWorkerStopsMedia(t *testing.T) {
 
 // TestStopDoesNotReopenCompletedOrFinalizingRecord проверяет сценарий «остановка выполняет не Reopen Completed Or Finalizing запись», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStopDoesNotReopenCompletedOrFinalizingRecord(t *testing.T) {
 	for _, status := range []string{records.StatusReady, records.StatusPartialReady, records.StatusFailed, records.StatusCancelled, records.StatusFinalizing, records.StatusUploading} {
 		t.Run(status, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				repository := &fakeRepository{record: records.Record{UUID: "record-1", Status: status}}
@@ -167,7 +167,7 @@ func TestStopDoesNotReopenCompletedOrFinalizingRecord(t *testing.T) {
 
 // TestStopRetriesPublishWithoutChangingStopMetadata проверяет сценарий «остановка Retries публикация без Changing остановка Metadata», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStopRetriesPublishWithoutChangingStopMetadata(t *testing.T) {
 	repository := &fakeRepository{record: records.Record{UUID: "record-1", Status: records.StatusRecording}}
@@ -194,7 +194,7 @@ func TestStopRetriesPublishWithoutChangingStopMetadata(t *testing.T) {
 
 // TestStopIgnoresStaleState проверяет сценарий «остановка Ignores устаревший состояние», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStopIgnoresStaleState(t *testing.T) {
 	repository := &fakeRepository{record: records.Record{UUID: "record-1", Status: records.StatusRecording}, markStoppingErr: records.ErrRecordStateChanged}
@@ -210,7 +210,7 @@ func TestStopIgnoresStaleState(t *testing.T) {
 
 // TestCountByConferenceReturnsRecordsWithTimeFields проверяет сценарий «количество By конференция Returns Records с время Fields», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCountByConferenceReturnsRecordsWithTimeFields(t *testing.T) {
 	duration := 37
@@ -265,7 +265,7 @@ func TestCountByConferenceReturnsRecordsWithTimeFields(t *testing.T) {
 }
 
 // fakeRepository реализует постоянное хранение ресурсов компонента через GORM.
-// Состав:
+// @params:
 //   - createCalled: логический признак createCalled, управляющий соответствующей веткой обработки.
 //   - markFailedCalled: логический признак markFailedCalled, управляющий соответствующей веткой обработки.
 //   - markStoppingCalled: логический признак markStoppingCalled, управляющий соответствующей веткой обработки.
@@ -291,7 +291,7 @@ type fakeRepository struct {
 
 // Create создаёт новое состояние ресурсов компонента по переданным параметрам.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - record (records.Record): задача записи с её сохранённым состоянием.
 //
@@ -310,7 +310,7 @@ func (r *fakeRepository) Create(_ context.Context, record records.Record) (recor
 
 // FindByUUID читает задачу записи по её внешнему UUID.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //
@@ -327,7 +327,7 @@ func (r *fakeRepository) FindByUUID(_ context.Context, _ string) (records.Record
 
 // MarkStopping условно переводит задачу записи в состояние «Stopping», соблюдая ограничения жизненного цикла.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
@@ -344,7 +344,7 @@ func (r *fakeRepository) MarkStopping(_ context.Context, _ string, _ string) err
 
 // MarkFailed условно переводит задачу записи в состояние «Failed», соблюдая ограничения жизненного цикла.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (error): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
@@ -359,7 +359,7 @@ func (r *fakeRepository) MarkFailed(_ context.Context, _ string, _ error) error 
 
 // ListDetails читает записи вместе со связанными артефактами и событиями.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (int): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (int): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
@@ -373,7 +373,7 @@ func (r *fakeRepository) ListDetails(_ context.Context, _ int, _ int) ([]records
 
 // ListSummaryDetailsByConferenceIDs пакетно читает краткие сведения записей нескольких конференций без запроса для каждой записи.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceIDs ([]string): идентификаторы конференций для пакетной выборки.
 //   - status (string): состояние ресурса, ответа или фильтра выборки.
@@ -391,7 +391,7 @@ func (r *fakeRepository) ListSummaryDetailsByConferenceIDs(_ context.Context, co
 
 // FindDetailsByUUID читает задачу записи и связанные сведения по её UUID.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //
@@ -403,7 +403,7 @@ func (r *fakeRepository) FindDetailsByUUID(_ context.Context, _ string) (records
 }
 
 // fakeWorkerCommander хранит изолированное состояние тестового компонента «fake воркер Commander».
-// Состав:
+// @params:
 //   - startCalled: логический признак startCalled, управляющий соответствующей веткой обработки.
 //   - startRecordID: идентификатор связанного ресурса, заданного параметром startRecordID.
 //   - startDurationSec: значение startDurationSec типа int, используемое согласно назначению этой операции.
@@ -425,7 +425,7 @@ type fakeWorkerCommander struct {
 
 // StartRecord передаёт команду начала записи выбранному транспорту воркера.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - recordID (string): внешний UUID задачи записи.
 //   - segmentDurationSec (int): плановая длительность сегмента записи в секундах.
@@ -442,7 +442,7 @@ func (c *fakeWorkerCommander) StartRecord(_ context.Context, recordID string, se
 
 // StopRecord передаёт команду остановки записи выбранному транспорту воркера.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - recordID (string): внешний UUID задачи записи.
 //   - reason (string): причина завершения, отказа или изменения состояния.
@@ -458,7 +458,7 @@ func (c *fakeWorkerCommander) StopRecord(_ context.Context, recordID string, rea
 }
 
 // fakeConferenceLocker хранит изолированное состояние тестового компонента «fake конференция Locker».
-// Состав:
+// @params:
 //   - acquireOK: логический признак acquireOK, управляющий соответствующей веткой обработки.
 //   - acquireCalled: логический признак acquireCalled, управляющий соответствующей веткой обработки.
 //   - releaseCalled: логический признак releaseCalled, управляющий соответствующей веткой обработки.
@@ -470,7 +470,7 @@ type fakeConferenceLocker struct {
 
 // Acquire пытается занять блокировку ресурса на ограниченный срок без замены действующего владельца.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
@@ -486,7 +486,7 @@ func (l *fakeConferenceLocker) Acquire(_ context.Context, _ string, _ string) (b
 
 // Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.

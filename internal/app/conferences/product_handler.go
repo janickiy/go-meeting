@@ -15,7 +15,7 @@ import (
 
 // Self возвращает собственное членство пользователя, включая состояние ожидания и решение о допуске.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Self(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -32,7 +32,7 @@ func (h *Handler) Self(c *gin.Context) {
 
 // Admission обрабатывает решение о допуске или отказе с проверкой полномочий организатора.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Admission(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -58,7 +58,7 @@ func (h *Handler) Admission(c *gin.Context) {
 
 // Schedule обновляет расписание запланированной встречи с проверкой полномочий владельца.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Schedule(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -79,7 +79,7 @@ func (h *Handler) Schedule(c *gin.Context) {
 
 // History собирает сведения завершённой встречи, историю участников и сводку записей с проверкой доступа.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) History(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -96,7 +96,7 @@ func (h *Handler) History(c *gin.Context) {
 
 // Timeline возвращает страницу встреч текущего пользователя с фильтрами будущих, активных и прошедших встреч.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Timeline(c *gin.Context) {
 	query := conferences.TimelineQuery{View: c.DefaultQuery("view", "upcoming"), Scope: c.DefaultQuery("scope", "all"), Status: conferences.Status(c.Query("status")), Cursor: c.Query("cursor"), Limit: 20}

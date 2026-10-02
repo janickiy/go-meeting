@@ -23,7 +23,7 @@ const rid = "ac174d19-b4ef-45a4-a85a-3989a1798c22"
 type verifier struct{}
 
 // Verify не получает userID из запроса и исключает ID spoofing.
-// @parameters: token — тестовая строка Bearer.
+// @args token — тестовая строка Bearer.
 // @return authenticated actor или ошибка token.
 func (verifier) Verify(token string) (string, error) {
 	if token != "test" {
@@ -40,7 +40,7 @@ type fakeService struct {
 }
 
 // Transcript выдаёт nullable state и authoritative capability.
-// @parameters: ctx/user/cid/rid — область авторизованного request.
+// @args ctx/user/cid/rid — область авторизованного request.
 // @return controlled state, без nested envelope.
 func (s *fakeService) Transcript(_ context.Context, user, conference, recording string) (domain.TranscriptState, error) {
 	s.called = true
@@ -54,7 +54,7 @@ func (s *fakeService) Transcript(_ context.Context, user, conference, recording 
 }
 
 // Search выдаёт plain-text fixture с timestamp и фильтром server actor.
-// @parameters: ctx/user/query — проверяемый contract HTTP parsing.
+// @args ctx/user/query — проверяемый contract HTTP parsing.
 // @return bounded search page.
 func (s *fakeService) Search(_ context.Context, user string, q domain.SearchQuery) (domain.SearchPage, error) {
 	s.called = true
@@ -62,7 +62,7 @@ func (s *fakeService) Search(_ context.Context, user string, q domain.SearchQuer
 }
 
 // RetryTranscript только ставит fixture generation в очередь.
-// @parameters: ctx/user/cid/rid — auth/resource identity.
+// @args ctx/user/cid/rid — auth/resource identity.
 // @return metadata queued без внешнего вызова.
 func (s *fakeService) RetryTranscript(context.Context, string, string, string) (domain.TranscriptState, error) {
 	s.called = true
@@ -70,7 +70,7 @@ func (s *fakeService) RetryTranscript(context.Context, string, string, string) (
 }
 
 // TestContentHTTPPrivacyAndValidation проверяет cache/auth, UUID/JSON/date errors и nullable response.
-// @parameters: t — test runner.
+// @args t — test runner.
 func TestContentHTTPPrivacyAndValidation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	service := &fakeService{}

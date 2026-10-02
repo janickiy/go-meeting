@@ -9,7 +9,7 @@ import (
 
 // TestAdmissionAuthorization проверяет сценарий «допуск авторизация», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAdmissionAuthorization(t *testing.T) {
 	for _, state := range []AdmissionState{AdmissionWaiting, AdmissionAdmitted, AdmissionRejected, AdmissionKicked} {
@@ -52,7 +52,7 @@ func TestAdmissionAuthorization(t *testing.T) {
 
 // TestScheduleAndTimelineValidation проверяет сценарий «расписание и Timeline проверка входных данных», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestScheduleAndTimelineValidation(t *testing.T) {
 	for _, target := range []Status{Active, Cancelled} {

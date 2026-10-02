@@ -29,7 +29,7 @@ type OAuth struct {
 }
 
 // NewOAuth валидирует независимую конфигурацию OAuth и запрещает redirects с секретами.
-// @parameters: cfg — фиксированные endpoints, credentials и redirect URI.
+// @args cfg — фиксированные endpoints, credentials и redirect URI.
 // @return: адаптер либо ошибка небезопасной конфигурации.
 func NewOAuth(cfg OAuthConfig) (*OAuth, error) {
 	if cfg.ClientID == "" || cfg.ClientSecret == "" || len(cfg.Scopes) == 0 {
@@ -51,7 +51,7 @@ func NewOAuth(cfg OAuthConfig) (*OAuth, error) {
 }
 
 // AuthorizeURL строит authorization запрос с одноразовым state и S256 PKCE challenge.
-// @parameters: state — случайный непрозрачный state; challenge — SHA-256 verifier в base64url.
+// @args state — случайный непрозрачный state; challenge — SHA-256 verifier в base64url.
 // @return: URL redirect к настроенному серверу авторизации либо ошибка.
 func (o *OAuth) AuthorizeURL(state, challenge string) (string, error) {
 	u, err := url.Parse(o.cfg.AuthorizationURL)
@@ -80,7 +80,7 @@ type tokenResponse struct {
 }
 
 // request выполняет фиксированный OAuth endpoint и не включает response body в ошибки.
-// @parameters: ctx — отмена; endpoint — доверенный URL; form — OAuth grant/revoke параметры; response — токены либо nil.
+// @args ctx — отмена; endpoint — доверенный URL; form — OAuth grant/revoke параметры; response — токены либо nil.
 // @return: классифицированная безопасная ошибка.
 func (o *OAuth) request(ctx context.Context, endpoint string, form url.Values, response *tokenResponse) error {
 	form.Set("client_id", o.cfg.ClientID)
@@ -116,7 +116,7 @@ func (o *OAuth) request(ctx context.Context, endpoint string, form url.Values, r
 }
 
 // credentials преобразует OAuth JSON в серверные credentials, не выдаваемые клиенту.
-// @parameters: r — валидированный OAuth response.
+// @args r — валидированный OAuth response.
 // @return: tokens, scopes и однозначное UTC expiry.
 func credentials(r tokenResponse) d.CalendarCredentials {
 	var at *time.Time
@@ -128,7 +128,7 @@ func credentials(r tokenResponse) d.CalendarCredentials {
 }
 
 // Exchange меняет одноразовый authorization code с PKCE verifier на серверные токены.
-// @parameters: ctx — отмена; code — authorization code; verifier — секрет S256 verifier.
+// @args ctx — отмена; code — authorization code; verifier — секрет S256 verifier.
 // @return: credentials либо безопасная ошибка.
 func (o *OAuth) Exchange(ctx context.Context, code, verifier string) (d.CalendarCredentials, error) {
 	var r tokenResponse
@@ -137,7 +137,7 @@ func (o *OAuth) Exchange(ctx context.Context, code, verifier string) (d.Calendar
 }
 
 // Refresh обновляет истёкший access token, сохраняя старый refresh token при отсутствии rotation.
-// @parameters: ctx — отмена; token — зашифрованный на диске refresh token после серверной расшифровки.
+// @args ctx — отмена; token — зашифрованный на диске refresh token после серверной расшифровки.
 // @return: новые credentials либо ошибка.
 func (o *OAuth) Refresh(ctx context.Context, token string) (d.CalendarCredentials, error) {
 	var r tokenResponse
@@ -149,7 +149,7 @@ func (o *OAuth) Refresh(ctx context.Context, token string) (d.CalendarCredential
 }
 
 // Revoke отзывает provider token; локальное отключение остаётся обязательным даже при сетевом сбое.
-// @parameters: ctx — отмена; token — access/refresh token владельца подключения.
+// @args ctx — отмена; token — access/refresh token владельца подключения.
 // @return: безопасная ошибка внешнего отзыва.
 func (o *OAuth) Revoke(ctx context.Context, token string) error {
 	return o.request(ctx, o.cfg.RevokeURL, url.Values{"token": {token}}, nil)

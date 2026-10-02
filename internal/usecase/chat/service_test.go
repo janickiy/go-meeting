@@ -11,7 +11,7 @@ import (
 
 // TestValidateAttachmentBytesNotBrowserMIME проверяет сценарий «Validate вложение байты не браузер MIME», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestValidateAttachmentBytesNotBrowserMIME(t *testing.T) {
 	for _, sample := range []struct {

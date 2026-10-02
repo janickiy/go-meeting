@@ -2,6 +2,9 @@ package realtime
 
 import (
 	"context"
+	"time"
+
+	"github.com/janickiy/go-recorder/internal/operations"
 
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/conferences"
@@ -9,13 +12,14 @@ import (
 )
 
 // HandStore задаёт контракт зависимого компонента HandStore в поднятых руках и временных реакциях участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Raise: операция Raise с контрактом, описанным у метода.
 //   - Lower: операция Lower с контрактом, описанным у метода.
 //   - List: операция список с контрактом, описанным у метода.
 type HandStore interface {
 	// Raise сохраняет поднятую руку в Redis с ограничением количества и времени хранения.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор членства участника внутри конференции.
@@ -27,7 +31,7 @@ type HandStore interface {
 	Raise(context.Context, string, string) (domain.Hand, bool, error)
 	// Lower удаляет активную поднятую руку из Redis.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор членства участника внутри конференции.
@@ -38,7 +42,7 @@ type HandStore interface {
 	Lower(context.Context, string, string) (bool, error)
 	// List возвращает ограниченный список поднятых рук и реакций комнаты с принятыми в данном слое фильтрами.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//
@@ -53,14 +57,21 @@ type HandStore interface {
 //   - hands: временное хранилище поднятых рук в Redis.
 //   - hub: координатор присутствия и доставки событий комнаты.
 type Engagement struct {
-	repo  Repository
-	hands HandStore
-	hub   *Hub
+	handObserver func(context.Context, string, domain.Hand) error
+	repo         Repository
+	hands        HandStore
+	hub          *Hub
+}
+
+// SetHandObserver подключает bounded запись технического счётчика успешных поднятий руки.
+// @args observer — функция сохранения агрегата, не влияющая на права или Redis state.
+func (s *Engagement) SetHandObserver(observer func(context.Context, string, domain.Hand) error) {
+	s.handObserver = observer
 }
 
 // NewEngagement создаёт и связывает зависимости компонента Engagement, используемого в поднятых руках и временных реакциях участников.
 //
-// @parameters:
+// @args
 //   - repo (Repository): хранилище постоянных данных прикладного сценария.
 //   - hands (HandStore): временное хранилище поднятых рук в Redis.
 //   - hub (*Hub): координатор присутствия и доставки событий комнаты.
@@ -73,7 +84,7 @@ func NewEngagement(repo Repository, hands HandStore, hub *Hub) *Engagement {
 
 // Authorize проверяет право пользователя участвовать в операции до работы с защищёнными ресурсами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -87,7 +98,7 @@ func (s *Engagement) Authorize(ctx context.Context, conferenceID, userID string)
 
 // authorized проверяет актуальную активную конференцию и допуск участника, затем возвращает членство и состав комнаты.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -119,7 +130,7 @@ func (s *Engagement) authorized(ctx context.Context, conferenceID, userID string
 
 // List возвращает ограниченный список поднятых рук и реакций комнаты с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -151,7 +162,7 @@ func (s *Engagement) List(ctx context.Context, conferenceID, userID string) ([]d
 
 // Hand меняет состояние руки с проверкой прав участника или модератора.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -188,6 +199,14 @@ func (s *Engagement) Hand(ctx context.Context, conferenceID, userID, participant
 			return nil, err
 		}
 		if changed {
+			if s.handObserver != nil {
+				op, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+				err := s.handObserver(op, conferenceID, hand)
+				cancel()
+				if err != nil {
+					operations.Event("analytics_failed")
+				}
+			}
 			_ = s.hub.Broadcast(ctx, domain.Event("hand.raised", conferenceID, hand))
 		}
 		return &hand, nil
@@ -204,7 +223,7 @@ func (s *Engagement) Hand(ctx context.Context, conferenceID, userID, participant
 
 // Reaction публикует разрешённую временную реакцию допущенного участника.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.

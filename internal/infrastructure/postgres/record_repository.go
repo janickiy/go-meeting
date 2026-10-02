@@ -17,7 +17,7 @@ type RecordRepository struct {
 }
 
 // NewRecordRepository создает repository.
-// @parameters:
+// @args
 // - db: GORM-подключение.
 // @return repository для записей.
 func NewRecordRepository(db *gorm.DB) *RecordRepository {
@@ -25,7 +25,7 @@ func NewRecordRepository(db *gorm.DB) *RecordRepository {
 }
 
 // Create создает запись record.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - record: модель с входными полями.
 // @return созданную запись с UUID или ошибку БД.
@@ -38,7 +38,7 @@ func (r *RecordRepository) Create(ctx context.Context, record records.Record) (r
 }
 
 // FindByUUID возвращает запись по публичному UUID.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // @return запись или ошибку not found.
@@ -52,7 +52,7 @@ func (r *RecordRepository) FindByUUID(ctx context.Context, uuid string) (records
 }
 
 // List возвращает последние записи.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - limit: ограничение количества.
 // - offset: смещение.
@@ -77,7 +77,7 @@ func (r *RecordRepository) List(ctx context.Context, limit int, offset int) ([]r
 }
 
 // ListDetails возвращает записи со связанными файлами, сегментами и событиями.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - limit: ограничение количества.
 // - offset: смещение.
@@ -114,7 +114,7 @@ func (r *RecordRepository) ListDetails(ctx context.Context, limit int, offset in
 }
 
 // ListSummaryDetailsByConferenceIDs returns records with only final and preview files.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - conferenceIDs: список UUID конференций.
 // - status: optional фильтр по статусу записи.
@@ -142,7 +142,7 @@ func (r *RecordRepository) ListSummaryDetailsByConferenceIDs(ctx context.Context
 	for _, item := range items {
 		recordIDs = append(recordIDs, item.ID)
 	}
-	files, err := r.filesByRecordIDs(ctx, recordIDs, records.FileTypeFinalMP4, records.FileTypePreviewJPG)
+	files, err := r.filesByRecordIDs(ctx, recordIDs, records.FileTypeFinalMP4, records.FileTypeFinalAudio, records.FileTypePreviewJPG)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (r *RecordRepository) ListSummaryDetailsByConferenceIDs(ctx context.Context
 }
 
 // FindDetailsByUUID возвращает одну запись со связанными файлами, сегментами и событиями.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // @return карточку данных или ошибку not found.
@@ -182,7 +182,7 @@ func (r *RecordRepository) FindDetailsByUUID(ctx context.Context, uuid string) (
 }
 
 // MarkRecording переводит запись в recording.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // - workerID: идентификатор worker-а.
@@ -197,7 +197,7 @@ func (r *RecordRepository) MarkRecording(ctx context.Context, uuid string, worke
 }
 
 // MarkStopping переводит запись в stopping.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // - reason: причина остановки.
@@ -212,7 +212,7 @@ func (r *RecordRepository) MarkStopping(ctx context.Context, uuid string, reason
 }
 
 // MarkFinalizing переводит запись в finalizing.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // @return ошибку БД.
@@ -222,7 +222,7 @@ func (r *RecordRepository) MarkFinalizing(ctx context.Context, uuid string) erro
 }
 
 // MarkUploading переводит запись в uploading.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // @return ошибку БД.
@@ -231,7 +231,7 @@ func (r *RecordRepository) MarkUploading(ctx context.Context, uuid string) error
 }
 
 // MarkFailed переводит запись в failed и сохраняет текст ошибки.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // - cause: причина ошибки.
@@ -250,7 +250,7 @@ func (r *RecordRepository) MarkFailed(ctx context.Context, uuid string, cause er
 }
 
 // SaveFinalArtifacts сохраняет record_file и обновляет record ссылками на MinIO.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - uuid: UUID записи.
 // - finalFile: запись итогового MP4.
@@ -259,7 +259,7 @@ func (r *RecordRepository) MarkFailed(ctx context.Context, uuid string, cause er
 func (r *RecordRepository) SaveFinalArtifacts(ctx context.Context, uuid string, finalFile records.RecordFile, previewFile *records.RecordFile, segments []records.RecordSegment) error {
 	return r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -305,7 +305,7 @@ func (r *RecordRepository) SaveFinalArtifacts(ctx context.Context, uuid string, 
 }
 
 // AddEvent сохраняет событие записи.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - recordUUID: UUID записи.
 // - eventType: тип события.
@@ -333,7 +333,7 @@ func (r *RecordRepository) AddEvent(ctx context.Context, recordUUID string, even
 
 // transition условно меняет состояние задачи записи и защищает её от устаревшего перехода.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - uuid (string): внешний UUID обрабатываемой записи.
 //   - from ([]string): исходное состояние или нижняя граница диапазона.
@@ -355,7 +355,7 @@ func (r *RecordRepository) transition(ctx context.Context, uuid string, from []s
 
 // filesByRecordIDs пакетно загружает файлы для набора записей.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - recordIDs ([]int64): идентификаторы связанных ресурсов для пакетной операции.
 //   - fileTypes (...string): значение fileTypes типа ...string, используемое согласно назначению этой операции.
@@ -381,7 +381,7 @@ func (r *RecordRepository) filesByRecordIDs(ctx context.Context, recordIDs []int
 
 // relatedByRecordIDs пакетно загружает связанные сведения для набора записей.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - recordIDs ([]int64): набор идентификаторов запись I Ds для пакетной операции.
 //
@@ -427,7 +427,7 @@ func (r *RecordRepository) relatedByRecordIDs(ctx context.Context, recordIDs []i
 
 // upsertRecordFile добавляет или обновляет метаданные итогового файла записи.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - file (*records.RecordFile): значение file типа *records.RecordFile, используемое согласно назначению этой операции.
 //
@@ -464,7 +464,7 @@ func upsertRecordFile(tx *gorm.DB, file *records.RecordFile) error {
 
 // upsertRecordSegment добавляет или обновляет метаданные сегмента записи.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - segment (*records.RecordSegment): значение segment типа *records.RecordSegment, используемое согласно назначению этой операции.
 //

@@ -14,13 +14,14 @@ import (
 )
 
 // ControlRepository задаёт контракт зависимого компонента ControlRepository в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Moderate: операция Moderate с контрактом, описанным у метода.
 //   - UpdateMediaState: операция обновление медиа состояние с контрактом, описанным у метода.
 //   - ReconcileParticipants: операция согласование Participants с контрактом, описанным у метода.
 type ControlRepository interface {
 	// Moderate применяет действие модерации с проверкой роли инициатора и ограничений целевого участника.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -33,7 +34,7 @@ type ControlRepository interface {
 	Moderate(context.Context, string, string, string, domain.ModerationRequest) (domain.Participant, error)
 	// UpdateMediaState сохраняет заявленное состояние источников медиа участника.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -45,7 +46,7 @@ type ControlRepository interface {
 	UpdateMediaState(context.Context, string, string, domain.MediaState) (domain.Participant, error)
 	// ReconcileParticipants выбирает участников, чью сохранённую политику необходимо повторно применить к медиа.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): значение after типа string, используемое согласно назначению этой операции.
 	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
@@ -61,7 +62,7 @@ type ControlRepository interface {
 type PolicyController interface {
 	// SetParticipantPolicy передаёт актуальную политику участника владельцу медиа-комнаты.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор членства участника внутри конференции.
@@ -73,12 +74,13 @@ type PolicyController interface {
 }
 
 // ControlEvents задаёт контракт зависимого компонента ControlEvents в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Broadcast: операция Broadcast с контрактом, описанным у метода.
 //   - ConferenceChanged: операция конференция Changed с контрактом, описанным у метода.
 type ControlEvents interface {
 	// Broadcast публикует доверенное событие для разрешённых получателей конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (realtime.Envelope): конверт входящего или публикуемого события.
 	//
@@ -87,13 +89,14 @@ type ControlEvents interface {
 	Broadcast(context.Context, realtime.Envelope) error
 	// ConferenceChanged уведомляет подключённые сессии о сохранённом изменении состояния конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	ConferenceChanged(context.Context, string)
 }
 
 // ControlService координирует сохранение модерации и применение ограничений к живому медиа.
+// @params
 //   - repo: хранилище постоянных данных прикладного сценария.
 //   - media: значение media типа PolicyController, используемое согласно назначению этой операции.
 //   - events: получатель или издатель событий прикладного сценария.
@@ -105,7 +108,7 @@ type ControlService struct {
 
 // NewControlService создаёт и связывает зависимости компонента ControlService, используемого в жизненном цикле конференций и правах участников.
 //
-// @parameters:
+// @args
 //   - repo (ControlRepository): хранилище постоянных данных прикладного сценария.
 //   - controller (PolicyController): значение controller типа PolicyController, используемое согласно назначению этой операции.
 //   - events (ControlEvents): получатель или издатель событий прикладного сценария.
@@ -118,7 +121,7 @@ func NewControlService(repo ControlRepository, controller PolicyController, even
 
 // Moderate применяет действие модерации с проверкой роли инициатора и ограничений целевого участника.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -155,7 +158,7 @@ func (s *ControlService) Moderate(ctx context.Context, userID, conferenceID, par
 
 // UpdateMediaState сохраняет заявленное состояние источников медиа участника.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -177,7 +180,7 @@ func (s *ControlService) UpdateMediaState(ctx context.Context, userID, conferenc
 
 // Disconnected обрабатывает закрытие физического соединения и запускает связанное освобождение ресурсов.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (realtime.Session): историческая физическая сессия или состояние текущего соединения.
 func (s *ControlService) Disconnected(ctx context.Context, session realtime.Session) {
@@ -195,7 +198,7 @@ func (s *ControlService) Disconnected(ctx context.Context, session realtime.Sess
 
 // policy получает серверные ограничения медиа участника из сохранённой модели.
 //
-// @parameters:
+// @args
 //   - p (domain.Participant): байты, переданные по контракту io.Writer.
 //
 // @return:
@@ -206,7 +209,7 @@ func policy(p domain.Participant) media.ParticipantPolicy {
 
 // Run выполняет основной цикл компонента до завершения работы или отмены контекста.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (s *ControlService) Run(ctx context.Context) {
 	if s.media == nil {

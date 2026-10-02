@@ -83,7 +83,7 @@ type testPeer struct {
 // harness подготавливает или проверяет часть тестового сценария «harness».
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - maxPeers (int): значение maxPeers типа int, используемое согласно назначению этой операции.
 //   - configured (...Options): значение configured типа ...Options, используемое согласно назначению этой операции.
@@ -102,7 +102,7 @@ func harness(t *testing.T, maxPeers int, configured ...Options) *pionHarness {
 	intercept := options.Emit
 	// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
 	//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 	//   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
@@ -142,7 +142,7 @@ func harness(t *testing.T, maxPeers int, configured ...Options) *pionHarness {
 // emit формирует и передаёт исходящее событие через принадлежащий компоненту канал доставки.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 //   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
@@ -183,7 +183,7 @@ func (h *pionHarness) emit(binding media.Binding, kind string, data any) {
 
 // problem подготавливает или проверяет часть тестового сценария «problem».
 //
-// @parameters:
+// @args
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func (h *pionHarness) problem(err error) {
 	select {
@@ -194,7 +194,7 @@ func (h *pionHarness) problem(err error) {
 
 // join назначает владельца медиа-комнаты и создаёт подключение для проверенной физической сессии.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - conference (string): конференция либо её идентификатор, ограничивающий область операции.
 //   - participant (string): значение participant типа string, используемое согласно назначению этой операции.
@@ -208,7 +208,7 @@ func (h *pionHarness) join(t *testing.T, conference string, participant string) 
 // joinSlots подготавливает или проверяет часть тестового сценария «join Slots».
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - conference (string): конференция либо её идентификатор, ограничивающий область операции.
 //   - participant (string): значение participant типа string, используемое согласно назначению этой операции.
@@ -250,7 +250,7 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 	pc.OnTrack( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 		Синхронизирует доступ к разделяемому состоянию блокировкой.
 
-		@parameters:
+		@args
 		  - remote (*pion.TrackRemote): значение remote типа *pion.TrackRemote, используемое согласно назначению этой операции.
 		  - _ (*pion.RTPReceiver): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		*/func(remote *pion.TrackRemote, _ *pion.RTPReceiver) {
@@ -297,7 +297,7 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 		Синхронизирует доступ к разделяемому состоянию блокировкой.
 
-		@parameters:
+		@args
 		  - s (*pion.RTPSender): значение s типа *pion.RTPSender, используемое согласно назначению этой операции.
 		*/func(s *pion.RTPSender) {
 			defer p.wg.Done()
@@ -444,7 +444,7 @@ func (p *testPeer) close() {
 
 // eventually подготавливает или проверяет часть тестового сценария «eventually».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - h (*pionHarness): значение h типа *pionHarness, используемое согласно назначению этой операции.
 //   - label (string): безопасная подпись диагностируемой операции.
@@ -468,14 +468,14 @@ func eventually(t *testing.T, h *pionHarness, label string, fn func() bool) {
 // TestSFUMediaSmoke проверяет сценарий «SFU медиа контрольный сценарий», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSFUMediaSmoke(t *testing.T) {
 	for _, n := range []int{2, 3, 5} {
 		t.Run(fmt.Sprintf("%d_peers", n), /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 			Синхронизирует доступ к разделяемому состоянию блокировкой.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				beforeG := runtime.NumGoroutine()
@@ -550,7 +550,7 @@ func TestSFUMediaSmoke(t *testing.T) {
 				_ = syscall.Getrusage(syscall.RUSAGE_SELF, &duringCPU)
 				// Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 				//
-				// @parameters:
+				// @args
 				//   - r (syscall.Rusage): запрос либо состояние ресурса согласно указанному типу.
 				//
 				// @return:
@@ -625,7 +625,7 @@ func TestSFUMediaSmoke(t *testing.T) {
 // TestOfferValidationAndNegotiationSerialization проверяет сценарий «SDP-предложение проверка входных данных и Negotiation Serialization», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestOfferValidationAndNegotiationSerialization(t *testing.T) {
 	h := harness(t, 3)
@@ -687,7 +687,7 @@ func TestOfferValidationAndNegotiationSerialization(t *testing.T) {
 
 // TestJoinShutdownRace проверяет сценарий «Join завершение гонка», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestJoinShutdownRace(t *testing.T) {
 	h := harness(t, 10)
@@ -725,7 +725,7 @@ func TestJoinShutdownRace(t *testing.T) {
 
 // TestFailedTransportAndAdmissionTimeoutCleanup проверяет сценарий «Failed транспорт и допуск Timeout очистка», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFailedTransportAndAdmissionTimeoutCleanup(t *testing.T) {
 	h := harness(t, 3, Options{ICEDisconnectedTimeout: 100 * time.Millisecond, ICEFailedTimeout: 200 * time.Millisecond, ICEKeepaliveInterval: 50 * time.Millisecond, NegotiationTimeout: time.Second})
@@ -755,7 +755,7 @@ func TestFailedTransportAndAdmissionTimeoutCleanup(t *testing.T) {
 
 // TestManagerLimitsDuplicatesAndCleanup проверяет сценарий «Manager ограничения Duplicates и очистка», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestManagerLimitsDuplicatesAndCleanup(t *testing.T) {
 	h := harness(t, 2)
@@ -804,7 +804,7 @@ func TestManagerLimitsDuplicatesAndCleanup(t *testing.T) {
 
 // TestSameParticipantEndpointsAreNotEchoed проверяет сценарий «Same участник Endpoints Are не Echoed», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSameParticipantEndpointsAreNotEchoed(t *testing.T) {
 	h := harness(t, 3)
@@ -826,7 +826,7 @@ func TestSameParticipantEndpointsAreNotEchoed(t *testing.T) {
 // TestRepeatedRoomCyclesAndExplicitUnpublish проверяет сценарий «Repeated Room Cycles и Explicit Unpublish», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRepeatedRoomCyclesAndExplicitUnpublish(t *testing.T) {
 	h := harness(t, 3)
@@ -869,7 +869,7 @@ func TestRepeatedRoomCyclesAndExplicitUnpublish(t *testing.T) {
 
 // TestEarlyTrickleICEIsBoundedValidatedAndDrained проверяет сценарий «Early Trickle ICE является ограниченный Validated и Drained», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestEarlyTrickleICEIsBoundedValidatedAndDrained(t *testing.T) {
 	h := harness(t, 3)
@@ -931,7 +931,7 @@ func TestEarlyTrickleICEIsBoundedValidatedAndDrained(t *testing.T) {
 // TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie проверяет сценарий «Publication Registration одновременный Leave выполняет не Retain Zombie», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie(t *testing.T) {
 	h := harness(t, 3)
@@ -977,13 +977,13 @@ func TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie(t *testing.T)
 
 // TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes проверяет сценарий «Batch закрытие Fences All Peers до Blocked Emit Completes», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes(t *testing.T) {
 	for _, action := range []string{"conference", "shutdown"} {
 		t.Run(action, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				var block atomic.Bool
@@ -1000,7 +1000,7 @@ func TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes(t *testing.T) {
 				defer unblock()
 				h := harness(t, 3, Options{Emit: /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-				@parameters:
+				@args
 				  - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
 				  - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 				  - _ (any): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
@@ -1094,7 +1094,7 @@ func TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes(t *testing.T) {
 // TestAnswerAppliedBarrierAndLateSubscriptionSnapshot проверяет сценарий «SDP-ответ Applied Barrier и Late Subscription Snapshot», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAnswerAppliedBarrierAndLateSubscriptionSnapshot(t *testing.T) {
 	h := harness(t, 5)
@@ -1211,7 +1211,7 @@ func TestAnswerAppliedBarrierAndLateSubscriptionSnapshot(t *testing.T) {
 // TestMissingReadyExpiresEvenConnectedPeer проверяет сценарий «отсутствующий готовность Expires Even Connected Peer», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMissingReadyExpiresEvenConnectedPeer(t *testing.T) {
 	h := harness(t, 3, Options{NegotiationTimeout: time.Second})
@@ -1245,7 +1245,7 @@ func TestMissingReadyExpiresEvenConnectedPeer(t *testing.T) {
 // TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs проверяет сценарий «Undersized Receive SDP-предложение только Activates Declared SSR Cs», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs(t *testing.T) {
 	h := harness(t, 5)
@@ -1337,7 +1337,7 @@ func TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs(t *testing.T) {
 
 // TestAnsweredSSRCsExcludesInactiveRejectedAndRepair проверяет сценарий «Answered SSR Cs Excludes Inactive отклонённый и Repair», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAnsweredSSRCsExcludesInactiveRejectedAndRepair(t *testing.T) {
 	raw := "v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n" +

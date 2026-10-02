@@ -8,7 +8,7 @@ import (
 )
 
 // List возвращает список записей.
-// @parameters:
+// @args
 // - c: Gin context HTTP-запроса.
 // @return JSON response.
 func (h *Handler) List(c *gin.Context) {
@@ -25,7 +25,7 @@ func (h *Handler) List(c *gin.Context) {
 
 // queryInt разбирает целочисленный параметр URL и применяет значение по умолчанию и допустимые границы.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - fallback (int): значение, используемое при отсутствии входного параметра.

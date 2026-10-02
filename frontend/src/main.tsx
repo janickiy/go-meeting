@@ -22,7 +22,7 @@ const queryClient = new QueryClient({
       /**
        * retry решает, допустим ли повтор запроса с учётом ошибки и числа отказов.
        *
-       * @parameters:
+       * @args
        *   - count — число уже выполненных попыток.
        *   - error — пойманная ошибка API или сети.
        *

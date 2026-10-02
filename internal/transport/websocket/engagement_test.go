@@ -9,7 +9,7 @@ import (
 
 // TestCollaborationFloodDoesNotOccupyCriticalQueue проверяет сценарий «Collaboration всплеск выполняет не Occupy критичный очередь», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCollaborationFloodDoesNotOccupyCriticalQueue(t *testing.T) {
 	c := newClient(nil, &Handler{cfg: config.RealtimeConfig{QueueSize: 4}}, domain.Session{}, time.Now().Add(time.Hour))

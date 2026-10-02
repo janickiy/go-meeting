@@ -18,12 +18,12 @@ import (
 type ContentRepository struct{ db *gorm.DB }
 
 // NewContentRepository связывает repository с GORM без изменения схемы или media state.
-// @parameters: db — постоянное подключение с общими DB pool/deadline.
+// @args db — постоянное подключение с общими DB pool/deadline.
 // @return repository для HTTP-сценариев и leased product jobs.
 func NewContentRepository(db *gorm.DB) *ContentRepository { return &ContentRepository{db: db} }
 
 // contentAccess проверяет текущие права и strict ready/deleted состояние записи.
-// @parameters: db — запрос/транзакция; userID — актор; cid/rid — связанные UUID.
+// @args db — запрос/транзакция; userID — актор; cid/rid — связанные UUID.
 // @return приватный source, право owner/cohost на reprocess и ошибку доступа.
 func contentAccess(db *gorm.DB, userID, cid, rid string) (domain.RecordingSource, bool, error) {
 	p, err := findMembership(db, cid, userID)
@@ -34,7 +34,7 @@ func contentAccess(db *gorm.DB, userID, cid, rid string) (domain.RecordingSource
 		return domain.RecordingSource{}, false, apperrors.ErrForbidden
 	}
 	var source domain.RecordingSource
-	err = db.Raw(`SELECT uuid AS recording_id,platform_conference_id AS conference_id,storage_object_key AS object_key,COALESCE(duration_sec,0) AS duration_sec,COALESCE(size_bytes,0) AS size_bytes FROM record WHERE uuid=? AND platform_conference_id=? AND mode='composite' AND status='ready' AND deleted_at IS NULL`, rid, cid).Scan(&source).Error
+	err = db.Raw(`SELECT uuid AS recording_id,platform_conference_id AS conference_id,storage_object_key AS object_key,COALESCE(duration_sec,0) AS duration_sec,COALESCE(size_bytes,0) AS size_bytes FROM record WHERE uuid=? AND platform_conference_id=? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND status='ready' AND deleted_at IS NULL`, rid, cid).Scan(&source).Error
 	if err == nil && source.RecordingID == "" {
 		err = apperrors.ErrNotFound
 	}
@@ -42,7 +42,7 @@ func contentAccess(db *gorm.DB, userID, cid, rid string) (domain.RecordingSource
 }
 
 // Transcript возвращает nullable состояние после проверки действующей истории.
-// @parameters: ctx — deadline; userID/cid/rid — актор, конференция и запись.
+// @args ctx — deadline; userID/cid/rid — актор, конференция и запись.
 // @return состояние, право reprocess и ошибка; nil item не является ошибкой доступа.
 func (r *ContentRepository) Transcript(ctx context.Context, userID, cid, rid string) (*domain.Transcript, bool, error) {
 	db := r.db.WithContext(ctx)
@@ -61,7 +61,7 @@ func (r *ContentRepository) Transcript(ctx context.Context, userID, cid, rid str
 }
 
 // Segments выдаёт страницу только ready расшифровки; порядок ordinal стабилен.
-// @parameters: ctx — deadline; userID/cid/rid — область доступа; limit/offset — границы страницы.
+// @args ctx — deadline; userID/cid/rid — область доступа; limit/offset — границы страницы.
 // @return plain-text сегменты с timestamp, количество и ошибка.
 func (r *ContentRepository) Segments(ctx context.Context, userID, cid, rid string, limit, offset int) (domain.SegmentPage, error) {
 	page := domain.SegmentPage{Items: []domain.Segment{}, Limit: limit, Offset: offset}
@@ -87,7 +87,7 @@ func (r *ContentRepository) Segments(ctx context.Context, userID, cid, rid strin
 }
 
 // Summary возвращает только результат для текущего поколения расшифровки.
-// @parameters: ctx — deadline; userID/cid/rid — пользователь и связанные ресурсы.
+// @args ctx — deadline; userID/cid/rid — пользователь и связанные ресурсы.
 // @return nullable summary, право regenerate и ошибка доступа.
 func (r *ContentRepository) Summary(ctx context.Context, userID, cid, rid string) (*domain.Summary, bool, error) {
 	t, manage, err := r.Transcript(ctx, userID, cid, rid)
@@ -108,7 +108,7 @@ func (r *ContentRepository) Summary(ctx context.Context, userID, cid, rid string
 }
 
 // insertContentJob добавляет стабильный дедуплицированный outbox в текущей транзакции.
-// @parameters: tx — транзакция; kind/entity/cid — операция/ресурс; version — поколение;
+// @args tx — транзакция; kind/entity/cid — операция/ресурс; version — поколение;
 // payload — IDs без приватного текста; attempts — bounded число попыток.
 // @return ошибка фиксации job; duplicate является успешной операцией.
 func insertContentJob(tx *gorm.DB, kind, entity, cid string, version int64, payload any, attempts int) error {
@@ -120,7 +120,7 @@ func insertContentJob(tx *gorm.DB, kind, entity, cid string, version int64, payl
 }
 
 // QueueTranscript разрешает owner/cohost новое ограниченное поколение failed STT.
-// @parameters: ctx — deadline; userID/cid/rid — область доступа; maximum — число reprocess;
+// @args ctx — deadline; userID/cid/rid — область доступа; maximum — число reprocess;
 // cooldown — минимальный интервал; attempts — retry budget worker-а.
 // @return queued metadata или конфликт без запуска внешнего провайдера.
 func (r *ContentRepository) QueueTranscript(ctx context.Context, userID, cid, rid string, maximum int, cooldown time.Duration, attempts int) (*domain.Transcript, error) {
@@ -170,7 +170,7 @@ func (r *ContentRepository) QueueTranscript(ctx context.Context, userID, cid, ri
 }
 
 // QueueSummary создаёт новое поколение AI для ready transcript с лимитом стоимости.
-// @parameters: ctx — deadline; userID/cid/rid — область доступа; maximum/cooldown/attempts — budgets.
+// @args ctx — deadline; userID/cid/rid — область доступа; maximum/cooldown/attempts — budgets.
 // @return queued summary либо безопасный конфликт.
 func (r *ContentRepository) QueueSummary(ctx context.Context, userID, cid, rid string, maximum int, cooldown time.Duration, attempts int) (*domain.Summary, error) {
 	var s domain.Summary

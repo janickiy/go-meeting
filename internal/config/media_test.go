@@ -8,7 +8,7 @@ import (
 
 // mediaTestEnvironment подготавливает или проверяет часть тестового сценария «медиа проверка Environment».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func mediaTestEnvironment(t *testing.T) {
 	t.Helper()
@@ -21,7 +21,7 @@ func mediaTestEnvironment(t *testing.T) {
 
 // TestMediaConfigDefaultsAndLocalKeySeparation проверяет сценарий «медиа конфигурация Defaults и локальный ключ Separation», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaConfigDefaultsAndLocalKeySeparation(t *testing.T) {
 	mediaTestEnvironment(t)
@@ -43,7 +43,7 @@ func TestMediaConfigDefaultsAndLocalKeySeparation(t *testing.T) {
 
 // TestMediaProductionRequiresIndependentSecrets проверяет сценарий «медиа Production Requires Independent Secrets», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaProductionRequiresIndependentSecrets(t *testing.T) {
 	mediaTestEnvironment(t)
@@ -64,7 +64,7 @@ func TestMediaProductionRequiresIndependentSecrets(t *testing.T) {
 
 // TestMediaConfigRejectsUnsafeLimitsAndEndpoints проверяет сценарий «медиа конфигурация Rejects Unsafe ограничения и Endpoints», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaConfigRejectsUnsafeLimitsAndEndpoints(t *testing.T) {
 	mediaTestEnvironment(t)
@@ -78,74 +78,74 @@ func TestMediaConfigRejectsUnsafeLimitsAndEndpoints(t *testing.T) {
 	}{
 		{"ticket ttl", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.TicketTTL = time.Minute + time.Second }},
 		{"heartbeat lease", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.OwnershipTTL = c.HeartbeatInterval }},
 		{"worker lease", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.WorkerTTL = c.HeartbeatInterval }},
 		{"room flooding", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.MaxPeers = 100 }},
 		{"track flooding", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.MaxPublishedTracks = 100 }},
 		{"unsupported audio slots", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.MaxAudioTracks = 3 }},
 		{"unsupported video slots", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.MaxVideoTracks = 3 }},
 		{"oversized video", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.VideoMaxWidth = 1920 }},
 		{"endpoint credentials", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.WorkerInternalURL = "http://user:secret@worker:8091" }},
 		{"endpoint query", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.WorkerInternalURL = "http://worker:8091/?secret=x" }},
 		{"partial UDP range", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.UDPPort = 0; c.UDPMinPort = 51000 }},
 		{"mux and range", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.UDPMinPort = 51000; c.UDPMaxPort = 51020 }},
 		{"invalid public address", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*MediaConfig): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *MediaConfig) { c.NATIPs = []string{"example.org"} }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				c := base
@@ -159,7 +159,7 @@ func TestMediaConfigRejectsUnsafeLimitsAndEndpoints(t *testing.T) {
 
 // TestMediaICEFromEnvironment проверяет сценарий «медиа ICE из Environment», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaICEFromEnvironment(t *testing.T) {
 	mediaTestEnvironment(t)
@@ -179,7 +179,7 @@ func TestMediaICEFromEnvironment(t *testing.T) {
 
 // TestMediaICEOverrideSeparatesSFUFromRecorderConfiguration проверяет сценарий «медиа ICE Override Separates SFU из Recorder Configuration», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaICEOverrideSeparatesSFUFromRecorderConfiguration(t *testing.T) {
 	mediaTestEnvironment(t)

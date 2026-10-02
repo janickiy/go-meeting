@@ -23,7 +23,7 @@ type ChatRepository struct{ db *gorm.DB }
 
 // NewChatRepository создаёт и связывает зависимости компонента ChatRepository, используемого в постоянном чате и приватных вложениях.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //
 // @return:
@@ -36,7 +36,7 @@ func NewChatRepository(db *gorm.DB) *ChatRepository {
 
 // authorizeChat проверяет членство и допуск к истории; для изменения чата дополнительно требует активную встречу и joined.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -69,7 +69,7 @@ func authorizeChat(tx *gorm.DB, userID, conferenceID string, locked, write bool)
 
 // chatCursor кодирует идентификатор конференции и последовательность сообщения в курсор истории.
 //
-// @parameters:
+// @args
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - sequence (int64): серверный монотонный номер сообщения или команды.
 //
@@ -81,7 +81,7 @@ func chatCursor(conferenceID string, sequence int64) string {
 
 // parseChatCursor проверяет формат курсора и его принадлежность конференции, затем извлекает номер сообщения.
 //
-// @parameters:
+// @args
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - cursor (string): непрозрачная граница продолжения предыдущей страницы.
 //
@@ -112,7 +112,7 @@ func parseChatCursor(conferenceID, cursor string) (int64, error) {
 
 // messageQuery строит базовый запрос сообщений с именем отправителя из членства конференции.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //
 // @return:
@@ -123,7 +123,7 @@ func messageQuery(tx *gorm.DB) *gorm.DB {
 
 // loadMessage читает одно сообщение внутри конференции и добавляет вложения и краткое представление ответа.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -144,7 +144,7 @@ func loadMessage(tx *gorm.DB, conferenceID, id string) (chat.Message, error) {
 
 // decorateMessages пакетно добавляет вложения и ответы к странице сообщений и скрывает содержимое удалённых сообщений.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - items ([]chat.Message): элементы страницы или порции пакетной обработки.
 //
@@ -200,7 +200,7 @@ func decorateMessages(tx *gorm.DB, items []chat.Message) error {
 
 // readState читает границу прочтения и считает чужие неудалённые сообщения после неё.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -220,7 +220,7 @@ func readState(tx *gorm.DB, userID, conferenceID string) (chat.ReadState, error)
 // List возвращает ограниченный список сообщений и вложений конференции с принятыми в данном слое фильтрами.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -241,7 +241,7 @@ func (r *ChatRepository) List(ctx context.Context, userID, conferenceID, cursor 
 	}
 	err = r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -277,7 +277,7 @@ func (r *ChatRepository) List(ctx context.Context, userID, conferenceID, cursor 
 // Send сохраняет сообщение чата с проверкой доступа, ответа и вложений; ключ запроса защищает повторную отправку от дубля.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -293,7 +293,7 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 	created := false
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -361,7 +361,7 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 // Edit изменяет текст собственного неудалённого сообщения с проверкой доступа и состояния встречи.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -374,7 +374,7 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 func (r *ChatRepository) Edit(ctx context.Context, userID, conferenceID, id, text string) (chat.Message, error) {
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -412,7 +412,7 @@ func (r *ChatRepository) Edit(ctx context.Context, userID, conferenceID, id, tex
 // Delete мягко удаляет доступное сообщение, проверяя автора или полномочия модератора и сохраняя историю.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -424,7 +424,7 @@ func (r *ChatRepository) Edit(ctx context.Context, userID, conferenceID, id, tex
 func (r *ChatRepository) Delete(ctx context.Context, userID, conferenceID, id string) (chat.Message, error) {
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -453,7 +453,7 @@ func (r *ChatRepository) Delete(ctx context.Context, userID, conferenceID, id st
 
 // ReadState возвращает сохранённую границу прочтения и число доступных непрочитанных сообщений.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -475,7 +475,7 @@ func (r *ChatRepository) ReadState(ctx context.Context, userID, conferenceID str
 // MarkRead продвигает сохранённое состояние прочтения; повторные и запоздалые запросы не должны уменьшать курсор.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -487,7 +487,7 @@ func (r *ChatRepository) ReadState(ctx context.Context, userID, conferenceID str
 func (r *ChatRepository) MarkRead(ctx context.Context, userID, conferenceID, messageID string) (chat.ReadState, error) {
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:

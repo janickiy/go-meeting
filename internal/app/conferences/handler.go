@@ -13,7 +13,7 @@ import (
 )
 
 // Service задаёт контракт зависимого компонента Service в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-// Состав:
+// @params:
 //   - Create: операция создание с контрактом, описанным у метода.
 //   - List: операция список с контрактом, описанным у метода.
 //   - Read: операция чтение с контрактом, описанным у метода.
@@ -31,7 +31,7 @@ import (
 type Service interface {
 	// Create создаёт новое состояние конференций и членств участников по переданным параметрам.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (conferences.CreateRequest): входные параметры соответствующего прикладного запроса.
@@ -42,7 +42,7 @@ type Service interface {
 	Create(context.Context, string, conferences.CreateRequest) (conferences.View, error)
 	// List возвращает ограниченный список конференций и членств участников с принятыми в данном слое фильтрами.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
@@ -54,7 +54,7 @@ type Service interface {
 	List(context.Context, string, int, int) ([]conferences.View, error)
 	// Read читает состояние конференций и членств участников для дальнейшей обработки или ответа.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор обрабатываемого ресурса.
@@ -65,7 +65,7 @@ type Service interface {
 	Read(context.Context, string, string) (conferences.View, error)
 	// Transition выполняет разрешённый переход состояния конференции или записи.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -77,7 +77,7 @@ type Service interface {
 	Transition(context.Context, string, string, conferences.Status) (conferences.View, error)
 	// Participants возвращает разрешённую страницу участников конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор обрабатываемого ресурса.
@@ -90,7 +90,7 @@ type Service interface {
 	Participants(context.Context, string, string, int, int) ([]conferences.ParticipantView, error)
 	// Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор обрабатываемого ресурса.
@@ -102,7 +102,7 @@ type Service interface {
 	Join(context.Context, string, string, conferences.JoinRequest) (conferences.ParticipantView, error)
 	// Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -113,7 +113,7 @@ type Service interface {
 	Leave(context.Context, string, string) (conferences.ParticipantView, error)
 	// LookupInvite находит ограниченные сведения о конференции по коду приглашения.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): код приглашения или машинный код результата.
 	//
@@ -123,7 +123,7 @@ type Service interface {
 	LookupInvite(context.Context, string) (conferences.InviteView, error)
 	// JoinInvite присоединяет авторизованного пользователя по коду приглашения с сохранением существующего членства.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): код приглашения или машинный код результата.
@@ -134,7 +134,7 @@ type Service interface {
 	JoinInvite(context.Context, string, string) (conferences.ParticipantView, error)
 	// Self возвращает собственное членство пользователя, включая состояние ожидания и решение о допуске.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор обрабатываемого ресурса.
@@ -145,7 +145,7 @@ type Service interface {
 	Self(context.Context, string, string) (conferences.ParticipantView, error)
 	// Admission обрабатывает решение о допуске или отказе с проверкой полномочий организатора.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор обрабатываемого ресурса.
@@ -158,7 +158,7 @@ type Service interface {
 	Admission(context.Context, string, string, string, conferences.AdmissionRequest) (conferences.ParticipantView, error)
 	// Schedule обновляет расписание запланированной встречи с проверкой полномочий владельца.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор обрабатываемого ресурса.
@@ -170,7 +170,7 @@ type Service interface {
 	Schedule(context.Context, string, string, conferences.ScheduleRequest) (conferences.View, error)
 	// Timeline возвращает страницу встреч текущего пользователя с фильтрами будущих, активных и прошедших встреч.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (conferences.TimelineQuery): параметры выборки либо SQL-текст выполняемого запроса.
@@ -181,7 +181,7 @@ type Service interface {
 	Timeline(context.Context, string, conferences.TimelineQuery) (conferences.TimelinePage, error)
 	// History собирает сведения завершённой встречи, историю участников и сводку записей с проверкой доступа.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): идентификатор пользователя, для которого выполняется операция.
@@ -193,13 +193,13 @@ type Service interface {
 }
 
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.
-// Состав:
+// @params:
 //   - service: значение service типа Service, используемое согласно назначению этой операции.
 type Handler struct{ service Service }
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в жизненном цикле конференций и правах участников.
 //
-// @parameters:
+// @args
 //   - service (Service): значение service типа Service, используемое согласно назначению этой операции.
 //
 // @return:
@@ -208,7 +208,7 @@ func NewHandler(service Service) *Handler { return &Handler{service: service} }
 
 // Create создаёт новое состояние конференций и членств участников по переданным параметрам.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Create(c *gin.Context) {
 	var request conferences.CreateRequest
@@ -225,7 +225,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 // List возвращает ограниченный список конференций и членств участников с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) List(c *gin.Context) {
 	limit, offset, ok := httpresponse.Pagination(c)
@@ -242,7 +242,7 @@ func (h *Handler) List(c *gin.Context) {
 
 // Read читает состояние конференций и членств участников для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Read(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -259,7 +259,7 @@ func (h *Handler) Read(c *gin.Context) {
 
 // Transition выполняет разрешённый переход состояния конференции или записи.
 //
-// @parameters:
+// @args
 //   - target (conferences.Status): целевой объект, участник или состояние операции.
 //
 // @return:
@@ -267,7 +267,7 @@ func (h *Handler) Read(c *gin.Context) {
 func (h *Handler) Transition(target conferences.Status) gin.HandlerFunc {
 	// Вложенный обработчик выполняет выделенный шаг обработки в жизненном цикле конференций и правах участников, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	return func(c *gin.Context) {
 		id, ok := conferenceID(c)
@@ -288,7 +288,7 @@ func (h *Handler) Transition(target conferences.Status) gin.HandlerFunc {
 
 // Participants возвращает разрешённую страницу участников конференции.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Participants(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -309,7 +309,7 @@ func (h *Handler) Participants(c *gin.Context) {
 
 // Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Join(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -330,7 +330,7 @@ func (h *Handler) Join(c *gin.Context) {
 
 // Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Leave(c *gin.Context) {
 	id, ok := conferenceID(c)
@@ -350,7 +350,7 @@ func (h *Handler) Leave(c *gin.Context) {
 
 // LookupInvite находит ограниченные сведения о конференции по коду приглашения.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) LookupInvite(c *gin.Context) {
 	item, err := h.service.LookupInvite(c.Request.Context(), c.Param("code"))
@@ -363,7 +363,7 @@ func (h *Handler) LookupInvite(c *gin.Context) {
 
 // JoinInvite присоединяет авторизованного пользователя по коду приглашения с сохранением существующего членства.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) JoinInvite(c *gin.Context) {
 	if !httpresponse.BindJSON(c, &struct{}{}, true) {
@@ -379,7 +379,7 @@ func (h *Handler) JoinInvite(c *gin.Context) {
 
 // conferenceID проверяет и нормализует идентификатор конференции из HTTP-маршрута.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
 // @return:

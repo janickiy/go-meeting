@@ -50,91 +50,91 @@ type Delivery struct {
 // Repository задаёт постоянные операции интеграций; async записи должны проверять lease задания в своей транзакции.
 type Repository interface {
 	// Preferences читает собственные настройки с privacy defaults.
-	// @parameters: контекст — отмена; строка — userID.
+	// @args контекст — отмена; строка — userID.
 	// @return: настройки либо ошибка DB.
 	Preferences(context.Context, string) (d.Preferences, error)
 	// SavePreferences атомарно заменяет категории/каналы владельца.
-	// @parameters: контекст — отмена; настройки — boolean поля и доверенный userID.
+	// @args контекст — отмена; настройки — boolean поля и доверенный userID.
 	// @return: ошибка DB.
 	SavePreferences(context.Context, d.Preferences) error
 	// Devices читает не более установленного предела собственных регистраций.
-	// @parameters: контекст — отмена; строка — userID; bool — только active устройства.
+	// @args контекст — отмена; строка — userID; bool — только active устройства.
 	// @return: регистрации без публичного раскрытия токенов либо ошибка.
 	Devices(context.Context, string, bool) ([]d.Device, error)
 	// SaveDevice идемпотентно сохраняет encrypted provider token.
-	// @parameters: контекст — отмена; устройство — owner, fingerprint и ciphertext.
+	// @args контекст — отмена; устройство — owner, fingerprint и ciphertext.
 	// @return: ошибка quota/DB.
 	SaveDevice(context.Context, d.Device) error
 	// RevokeDevice удаляет sensitive ciphertext собственного устройства.
-	// @parameters: контекст — отмена; строки — owner userID и deviceID.
+	// @args контекст — отмена; строки — owner userID и deviceID.
 	// @return: not found для чужого устройства либо ошибка DB.
 	RevokeDevice(context.Context, string, string) error
 	// Connections читает собственные активные/отозванные подключения.
-	// @parameters: контекст — отмена; строка — owner userID.
+	// @args контекст — отмена; строка — owner userID.
 	// @return: ограниченный список либо ошибка.
 	Connections(context.Context, string) ([]d.CalendarConnection, error)
 	// SaveConnection сохраняет явно авторизованное новое подключение/reconnect.
-	// @parameters: контекст — отмена; подключение — owner и encrypted OAuth grant.
+	// @args контекст — отмена; подключение — owner и encrypted OAuth grant.
 	// @return: ошибка DB.
 	SaveConnection(context.Context, d.CalendarConnection) error
 	// RefreshConnection меняет token rotation только действующего прежнего grant.
-	// @parameters: контекст — отмена; подключение — новые credentials; строка — прежний refresh ciphertext.
+	// @args контекст — отмена; подключение — новые credentials; строка — прежний refresh ciphertext.
 	// @return: retryable конфликт при revoke/rotation либо ошибка DB.
 	RefreshConnection(context.Context, d.CalendarConnection, string) error
 	// RevokeConnection отключает локальный grant и очищает tokens.
-	// @parameters: контекст — отмена; строки — owner userID и connectionID.
+	// @args контекст — отмена; строки — owner userID и connectionID.
 	// @return: not found/ошибка DB.
 	RevokeConnection(context.Context, string, string) error
 	// SaveOAuthState сохраняет одноразовый state с encrypted verifier и конечным TTL.
-	// @parameters: контекст — отмена; state — user/provider binding и hash.
+	// @args контекст — отмена; state — user/provider binding и hash.
 	// @return: quota/DB ошибка.
 	SaveOAuthState(context.Context, d.OAuthState) error
 	// TakeOAuthState одноразово забирает неистёкший state правильного владельца.
-	// @parameters: контекст — отмена; строки — userID, provider и state hash.
+	// @args контекст — отмена; строки — userID, provider и state hash.
 	// @return: encrypted verifier либо безопасная ошибка проверки.
 	TakeOAuthState(context.Context, string, string, string) (d.OAuthState, error)
 	// CalendarMappings читает только разрешённую owner/cohost проекцию.
-	// @parameters: контекст — отмена; строки — userID и conferenceID.
+	// @args контекст — отмена; строки — userID и conferenceID.
 	// @return: mappings либо ошибка доступа.
 	CalendarMappings(context.Context, string, string) ([]d.CalendarMapping, error)
 	// Conference читает актуальное расписание для version fencing.
-	// @parameters: контекст — отмена; строка — conferenceID.
+	// @args контекст — отмена; строка — conferenceID.
 	// @return: ограниченный snapshot либо ошибка.
 	Conference(context.Context, string) (ConferenceSnapshot, error)
 	// MappingsForSync читает внутренние mappings доверенного worker.
-	// @parameters: контекст — отмена; строка — conferenceID.
+	// @args контекст — отмена; строка — conferenceID.
 	// @return: ограниченный список либо ошибка.
 	MappingsForSync(context.Context, string) ([]d.CalendarMapping, error)
 	// SaveMapping проверяет lease, current schedule version и active connection перед commit.
-	// @parameters: контекст — отмена; job — lease/version; mapping — provider result.
+	// @args контекст — отмена; job — lease/version; mapping — provider result.
 	// @return: fenced DB ошибка либо nil.
 	SaveMapping(context.Context, jobs.Job, d.CalendarMapping) error
 	// FailCalendars отмечает terminal sync failure без регресса версии.
-	// @parameters: контекст — отмена; job — lease/version; строка — безопасный код.
+	// @args контекст — отмена; job — lease/version; строка — безопасный код.
 	// @return: ошибка DB/fencing.
 	FailCalendars(context.Context, jobs.Job, string) error
 	// AcquireCalendar сериализует продуктовый provider path одной конференции.
-	// @parameters: контекст — deadline; строка — conferenceID.
+	// @args контекст — deadline; строка — conferenceID.
 	// @return: обязательная release функция либо retryable занятость.
 	AcquireCalendar(context.Context, string) (func(), error)
 	// Fanout создаёт bounded личные события и persistent continuation для остальных получателей.
-	// @parameters: контекст — отмена; job — источник/lease; строка — известный event kind.
+	// @args контекст — отмена; job — источник/lease; строка — известный event kind.
 	// @return: ошибка либо ErrSkip для устаревшего события.
 	Fanout(context.Context, jobs.Job, string) error
 	// ScheduleReminders создаёт будущие durable jobs текущего расписания и убирает expired OAuth states bounded порцией.
-	// @parameters: контекст — цикл scheduler; offsets — конечный набор UTC интервалов.
+	// @args контекст — цикл scheduler; offsets — конечный набор UTC интервалов.
 	// @return: ошибка DB.
 	ScheduleReminders(context.Context, []time.Duration) error
 	// Delivery проверяет live membership, ready generation и предпочтения перед внешним send.
-	// @parameters: контекст — отмена; job — личное уведомление.
+	// @args контекст — отмена; job — личное уведомление.
 	// @return: минимальная проекция и Allowed либо ошибка.
 	Delivery(context.Context, jobs.Job) (Delivery, error)
 	// CompleteDelivery сохраняет единственный terminal факт канала под lease fencing.
-	// @parameters: контекст — отмена; job — lease/user/channel; строки — status и безопасный error code.
+	// @args контекст — отмена; job — lease/user/channel; строки — status и безопасный error code.
 	// @return: ошибка DB/fencing.
 	CompleteDelivery(context.Context, jobs.Job, string, string) error
 	// ScheduleCalendarSync сохраняет bounded задания после подключения календаря.
-	// @parameters: контекст — отмена; строка — owner userID.
+	// @args контекст — отмена; строка — owner userID.
 	// @return: ошибка enqueue.
 	ScheduleCalendarSync(context.Context, string) error
 }
@@ -142,11 +142,11 @@ type Repository interface {
 // TokenCipher шифрует и привязывает секрет к конкретному пользователю/подключению.
 type TokenCipher interface {
 	// Encrypt шифрует секрет с криптографической привязкой к владельцу/назначению.
-	// @parameters: строки — plaintext и binding контекст.
+	// @args строки — plaintext и binding контекст.
 	// @return: ciphertext либо ошибка.
 	Encrypt(string, string) (string, error)
 	// Decrypt запрещает расшифровку повреждённого либо чужого ciphertext.
-	// @parameters: строки — ciphertext и ожидаемый binding.
+	// @args строки — ciphertext и ожидаемый binding.
 	// @return: plaintext только серверному потребителю либо ошибка.
 	Decrypt(string, string) (string, error)
 }
@@ -162,7 +162,7 @@ type Service struct {
 }
 
 // NewService проверяет URL и ресурсные пределы, затем подготавливает безопасные шаблоны.
-// @parameters: repo — постоянное хранилище; adapters — заменяемые провайдеры; cipher — независимое шифрование; options — настройки.
+// @args repo — постоянное хранилище; adapters — заменяемые провайдеры; cipher — независимое шифрование; options — настройки.
 // @return: сервис либо ошибка некорректной конфигурации.
 func NewService(repo Repository, adapters d.Providers, cipher TokenCipher, options Options) (*Service, error) {
 	allNoop := adapters.Capabilities.Email == "noop" && adapters.Capabilities.Push == "noop" && adapters.Capabilities.Calendar == "noop"
@@ -199,14 +199,14 @@ func NewService(repo Repository, adapters d.Providers, cipher TokenCipher, optio
 func (s *Service) Capabilities() d.Capabilities { return s.adapters.Capabilities }
 
 // Preferences читает настройки владельца, используя opt-out внутренние/opt-in внешние defaults.
-// @parameters: ctx — отмена; userID — авторизованный пользователь.
+// @args ctx — отмена; userID — авторизованный пользователь.
 // @return: его настройки либо ошибка.
 func (s *Service) Preferences(ctx context.Context, userID string) (d.Preferences, error) {
 	return s.repo.Preferences(ctx, userID)
 }
 
 // SavePreferences сохраняет только настройки текущего пользователя.
-// @parameters: ctx — отмена; userID — доверенная identity; value — boolean preferences.
+// @args ctx — отмена; userID — доверенная identity; value — boolean preferences.
 // @return: ошибка сохранения.
 func (s *Service) SavePreferences(ctx context.Context, userID string, value d.Preferences) error {
 	value.UserID = userID
@@ -214,14 +214,14 @@ func (s *Service) SavePreferences(ctx context.Context, userID string, value d.Pr
 }
 
 // Devices возвращает проекцию регистраций без provider token/ciphertext.
-// @parameters: ctx — отмена; userID — владелец.
+// @args ctx — отмена; userID — владелец.
 // @return: ограниченный список устройств либо ошибка.
 func (s *Service) Devices(ctx context.Context, userID string) ([]d.Device, error) {
 	return s.repo.Devices(ctx, userID, false)
 }
 
 // RegisterDevice проверяет тип устройства и шифрует sensitive токен до обращения к базе.
-// @parameters: ctx — отмена; userID — владелец; request — token от доверенного platform SDK.
+// @args ctx — отмена; userID — владелец; request — token от доверенного platform SDK.
 // @return: безопасная регистрация либо ошибка; noop не принимает бесполезные секреты.
 func (s *Service) RegisterDevice(ctx context.Context, userID string, request d.DeviceRequest) (d.Device, error) {
 	if s.adapters.Capabilities.Push == "noop" || s.cipher == nil {
@@ -244,21 +244,21 @@ func (s *Service) RegisterDevice(ctx context.Context, userID string, request d.D
 }
 
 // RevokeDevice отключает только собственный токен и удаляет ciphertext из активной регистрации.
-// @parameters: ctx — отмена; userID — владелец; id — UUID устройства.
+// @args ctx — отмена; userID — владелец; id — UUID устройства.
 // @return: ошибка авторизации/поиска/сохранения.
 func (s *Service) RevokeDevice(ctx context.Context, userID, id string) error {
 	return s.repo.RevokeDevice(ctx, userID, id)
 }
 
 // Connections возвращает собственные календарные подключения без credentials.
-// @parameters: ctx — отмена; userID — владелец.
+// @args ctx — отмена; userID — владелец.
 // @return: список либо ошибка.
 func (s *Service) Connections(ctx context.Context, userID string) ([]d.CalendarConnection, error) {
 	return s.repo.Connections(ctx, userID)
 }
 
 // MockConnect включает явно демонстрационный календарь только в разрешённом локальном/test режиме.
-// @parameters: ctx — отмена; userID — владелец.
+// @args ctx — отмена; userID — владелец.
 // @return: безопасное подключение либо ошибка недоступности.
 func (s *Service) MockConnect(ctx context.Context, userID string) (d.CalendarConnection, error) {
 	if !s.options.MockConnectAllowed || !s.adapters.Capabilities.MockConnectAllowed {
@@ -272,7 +272,7 @@ func (s *Service) MockConnect(ctx context.Context, userID string) (d.CalendarCon
 }
 
 // OAuthStart создаёт одноразовый state и PKCE verifier, привязанные к авторизованному пользователю.
-// @parameters: ctx — отмена; userID — владелец; provider — настроенный generic adapter.
+// @args ctx — отмена; userID — владелец; provider — настроенный generic adapter.
 // @return: authorization URL, state либо ошибка.
 func (s *Service) OAuthStart(ctx context.Context, userID, provider string) (string, string, error) {
 	if provider != "generic" || s.adapters.OAuth == nil || s.cipher == nil {
@@ -301,7 +301,7 @@ func (s *Service) OAuthStart(ctx context.Context, userID, provider string) (stri
 }
 
 // OAuthCallback одноразово проверяет state/user/provider до отправки code к token endpoint.
-// @parameters: ctx — отмена; userID/provider — доверенная identity/адаптер; code/state — короткоживущие OAuth значения.
+// @args ctx — отмена; userID/provider — доверенная identity/адаптер; code/state — короткоживущие OAuth значения.
 // @return: подключение без секретов либо безопасная ошибка.
 func (s *Service) OAuthCallback(ctx context.Context, userID, provider, code, state string) (d.CalendarConnection, error) {
 	if provider != "generic" || s.adapters.OAuth == nil || s.cipher == nil {
@@ -336,7 +336,7 @@ func (s *Service) OAuthCallback(ctx context.Context, userID, provider, code, sta
 }
 
 // Disconnect сначала запрещает локальное использование и очищает ciphertext, затем пытается отозвать внешний токен.
-// @parameters: ctx — отмена; userID — владелец; id — UUID подключения.
+// @args ctx — отмена; userID — владелец; id — UUID подключения.
 // @return: ошибка локального отключения; внешний revoke failure не возвращает секреты и не восстанавливает доступ.
 func (s *Service) Disconnect(ctx context.Context, userID, id string) error {
 	items, err := s.repo.Connections(ctx, userID)
@@ -370,14 +370,14 @@ func (s *Service) Disconnect(ctx context.Context, userID, id string) error {
 }
 
 // CalendarMappings разрешает просмотр синхронизации только организатору/соорганизатору.
-// @parameters: ctx — отмена; userID — actor; conferenceID — область встречи.
+// @args ctx — отмена; userID — actor; conferenceID — область встречи.
 // @return: безопасные mappings либо ошибка доступа.
 func (s *Service) CalendarMappings(ctx context.Context, userID, conferenceID string) ([]d.CalendarMapping, error) {
 	return s.repo.CalendarMappings(ctx, userID, conferenceID)
 }
 
 // Tick создаёт durable reminder facts одной ограниченной SQL-порцией; timer на каждую встречу не используется.
-// @parameters: ctx — общий ограниченный цикл scheduler.
+// @args ctx — общий ограниченный цикл scheduler.
 // @return: ошибка планирования.
 func (s *Service) Tick(ctx context.Context) error {
 	return s.repo.ScheduleReminders(ctx, s.options.ReminderOffsets)
@@ -391,7 +391,7 @@ type eventPayload struct {
 }
 
 // Handle маршрутизирует durable работу, сохраняя отдельные отказные состояния каналов.
-// @parameters: ctx — timeout worker; job — задание с lease и стабильным ключом.
+// @args ctx — timeout worker; job — задание с lease и стабильным ключом.
 // @return: provider classification, ErrSkip или ошибка постоянного хранилища.
 func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 	var payload eventPayload
@@ -415,7 +415,7 @@ func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 }
 
 // FailJob сохраняет терминальный факт доставки без сообщения провайдера или transcript в журнале.
-// @parameters: ctx — финальная bounded транзакция; job — последний lease; code — безопасный код сбоя.
+// @args ctx — финальная bounded транзакция; job — последний lease; code — безопасный код сбоя.
 // @return: ошибка сохранения.
 func (s *Service) FailJob(ctx context.Context, job jobs.Job, code string) error {
 	if job.Kind == "integrations.delivery" {
@@ -431,7 +431,7 @@ func (s *Service) FailJob(ctx context.Context, job jobs.Job, code string) error 
 type templateData struct{ Subject, Title, Body, URL string }
 
 // RenderEmail формирует HTML с автоматическим escaping и plain-text из версии шаблона notification-v1.
-// @parameters: key/to — dedup и адрес; kind — событие; title/url — название и доверенная frontend ссылка.
+// @args key/to — dedup и адрес; kind — событие; title/url — название и доверенная frontend ссылка.
 // @return: письмо без transcript либо ошибка рендеринга.
 func (s *Service) RenderEmail(key, to, kind, title, link string) (d.EmailMessage, error) {
 	body := eventText(kind)
@@ -447,7 +447,7 @@ func (s *Service) RenderEmail(key, to, kind, title, link string) (d.EmailMessage
 }
 
 // eventText выбирает фиксированный локализованный текст, исключая произвольный provider error и transcript.
-// @parameters: kind — известное имя события.
+// @args kind — известное имя события.
 // @return: краткий безопасный текст.
 func eventText(kind string) string {
 	switch kind {
@@ -473,7 +473,7 @@ func eventText(kind string) string {
 }
 
 // deliver повторно проверяет настройки и live authorization перед каждым внешним вызовом.
-// @parameters: ctx — timeout; job — сохранённое задание; payload — канал и ссылка уведомления.
+// @args ctx — timeout; job — сохранённое задание; payload — канал и ссылка уведомления.
 // @return: ошибка провайдера/базы или ErrSkip при отключении.
 func (s *Service) deliver(ctx context.Context, job jobs.Job, payload eventPayload) error {
 	delivery, err := s.repo.Delivery(ctx, job)
@@ -544,7 +544,7 @@ func (s *Service) deliver(ctx context.Context, job jobs.Job, payload eventPayloa
 }
 
 // syncCalendar сохраняет mapping с проверкой lease после provider call; актуальная версия расписания вытесняет устаревшие jobs.
-// @parameters: ctx — timeout; job — версия конференции и текущий lease.
+// @args ctx — timeout; job — версия конференции и текущий lease.
 // @return: ошибка или ErrSkip при устаревшем/отключённом событии.
 func (s *Service) syncCalendar(ctx context.Context, job jobs.Job) error {
 	if s.adapters.Capabilities.Calendar == "noop" {
@@ -640,7 +640,7 @@ func (s *Service) syncCalendar(ctx context.Context, job jobs.Job) error {
 }
 
 // encryptCredentials связывает access/refresh ciphertext с разными назначениями одного подключения.
-// @parameters: connection — сохраняемое подключение; credentials — новый provider response.
+// @args connection — сохраняемое подключение; credentials — новый provider response.
 // @return: ошибка шифрования.
 func (s *Service) encryptCredentials(connection *d.CalendarConnection, credentials d.CalendarCredentials) error {
 	if s.cipher == nil {
@@ -666,7 +666,7 @@ func (s *Service) encryptCredentials(connection *d.CalendarConnection, credentia
 }
 
 // connectionCredentials расшифровывает credentials и обновляет истекающий токен до calendar operation.
-// @parameters: ctx — timeout; connection — сохранённое подключение текущего владельца.
+// @args ctx — timeout; connection — сохранённое подключение текущего владельца.
 // @return: серверные credentials либо ошибка, без записи токенов в logs.
 func (s *Service) connectionCredentials(ctx context.Context, connection *d.CalendarConnection) (d.CalendarCredentials, error) {
 	if connection.Provider == "mock" {
@@ -718,7 +718,7 @@ func randomToken() (string, error) {
 }
 
 // digest сохраняет лишь хеш одноразового state, не его plaintext.
-// @parameters: value — случайный OAuth state.
+// @args value — случайный OAuth state.
 // @return: SHA-256 в hex.
 func digest(value string) string {
 	sum := sha256.Sum256([]byte(value))

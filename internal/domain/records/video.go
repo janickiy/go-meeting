@@ -11,6 +11,7 @@ const (
 )
 
 // VideoSettings задаёт разрешение, частоту кадров и битрейт браузерного видеозахвата.
+// @params
 //   - Quality: поддерживаемый профиль качества видео.
 //   - Width: ширина видеокадра или области в пикселях.
 //   - Height: высота видеокадра или области в пикселях.
@@ -25,7 +26,7 @@ type VideoSettings struct {
 }
 
 // NormalizeStartRequest заполняет безопасные значения по умолчанию для старта записи.
-// @parameters:
+// @args
 // - request: исходный DTO старта записи.
 // @return DTO с дефолтным качеством видео.
 func NormalizeStartRequest(request StartRequest) StartRequest {
@@ -38,7 +39,7 @@ func NormalizeStartRequest(request StartRequest) StartRequest {
 }
 
 // VideoSettingsForQuality возвращает профиль видео по строковому quality.
-// @parameters:
+// @args
 // - quality: качество из API, например 720p.
 // @return настройки видео; для неизвестного качества возвращается 720p.
 func VideoSettingsForQuality(quality string) VideoSettings {
@@ -79,7 +80,7 @@ func VideoSettingsForQuality(quality string) VideoSettings {
 }
 
 // IsSupportedVideoQuality проверяет, поддерживается ли quality.
-// @parameters:
+// @args
 // - quality: качество из API.
 // @return true, если quality известно backend-у.
 func IsSupportedVideoQuality(quality string) bool {

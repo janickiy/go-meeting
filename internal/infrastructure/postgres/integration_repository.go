@@ -21,14 +21,14 @@ import (
 type IntegrationRepository struct{ db *gorm.DB }
 
 // NewIntegrationRepository связывает хранилище интеграций с текущим DB pool.
-// @parameters: db — GORM подключение PostgreSQL.
+// @args db — GORM подключение PostgreSQL.
 // @return: репозиторий интеграций.
 func NewIntegrationRepository(db *gorm.DB) *IntegrationRepository {
 	return &IntegrationRepository{db: db}
 }
 
 // Preferences возвращает настройки пользователя или privacy-preserving defaults.
-// @parameters: ctx — отмена; userID — владелец.
+// @args ctx — отмена; userID — владелец.
 // @return: настройки либо ошибка DB.
 func (r *IntegrationRepository) Preferences(ctx context.Context, userID string) (d.Preferences, error) {
 	p := d.DefaultPreferences(userID)
@@ -40,7 +40,7 @@ func (r *IntegrationRepository) Preferences(ctx context.Context, userID string) 
 }
 
 // SavePreferences атомарно обновляет только boolean категории и каналы текущего пользователя.
-// @parameters: ctx — отмена; p — проверенные настройки с серверным UserID.
+// @args ctx — отмена; p — проверенные настройки с серверным UserID.
 // @return: ошибка DB.
 func (r *IntegrationRepository) SavePreferences(ctx context.Context, p d.Preferences) error {
 	p.UpdatedAt = time.Now().UTC()
@@ -48,7 +48,7 @@ func (r *IntegrationRepository) SavePreferences(ctx context.Context, p d.Prefere
 }
 
 // Devices возвращает ограниченную страницу собственных устройств, опционально только активные.
-// @parameters: ctx — отмена; userID — владелец; active — исключить revoked/disabled.
+// @args ctx — отмена; userID — владелец; active — исключить revoked/disabled.
 // @return: не более 100 устройств либо ошибка.
 func (r *IntegrationRepository) Devices(ctx context.Context, userID string, active bool) ([]d.Device, error) {
 	items := []d.Device{}
@@ -61,7 +61,7 @@ func (r *IntegrationRepository) Devices(ctx context.Context, userID string, acti
 }
 
 // SaveDevice идемпотентно регистрирует encrypted token, ограничивая пользователя 100 активными устройствами.
-// @parameters: ctx — отмена; device — стабильный ID/fingerprint и ciphertext.
+// @args ctx — отмена; device — стабильный ID/fingerprint и ciphertext.
 // @return: ошибка quota или DB.
 func (r *IntegrationRepository) SaveDevice(ctx context.Context, device d.Device) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -80,7 +80,7 @@ func (r *IntegrationRepository) SaveDevice(ctx context.Context, device d.Device)
 }
 
 // RevokeDevice отзывает собственную регистрацию и очищает ciphertext.
-// @parameters: ctx — отмена; userID/id — владелец и device UUID.
+// @args ctx — отмена; userID/id — владелец и device UUID.
 // @return: not found при чужом ID либо ошибка DB.
 func (r *IntegrationRepository) RevokeDevice(ctx context.Context, userID, id string) error {
 	result := r.db.WithContext(ctx).Model(&d.Device{}).Where("user_id=? AND id=?", userID, id).Updates(map[string]any{"revoked_at": time.Now().UTC(), "token_ciphertext": ""})
@@ -94,7 +94,7 @@ func (r *IntegrationRepository) RevokeDevice(ctx context.Context, userID, id str
 }
 
 // Connections читает только собственные calendar connections; JSON скрывает secrets.
-// @parameters: ctx — отмена; userID — владелец.
+// @args ctx — отмена; userID — владелец.
 // @return: ограниченный список либо ошибка.
 func (r *IntegrationRepository) Connections(ctx context.Context, userID string) ([]d.CalendarConnection, error) {
 	items := []d.CalendarConnection{}
@@ -103,14 +103,14 @@ func (r *IntegrationRepository) Connections(ctx context.Context, userID string) 
 }
 
 // SaveConnection сохраняет OAuth credentials после шифрования или демонстрационное подключение.
-// @parameters: ctx — отмена; c — подключение с серверным owner.
+// @args ctx — отмена; c — подключение с серверным owner.
 // @return: ошибка DB.
 func (r *IntegrationRepository) SaveConnection(ctx context.Context, c d.CalendarConnection) error {
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, DoUpdates: clause.AssignmentColumns([]string{"status", "access_ciphertext", "refresh_ciphertext", "scopes", "expires_at", "updated_at"})}).Create(&c).Error
 }
 
 // RefreshConnection сохраняет rotation только подключённого прежнего grant, не возрождая параллельно отозванный токен.
-// @parameters: ctx — отмена; c — новые encrypted credentials; previous — прежний ciphertext refresh token.
+// @args ctx — отмена; c — новые encrypted credentials; previous — прежний ciphertext refresh token.
 // @return: ошибка конфликта при revoke/параллельной rotation либо ошибка DB.
 func (r *IntegrationRepository) RefreshConnection(ctx context.Context, c d.CalendarConnection, previous string) error {
 	result := r.db.WithContext(ctx).Model(&d.CalendarConnection{}).Where("id=? AND user_id=? AND status='connected' AND refresh_ciphertext=?", c.ID, c.UserID, previous).Updates(map[string]any{"access_ciphertext": c.AccessCiphertext, "refresh_ciphertext": c.RefreshCiphertext, "expires_at": c.ExpiresAt, "scopes": c.Scopes})
@@ -124,7 +124,7 @@ func (r *IntegrationRepository) RefreshConnection(ctx context.Context, c d.Calen
 }
 
 // RevokeConnection атомарно отключает подключение и удаляет сохранённые encrypted tokens.
-// @parameters: ctx — отмена; userID/id — owner и connection UUID.
+// @args ctx — отмена; userID/id — owner и connection UUID.
 // @return: not found при чужом ресурсе либо ошибка.
 func (r *IntegrationRepository) RevokeConnection(ctx context.Context, userID, id string) error {
 	result := r.db.WithContext(ctx).Model(&d.CalendarConnection{}).Where("user_id=? AND id=?", userID, id).Updates(map[string]any{"status": "revoked", "access_ciphertext": "", "refresh_ciphertext": "", "expires_at": nil})
@@ -138,7 +138,7 @@ func (r *IntegrationRepository) RevokeConnection(ctx context.Context, userID, id
 }
 
 // SaveOAuthState ограничивает одноразовые OAuth попытки и удаляет истёкшие временные секреты.
-// @parameters: ctx — отмена; state — user/provider binding, hashed state и encrypted verifier.
+// @args ctx — отмена; state — user/provider binding, hashed state и encrypted verifier.
 // @return: ошибка quota/DB.
 func (r *IntegrationRepository) SaveOAuthState(ctx context.Context, state d.OAuthState) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -160,7 +160,7 @@ func (r *IntegrationRepository) SaveOAuthState(ctx context.Context, state d.OAut
 }
 
 // TakeOAuthState одноразово забирает state лишь при совпадении owner/provider и неистёкшем сроке.
-// @parameters: ctx — отмена; userID/provider/hash — защищённая область OAuth.
+// @args ctx — отмена; userID/provider/hash — защищённая область OAuth.
 // @return: прежний encrypted verifier либо ошибка проверки, без утечки существования чужих states.
 func (r *IntegrationRepository) TakeOAuthState(ctx context.Context, userID, provider, hash string) (d.OAuthState, error) {
 	var value d.OAuthState
@@ -175,7 +175,7 @@ func (r *IntegrationRepository) TakeOAuthState(ctx context.Context, userID, prov
 }
 
 // CalendarMappings показывает состояние внешнего календаря только допущенному owner/cohost истории.
-// @parameters: ctx — отмена; userID/conferenceID — actor и область встречи.
+// @args ctx — отмена; userID/conferenceID — actor и область встречи.
 // @return: mappings либо ошибка авторизации.
 func (r *IntegrationRepository) CalendarMappings(ctx context.Context, userID, conferenceID string) ([]d.CalendarMapping, error) {
 	var count int64
@@ -191,7 +191,7 @@ func (r *IntegrationRepository) CalendarMappings(ctx context.Context, userID, co
 }
 
 // Conference читает актуальное versioned расписание для проверки устаревших jobs.
-// @parameters: ctx — отмена; id — conference UUID.
+// @args ctx — отмена; id — conference UUID.
 // @return: ограниченная проекция либо ошибка.
 func (r *IntegrationRepository) Conference(ctx context.Context, id string) (u.ConferenceSnapshot, error) {
 	var value u.ConferenceSnapshot
@@ -203,7 +203,7 @@ func (r *IntegrationRepository) Conference(ctx context.Context, id string) (u.Co
 }
 
 // MappingsForSync читает только mappings заданной конференции для доверенного worker.
-// @parameters: ctx — отмена; conferenceID — область синхронизации.
+// @args ctx — отмена; conferenceID — область синхронизации.
 // @return: ограниченный список либо ошибка DB.
 func (r *IntegrationRepository) MappingsForSync(ctx context.Context, conferenceID string) ([]d.CalendarMapping, error) {
 	items := []d.CalendarMapping{}
@@ -212,7 +212,7 @@ func (r *IntegrationRepository) MappingsForSync(ctx context.Context, conferenceI
 }
 
 // integrationLease запрещает записи async результата от истёкшего или перехваченного worker.
-// @parameters: tx — текущая транзакция; job — lease snapshot.
+// @args tx — текущая транзакция; job — lease snapshot.
 // @return: ErrLeaseLost либо ошибка DB; блокировка сохраняется до commit.
 func integrationLease(tx *gorm.DB, job jobs.Job) error {
 	var id string
@@ -227,7 +227,7 @@ func integrationLease(tx *gorm.DB, job jobs.Job) error {
 }
 
 // SaveMapping фиксирует только текущий lease и не позволяет старой версии перезаписать новую.
-// @parameters: ctx — отмена; job — источник version/lease; m — safe external mapping.
+// @args ctx — отмена; job — источник version/lease; m — safe external mapping.
 // @return: ошибка fenced DB commit.
 func (r *IntegrationRepository) SaveMapping(ctx context.Context, job jobs.Job, m d.CalendarMapping) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -247,7 +247,7 @@ func (r *IntegrationRepository) SaveMapping(ctx context.Context, job jobs.Job, m
 
 // AcquireCalendar сериализует только продуктовую внешнюю синхронизацию одной конференции на выделенном DB connection.
 // Неблокирующая advisory lock не удерживает row locks или media state во время HTTP провайдера.
-// @parameters: ctx — ограниченный срок работы; conferenceID — стабильная область календаря.
+// @args ctx — ограниченный срок работы; conferenceID — стабильная область календаря.
 // @return: обязательная функция освобождения либо retryable ошибка занятости.
 func (r *IntegrationRepository) AcquireCalendar(ctx context.Context, conferenceID string) (func(), error) {
 	db, err := r.db.DB()
@@ -283,7 +283,7 @@ func (r *IntegrationRepository) AcquireCalendar(ctx context.Context, conferenceI
 }
 
 // FailCalendars отмечает последний terminal sync failure только под действующим lease и без регресса версии.
-// @parameters: ctx — отмена; job — конференция/версия/lease; code — безопасный технический код, не сохраняемый как provider body.
+// @args ctx — отмена; job — конференция/версия/lease; code — безопасный технический код, не сохраняемый как provider body.
 // @return: ошибка fenced DB commit.
 func (r *IntegrationRepository) FailCalendars(ctx context.Context, job jobs.Job, code string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -297,7 +297,7 @@ func (r *IntegrationRepository) FailCalendars(ctx context.Context, job jobs.Job,
 }
 
 // Fanout создаёт личные ссылочные уведомления с живой проверкой допуска; терминальные failures направляются только owner.
-// @parameters: ctx — отмена; job — событие и lease; event — allowlisted event kind.
+// @args ctx — отмена; job — событие и lease; event — allowlisted event kind.
 // @return: ошибка DB либо ErrSkip для устаревшего schedule.
 func (r *IntegrationRepository) Fanout(ctx context.Context, job jobs.Job, event string) error {
 	switch event {
@@ -447,7 +447,7 @@ func (r *IntegrationRepository) Fanout(ctx context.Context, job jobs.Job, event 
 }
 
 // ScheduleReminders создаёт bounded reminder facts при достижении offset и текущем расписании, без per-meeting timers.
-// @parameters: ctx — отмена; offsets — проверенные positive offsets.
+// @args ctx — отмена; offsets — проверенные positive offsets.
 // @return: ошибка SQL; повторные ticks не дублируют уведомления.
 func (r *IntegrationRepository) ScheduleReminders(ctx context.Context, offsets []time.Duration) error {
 	if err := r.db.WithContext(ctx).Exec(`DELETE FROM calendar_oauth_states WHERE id IN (SELECT id FROM calendar_oauth_states WHERE expires_at<now() OR used_at IS NOT NULL ORDER BY expires_at,id LIMIT 1000)`).Error; err != nil {
@@ -469,7 +469,7 @@ func (r *IntegrationRepository) ScheduleReminders(ctx context.Context, offsets [
 }
 
 // Delivery повторно проверяет владельца уведомления, category preferences и актуальное членство перед отправкой.
-// @parameters: ctx — отмена; job — notification entity и авторизованный получатель.
+// @args ctx — отмена; job — notification entity и авторизованный получатель.
 // @return: delivery projection с Allowed=false при отзыве допуска.
 func (r *IntegrationRepository) Delivery(ctx context.Context, job jobs.Job) (u.Delivery, error) {
 	var result u.Delivery
@@ -546,7 +546,7 @@ func (r *IntegrationRepository) Delivery(ctx context.Context, job jobs.Job) (u.D
 }
 
 // CompleteDelivery сохраняет единственный факт terminal delivery под fencing текущего job lease.
-// @parameters: ctx — отмена; job — lease и получатель; status/code — безопасные технические метки.
+// @args ctx — отмена; job — lease и получатель; status/code — безопасные технические метки.
 // @return: ошибка DB/fencing.
 func (r *IntegrationRepository) CompleteDelivery(ctx context.Context, job jobs.Job, status, code string) error {
 	if job.UserID == nil {
@@ -567,7 +567,7 @@ func (r *IntegrationRepository) CompleteDelivery(ctx context.Context, job jobs.J
 }
 
 // ScheduleCalendarSync атомарно создаёт jobs для текущих будущих встреч владельца после подключения календаря.
-// @parameters: ctx — отмена; userID — владелец подключения.
+// @args ctx — отмена; userID — владелец подключения.
 // @return: ошибка durable enqueue.
 func (r *IntegrationRepository) ScheduleCalendarSync(ctx context.Context, userID string) error {
 	return r.db.WithContext(ctx).Exec(`INSERT INTO background_jobs(kind,entity_id,conference_id,version,payload,dedup_key) SELECT 'integrations.calendar',id,id,integration_version,'{}'::jsonb,'calendar-connect:'||id::text||':'||integration_version::text||':'||? FROM conferences WHERE owner_id=? AND status='scheduled' ORDER BY scheduled_at,id LIMIT 1000 ON CONFLICT(dedup_key) DO NOTHING`, userID, userID).Error

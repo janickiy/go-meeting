@@ -21,7 +21,7 @@ type audioObjectFake struct {
 }
 
 // OpenRecording выдаёт точный fixture stream с тем же byte budget контрактом.
-// @parameters: ctx/key/maximum — trusted request; @return bounded fixture reader/size/error.
+// @args ctx/key/maximum — trusted request; @return bounded fixture reader/size/error.
 func (o audioObjectFake) OpenRecording(context.Context, string, int64) (io.ReadCloser, int64, error) {
 	if o.readErr != nil {
 		return nil, 0, o.readErr
@@ -30,7 +30,7 @@ func (o audioObjectFake) OpenRecording(context.Context, string, int64) (io.ReadC
 }
 
 // TestTranscriptionAudioRealExtractionAndCleanup проверяет реальный mono16k WAV и все cleanup paths.
-// @parameters: t — test runner; отсутствие FFmpeg явно skip, без притворного PASS live extraction.
+// @args t — test runner; отсутствие FFmpeg явно skip, без притворного PASS live extraction.
 func TestTranscriptionAudioRealExtractionAndCleanup(t *testing.T) {
 	binary, e := exec.LookPath("ffmpeg")
 	if e != nil {
@@ -83,7 +83,7 @@ func TestTranscriptionAudioRealExtractionAndCleanup(t *testing.T) {
 }
 
 // TestTranscriptionAudioDownloadAndAdmissionFailures проверяет пределы до extract и cleanup при storage outage.
-// @parameters: t — test runner.
+// @args t — test runner.
 func TestTranscriptionAudioDownloadAndAdmissionFailures(t *testing.T) {
 	root := t.TempDir()
 	adapter := NewTranscriptionAudio(audioObjectFake{readErr: errors.New("private storage token should not leak")}, "ffmpeg", root, 100, 1000, 10)

@@ -12,7 +12,7 @@ import (
 )
 
 // TestEmailEscapesMeetingContent проверяет HTML escaping и отсутствие исполнения пользовательского содержимого.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestEmailEscapesMeetingContent(t *testing.T) {
 	s, err := NewService(nil, d.Providers{}, nil, Options{PublicURL: "https://meet.example"})
 	if err != nil {
@@ -37,7 +37,7 @@ type linkRepository struct {
 }
 
 // Delivery возвращает разрешённый transcript/summary-ready факт.
-// @parameters: ctx — тестовый контекст; job — fake job.
+// @args ctx — тестовый контекст; job — fake job.
 // @return: минимальная безопасная delivery projection.
 func (r linkRepository) Delivery(ctx context.Context, job jobs.Job) (Delivery, error) {
 	p := d.DefaultPreferences("user")
@@ -46,14 +46,14 @@ func (r linkRepository) Delivery(ctx context.Context, job jobs.Job) (Delivery, e
 }
 
 // Conference предоставляет идентификатор и название без зависимости от media.
-// @parameters: ctx — тестовый контекст; id — conference ID.
+// @args ctx — тестовый контекст; id — conference ID.
 // @return: projection для URL.
 func (r linkRepository) Conference(ctx context.Context, id string) (ConferenceSnapshot, error) {
 	return ConferenceSnapshot{ID: "conference-id", Title: "Meeting"}, nil
 }
 
 // CompleteDelivery имитирует уже проверенную запись результата.
-// @parameters: ctx — контекст; job — задание; status/code — безопасный исход.
+// @args ctx — контекст; job — задание; status/code — безопасный исход.
 // @return: nil для isolated link test.
 func (r linkRepository) CompleteDelivery(ctx context.Context, job jobs.Job, status, code string) error {
 	return nil
@@ -63,7 +63,7 @@ func (r linkRepository) CompleteDelivery(ctx context.Context, job jobs.Job, stat
 type capturedEmail struct{ message d.EmailMessage }
 
 // Send фиксирует сообщение для проверки ссылки.
-// @parameters: ctx — контекст; message — rendered email.
+// @args ctx — контекст; message — rendered email.
 // @return: nil, платный провайдер не вызывается.
 func (e *capturedEmail) Send(ctx context.Context, message d.EmailMessage) error {
 	e.message = message
@@ -71,7 +71,7 @@ func (e *capturedEmail) Send(ctx context.Context, message d.EmailMessage) error 
 }
 
 // TestDeliveryUsesExistingFrontendRoutes проверяет deep-link конкретной записи вместо несуществующего /app пути.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestDeliveryUsesExistingFrontendRoutes(t *testing.T) {
 	for _, kind := range []string{"transcript.ready", "summary.ready"} {
 		email := &capturedEmail{}
@@ -96,14 +96,14 @@ func TestDeliveryUsesExistingFrontendRoutes(t *testing.T) {
 type calendarLinkRepository struct{ Repository }
 
 // AcquireCalendar предоставляет isolated mutex substitute без обращения к PostgreSQL.
-// @parameters: ctx — контекст; id — область конференции.
+// @args ctx — контекст; id — область конференции.
 // @return: тестовая release функция и nil.
 func (calendarLinkRepository) AcquireCalendar(ctx context.Context, id string) (func(), error) {
 	return func() {}, nil
 }
 
 // Conference возвращает расписание версии три.
-// @parameters: ctx — контекст; id — conference UUID.
+// @args ctx — контекст; id — conference UUID.
 // @return: snapshot встречи.
 func (calendarLinkRepository) Conference(ctx context.Context, id string) (ConferenceSnapshot, error) {
 	at := time.Now().Add(time.Hour)
@@ -111,21 +111,21 @@ func (calendarLinkRepository) Conference(ctx context.Context, id string) (Confer
 }
 
 // Connections возвращает явно mock подключение без provider tokens.
-// @parameters: ctx — контекст; userID — владелец.
+// @args ctx — контекст; userID — владелец.
 // @return: mock connection.
 func (calendarLinkRepository) Connections(ctx context.Context, userID string) ([]d.CalendarConnection, error) {
 	return []d.CalendarConnection{{ID: "connection", UserID: userID, Provider: "mock", CalendarID: "primary", Status: "connected"}}, nil
 }
 
 // MappingsForSync моделирует первоначальную внешнюю синхронизацию.
-// @parameters: ctx — контекст; id — conference UUID.
+// @args ctx — контекст; id — conference UUID.
 // @return: пустой mapping list и nil.
 func (calendarLinkRepository) MappingsForSync(ctx context.Context, id string) ([]d.CalendarMapping, error) {
 	return nil, nil
 }
 
 // SaveMapping фиксирует successful provider operation без DB в route-unit test.
-// @parameters: ctx — контекст; job — версия; mapping — результат.
+// @args ctx — контекст; job — версия; mapping — результат.
 // @return: nil.
 func (calendarLinkRepository) SaveMapping(ctx context.Context, job jobs.Job, mapping d.CalendarMapping) error {
 	return nil
@@ -138,7 +138,7 @@ type capturedCalendar struct {
 }
 
 // CreateEvent сохраняет запрос и назначает тестовый внешний ID.
-// @parameters: ctx — контекст; credentials — mock server credentials; event — запрос.
+// @args ctx — контекст; credentials — mock server credentials; event — запрос.
 // @return: event с ID и nil.
 func (c *capturedCalendar) CreateEvent(ctx context.Context, credentials d.CalendarCredentials, event d.CalendarEvent) (d.CalendarEvent, error) {
 	c.event = event
@@ -147,7 +147,7 @@ func (c *capturedCalendar) CreateEvent(ctx context.Context, credentials d.Calend
 }
 
 // TestCalendarInviteRouteAndSourceVersion проверяет /i invite route и внешнюю version metadata.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestCalendarInviteRouteAndSourceVersion(t *testing.T) {
 	calendar := &capturedCalendar{}
 	service, err := NewService(calendarLinkRepository{}, d.Providers{Calendar: calendar, Capabilities: d.Capabilities{Email: "noop", Push: "noop", Calendar: "mock"}}, nil, Options{PublicURL: "https://meet.example"})
@@ -163,7 +163,7 @@ func TestCalendarInviteRouteAndSourceVersion(t *testing.T) {
 }
 
 // TestIntegrationConfiguration проверяет bounded offsets и backwards-compatible noop запуск без публичного URL.
-// @parameters: t — контекст теста.
+// @args t — контекст теста.
 func TestIntegrationConfiguration(t *testing.T) {
 	noop := d.Providers{Capabilities: d.Capabilities{Email: "noop", Push: "noop", Calendar: "noop"}}
 	if _, err := NewService(nil, noop, nil, Options{}); err != nil {

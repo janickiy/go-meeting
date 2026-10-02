@@ -25,7 +25,7 @@ type provider struct {
 }
 
 // newProvider проверяет доверенный endpoint и отключает redirects с credentials.
-// @parameters: mode — noop/mock/http; endpoint/token — серверные secrets/config;
+// @args mode — noop/mock/http; endpoint/token — серверные secrets/config;
 // model — техническое имя; timeout — конечный deadline внешнего вызова.
 // @return адаптер либо bootstrap error без раскрытия значения credential.
 func newProvider(mode, endpoint, token, model string, timeout time.Duration) (*provider, error) {
@@ -48,7 +48,7 @@ func newProvider(mode, endpoint, token, model string, timeout time.Duration) (*p
 }
 
 // NewTranscriptionProvider создаёт STT adapter без network call при bootstrap.
-// @parameters: mode — явный режим; endpoint/token — доверенная настройка; timeout — finite limit.
+// @args mode — явный режим; endpoint/token — доверенная настройка; timeout — finite limit.
 // @return заменяемый TranscriptionProvider либо config error.
 func NewTranscriptionProvider(mode, endpoint, token string, timeout time.Duration) (domain.TranscriptionProvider, error) {
 	p, e := newProvider(mode, endpoint, token, "", timeout)
@@ -59,7 +59,7 @@ func NewTranscriptionProvider(mode, endpoint, token string, timeout time.Duratio
 }
 
 // NewAIProvider создаёт AI adapter; mock означает демонстрацию, а не настоящий AI.
-// @parameters: mode/endpoint/token/model — серверная настройка; timeout — finite limit.
+// @args mode/endpoint/token/model — серверная настройка; timeout — finite limit.
 // @return заменяемый AIProvider либо config error.
 func NewAIProvider(mode, endpoint, token, model string, timeout time.Duration) (domain.AIProvider, error) {
 	p, e := newProvider(mode, endpoint, token, model, timeout)
@@ -77,7 +77,7 @@ type transcription struct{ *provider }
 func (p *transcription) Name() string { return p.mode }
 
 // Transcribe передаёт ограниченное WAV как streaming multipart без видео/URL.
-// @parameters: ctx — deadline; request — ограниченный reader и stable dedup key.
+// @args ctx — deadline; request — ограниченный reader и stable dedup key.
 // @return непроверенный STT output; schema/time validation выполняется usecase.
 func (p *transcription) Transcribe(ctx context.Context, request domain.TranscriptionRequest) (domain.TranscriptionResult, error) {
 	if p.mode == "noop" {
@@ -143,7 +143,7 @@ func (p *intelligence) Model() string {
 }
 
 // Summarize отправляет immutable instructions отдельно от UNTRUSTED JSON.
-// @parameters: ctx — deadline; request — bounded input и schema/prompt versions.
+// @args ctx — deadline; request — bounded input и schema/prompt versions.
 // @return raw JSON output, обязательно проверяемый usecase перед сохранением.
 func (p *intelligence) Summarize(ctx context.Context, request domain.AIRequest) (json.RawMessage, error) {
 	if p.mode == "noop" {
@@ -168,7 +168,7 @@ func (p *intelligence) Summarize(ctx context.Context, request domain.AIRequest) 
 }
 
 // call применяет finite timeout/response bounds и возвращает только safe error codes.
-// @parameters: request — server-owned HTTP request; key — stable idempotency;
+// @args request — server-owned HTTP request; key — stable idempotency;
 // maximum — максимальный размер ответа, не сохраняемого в logs.
 // @return ограниченные bytes или retry/permanent classification.
 func (p *provider) call(request *http.Request, key string, maximum int64) ([]byte, error) {
@@ -198,7 +198,7 @@ func (p *provider) call(request *http.Request, key string, maximum int64) ([]byt
 }
 
 // retryAfter ограничивает Retry-After, не позволяя внешнему API заморозить job навсегда.
-// @parameters: value — HTTP header в seconds или HTTP-date.
+// @args value — HTTP header в seconds или HTTP-date.
 // @return пауза от нуля до часа; неизвестное значение означает обычный backoff.
 func retryAfter(value string) time.Duration {
 	value = strings.TrimSpace(value)

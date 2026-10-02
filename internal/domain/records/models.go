@@ -7,27 +7,32 @@ import (
 )
 
 const (
-	ModeLegacy         = "legacy"
-	ModeComposite      = "composite"
-	StatusStarting     = "starting"
-	StatusRecording    = "recording"
-	StatusStopping     = "stopping"
-	StatusFinalizing   = "finalizing"
-	StatusUploading    = "uploading"
-	StatusReady        = "ready"
-	StatusPartialReady = "partial_ready"
-	StatusFailed       = "failed"
-	StatusCancelled    = "cancelled"
-	StatusDegraded     = "degraded"
+	ModeLegacy           = "legacy"
+	ModeComposite        = "composite"
+	ModeAudioOnly        = "audio_only"
+	ModeIndividualTracks = "individual_tracks"
+	ModeScreenFocus      = "screen_focus"
+	StatusStarting       = "starting"
+	StatusRecording      = "recording"
+	StatusStopping       = "stopping"
+	StatusFinalizing     = "finalizing"
+	StatusUploading      = "uploading"
+	StatusReady          = "ready"
+	StatusPartialReady   = "partial_ready"
+	StatusFailed         = "failed"
+	StatusCancelled      = "cancelled"
+	StatusDegraded       = "degraded"
 
-	FileTypeFinalMP4   = "final_mp4"
-	FileTypePreviewJPG = "preview_jpg"
-	FileTypeDebugLog   = "debug_log"
+	FileTypeFinalMP4      = "final_mp4"
+	FileTypeFinalAudio    = "final_audio"
+	FileTypeTracksArchive = "tracks_archive"
+	FileTypePreviewJPG    = "preview_jpg"
+	FileTypeDebugLog      = "debug_log"
 )
 
 // IsTerminalStatus проверяет, завершён ли жизненный цикл записи и запрещены ли дальнейшие обычные переходы.
 //
-// @parameters:
+// @args
 //   - status (string): состояние ресурса, ответа или фильтра выборки.
 //
 // @return:
@@ -42,6 +47,7 @@ func IsTerminalStatus(status string) bool {
 }
 
 // Record сохраняет задачу записи, её параметры, состояние, аренду и сведения об ошибке.
+// @params
 //   - ID: уникальный идентификатор данной сущности.
 //   - UUID: идентификатор связанного ресурса, заданного параметром UUID.
 //   - Mode: значение Mode типа string, используемое согласно назначению этой операции.
@@ -108,6 +114,7 @@ type Record struct {
 func (Record) TableName() string { return "record" }
 
 // RecordSegment сохраняет метаданные отдельного сегмента записи.
+// @params
 //   - ID: уникальный идентификатор данной сущности.
 //   - RecordID: внешний UUID задачи записи.
 //   - SeqNo: значение SeqNo типа int, используемое согласно назначению этой операции.
@@ -148,6 +155,7 @@ type RecordSegment struct {
 func (RecordSegment) TableName() string { return "record_segment" }
 
 // RecordFile сохраняет метаданные итогового артефакта в приватном объектном хранилище.
+// @params
 //   - ID: уникальный идентификатор данной сущности.
 //   - UUID: идентификатор связанного ресурса, заданного параметром UUID.
 //   - RecordID: внешний UUID задачи записи.
@@ -165,6 +173,8 @@ func (RecordSegment) TableName() string { return "record_segment" }
 //   - CreatedAt: время создания значения.
 //   - UpdatedAt: время последнего сохранённого изменения.
 type RecordFile struct {
+	// Related содержит дополнительные приватные артефакты для того же атомарного ready commit.
+	Related        []RecordFile   `gorm:"-" json:"-"`
 	ID             int64          `gorm:"primaryKey" json:"id"`
 	UUID           string         `gorm:"column:uuid;type:uuid;default:gen_random_uuid()" json:"uuid"`
 	RecordID       int64          `gorm:"column:record_id" json:"recordId"`
@@ -190,7 +200,7 @@ type RecordFile struct {
 func (RecordFile) TableName() string { return "record_file" }
 
 // RecordEvent сохраняет диагностическое событие жизненного цикла записи.
-// Состав:
+// @params:
 //   - ID: уникальный идентификатор данной сущности.
 //   - RecordID: внешний UUID задачи записи.
 //   - EventType: значение EventType типа string, используемое согласно назначению этой операции.

@@ -15,7 +15,7 @@ const authenticatedUserIDKey = "authenticated_user_id"
 type TokenVerifier interface {
 	// Verify проверяет подпись, срок и содержимое переданного разрешения согласно контракту сервиса.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): исходные байты JSON, пакета или сериализованного значения.
 	//
 	// @return:
@@ -26,7 +26,7 @@ type TokenVerifier interface {
 
 // Authenticate создаёт HTTP-посредник проверки Bearer JWT и сохраняет подтверждённый идентификатор пользователя в контексте.
 //
-// @parameters:
+// @args
 //   - tokens (TokenVerifier): сервис выпуска или проверки JWT авторизации.
 //
 // @return:
@@ -34,7 +34,7 @@ type TokenVerifier interface {
 func Authenticate(tokens TokenVerifier) gin.HandlerFunc {
 	// Вложенный обработчик выполняет выделенный шаг обработки в проверке HTTP-авторизации и ограничений запросов, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	return func(c *gin.Context) {
 		header := strings.Fields(c.GetHeader("Authorization"))
@@ -54,7 +54,7 @@ func Authenticate(tokens TokenVerifier) gin.HandlerFunc {
 
 // UserID возвращает идентификатор пользователя, ранее проверенный HTTP-посредником авторизации.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
 // @return:

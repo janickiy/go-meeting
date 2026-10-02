@@ -13,7 +13,6 @@ import (
 )
 
 // Config собирает общие параметры окружения для запуска API и воркеров.
-// Состав:
 //   - AppEnv: значение AppEnv типа string, используемое согласно назначению этой операции.
 //   - APIPort: значение APIPort типа int, используемое согласно назначению этой операции.
 //   - WorkerPort: значение WorkerPort типа int, используемое согласно назначению этой операции.
@@ -77,10 +76,11 @@ type Config struct {
 	TrustedProxies     []string
 	Operations         OperationsConfig
 	StageSeven         StageSevenConfig
+	StageEight         StageEightConfig
 }
 
 // Load читает .env и переменные окружения.
-// @parameters: нет.
+// @args нет.
 // @return заполненный Config или ошибку некорректной настройки.
 func Load() (Config, error) {
 	_ = godotenv.Load()
@@ -141,6 +141,10 @@ func Load() (Config, error) {
 	if err := validateProduction(cfg); err != nil {
 		return Config{}, err
 	}
+	cfg.StageEight, err = LoadStageEight(cfg.IsLocal() || cfg.AppEnv == "test")
+	if err != nil {
+		return Config{}, err
+	}
 	cfg.StageSeven, err = LoadStageSeven(cfg.IsLocal() || cfg.AppEnv == "test")
 	if err != nil {
 		return Config{}, err
@@ -153,7 +157,7 @@ func Load() (Config, error) {
 }
 
 // RateLimitConfig задаёт правила и режим обработки ограничения частоты запросов.
-// Состав:
+// @params:
 //   - DefaultRPM: значение DefaultRPM типа int, используемое согласно назначению этой операции.
 //   - AuthLoginIPRPM: значение AuthLoginIPRPM типа int, используемое согласно назначению этой операции.
 //   - AuthRegisterIPRPM: значение AuthRegisterIPRPM типа int, используемое согласно назначению этой операции.
@@ -180,7 +184,7 @@ type RateLimitConfig struct {
 }
 
 // IsLocal проверяет, что приложение запущено в локальном окружении.
-// @parameters: нет.
+// @args нет.
 // @return true для APP_ENV=local/dev/debug.
 func (c Config) IsLocal() bool {
 	value := strings.ToLower(c.AppEnv)
@@ -239,7 +243,7 @@ func rabbitMQURL() string {
 
 // env читает строковую переменную окружения и применяет запасное значение при её отсутствии.
 //
-// @parameters:
+// @args
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - fallback (string): значение, используемое при отсутствии входного параметра.
 //
@@ -256,7 +260,7 @@ func env(key string, fallback string) string {
 
 // envInt читает целочисленный параметр окружения и проверяет его формат.
 //
-// @parameters:
+// @args
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - fallback (int): значение, используемое при отсутствии входного параметра.
 //
@@ -277,7 +281,7 @@ func envInt(key string, fallback int) int {
 
 // envBool читает логический параметр окружения и проверяет допустимый формат.
 //
-// @parameters:
+// @args
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - fallback (bool): значение, используемое при отсутствии входного параметра.
 //
@@ -294,7 +298,7 @@ func envBool(key string, fallback bool) bool {
 
 // envDuration читает длительность из окружения и проверяет её формат.
 //
-// @parameters:
+// @args
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - fallback (time.Duration): значение, используемое при отсутствии входного параметра.
 //
@@ -319,7 +323,7 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 
 // envList разбирает список значений переменной окружения.
 //
-// @parameters:
+// @args
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //
 // @return:

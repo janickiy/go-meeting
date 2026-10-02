@@ -67,6 +67,7 @@ go-build:
     - go build -o .build/worker ./cmd/worker
     - go build -o .build/media-worker ./cmd/media-worker
     - go build -o .build/product-worker ./cmd/product-worker
+    - go build -o .build/live-worker ./cmd/live-worker
     - go build -o .build/main ./cmd/main
 
 frontend-check:

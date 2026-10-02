@@ -12,6 +12,7 @@ import (
 )
 
 // OutputValidation собирает результаты проверки итогового медиафайла через ffprobe.
+// @params
 //   - Duration: плановая длительность или интервал в единицах, заданных типом.
 //   - VideoDuration: значение VideoDuration типа float64, используемое согласно назначению этой операции.
 //   - AudioDuration: значение AudioDuration типа float64, используемое согласно назначению этой операции.
@@ -34,7 +35,7 @@ type OutputValidation struct {
 // concatComposite объединяет готовые фрагменты общей записи в итоговый файл.
 // Внешняя команда или запрос использует контекст операции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - listPath (string): значение listPath типа string, используемое согласно назначению этой операции.
 //   - finalPath (string): значение finalPath типа string, используемое согласно назначению этой операции.
@@ -54,7 +55,7 @@ func (p *PostProcessor) concatComposite(ctx context.Context, listPath, finalPath
 // ValidateOutput проверяет итоговый медиафайл через ffprobe: дорожки, кодеки, длительность и размеры.
 // Внешняя команда или запрос использует контекст операции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - path (string): путь к локальному файлу или каталогу операции.
 //   - requireAudio (bool): логический признак requireAudio, управляющий соответствующей веткой обработки.
@@ -63,6 +64,13 @@ func (p *PostProcessor) concatComposite(ctx context.Context, listPath, finalPath
 //   - результат 1 (OutputValidation): значение, подготовленное операцией для вызывающей стороны.
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *PostProcessor) ValidateOutput(ctx context.Context, path string, requireAudio bool) (OutputValidation, error) {
+	return p.validateOutput(ctx, path, requireAudio, true)
+}
+
+// validateOutput проверяет контейнер и дорожки согласно серверной стратегии.
+// @args ctx — deadline; path — локальный файл; requireAudio/requireVideo — обязательные дорожки.
+// @return метаданные корректного MP4 или ошибка валидации.
+func (p *PostProcessor) validateOutput(ctx context.Context, path string, requireAudio, requireVideo bool) (OutputValidation, error) {
 	result := OutputValidation{}
 	info, err := os.Stat(path)
 	if err != nil {
@@ -111,13 +119,16 @@ func (p *PostProcessor) ValidateOutput(ctx context.Context, path string, require
 			result.AudioDuration = duration
 		}
 	}
-	if result.VideoCodec != "h264" || result.Width <= 0 || result.Height <= 0 || result.VideoDuration <= 0 {
+	if requireVideo && (result.VideoCodec != "h264" || result.Width <= 0 || result.Height <= 0 || result.VideoDuration <= 0) {
 		return result, fmt.Errorf("composite output lacks valid H.264 video")
 	}
 	if requireAudio && (result.AudioCodec != "aac" || result.AudioDuration <= 0) {
 		return result, fmt.Errorf("composite output lacks valid AAC audio")
 	}
-	if result.AudioDuration > 0 && math.Abs(result.VideoDuration-result.AudioDuration) > 0.35 {
+	if !requireVideo && result.VideoCodec != "" {
+		return result, fmt.Errorf("audio output unexpectedly contains video")
+	}
+	if requireVideo && result.AudioDuration > 0 && math.Abs(result.VideoDuration-result.AudioDuration) > 0.35 {
 		return result, fmt.Errorf("composite A/V duration mismatch: video %.3fs audio %.3fs", result.VideoDuration, result.AudioDuration)
 	}
 	return result, nil

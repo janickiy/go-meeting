@@ -13,7 +13,7 @@ const testSecret = "only-for-tests-32-bytes-or-more-secret"
 
 // TestPasswordHashesAreSaltedAndVerified проверяет сценарий «Password Hashes Are Salted и Verified», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPasswordHashesAreSaltedAndVerified(t *testing.T) {
 	hasher := PasswordHasher{}
@@ -47,7 +47,7 @@ func TestPasswordHashesAreSaltedAndVerified(t *testing.T) {
 
 // TestTokenValidation проверяет сценарий «токен проверка входных данных», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestTokenValidation(t *testing.T) {
 	service, err := NewTokenService(testSecret)
@@ -88,7 +88,7 @@ func TestTokenValidation(t *testing.T) {
 	for _, name := range []string{"missing expiry", "missing issued-at", "future issued-at", "wrong issuer", "wrong audience", "bad subject", "wrong key", "wrong algorithm"} {
 		t.Run(name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				claims := base
@@ -130,7 +130,7 @@ func TestTokenValidation(t *testing.T) {
 
 // TestInviteCodesAreIndependentRandomIdentifiers проверяет сценарий «Invite Codes Are Independent Random Identifiers», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestInviteCodesAreIndependentRandomIdentifiers(t *testing.T) {
 	seen := make(map[string]bool)

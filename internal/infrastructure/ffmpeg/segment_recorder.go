@@ -14,6 +14,7 @@ import (
 )
 
 // RTPTrack описывает кодек и локальный RTP-вход одной записываемой дорожки.
+// @params
 //   - Kind: тип события, ошибки или медиа, определяющий ветку обработки.
 //   - MimeType: заявленный либо проверенный MIME-тип содержимого.
 //   - PayloadType: значение PayloadType типа uint8, используемое согласно назначению этой операции.
@@ -32,6 +33,7 @@ type RTPTrack struct {
 }
 
 // SegmentRecorder настраивает и запускает FFmpeg для сегментной записи RTP-потоков.
+// @params
 //   - path: путь к локальному файлу или каталогу операции.
 //   - logger: значение logger типа *log.Logger, используемое согласно назначению этой операции.
 type SegmentRecorder struct {
@@ -40,6 +42,7 @@ type SegmentRecorder struct {
 }
 
 // SegmentProcess владеет запущенным процессом сегментной записи и его завершением.
+// @params
 //   - cmd: значение cmd типа *exec.Cmd, используемое согласно назначению этой операции.
 //   - cancel: отмена контекста, завершающая принадлежащие ресурсу операции.
 //   - done: канал уведомления о завершении ресурса.
@@ -56,7 +59,7 @@ type SegmentProcess struct {
 }
 
 // NewSegmentRecorder создает recorder FFmpeg-сегментов.
-// @parameters:
+// @args
 // - path: путь к ffmpeg.
 // - logger: logger worker-а.
 // @return SegmentRecorder.
@@ -72,7 +75,7 @@ func NewSegmentRecorder(path string, logger *log.Logger) *SegmentRecorder {
 }
 
 // Start создает SDP и запускает FFmpeg segment muxer.
-// @parameters:
+// @args
 // - ctx: context записи.
 // - recordID: UUID записи.
 // - tracks: входящие RTP-треки.
@@ -162,7 +165,7 @@ func (r *SegmentRecorder) Start(ctx context.Context, recordID string, tracks []R
 }
 
 // Stop мягко завершает FFmpeg, чтобы segment muxer закрыл текущий файл.
-// @parameters:
+// @args
 // - timeout: сколько ждать graceful stop.
 // @return nil; незавершенный хвостовой сегмент отфильтрует post-processing.
 func (p *SegmentProcess) Stop(timeout time.Duration) error {
@@ -214,7 +217,7 @@ func (p *SegmentProcess) Stop(timeout time.Duration) error {
 }
 
 // Stderr возвращает stderr FFmpeg.
-// @parameters: нет.
+// @args нет.
 // @return строку stderr без крайних пробелов.
 func (p *SegmentProcess) Stderr() string {
 	if p == nil {
@@ -226,7 +229,7 @@ func (p *SegmentProcess) Stderr() string {
 
 // buildRTPInputSDP формирует локальное SDP-описание RTP-входов FFmpeg для выбранных дорожек.
 //
-// @parameters:
+// @args
 //   - tracks ([]RTPTrack): набор дорожек, входящих в операцию.
 //
 // @return:
@@ -270,7 +273,7 @@ func buildRTPInputSDP(tracks []RTPTrack) (string, error) {
 
 // sdpCodecName преобразует имя кодека в форму, требуемую SDP.
 //
-// @parameters:
+// @args
 //   - mime (string): тип содержимого объекта.
 //
 // @return:
@@ -296,7 +299,7 @@ func sdpCodecName(mime string) string {
 
 // defaultClockRate выбирает стандартную частоту RTP-часов для типа кодека.
 //
-// @parameters:
+// @args
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 //
 // @return:

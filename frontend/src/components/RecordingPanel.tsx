@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Circle, Download, Square } from "lucide-react";
 import { api } from "../api";
-import type { Conference, Participant } from "../types";
+import type { Conference, Participant, RecordingMode } from "../types";
 import { Button, ErrorNotice } from "./ui";
 import { formatDate } from "../utils";
 import { isAdmitted } from "../collaboration";
@@ -19,7 +20,7 @@ const labels = {
 /**
  * RecordingPanel показывает состояние записи и разрешённые действия запуска, остановки и чтения артефактов.
  *
- * @parameters:
+ * @args
  *   - объект параметров: conference — свойство текущего компонента; membership — свойство текущего компонента.
  *
  * @returns JSX-представление компонента для текущих свойств и состояния.
@@ -39,7 +40,7 @@ export function RecordingPanel({
     /**
      * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
      *
-     * @parameters:
+     * @args
      *   - объект параметров: signal — сигнал отмены запроса или потока.
      *
      * @returns вычисленное значение: api.recordings(conference.id, signal).
@@ -53,7 +54,7 @@ export function RecordingPanel({
     /**
      * Обработчик items.find проверяет условие поиска элемента или соответствия элементов набора.
      *
-     * @parameters:
+     * @args
      *   - item — элемент списка, который обрабатывает текущий шаг.
      *
      * @returns логический признак соответствия элемента условию.
@@ -66,7 +67,7 @@ export function RecordingPanel({
     /**
      * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
      *
-     * @parameters:
+     * @args
      *   - stopId (string | null) — идентификатор останавливаемой записи.
      *
      * @returns вычисленное значение: stopId ? api.stopRecording(conference.id, stopId) : api.startRecording(conference.id).
@@ -74,7 +75,7 @@ export function RecordingPanel({
     mutationFn: (stopId: string | null) =>
       stopId
         ? api.stopRecording(conference.id, stopId)
-        : api.startRecording(conference.id),
+        : api.startRecording(conference.id, mode),
     /**
      * onSettled обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
      *
@@ -88,6 +89,7 @@ export function RecordingPanel({
     },
   });
   const owner = membership?.role === "owner" && membership.status === "joined";
+  const [mode, setMode] = useState<RecordingMode>("composite");
   if (!membership || !isAdmitted(membership)) return null;
   return (
     <section
@@ -110,6 +112,25 @@ export function RecordingPanel({
       <ErrorNotice error={query.error || mutation.error} />
       {owner && conference.status === "active" && (
         <div className="meeting-actions">
+          {!current && (
+            <label>
+              Режим записи
+              <select
+                value={mode}
+                disabled={mutation.isPending}
+                onChange={(event) =>
+                  setMode(event.target.value as RecordingMode)
+                }
+              >
+                <option value="composite">Общая видеозапись</option>
+                <option value="audio_only">Только аудио</option>
+                <option value="individual_tracks">
+                  Отдельные дорожки + аудиомикс
+                </option>
+                <option value="screen_focus">Фокус на экране</option>
+              </select>
+            </label>
+          )}
           {!current ? (
             <Button
               onClick={
@@ -165,7 +186,7 @@ export function RecordingPanel({
           /**
            * Обработчик items.map преобразует один элемент набора в представление или данные следующего шага.
            *
-           * @parameters:
+           * @args
            *   - item — элемент списка, который обрабатывает текущий шаг.
            *
            * @returns преобразованное значение текущего элемента для результирующего набора.
@@ -174,17 +195,18 @@ export function RecordingPanel({
               /**
                * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
                *
-               * @parameters:
+               * @args
                *   - f — метаданные одного файла записи.
                *
                * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
-               */ (f) => f.fileType === "final_mp4",
+               */ (f) =>
+                f.fileType === "final_mp4" || f.fileType === "final_audio",
             );
             const preview = item.files?.find(
               /**
                * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
                *
-               * @parameters:
+               * @args
                *   - f — метаданные одного файла записи.
                *
                * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
@@ -216,9 +238,25 @@ export function RecordingPanel({
                     rel="noreferrer"
                   >
                     <Download size={16} />
-                    Скачать MP4
+                    {file.fileType === "final_audio"
+                      ? "Скачать аудио"
+                      : "Скачать MP4"}
                   </a>
                 )}
+                {item.status === "ready" &&
+                  item.files
+                    .filter((f) => f.fileType === "tracks_archive" && f.url)
+                    .map((f) => (
+                      <a
+                        key={f.fileType}
+                        className="text-link"
+                        href={f.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Скачать дорожки и манифест (ZIP)
+                      </a>
+                    ))}
               </article>
             );
           },

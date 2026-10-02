@@ -2,7 +2,7 @@ import type { Notification, SearchResult } from "./types";
 
 /**
  * Форматирует смещение записи, не принимая отрицательные и бесконечные значения.
- * @parameters milliseconds — смещение в миллисекундах.
+ * @args milliseconds — смещение в миллисекундах.
  * @return Подпись времени для кнопки перехода.
  */
 export function recordingTime(milliseconds: number): string {
@@ -16,7 +16,7 @@ export function recordingTime(milliseconds: number): string {
 
 /**
  * Строит внутреннюю ссылку без вставки текста результата в адрес или HTML.
- * @parameters result — разрешённый сервером результат поиска.
+ * @args result — разрешённый сервером результат поиска.
  * @return Маршрут встречи с выбранной записью и проверенным временем.
  */
 export function searchResultLink(result: SearchResult): string {
@@ -37,7 +37,7 @@ export function searchResultLink(result: SearchResult): string {
 
 /**
  * Открывает нужный материал по уведомлению, не выдавая дополнительных прав.
- * @parameters notification — личное уведомление со ссылочными идентификаторами.
+ * @args notification — личное уведомление со ссылочными идентификаторами.
  * @return Безопасный внутренний маршрут.
  */
 export function notificationLink(notification: Notification): string {

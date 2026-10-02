@@ -2,7 +2,7 @@
 
 Дата проверки: 1–2 октября 2026. Это single-host Compose, не HA-платформа.
 Состояние приёмки и фактические числа: [CAPACITY_BASELINE](../CAPACITY_BASELINE.md),
-[отчёт этапа](STAGE6_REPORT.md). Этап 7 не запускается автоматически.
+[отчёт этапа](production-hardening-report.md). Этап 7 не запускается автоматически.
 
 ## Запуск production
 
@@ -250,7 +250,7 @@ Rollback: сохранить старые image digests/config, drain, оста�
 ## Повторяемые тесты
 
 Изолированный стенд: `make stage6-up`; он не использует volumes работающего dev
-проекта. `docker-compose.stage6.yml` имеет заведомо test-only credentials и порты
+проекта. `docker-compose.integration.yml` имеет заведомо test-only credentials и порты
 15433/16380/15682/19000/18085/18090/18091, SFU 50020. `make stage6-failure` проверяет
 точный Compose project label перед остановками. Не менять prefix на production.
 `make stage6-load` — HTTP и synthetic SFU; `make stage6-soak` — 30m opt-in.

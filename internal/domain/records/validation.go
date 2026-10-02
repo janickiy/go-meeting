@@ -3,7 +3,7 @@ package records
 import "github.com/google/uuid"
 
 // ValidateStartRequest проверяет тело старта записи.
-// @parameters:
+// @args
 // - request: DTO из HTTP JSON.
 // @return текст ошибки для failed response или пустую строку.
 func ValidateStartRequest(request StartRequest) string {
@@ -32,7 +32,7 @@ func ValidateStartRequest(request StartRequest) string {
 }
 
 // ValidateEndRequest проверяет тело остановки записи.
-// @parameters:
+// @args
 // - request: DTO из HTTP JSON.
 // @return текст ошибки для failed response или пустую строку.
 func ValidateEndRequest(request EndRequest) string {
@@ -47,7 +47,7 @@ func ValidateEndRequest(request EndRequest) string {
 }
 
 // ValidateConferenceIDs проверяет список UUID конференций.
-// @parameters:
+// @args
 // - conferenceIDs: список conferenceId из query-параметров.
 // @return текст ошибки для failed response или пустую строку.
 func ValidateConferenceIDs(conferenceIDs []string) string {
@@ -64,7 +64,7 @@ func ValidateConferenceIDs(conferenceIDs []string) string {
 }
 
 // ValidateRecordStatusFilter проверяет optional status-фильтр списка/агрегаций.
-// @parameters:
+// @args
 // - status: статус записи из query-параметра.
 // @return текст ошибки для failed response или пустую строку.
 func ValidateRecordStatusFilter(status string) string {
@@ -79,7 +79,7 @@ func ValidateRecordStatusFilter(status string) string {
 }
 
 // IsSupportedRecordStatus проверяет, входит ли status в известные статусы записи.
-// @parameters:
+// @args
 // - status: статус записи.
 // @return true, если status поддерживается.
 func IsSupportedRecordStatus(status string) bool {

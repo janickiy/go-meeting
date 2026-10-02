@@ -28,9 +28,9 @@ Recorder pipeline не меняется. В production-сборке нет
 библиотека пользователя и не раскрывает composite-записи конференций.
 Прежний список участников показывает membership. Новый блок «Связь с участниками»
 показывает реальный presence и connectionId; это не состояние подключения камеры.
-Контракты presence: [Stage 2 Realtime](stage-2-realtime.md).
-Медиа-контракт, ICE/NAT и проверки: [Stage 3 SFU](stage-3-media.md).
-Устройства, экран, модерация и запись: [Stage 4 Recording](stage-4-recording.md).
+Контракты presence: [Stage 2 Realtime](realtime.md).
+Медиа-контракт, ICE/NAT и проверки: [Stage 3 SFU](media-sfu.md).
+Устройства, экран, модерация и запись: [Stage 4 Recording](conference-recording.md).
 Прежняя P2P-проверка убрана из интерфейса; production media проходит только через worker.
 
 Камера и микрофон никогда не включаются при открытии страницы или автоматическом

@@ -8,7 +8,7 @@ import (
 )
 
 // End завершает запись и отправляет worker-у команду финализации.
-// @parameters:
+// @args
 // - c: Gin context HTTP-запроса.
 // @return JSON response.
 func (h *Handler) End(c *gin.Context) {

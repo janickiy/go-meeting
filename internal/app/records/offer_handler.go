@@ -8,7 +8,7 @@ import (
 )
 
 // Offer проксирует SDP offer браузера во внутренний worker.
-// @parameters:
+// @args
 // - c: Gin context HTTP-запроса.
 // @return SDP answer worker-а.
 func (h *Handler) Offer(c *gin.Context) {

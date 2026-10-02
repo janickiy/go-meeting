@@ -12,7 +12,7 @@ import (
 
 // TestCreateRetriesInviteCollisionAndDoesNotJoinOwner проверяет сценарий «создание Retries Invite Collision и выполняет не Join владелец», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCreateRetriesInviteCollisionAndDoesNotJoinOwner(t *testing.T) {
 	userID := uuid.NewString()
@@ -36,7 +36,7 @@ func TestCreateRetriesInviteCollisionAndDoesNotJoinOwner(t *testing.T) {
 }
 
 // collisionRepository реализует постоянное хранение ресурсов компонента через GORM.
-// Состав:
+// @params:
 //   - repository: встроенный тип, добавляющий свой контракт или данные.
 //   - attempts: значение attempts типа int, используемое согласно назначению этой операции.
 //   - owner: значение owner типа domain.Participant, используемое согласно назначению этой операции.
@@ -48,7 +48,7 @@ type collisionRepository struct {
 
 // Create создаёт новое состояние ресурсов компонента по переданным параметрам.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - conference (domain.Conference): конференция либо её идентификатор, ограничивающий область операции.
 //   - owner (domain.Participant): значение owner типа domain.Participant, используемое согласно назначению этой операции.
@@ -66,13 +66,13 @@ func (r *collisionRepository) Create(_ context.Context, conference domain.Confer
 }
 
 // testUserRepository реализует постоянное хранение ресурсов компонента через GORM.
-// Состав:
+// @params:
 //   - id: идентификатор обрабатываемого ресурса.
 type testUserRepository struct{ id string }
 
 // GetByID читает учётную запись по её идентификатору.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //

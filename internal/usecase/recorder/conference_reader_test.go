@@ -10,7 +10,7 @@ import (
 )
 
 // compositePrivacyRepo хранит изолированное состояние тестового компонента «общая запись Privacy Repo».
-// Состав:
+// @params:
 //   - apiRepository: встроенный тип, добавляющий свой контракт или данные.
 //   - record: задача записи с её сохранённым состоянием.
 type compositePrivacyRepo struct {
@@ -20,7 +20,7 @@ type compositePrivacyRepo struct {
 
 // FindByUUID читает задачу записи по её внешнему UUID.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //
@@ -33,7 +33,7 @@ func (r compositePrivacyRepo) FindByUUID(context.Context, string) (records.Recor
 
 // FindDetailsByUUID читает задачу записи и связанные сведения по её UUID.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //
@@ -46,7 +46,7 @@ func (r compositePrivacyRepo) FindDetailsByUUID(context.Context, string) (record
 
 // ListDetails читает записи вместе со связанными артефактами и событиями.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (int): предел количества обрабатываемых элементов.
 //   - аргумент 3 (int): число элементов, пропускаемых перед началом страницы.
@@ -60,7 +60,7 @@ func (r compositePrivacyRepo) ListDetails(context.Context, int, int) ([]records.
 
 // ListSummaryDetailsByConferenceIDs пакетно читает краткие сведения записей нескольких конференций без запроса для каждой записи.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 ([]string): идентификаторы конференций для пакетной выборки.
 //   - аргумент 3 (string): состояние ресурса, ответа или фильтра выборки.
@@ -74,7 +74,7 @@ func (r compositePrivacyRepo) ListSummaryDetailsByConferenceIDs(context.Context,
 
 // TestCompositeIsNotExposedByAnonymousLegacyService проверяет сценарий «общая запись является не Exposed By Anonymous Legacy сервис», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCompositeIsNotExposedByAnonymousLegacyService(t *testing.T) {
 	for _, record := range []records.Record{{Mode: records.ModeComposite, UUID: "record", ConferenceID: "room"}, {SourceType: "conference", UUID: "record", ConferenceID: "room"}} {

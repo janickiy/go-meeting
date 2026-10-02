@@ -9,7 +9,7 @@ import (
 )
 
 // CountByConference возвращает количество записей и краткие карточки записей для переданных conferenceId.
-// @parameters:
+// @args
 // - c: Gin context HTTP-запроса.
 // Query-параметры:
 // - conferenceIds[] или conferenceIds: один или несколько UUID конференций.
@@ -38,7 +38,7 @@ func (h *Handler) CountByConference(c *gin.Context) {
 
 // conferenceIDsFromQuery читает идентификаторы конференций из параметров URL.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
 // @return:
@@ -61,7 +61,7 @@ func conferenceIDsFromQuery(c *gin.Context) []string {
 
 // uniqueStrings устраняет повторяющиеся строки с сохранением одного значения каждого элемента.
 //
-// @parameters:
+// @args
 //   - values ([]string): набор значений values для последовательной или пакетной обработки.
 //
 // @return:

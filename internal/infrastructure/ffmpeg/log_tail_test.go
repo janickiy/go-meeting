@@ -8,7 +8,7 @@ import (
 
 // TestLogTailRetainsNewestDiagnostics проверяет сценарий «Log Tail Retains Newest Diagnostics», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLogTailRetainsNewestDiagnostics(t *testing.T) {
 	var b logTail
@@ -24,7 +24,7 @@ func TestLogTailRetainsNewestDiagnostics(t *testing.T) {
 
 // TestLogTailConcurrentReadsAndWrites проверяет сценарий «Log Tail одновременный Reads и Writes», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLogTailConcurrentReadsAndWrites(t *testing.T) {
 	var b logTail

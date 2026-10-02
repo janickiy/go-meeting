@@ -12,7 +12,7 @@ from docx.oxml.ns import qn
 
 # has_section_break проверяет наличие разрыва раздела в XML-свойствах абзаца Word.
 #
-# @parameters:
+# @args
 #   - paragraph (объект соответствующего API): объект абзаца python-docx.
 #
 # @return: bool — подготовленное значение согласно назначению функции.

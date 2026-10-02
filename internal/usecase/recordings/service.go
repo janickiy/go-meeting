@@ -12,6 +12,7 @@ import (
 )
 
 // Repository задаёт контракт зависимого компонента Repository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Start: операция запуск с контрактом, описанным у метода.
 //   - Stop: операция остановка с контрактом, описанным у метода.
 //   - Accessible: операция Accessible с контрактом, описанным у метода.
@@ -22,7 +23,7 @@ import (
 type Repository interface {
 	// Start запускает обработку задач записи и связанных артефактов и подготавливает связанные ресурсы.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор конференции, ограничивающий область операции.
@@ -35,7 +36,7 @@ type Repository interface {
 	Start(context.Context, string, string, int) (records.Record, bool, error)
 	// Stop останавливает активную обработку задач записи и связанных артефактов и освобождает связанные ресурсы.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор конференции, ограничивающий область операции.
@@ -47,7 +48,7 @@ type Repository interface {
 	Stop(context.Context, string, string, string) (records.Record, error)
 	// Accessible проверяет связь записи с конференцией и право пользователя читать её.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор конференции, ограничивающий область операции.
@@ -59,7 +60,7 @@ type Repository interface {
 	Accessible(context.Context, string, string, string) (records.Record, error)
 	// List возвращает ограниченный список задач записи и связанных артефактов с принятыми в данном слое фильтрами.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//   - аргумент 3 (string): идентификатор конференции, ограничивающий область операции.
@@ -72,7 +73,7 @@ type Repository interface {
 	List(context.Context, string, string, int, int) ([]records.Record, error)
 	// ClaimCommand захватывает очередную команду записи с ограниченным сроком обработки и соблюдением порядка.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//
 	// @return:
@@ -82,7 +83,7 @@ type Repository interface {
 	ClaimCommand(context.Context) (records.OutboxCommand, records.Record, error)
 	// CompleteCommand подтверждает обработку команды только для её действующего владельца.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (records.OutboxCommand): значение для проверки, нормализации или преобразования.
 	//
@@ -91,7 +92,7 @@ type Repository interface {
 	CompleteCommand(context.Context, records.OutboxCommand) error
 	// RetryCommand назначает повторную попытку доставки команды после временной ошибки.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (records.OutboxCommand): значение для проверки, нормализации или преобразования.
 	//
@@ -105,7 +106,7 @@ type Repository interface {
 type Reader interface {
 	// ReadComposite читает карточку общей записи после проверки доступа на уровне сценария конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//
@@ -116,12 +117,13 @@ type Reader interface {
 }
 
 // Commander задаёт контракт зависимого компонента Commander в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - StartRecord: операция запуск запись с контрактом, описанным у метода.
 //   - StopRecord: операция остановка запись с контрактом, описанным у метода.
 type Commander interface {
 	// StartRecord передаёт команду начала записи выбранному транспорту воркера.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID задачи записи.
 	//   - аргумент 3 (int): плановая длительность сегмента записи в секундах.
@@ -131,7 +133,7 @@ type Commander interface {
 	StartRecord(context.Context, string, int) error
 	// StopRecord передаёт команду остановки записи выбранному транспорту воркера.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID задачи записи.
 	//   - аргумент 3 (string): причина завершения, отказа или изменения состояния.
@@ -142,12 +144,13 @@ type Commander interface {
 }
 
 // Locker задаёт контракт зависимого компонента Locker в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Acquire: операция захват с контрактом, описанным у метода.
 //   - Release: операция освобождение с контрактом, описанным у метода.
 type Locker interface {
 	// Acquire пытается занять блокировку ресурса на ограниченный срок без замены действующего владельца.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): внешний UUID задачи записи.
@@ -158,7 +161,7 @@ type Locker interface {
 	Acquire(context.Context, string, string) (bool, error)
 	// Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): внешний UUID задачи записи.
@@ -173,7 +176,7 @@ type Locker interface {
 type Events interface {
 	// Broadcast публикует доверенное событие для разрешённых получателей конференции.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (realtime.Envelope): конверт входящего или публикуемого события.
 	//
@@ -183,6 +186,7 @@ type Events interface {
 }
 
 // Service объединяет зависимости прикладного сценария и координирует его операции.
+// @params
 //   - repo: хранилище постоянных данных прикладного сценария.
 //   - reader: источник содержимого либо читатель карточек записи согласно типу.
 //   - commands: транспорт доставки управляющих команд записи.
@@ -198,7 +202,7 @@ type Service struct {
 
 // NewConferenceService создаёт и связывает зависимости компонента ConferenceService, используемого в управлении задачами записи и её артефактами.
 //
-// @parameters:
+// @args
 //   - repo (Repository): хранилище постоянных данных прикладного сценария.
 //   - reader (Reader): источник содержимого либо читатель карточек записи согласно типу.
 //   - commands (Commander): транспорт доставки управляющих команд записи.
@@ -213,7 +217,7 @@ func NewConferenceService(repo Repository, reader Reader, commands Commander, lo
 
 // Start запускает обработку задач записи и связанных артефактов и подготавливает связанные ресурсы.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -223,6 +227,12 @@ func NewConferenceService(repo Repository, reader Reader, commands Commander, lo
 //   - результат 1 (records.RecordCard): значение, подготовленное операцией для вызывающей стороны.
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Start(ctx context.Context, userID, conferenceID string, request records.ConferenceStartRequest) (records.RecordCard, error) {
+	if request.Mode == "" {
+		request.Mode = records.ModeComposite
+	}
+	if !records.ValidConferenceMode(request.Mode) {
+		return records.RecordCard{}, apperrors.ErrInvalidInput
+	}
 	seconds := request.SegmentDurationSec
 	if seconds == 0 {
 		seconds = 5
@@ -230,7 +240,18 @@ func (s *Service) Start(ctx context.Context, userID, conferenceID string, reques
 	if seconds < 2 || seconds > 30 {
 		return records.RecordCard{}, apperrors.New(apperrors.ErrInvalidInput, "segmentDurationSec must be between 2 and 30")
 	}
-	record, created, err := s.repo.Start(ctx, userID, conferenceID, seconds)
+	var record records.Record
+	var created bool
+	var err error
+	if modes, ok := s.repo.(interface {
+		StartMode(context.Context, string, string, int, string) (records.Record, bool, error)
+	}); ok {
+		record, created, err = modes.StartMode(ctx, userID, conferenceID, seconds, request.Mode)
+	} else if request.Mode == records.ModeComposite {
+		record, created, err = s.repo.Start(ctx, userID, conferenceID, seconds)
+	} else {
+		return records.RecordCard{}, apperrors.ErrInvalidInput
+	}
 	if err != nil {
 		return records.RecordCard{}, err
 	}
@@ -242,7 +263,7 @@ func (s *Service) Start(ctx context.Context, userID, conferenceID string, reques
 
 // Stop останавливает активную обработку задач записи и связанных артефактов и освобождает связанные ресурсы.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -264,7 +285,7 @@ func (s *Service) Stop(ctx context.Context, userID, conferenceID, recordID strin
 
 // Read читает состояние задач записи и связанных артефактов для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -283,7 +304,7 @@ func (s *Service) Read(ctx context.Context, userID, conferenceID, recordID strin
 
 // List возвращает ограниченный список задач записи и связанных артефактов с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -311,7 +332,7 @@ func (s *Service) List(ctx context.Context, userID, conferenceID string, limit, 
 
 // card читает и собирает разрешённую карточку записи конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -326,19 +347,19 @@ func (s *Service) card(ctx context.Context, id string) (records.RecordCard, erro
 
 // publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - record (records.Record): задача записи с её сохранённым состоянием.
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 func (s *Service) publish(ctx context.Context, record records.Record, kind string) {
 	if s.events != nil {
-		_ = s.events.Broadcast(ctx, realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": records.PublicStatus(record.Status), "mode": records.ModeComposite}))
+		_ = s.events.Broadcast(ctx, realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": records.PublicStatus(record.Status), "mode": record.Mode}))
 	}
 }
 
 // Run выполняет основной цикл компонента до завершения работы или отмены контекста.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (s *Service) Run(ctx context.Context) {
 	ticker := time.NewTicker(250 * time.Millisecond)

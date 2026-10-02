@@ -20,6 +20,7 @@ import (
 )
 
 // Options собирает зависимости и настройки создания компонента.
+// @params
 //   - URL: значение URL типа string, используемое согласно назначению этой операции.
 //   - Exchange: значение Exchange типа string, используемое согласно назначению этой операции.
 //   - Queue: значение Queue типа string, используемое согласно назначению этой операции.
@@ -39,6 +40,7 @@ type Options struct {
 type CommandHandler func(context.Context, records.Command) error
 
 // Publisher задаёт согласованное представление данных «Publisher» для доставке внутренних команд воркеру записи.
+// @params
 //   - conn: действующее сетевое соединение операции.
 //   - channel: значение channel типа *amqp.Channel, используемое согласно назначению этой операции.
 //   - exchange: значение exchange типа string, используемое согласно назначению этой операции.
@@ -57,6 +59,7 @@ type Publisher struct {
 }
 
 // Consumer задаёт согласованное представление данных «Consumer» для доставке внутренних команд воркеру записи.
+// @params
 //   - conn: действующее сетевое соединение операции.
 //   - channel: значение channel типа *amqp.Channel, используемое согласно назначению этой операции.
 //   - queue: значение queue типа string, используемое согласно назначению этой операции.
@@ -75,7 +78,7 @@ type Consumer struct {
 }
 
 // NewPublisher создает RabbitMQ publisher и объявляет exchange/queue/binding.
-// @parameters:
+// @args
 // - ctx: контекст bootstrap-а.
 // - options: URL, exchange, queue и routing key.
 // @return готовый Publisher или ошибку подключения.
@@ -103,7 +106,7 @@ func NewPublisher(ctx context.Context, options Options) (*Publisher, error) {
 }
 
 // StartRecord публикует команду подготовки WebRTC ingest.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - segmentDurationSec: длительность сегмента.
@@ -117,7 +120,7 @@ func (p *Publisher) StartRecord(ctx context.Context, recordID string, segmentDur
 }
 
 // StopRecord публикует команду остановки записи, финализации, preview и загрузки в MinIO.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
 // - reason: причина остановки.
@@ -131,7 +134,7 @@ func (p *Publisher) StopRecord(ctx context.Context, recordID string, reason stri
 }
 
 // Close закрывает RabbitMQ channel и connection.
-// @parameters: нет.
+// @args нет.
 // @return ничего.
 func (p *Publisher) Close() {
 	if p == nil {
@@ -152,7 +155,7 @@ func (p *Publisher) Close() {
 // publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
 //
@@ -186,7 +189,7 @@ func (p *Publisher) publish(ctx context.Context, command records.Command) error 
 
 // publishLocked публикует команду через канал RabbitMQ при удерживаемой блокировке транспорта.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - body ([]byte): тело входящего запроса или сериализованные данные передачи.
 //   - commandType (string): значение commandType типа string, используемое согласно назначению этой операции.
@@ -240,7 +243,7 @@ func (p *Publisher) Check(ctx context.Context) error {
 
 // reconnectLocked восстанавливает RabbitMQ-соединение и канал публикации при удерживаемой блокировке.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -286,7 +289,7 @@ func (p *Publisher) watch(conn *amqp.Connection) {
 }
 
 // NewConsumer создает RabbitMQ consumer и объявляет exchange/queue/binding.
-// @parameters:
+// @args
 // - ctx: контекст bootstrap-а.
 // - options: URL, exchange, queue, routing key и consumer tag.
 // @return готовый Consumer или ошибку подключения.
@@ -318,7 +321,7 @@ func NewConsumer(ctx context.Context, options Options) (*Consumer, error) {
 }
 
 // Consume читает команды из RabbitMQ до отмены ctx.
-// @parameters:
+// @args
 // - ctx: общий контекст worker-а.
 // - handler: обработчик record.start/record.stop.
 // @return ошибку consume loop.
@@ -409,7 +412,7 @@ func (c *Consumer) reconnect(ctx context.Context) error {
 }
 
 // Close закрывает RabbitMQ channel и connection.
-// @parameters: нет.
+// @args нет.
 // @return ничего.
 func (c *Consumer) Close() {
 	if c == nil {
@@ -427,7 +430,7 @@ func (c *Consumer) Close() {
 
 // handleDelivery разбирает доставленную AMQP-команду и подтверждает либо назначает её повторную обработку.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - delivery (amqp.Delivery): значение delivery типа amqp.Delivery, используемое согласно назначению этой операции.
 //   - handler (CommandHandler): обработчик вызываемой команды или маршрута.
@@ -498,7 +501,7 @@ func (c *Consumer) quarantine(ctx context.Context, d amqp.Delivery) {
 
 // logf записывает ограниченную диагностику компонента с указанными параметрами.
 //
-// @parameters:
+// @args
 //   - format (string): формат диагностического сообщения; чувствительные аргументы не должны раскрывать медиа.
 //   - args (...any): значения переменного числа аргументов для форматирования или внешней команды.
 func (c *Consumer) logf(format string, args ...any) {
@@ -509,7 +512,7 @@ func (c *Consumer) logf(format string, args ...any) {
 
 // openDeclaredChannel открывает AMQP-канал и проверяет необходимую топологию очередей.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - options (Options): зависимости и настройки создаваемого компонента.
 //
@@ -538,7 +541,7 @@ func openDeclaredChannel(ctx context.Context, options Options) (*amqp.Connection
 
 // declareTopology объявляет обменники, очереди и привязки доставки команд записи.
 //
-// @parameters:
+// @args
 //   - channel (*amqp.Channel): значение channel типа *amqp.Channel, используемое согласно назначению этой операции.
 //   - options (Options): зависимости и настройки создаваемого компонента.
 //
@@ -563,7 +566,7 @@ func declareTopology(channel *amqp.Channel, options Options) error {
 
 // dial устанавливает соединение с RabbitMQ с настроенными ограничениями.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - url (string): адрес вызываемого ресурса.
 //
@@ -594,7 +597,7 @@ func dial(ctx context.Context, url string) (*amqp.Connection, error) {
 
 // normalizeOptions заполняет значения по умолчанию и проверяет параметры RabbitMQ-транспорта.
 //
-// @parameters:
+// @args
 //   - options (Options): зависимости и настройки создаваемого компонента.
 //
 // @return:

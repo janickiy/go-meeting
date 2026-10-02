@@ -7,7 +7,7 @@ test.skip(
 test("real Go API: register, create, invite, join, leave, rejoin and finish", /**
  * Проверка: real Go API: register, create, invite, join, leave, rejoin and finish выполняет тестовый сценарий «real Go API: register, create, invite, join, leave, rejoin and finish» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: page — изолированная страница Playwright; browser — браузер Playwright с отдельными тестовыми контекстами.
  *   - info — контекст запуска для диагностических вложений.
  *
@@ -18,7 +18,7 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
   /**
    * register отправляет данные регистрации с нормализацией необязательного отображаемого имени.
    *
-   * @parameters:
+   * @args
    *   - target (Page) — целевой браузерный объект или ресурс.
    *   - name (string) — отображаемое имя пользователя для инициалов.
    *

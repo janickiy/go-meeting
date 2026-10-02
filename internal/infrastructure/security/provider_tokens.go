@@ -12,7 +12,7 @@ import (
 type ProviderTokens struct{ aead cipher.AEAD }
 
 // NewProviderTokens проверяет независимый ключ шифрования, заданный в base64; пустой ключ отключает хранение секретов.
-// @parameters: key — base64-кодированный случайный 32-байтовый ключ, не JWT secret.
+// @args key — base64-кодированный случайный 32-байтовый ключ, не JWT secret.
 // @return: шифратор либо nil при отключении; ошибка некорректного ключа.
 func NewProviderTokens(key string) (*ProviderTokens, error) {
 	if key == "" {
@@ -34,7 +34,7 @@ func NewProviderTokens(key string) (*ProviderTokens, error) {
 }
 
 // Encrypt создаёт случайный nonce и аутентифицированный ciphertext, не сохраняя plaintext.
-// @parameters: value — секрет; binding — user/provider/entity контекст владельца.
+// @args value — секрет; binding — user/provider/entity контекст владельца.
 // @return: base64 ciphertext либо ошибка генератора случайных чисел/отключённого шифрования.
 func (p *ProviderTokens) Encrypt(value, binding string) (string, error) {
 	if p == nil {
@@ -49,7 +49,7 @@ func (p *ProviderTokens) Encrypt(value, binding string) (string, error) {
 }
 
 // Decrypt проверяет ciphertext и контекст владельца перед расшифровкой.
-// @parameters: value — сохранённый ciphertext; binding — тот же контекст, что при Encrypt.
+// @args value — сохранённый ciphertext; binding — тот же контекст, что при Encrypt.
 // @return: исходный секрет либо безопасная ошибка без токенов в тексте.
 func (p *ProviderTokens) Decrypt(value, binding string) (string, error) {
 	if p == nil {

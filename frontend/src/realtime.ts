@@ -22,7 +22,7 @@ export type ClientRealtimeType =
 /**
  * websocketURL строит адрес комнаты ws/wss по адресу страницы и одноразовому билету подключения.
  *
- * @parameters:
+ * @args
  *   - conferenceId (string) — идентификатор конференции и области данных.
  *   - ticket (string) — входное значение ticket текущего шага обработки.
  *   - origin — входное значение origin текущего шага обработки (по умолчанию window.location.origin).
@@ -45,7 +45,7 @@ export function websocketURL(
 /**
  * parseRealtime проверяет формат, версию и размер входящего realtime-конверта до обработки.
  *
- * @parameters:
+ * @args
  *   - raw (string) — входное значение raw текущего шага обработки.
  *   - conferenceId (string) — идентификатор конференции и области данных.
  *
@@ -75,7 +75,7 @@ export function parseRealtime(
 /**
  * useRealtime управляет одним WebSocket комнаты, переподключением, снимком присутствия и подписчиками событий.
  *
- * @parameters:
+ * @args
  *   - conferenceId (string) — идентификатор конференции и области данных.
  *   - enabled (boolean) — разрешает выполнение запроса или подключение при выполненных условиях доступа.
  *
@@ -93,7 +93,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
     /**
      * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
      *
-     * @parameters:
+     * @args
      *   - event (RealtimeEvent) — проверенный конверт события комнаты.
      *
      * @returns void — значение не возвращается; функция выполняет описанные действия.
@@ -111,7 +111,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
       /**
        * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
        *
-       * @parameters:
+       * @args
        *   - event (RealtimeEvent) — проверенный конверт события комнаты.
        *
        * @returns void — значение не возвращается; функция выполняет описанные действия.
@@ -122,7 +122,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
     /**
      * Обработчик useCallback выполняет действие с текущими зависимостями React-компонента.
      *
-     * @parameters:
+     * @args
      *   - callback ((event: RealtimeEvent) => void) — обработчик события или изменения наблюдаемого состояния.
      *
      * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -130,7 +130,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
       callback: /**
        * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
        *
-       * @parameters:
+       * @args
        *   - event (RealtimeEvent) — проверенный конверт события комнаты.
        *
        * @returns void — значение не возвращается; функция выполняет описанные действия.
@@ -172,7 +172,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
       /**
        * refreshChat объединяет обновления чата в ограниченное временное окно.
        *
-       * @parameters:
+       * @args
        *   - messages (boolean) — входное значение messages текущего шага обработки.
        *
        * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -261,7 +261,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
             /**
              * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
              *
-             * @parameters:
+             * @args
              *   - message — понятный текст ошибки или сообщение операции.
              *
              * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -275,7 +275,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
                   /**
                    * Обработчик setEvents вычисляет следующее React-состояние из предыдущего значения.
                    *
-                   * @parameters:
+                   * @args
                    *   - old — предыдущее состояние перед вычислением нового.
                    *
                    * @returns следующее состояние, рассчитанное из предыдущего значения.
@@ -316,7 +316,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
                         /**
                          * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
                          *
-                         * @parameters:
+                         * @args
                          *   - p — сведения об участнике конференции.
                          *
                          * @returns преобразованное значение текущего элемента для результирующего набора.
@@ -356,7 +356,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
             /**
              * Вложенный обработчик выполняет шаг «Вложенный обработчик» в состоянии связи и WebRTC-медиа.
              *
-             * @parameters:
+             * @args
              *   - event — проверенный конверт события комнаты.
              *
              * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -454,7 +454,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
   /**
    * send передаёт исходящее событие через действующее соединение.
    *
-   * @parameters:
+   * @args
    *   - type (ClientRealtimeType) — машинный тип события.
    *   - data (unknown) — нагрузка события, проверяемая перед чтением.
    *
@@ -494,7 +494,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
         /**
          * Обработчик setGeneration вычисляет следующее React-состояние из предыдущего значения.
          *
-         * @parameters:
+         * @args
          *   - n — входное значение n текущего шага обработки.
          *
          * @returns следующее состояние, рассчитанное из предыдущего значения.

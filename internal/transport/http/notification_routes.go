@@ -7,7 +7,7 @@ import (
 
 // RegisterNotificationRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
 //
-// @parameters:
+// @args
 //   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
 //   - handler (*notificationsapp.Handler): обработчик вызываемой команды или маршрута.
 //   - auth (gin.HandlerFunc): значение auth типа gin.HandlerFunc, используемое согласно назначению этой операции.

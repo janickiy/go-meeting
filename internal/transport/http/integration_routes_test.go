@@ -24,7 +24,7 @@ type integrationLimiter struct {
 }
 
 // Allow моделирует общую distributed quota без внешнего Redis в unit тесте маршрутов.
-// @parameters: ctx — срок запроса; key — пользовательская область; limit/window — фиксированная policy.
+// @args ctx — срок запроса; key — пользовательская область; limit/window — фиксированная policy.
 // @return: controlled результат и nil.
 func (l *integrationLimiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (ratelimit.Result, error) {
 	l.keys = append(l.keys, key)
@@ -32,7 +32,7 @@ func (l *integrationLimiter) Allow(ctx context.Context, key string, limit int, w
 }
 
 // TestIntegrationRoutesRateLimitAndStrictJSON проверяет quota до handler и запрет provider tokens/unknown/trailing JSON.
-// @parameters: t — контекст unit теста HTTP.
+// @args t — контекст unit теста HTTP.
 func TestIntegrationRoutesRateLimitAndStrictJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tokens, _ := security.NewTokenService(strings.Repeat("integration-test-secret-", 3))

@@ -22,7 +22,7 @@ const parsedBodyKey = "rate_limit_json_body"
 type Limiter interface {
 	// Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 	//   - limit (int): предел количества обрабатываемых элементов.
@@ -38,6 +38,7 @@ type Limiter interface {
 type KeyFunc func(c *gin.Context) string
 
 // Rule описывает отдельное правило лимита, его область, ключ и временное окно.
+// @params
 //   - Method: значение Method типа string, используемое согласно назначению этой операции.
 //   - Path: путь к локальному файлу или каталогу операции.
 //   - Scope: область собственных и участвующих встреч пользователя.
@@ -54,6 +55,7 @@ type Rule struct {
 }
 
 // RateLimitConfig задаёт правила и режим обработки ограничения частоты запросов.
+// @params
 //   - Enabled: логический признак Enabled, управляющий соответствующей веткой обработки.
 //   - Rules: набор значений Rules для последовательной или пакетной обработки.
 type RateLimitConfig struct {
@@ -62,7 +64,7 @@ type RateLimitConfig struct {
 }
 
 // RateLimit создает Gin middleware для проверки rate limit.
-// @parameters:
+// @args
 // - limiter: Redis-backed limiter.
 // - cfg: флаг включения и правила.
 // @return Gin middleware.
@@ -92,7 +94,7 @@ func RateLimit(limiter Limiter, cfg RateLimitConfig) gin.HandlerFunc {
 
 	// Вложенный обработчик выполняет выделенный шаг обработки в проверке HTTP-авторизации и ограничений запросов, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	return func(c *gin.Context) {
 		if !cfg.Enabled || limiter == nil {
@@ -127,7 +129,7 @@ func RateLimit(limiter Limiter, cfg RateLimitConfig) gin.HandlerFunc {
 }
 
 // ClientIPKey возвращает IP клиента из Gin context.
-// @parameters:
+// @args
 // - c: Gin context HTTP-запроса.
 // @return IP клиента.
 func ClientIPKey(c *gin.Context) string {
@@ -135,13 +137,13 @@ func ClientIPKey(c *gin.Context) string {
 }
 
 // PathParamKey возвращает значение path parameter.
-// @parameters:
+// @args
 // - name: имя параметра route.
 // @return функцию построения key.
 func PathParamKey(name string) KeyFunc {
 	// Вложенный обработчик выполняет выделенный шаг обработки в проверке HTTP-авторизации и ограничений запросов, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	//
 	// @return:
@@ -152,13 +154,13 @@ func PathParamKey(name string) KeyFunc {
 }
 
 // JSONFieldKey возвращает значение поля из JSON body и восстанавливает body для handler-а.
-// @parameters:
+// @args
 // - field: имя JSON-поля.
 // @return функцию построения key.
 func JSONFieldKey(field string) KeyFunc {
 	// Вложенный обработчик выполняет выделенный шаг обработки в проверке HTTP-авторизации и ограничений запросов, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	//
 	// @return:
@@ -179,7 +181,7 @@ func JSONFieldKey(field string) KeyFunc {
 
 // parsedJSONBody разбирает и кеширует JSON-тело для извлечения ключа лимита, сохраняя тело для следующего обработчика.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
 // @return:
@@ -216,7 +218,7 @@ func parsedJSONBody(c *gin.Context) (map[string]any, bool) {
 
 // redisRateLimitKey строит изолированный ключ ограничения частоты из правила и идентичности.
 //
-// @parameters:
+// @args
 //   - rule (Rule): значение rule типа Rule, используемое согласно назначению этой операции.
 //   - identity (string): проверенная идентичность пользователя и его членства.
 //
@@ -234,7 +236,7 @@ func redisRateLimitKey(rule Rule, identity string) string {
 
 // safeKeyPart нормализует компонент Redis-ключа, чтобы внешнее значение не меняло его структуру.
 //
-// @parameters:
+// @args
 //   - value (string): значение для проверки, нормализации или преобразования.
 //
 // @return:
@@ -249,7 +251,7 @@ func safeKeyPart(value string) string {
 
 // abortRateLimitExceeded завершает запрос ответом 429 и выставляет сведения об ограничении и повторной попытке.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - result (ratelimit.Result): результат проверки или обработки, передаваемый следующему шагу.
 func abortRateLimitExceeded(c *gin.Context, result ratelimit.Result) {
@@ -262,7 +264,7 @@ func abortRateLimitExceeded(c *gin.Context, result ratelimit.Result) {
 
 // abortRateLimitError возвращает безопасную ошибку проверки ограничения частоты.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - status (int): состояние ресурса, ответа или фильтра выборки.
 //   - message (string): сообщение чата или безопасный текст ответа согласно указанному типу.
@@ -275,7 +277,7 @@ func abortRateLimitError(c *gin.Context, status int, message string) {
 
 // setRateLimitHeaders записывает заголовки остатка лимита и времени сброса.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - result (ratelimit.Result): результат проверки или обработки, передаваемый следующему шагу.
 func setRateLimitHeaders(c *gin.Context, result ratelimit.Result) {

@@ -8,7 +8,7 @@ import (
 
 // TestRabbitMQURL проверяет сценарий «Rabbit MQURL», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRabbitMQURL(t *testing.T) {
 	tests := []struct {
@@ -45,7 +45,7 @@ func TestRabbitMQURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				for _, key := range []string{"RABBIT_MQ_DSN", "RABBIT_MQ_HOST", "RABBIT_MQ_PORT", "RABBIT_MQ_USER", "RABBIT_MQ_PASSWORD", "RABBIT_MQ_VHOST"} {
@@ -68,7 +68,7 @@ func TestRabbitMQURL(t *testing.T) {
 
 // TestRabbitMQURLExplicitDSN проверяет сценарий «Rabbit MQURL Explicit DSN», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRabbitMQURLExplicitDSN(t *testing.T) {
 	const dsn = "amqps://custom:secret@broker.example:5671/recordings"

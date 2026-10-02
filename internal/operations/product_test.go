@@ -13,7 +13,7 @@ import (
 )
 
 // TestProductMetricsBoundedLabels проверяет, что пользовательские строки не создают серии.
-// @parameters t — контекст проверки ограниченной кардинальности и классификации ошибок.
+// @args t — контекст проверки ограниченной кардинальности и классификации ошибок.
 func TestProductMetricsBoundedLabels(t *testing.T) {
 	r := New("test", "test", config.OperationsConfig{}, nil)
 	for i := 0; i < 100; i++ {

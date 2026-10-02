@@ -23,7 +23,7 @@ import (
 // TestFrontendPostgres проверяет сценарий «интерфейс Postgres», фиксируя ошибки поведения как регрессию.
 // Внешняя команда или запрос использует контекст операции.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFrontendPostgres(t *testing.T) {
 	if os.Getenv("RECORDER_FRONTEND_E2E") != "true" {

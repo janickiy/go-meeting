@@ -10,7 +10,7 @@ import (
 
 // TestRemoveEmptyTreesDeletesEmptyRecordAndTmpDirs проверяет сценарий «удаление пустой Trees Deletes пустой запись и Tmp Dirs», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRemoveEmptyTreesDeletesEmptyRecordAndTmpDirs(t *testing.T) {
 	root := t.TempDir()
@@ -37,7 +37,7 @@ func TestRemoveEmptyTreesDeletesEmptyRecordAndTmpDirs(t *testing.T) {
 
 // TestRemoveEmptyTreesKeepsNonEmptyRecordDir проверяет сценарий «удаление пустой Trees Keeps не пустой запись Dir», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRemoveEmptyTreesKeepsNonEmptyRecordDir(t *testing.T) {
 	root := t.TempDir()

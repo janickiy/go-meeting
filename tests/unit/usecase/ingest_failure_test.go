@@ -11,7 +11,7 @@ import (
 
 // TestFailIngestReleasesOnlyFailedRecordLock проверяет сценарий «сбой Ingest Releases только Failed запись Lock», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFailIngestReleasesOnlyFailedRecordLock(t *testing.T) {
 	repo := &failureRepository{}
@@ -30,7 +30,7 @@ func TestFailIngestReleasesOnlyFailedRecordLock(t *testing.T) {
 
 // TestFailIngestKeepsLockWhenDatabaseUpdateFails проверяет сценарий «сбой Ingest Keeps Lock когда Database обновление Fails», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFailIngestKeepsLockWhenDatabaseUpdateFails(t *testing.T) {
 	repo := &failureRepository{markErr: errors.New("database unavailable")}
@@ -45,7 +45,7 @@ func TestFailIngestKeepsLockWhenDatabaseUpdateFails(t *testing.T) {
 
 // TestFailIngestReleasesLockEvenWhenEventFails проверяет сценарий «сбой Ingest Releases Lock Even когда событие Fails», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestFailIngestReleasesLockEvenWhenEventFails(t *testing.T) {
 	wantErr := errors.New("event unavailable")
@@ -58,7 +58,7 @@ func TestFailIngestReleasesLockEvenWhenEventFails(t *testing.T) {
 }
 
 // failureRepository реализует постоянное хранение ресурсов компонента через GORM.
-// Состав:
+// @params:
 //   - markErr: значение markErr типа error, используемое согласно назначению этой операции.
 //   - eventErr: значение eventErr типа error, используемое согласно назначению этой операции.
 //   - status: состояние ресурса, ответа или фильтра выборки.
@@ -74,7 +74,7 @@ type failureRepository struct {
 
 // FindByUUID читает задачу записи по её внешнему UUID.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //
@@ -87,7 +87,7 @@ func (r *failureRepository) FindByUUID(context.Context, string) (records.Record,
 
 // TestLateIngestFailureDoesNotOverwriteReadyRecord проверяет сценарий «Late Ingest сбой выполняет не Overwrite готовность запись», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLateIngestFailureDoesNotOverwriteReadyRecord(t *testing.T) {
 	repo := &failureRepository{status: records.StatusReady}
@@ -102,7 +102,7 @@ func TestLateIngestFailureDoesNotOverwriteReadyRecord(t *testing.T) {
 
 // MarkFailed условно переводит задачу записи в состояние «Failed», соблюдая ограничения жизненного цикла.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 //   - аргумент 3 (error): значение cause типа error, используемое согласно назначению этой операции.
@@ -116,7 +116,7 @@ func (r *failureRepository) MarkFailed(context.Context, string, error) error {
 
 // AddEvent добавляет постоянное диагностическое событие жизненного цикла записи.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - eventType (string): значение eventType типа string, используемое согласно назначению этой операции.
@@ -133,14 +133,14 @@ func (r *failureRepository) AddEvent(_ context.Context, _, eventType, _, _, mess
 }
 
 // failureLock хранит изолированное состояние тестового компонента «сбой Lock».
-// Состав:
+// @params:
 //   - recordID: внешний UUID задачи записи.
 //   - conferenceID: идентификатор конференции, ограничивающий область операции.
 type failureLock struct{ recordID, conferenceID string }
 
 // Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - recordID (string): внешний UUID задачи записи.

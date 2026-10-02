@@ -15,7 +15,7 @@ import (
 
 // TestDebugCompletedRecordsReadsFromStorage проверяет сценарий «Debug Completed Records Reads из Storage», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestDebugCompletedRecordsReadsFromStorage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -50,7 +50,7 @@ func TestDebugCompletedRecordsReadsFromStorage(t *testing.T) {
 
 // containsAll подготавливает или проверяет часть тестового сценария «contains All».
 //
-// @parameters:
+// @args
 //   - body (string): тело входящего запроса или сериализованные данные передачи.
 //   - values (...string): значение values типа ...string, используемое согласно назначению этой операции.
 //
@@ -67,7 +67,7 @@ func containsAll(body string, values ...string) bool {
 }
 
 // fakeCompletedRecordsLister хранит изолированное состояние тестового компонента «fake Completed Records Lister».
-// Состав:
+// @params:
 //   - items: элементы страницы или порции пакетной обработки.
 //   - limit: максимальное число элементов страницы или порции обработки.
 type fakeCompletedRecordsLister struct {
@@ -77,7 +77,7 @@ type fakeCompletedRecordsLister struct {
 
 // ListCompletedRecords находит готовые артефакты записей в объектном хранилище.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - limit (int): максимальное число элементов страницы или порции обработки.
 //

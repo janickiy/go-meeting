@@ -3,7 +3,7 @@ import type { ChatMessage, Participant } from "./types";
 /**
  * isAdmitted проверяет допуск участника; старые записи без admissionState доступны только при неограниченном членстве.
  *
- * @parameters:
+ * @args
  *   - member (Participant | null) — членство участника; отсутствие значения означает отсутствие допуска (необязательный параметр).
  *
  * @returns boolean — true, если членство допускает доступ; false для отсутствующего или ограниченного членства.
@@ -20,7 +20,7 @@ export function isAdmitted(member?: Participant | null): boolean {
 /**
  * mergeChatPages объединяет страницы по UUID, выбирает новую версию и сортирует по BigInt sequence без потери точности.
  *
- * @parameters:
+ * @args
  *   - pages ({ items: ChatMessage[] }[]) — загруженные страницы чата, которые могут содержать разные версии одного сообщения.
  *
  * @returns ChatMessage[] — список без повторов UUID с последней версией каждого сообщения, упорядоченный по sequence и ID.
@@ -38,7 +38,7 @@ export function mergeChatPages(
     /**
      * Обработчик sort сравнивает два элемента, определяя их порядок в итоговом списке.
      *
-     * @parameters:
+     * @args
      *   - a — первый сравниваемый элемент.
      *   - b — второй сравниваемый элемент.
      *
@@ -54,7 +54,7 @@ export function mergeChatPages(
 /**
  * localSchedule преобразует локальное время формы в UTC ISO и отвергает несуществующее время перехода часового пояса.
  *
- * @parameters:
+ * @args
  *   - value (string) — локальная дата и время из поля формы в формате YYYY-MM-DDTHH:mm.
  *
  * @returns string | null — UTC-время в формате ISO либо null для неверного или несуществующего локального времени.
@@ -70,7 +70,7 @@ export function localSchedule(value: string): string | null {
 /**
  * toLocalInput преобразует однозначную временную отметку в локальный формат datetime-local.
  *
- * @parameters:
+ * @args
  *   - value (string) — временная отметка ISO, преобразуемая в местное время пользователя.
  *
  * @returns string — локальная дата и время для поля datetime-local либо пустая строка при ошибке разбора.
@@ -81,7 +81,7 @@ export function toLocalInput(value: string): string {
   /**
    * pad добавляет ведущий ноль к числу для формата даты.
    *
-   * @parameters:
+   * @args
    *   - number (number) — числовая часть даты, дополняемая ведущим нулём.
    *
    * @returns строка числа длиной не менее двух символов с ведущим нулём при необходимости.
@@ -92,7 +92,7 @@ export function toLocalInput(value: string): string {
 /**
  * localDayEnd возвращает конец выбранного локального дня с точностью до миллисекунды для верхней границы фильтра.
  *
- * @parameters:
+ * @args
  *   - value (string) — локальная дата выбранного дня в формате YYYY-MM-DD.
  *
  * @returns string | null — UTC-время последней миллисекунды выбранного локального дня либо null при неверной дате.
@@ -107,7 +107,7 @@ export function localDayEnd(value: string): string | null {
 /**
  * formatBytes переводит размер файла в короткую подпись КБ или МБ для интерфейса.
  *
- * @parameters:
+ * @args
  *   - value (number) — размер файла в байтах.
  *
  * @returns string — округлённая подпись размера в КБ или МБ.

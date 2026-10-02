@@ -20,6 +20,7 @@ import (
 )
 
 // Options собирает зависимости и настройки создания компонента.
+// @params
 //   - WorkerID: идентификатор воркера-владельца операции.
 //   - ICE: набор значений ICE для последовательной или пакетной обработки.
 //   - UDPPort: значение UDPPort типа int, используемое согласно назначению этой операции.
@@ -58,6 +59,7 @@ type Options struct {
 }
 
 // Stats собирает счётчики подключений, дорожек и ограниченных очередей для диагностики.
+// @params
 //   - Rooms: значение Rooms типа int, используемое согласно назначению этой операции.
 //   - Peers: значение Peers типа int, используемое согласно назначению этой операции.
 //   - Tracks: набор дорожек, входящих в операцию.
@@ -83,9 +85,12 @@ type Stats struct {
 	Dropped           uint64 `json:"packetsDropped"`
 	RecordingOutputs  int    `json:"recordingOutputs"`
 	RecordingDrops    uint64 `json:"recordingDrops"`
+	AudioTaps         int    `json:"audioTaps"`
+	AudioTapDrops     uint64 `json:"audioTapDrops"`
 }
 
 // Manager владеет локальными медиа-ресурсами и синхронизирует их создание, использование и завершение.
+// @params
 //   - opts: значение opts типа Options, используемое согласно назначению этой операции.
 //   - api: значение api типа *pion.API, используемое согласно назначению этой операции.
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
@@ -121,10 +126,12 @@ type Manager struct {
 	tcp                                      net.Listener
 	total, failures, packets, bytes, dropped atomic.Uint64
 	egressDropped                            atomic.Uint64
+	audioTapDropped                          atomic.Uint64
 	relay, direct                            atomic.Uint64
 }
 
 // room объединяет пиры и публикации одной локальной SFU-комнаты и её жизненный цикл.
+// @params
 //   - id: идентификатор обрабатываемого ресурса.
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - peers: индекс значений peers для поиска и согласования состояния.
@@ -144,7 +151,7 @@ type room struct {
 
 // defaults подставляет допустимые значения по умолчанию для отсутствующих настроек.
 //
-// @parameters:
+// @args
 //   - o (Options): зависимости и настройки создаваемого компонента.
 //
 // @return:
@@ -194,7 +201,7 @@ func defaults(o Options) Options {
 
 // NewManager создаёт и связывает зависимости компонента Manager, используемого в пересылке WebRTC-медиа через SFU.
 //
-// @parameters:
+// @args
 //   - options (Options): зависимости и настройки создаваемого компонента.
 //
 // @return:
@@ -293,7 +300,7 @@ func NewManager(options Options) (*Manager, error) {
 // Join создаёт или возвращает медиа-пир комнаты для проверенной серверной идентичности.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - binding (media.Binding): проверенная идентичность медиа-подключения, назначенная сервером.
 //
@@ -392,7 +399,7 @@ func (m *Manager) Join(ctx context.Context, binding media.Binding) (media.PeerVi
 
 // sameBinding сравнивает серверную идентичность двух медиа-подключений.
 //
-// @parameters:
+// @args
 //   - a (media.Binding): значение a типа media.Binding, используемое согласно назначению этой операции.
 //   - b (media.Binding): контекст измерения производительности теста.
 //
@@ -405,7 +412,7 @@ func sameBinding(a, b media.Binding) bool {
 // get читает состояние ресурсов компонента для дальнейшей обработки или ответа.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
 // @return:
@@ -424,7 +431,7 @@ func (m *Manager) get(id string) (*peer, error) {
 // PeerBinding возвращает серверную идентичность медиа-пира по физическому соединению.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
 // @return:
@@ -458,7 +465,7 @@ func (m *Manager) Bindings() []media.Binding {
 // Leave отключает медиа-пир и освобождает связанные публикации и подписки.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -480,7 +487,7 @@ func (m *Manager) Leave(_ context.Context, id string) error {
 // detachLocked помечает отсоединяемый ресурс и отменяет его активность под блокировкой менеджера до сетевой очистки.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - p (*peer): байты, переданные по контракту io.Writer.
 func (m *Manager) detachLocked(p *peer) {
 	m.closeWG.Add(1)
@@ -502,7 +509,7 @@ func (m *Manager) detachLocked(p *peer) {
 
 // finishDetached освобождает отсоединённые медиа-ресурсы вне блокировок менеджера.
 //
-// @parameters:
+// @args
 //   - p (*peer): байты, переданные по контракту io.Writer.
 func (m *Manager) finishDetached(p *peer) {
 	defer m.closeWG.Done()
@@ -513,7 +520,7 @@ func (m *Manager) finishDetached(p *peer) {
 // LeaveConnection отключает только указанное физическое медиа-соединение.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - connectionID (string): идентификатор физического медиа-соединения.
 func (m *Manager) LeaveConnection(ctx context.Context, connectionID string) {
@@ -528,7 +535,7 @@ func (m *Manager) LeaveConnection(ctx context.Context, connectionID string) {
 // CloseConference закрывает все медиа-подключения и ресурсы конкретной конференции.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -584,7 +591,7 @@ func (m *Manager) CloseConference(ctx context.Context, id string) error {
 			wg.Add(1)
 			go /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - p (*peer): байты, переданные по контракту io.Writer.
 			*/func(p *peer) { defer wg.Done(); m.finishDetached(p) }(p)
 		}
@@ -600,7 +607,7 @@ func (m *Manager) CloseConference(ctx context.Context, id string) error {
 // Shutdown останавливает менеджер и ожидает завершения принадлежащих ему ресурсов.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -653,7 +660,7 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 
 // waitClosed ожидает закрытия всех заданных ресурсов в пределах контекста.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - done (<-chan struct{}): канал «done» для передачи данных или завершения ожидания.
 //
@@ -683,7 +690,13 @@ func (m *Manager) Snapshot() Stats {
 	m.mu.Unlock()
 	for _, r := range rooms {
 		r.mu.Lock()
-		s.RecordingOutputs += len(r.egresses)
+		for _, e := range r.egresses {
+			if e.audioOnly {
+				s.AudioTaps++
+			} else {
+				s.RecordingOutputs++
+			}
+		}
 		sources := make([]*publishedTrack, 0, len(r.tracks))
 		for _, t := range r.tracks {
 			sources = append(sources, t)
@@ -704,12 +717,13 @@ func (m *Manager) Snapshot() Stats {
 	s.Bytes = m.bytes.Load()
 	s.Dropped = m.dropped.Load()
 	s.RecordingDrops = m.egressDropped.Load()
+	s.AudioTapDrops = m.audioTapDropped.Load()
 	return s
 }
 
 // newRoom создаёт изолированное состояние медиа-комнаты и управление её жизненным циклом.
 //
-// @parameters:
+// @args
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
 // @return:
@@ -721,7 +735,7 @@ func newRoom(id string) *room {
 // HasConference проверяет наличие локальной медиа-комнаты конференции.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
 // @return:
@@ -734,7 +748,7 @@ func (m *Manager) HasConference(id string) bool {
 
 // log записывает ограниченную диагностику компонента с указанными параметрами.
 //
-// @parameters:
+// @args
 //   - p (*peer): байты, переданные по контракту io.Writer.
 //   - event (string): конверт входящего или публикуемого события.
 //   - fields ([]any): набор значений fields для последовательной или пакетной обработки.
@@ -746,7 +760,7 @@ func (m *Manager) log(p *peer, event string, fields []any) {
 
 // supported проверяет поддерживаемые возможности медиа-подключения.
 //
-// @parameters:
+// @args
 //   - track (*pion.TrackRemote): медиа-дорожка, которую обрабатывает или подписывает компонент.
 //
 // @return:

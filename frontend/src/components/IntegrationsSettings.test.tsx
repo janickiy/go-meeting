@@ -23,7 +23,7 @@ let clients: QueryClient[] = [];
 
 /**
  * Создаёт независимый кеш настроек для проверки без внешних провайдеров.
- * @parameters callback — включение маршрута возврата OAuth.
+ * @args callback — включение маршрута возврата OAuth.
  * @return Результат монтирования тестового дерева.
  */
 function show(callback = false) {

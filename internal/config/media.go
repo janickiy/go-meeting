@@ -16,7 +16,6 @@ import (
 )
 
 // MediaConfig задаёт настройки медиа-воркера, SFU, внутренней авторизации и распределённого владения.
-// Состав:
 //   - HTTPPort: значение HTTPPort типа int, используемое согласно назначению этой операции.
 //   - WorkerID: идентификатор воркера-владельца операции.
 //   - WorkerInternalURL: значение WorkerInternalURL типа string, используемое согласно назначению этой операции.
@@ -158,7 +157,7 @@ func LoadMedia() (MediaConfig, error) {
 
 // mediaDerivedSecret вычисляет отдельный секрет назначения из базового секрета, исключая совместное использование ключей разных протоколов.
 //
-// @parameters:
+// @args
 //   - base (string): значение base типа string, используемое согласно назначению этой операции.
 //   - purpose (string): значение purpose типа string, используемое согласно назначению этой операции.
 //
@@ -221,7 +220,7 @@ func (c MediaConfig) Validate() error {
 
 // ValidateMediaEndpoint проверяет допустимый внутренний адрес медиа-воркера.
 //
-// @parameters:
+// @args
 //   - address (string): адрес целевого внутреннего сервиса или сети.
 //
 // @return:
@@ -237,7 +236,7 @@ func ValidateMediaEndpoint(address string) error {
 
 // validateMediaICE проверяет формат настроек ICE и ограничения передачи учётных данных.
 //
-// @parameters:
+// @args
 //   - c (realtime.ICEConfig): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
 // @return:

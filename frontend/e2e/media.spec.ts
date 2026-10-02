@@ -7,7 +7,7 @@ test.skip(
 test("two browsers exchange audio/video through the SFU and recreate media after reconnect", /**
  * Проверка: two browsers exchange audio/video through the SFU and recreate media after reconnect выполняет тестовый сценарий «two browsers exchange audio/video through the SFU and recreate media after reconnect» и проверяет ожидаемые результаты.
  *
- * @parameters:
+ * @args
  *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами.
  *   - info — контекст запуска для диагностических вложений.
  *
@@ -27,7 +27,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       /**
        * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
        *
-       * @parameters:
+       * @args
        *   - context — входное значение context текущего шага обработки.
        *
        * @returns преобразованное значение текущего элемента для результирующего набора.
@@ -46,7 +46,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       /**
        * Обработчик page.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
        *
-       * @parameters:
+       * @args
        *   - route — входное значение route текущего шага обработки.
        *
        * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -134,7 +134,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
           /**
            * construct создаёт подставной объект браузерного API.
            *
-           * @parameters:
+           * @args
            *   - Type — входное значение Type текущего шага обработки.
            *   - args ([RTCConfiguration?]) — входное значение args текущего шага обработки.
            *
@@ -147,7 +147,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
               /**
                * Обработчик pc.addEventListener выполняет переданный шаг вызова pc.addEventListener в проверках клиентского поведения.
                *
-               * @parameters:
+               * @args
                *   - event — проверенный конверт события комнаты.
                *
                * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -160,7 +160,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
                     /**
                      * Обработчик event.streams.map преобразует один элемент набора в представление или данные следующего шага.
                      *
-                     * @parameters:
+                     * @args
                      *   - stream — поток браузерных медиа-дорожек.
                      *
                      * @returns преобразованное значение текущего элемента для результирующего набора.
@@ -178,7 +178,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       /**
        * Обработчик page.on выполняет переданный шаг вызова page.on в проверках клиентского поведения.
        *
-       * @parameters:
+       * @args
        *   - socket — входное значение socket текущего шага обработки.
        *
        * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -188,7 +188,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
           /**
            * Обработчик socket.on выполняет переданный шаг вызова socket.on в проверках клиентского поведения.
            *
-           * @parameters:
+           * @args
            *   - объект параметров: payload — ссылки и состояние уведомления без выдачи прав на ресурс.
            *
            * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -205,7 +205,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
                     /**
                      * Обработчик event.data?.tracks?.map преобразует один элемент набора в представление или данные следующего шага.
                      *
-                     * @parameters:
+                     * @args
                      *   - t ({ id: string; mediaPeerId: string; kind: string }) — одна дорожка проверяемого медиапотока.
                      *
                      * @returns новый объект вычисленных данных.
@@ -274,7 +274,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
               .locator("video")
               .evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
  *
- * @parameters:
+ * @args
  *   - node — DOM-элемент, к которому привязывается медиапоток.
  *
  * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -290,7 +290,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
                       ?.getAudioTracks()
                       .some проверяет условие поиска элемента или соответствия элементов набора.
  *
- * @parameters:
+ * @args
  *   - t — одна дорожка проверяемого медиапотока.
  *
  * @returns логический признак соответствия элемента условию.
@@ -304,7 +304,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
                       ?.getVideoTracks()
                       .some проверяет условие поиска элемента или соответствия элементов набора.
  *
- * @parameters:
+ * @args
  *   - t — одна дорожка проверяемого медиапотока.
  *
  * @returns логический признак соответствия элемента условию.
@@ -359,7 +359,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
             .locator("video")
             .evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
  *
- * @parameters:
+ * @args
  *   - v — входное значение v текущего шага обработки.
  *
  * @returns вычисленное значение: (v as HTMLVideoElement).videoWidth.
@@ -388,7 +388,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
             .locator(".media-tile-screen video")
             .evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
  *
- * @parameters:
+ * @args
  *   - v — входное значение v текущего шага обработки.
  *
  * @returns вычисленное значение: (v as HTMLVideoElement).videoWidth.
@@ -535,7 +535,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
             /**
              * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
              *
-             * @parameters:
+             * @args
              *   - page — изолированная страница Playwright.
              *
              * @returns преобразованное значение текущего элемента для результирующего набора.
@@ -562,7 +562,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
         /**
          * Обработчик contexts.map преобразует один элемент набора в представление или данные следующего шага.
          *
-         * @parameters:
+         * @args
          *   - context — входное значение context текущего шага обработки.
          *
          * @returns преобразованное значение текущего элемента для результирующего набора.

@@ -9,13 +9,14 @@ import (
 )
 
 // ingestFailureRepository задаёт контракт зависимого компонента ingestFailureRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - FindByUUID: операция поиск By UUID с контрактом, описанным у метода.
 //   - MarkFailed: операция Mark Failed с контрактом, описанным у метода.
 //   - AddEvent: операция Add событие с контрактом, описанным у метода.
 type ingestFailureRepository interface {
 	// FindByUUID читает задачу записи по её внешнему UUID.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 	//
@@ -25,7 +26,7 @@ type ingestFailureRepository interface {
 	FindByUUID(context.Context, string) (records.Record, error)
 	// MarkFailed условно переводит задачу записи в состояние «Failed», соблюдая ограничения жизненного цикла.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 	//   - аргумент 3 (error): значение cause типа error, используемое согласно назначению этой операции.
@@ -35,7 +36,7 @@ type ingestFailureRepository interface {
 	MarkFailed(context.Context, string, error) error
 	// AddEvent добавляет постоянное диагностическое событие жизненного цикла записи.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор связанного ресурса, заданного параметром recordUUID.
 	//   - аргумент 3 (string): значение eventType типа string, используемое согласно назначению этой операции.
@@ -54,7 +55,7 @@ type ingestFailureRepository interface {
 type conferenceReleaser interface {
 	// Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//   - аргумент 3 (string): внешний UUID задачи записи.
@@ -66,7 +67,7 @@ type conferenceReleaser interface {
 
 // FailIngest сохраняет ошибку уже закрытого WebRTC-приёма и освобождает только принадлежащую записи блокировку.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - repository (ingestFailureRepository): хранилище постоянных данных прикладного сценария.
 //   - locker (conferenceReleaser): механизм взаимного исключения по ресурсу.
@@ -82,7 +83,7 @@ func FailIngest(ctx context.Context, repository ingestFailureRepository, locker 
 
 // failRecord сохраняет ошибку задачи записи с защитой от устаревшего состояния.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - repository (ingestFailureRepository): хранилище постоянных данных прикладного сценария.
 //   - locker (conferenceReleaser): механизм взаимного исключения по ресурсу.
@@ -115,7 +116,7 @@ func failRecord(ctx context.Context, repository ingestFailureRepository, locker 
 
 // releaseRecordLock освобождает блокировку только для указанной задачи записи.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - locker (conferenceReleaser): механизм взаимного исключения по ресурсу.
 //   - record (records.Record): задача записи с её сохранённым состоянием.

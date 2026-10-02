@@ -15,7 +15,7 @@ import (
 )
 
 // Connect открывает подключение к PostgreSQL через GORM.
-// @parameters:
+// @args
 // - dsn: строка подключения PostgreSQL.
 // @return *gorm.DB или ошибку подключения.
 func Connect(dsn string) (*gorm.DB, error) {

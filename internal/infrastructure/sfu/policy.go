@@ -9,7 +9,7 @@ import (
 // SetPolicy применяет версионную политику медиа; устаревшее изменение не должно отменять более новую модерацию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
@@ -93,7 +93,7 @@ func (m *Manager) SetPolicy(ctx context.Context, conferenceID, participantID str
 				workers.Add(1)
 				go /* Вложенный обработчик выполняет выделенный шаг обработки в пересылке WebRTC-медиа через SFU, используя состояние окружающей функции.
 
-				@parameters:
+				@args
 				  - p (*peer): байты, переданные по контракту io.Writer.
 				*/func(p *peer) { defer workers.Done(); m.finishDetached(p) }(p)
 			}
@@ -108,7 +108,7 @@ func (m *Manager) SetPolicy(ctx context.Context, conferenceID, participantID str
 // ParticipantPolicy возвращает актуальную политику конкретного участника для проверки медиа.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
 //
@@ -130,7 +130,7 @@ func (m *Manager) ParticipantPolicy(conferenceID, participantID string) (media.P
 // reserveSources резервирует источники участника с учётом политики и ограничений комнаты.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - sources (map[string]media.Source): набор источников медиа для публикации или композиции.
 //
 // @return:

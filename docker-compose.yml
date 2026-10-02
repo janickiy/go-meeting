@@ -60,6 +60,32 @@ services:
     stop_grace_period: 45s
     networks: [app-network]
 
+  live-worker:
+    image: go-recorder-live-worker:local
+    restart: unless-stopped
+    init: true
+    build: {context: ., dockerfile: dockers/live-worker/Dockerfile, target: runtime}
+    env_file: [.env]
+    environment:
+      LIVE_WORKER_PORT: "8093"
+      MEDIA_WORKER_INTERNAL_URL: "http://media-worker:8091"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      media-worker: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8093/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+    stop_grace_period: 30s
+    cpus: 2
+    mem_limit: 768m
+    pids_limit: 128
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    networks: [app-network]
+
   frontend:
     image: go-recorder-frontend:local
     restart: unless-stopped

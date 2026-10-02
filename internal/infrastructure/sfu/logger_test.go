@@ -18,7 +18,7 @@ import (
 )
 
 // safeLogBuffer хранит изолированное состояние тестового компонента «безопасный Log буфер».
-// Состав:
+// @params:
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - b: контекст измерения производительности теста.
 type safeLogBuffer struct {
@@ -29,7 +29,7 @@ type safeLogBuffer struct {
 // Write принимает байты вывода в ограниченный буфер и соблюдает контракт io.Writer.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - raw ([]byte): исходные байты JSON, пакета или сериализованного значения.
 //
 // @return:
@@ -69,14 +69,14 @@ func (unsafeLogArgument) Error() string { panic("upstream Error invoked") }
 
 // Format обрабатывает сообщение соответствующего уровня через безопасный адаптер, не раскрывая текст и чувствительные аргументы Pion.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (fmt.State): значение для проверки, нормализации или преобразования.
 //   - аргумент 2 (rune): значение для проверки, нормализации или преобразования.
 func (unsafeLogArgument) Format(fmt.State, rune) { panic("upstream Format invoked") }
 
 // TestPionLoggerNeverFormatsOrRetainsUpstreamData проверяет сценарий «Pion Logger Never Formats Or Retains Upstream Data», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPionLoggerNeverFormatsOrRetainsUpstreamData(t *testing.T) {
 	const sensitive = "synthetic-sensitive-logger-marker"
@@ -128,7 +128,7 @@ func TestPionLoggerNeverFormatsOrRetainsUpstreamData(t *testing.T) {
 
 // TestMalformedSDPCandidateCannotLeakIntoPionLogs проверяет сценарий «Malformed SDP Candidate Cannot раскрытие Into Pion Logs», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMalformedSDPCandidateCannotLeakIntoPionLogs(t *testing.T) {
 	const sensitive = "synthetic-sensitive-candidate-marker"

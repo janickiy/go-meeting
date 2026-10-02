@@ -15,7 +15,7 @@ import (
 )
 
 // contentLease блокирует действующую аренду перед коротким product commit.
-// @parameters: tx — транзакция; job — identity/token полученного задания.
+// @args tx — транзакция; job — identity/token полученного задания.
 // @return ErrLeaseLost для просроченного или заменённого владельца.
 func contentLease(tx *gorm.DB, job jobs.Job) error {
 	var id string
@@ -38,11 +38,11 @@ func contentLease(tx *gorm.DB, job jobs.Job) error {
 }
 
 // workerSource читает strict-ready объект только в границах server job conference.
-// @parameters: tx — транзакция; rid/cid — подтверждённые IDs из outbox.
+// @args tx — транзакция; rid/cid — подтверждённые IDs из outbox.
 // @return приватный объект или ErrSkip для удалённой/неготовой записи.
 func workerSource(tx *gorm.DB, rid, cid string) (domain.RecordingSource, error) {
 	var source domain.RecordingSource
-	err := tx.Raw(`SELECT uuid AS recording_id,platform_conference_id AS conference_id,storage_object_key AS object_key,COALESCE(duration_sec,0) AS duration_sec,COALESCE(size_bytes,0) AS size_bytes FROM record WHERE uuid=? AND platform_conference_id=? AND mode='composite' AND status='ready' AND deleted_at IS NULL`, rid, cid).Scan(&source).Error
+	err := tx.Raw(`SELECT uuid AS recording_id,platform_conference_id AS conference_id,storage_object_key AS object_key,COALESCE(duration_sec,0) AS duration_sec,COALESCE(size_bytes,0) AS size_bytes FROM record WHERE uuid=? AND platform_conference_id=? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND status='ready' AND deleted_at IS NULL`, rid, cid).Scan(&source).Error
 	if err == nil && source.RecordingID == "" {
 		err = jobs.ErrSkip
 	}
@@ -50,7 +50,7 @@ func workerSource(tx *gorm.DB, rid, cid string) (domain.RecordingSource, error) 
 }
 
 // StartTranscript идемпотентно создаёт/захватывает нужное поколение без provider вызова в транзакции.
-// @parameters: ctx — DB deadline; job — действующий product job.
+// @args ctx — DB deadline; job — действующий product job.
 // @return processing metadata/source; ErrSkip для устаревшего или завершённого поколения.
 func (r *ContentRepository) StartTranscript(ctx context.Context, job jobs.Job) (domain.Transcript, domain.RecordingSource, error) {
 	var t domain.Transcript
@@ -80,7 +80,7 @@ func (r *ContentRepository) StartTranscript(ctx context.Context, job jobs.Job) (
 }
 
 // readyIntegration фиксирует ready событие вместе с результатом; приватный текст в payload не попадает.
-// @parameters: tx — короткая commit-транзакция; event/entity/cid/rid/tid/sid — тип/IDs; version — generation.
+// @args tx — короткая commit-транзакция; event/entity/cid/rid/tid/sid — тип/IDs; version — generation.
 // @return ошибка сохранения outbox, откатывающая весь product result.
 func readyIntegration(tx *gorm.DB, event, entity, cid, rid, tid, sid string, version int64, attempts int) error {
 	payload, _ := json.Marshal(map[string]string{"event": event, "recordingId": rid, "transcriptId": tid, "summaryId": sid})
@@ -88,12 +88,12 @@ func readyIntegration(tx *gorm.DB, event, entity, cid, rid, tid, sid string, ver
 }
 
 // formatGeneration даёт стабильную десятичную часть ключа дедупликации.
-// @parameters: generation — положительное поколение результата.
+// @args generation — положительное поколение результата.
 // @return строковое представление без locale/timezone зависимости.
 func formatGeneration(generation int64) string { return strconv.FormatInt(generation, 10) }
 
 // SaveTranscript сохраняет проверенный текст и атомарно ставит AI/notification jobs.
-// @parameters: ctx — commit deadline; job/t — аренда и поколение; result — проверенный STT;
+// @args ctx — commit deadline; job/t — аренда и поколение; result — проверенный STT;
 // provider — безопасное имя адаптера; ai — разрешение следующей стадии; attempts — retry budget.
 // @return ошибка или потеря аренды; recording state никогда не изменяется.
 func (r *ContentRepository) SaveTranscript(ctx context.Context, job jobs.Job, t domain.Transcript, result domain.TranscriptionResult, provider string, ai bool, attempts int) error {
@@ -130,6 +130,9 @@ func (r *ContentRepository) SaveTranscript(ctx context.Context, job jobs.Job, t 
 				return err
 			}
 		}
+		if err := reconcileLiveTranscript(tx, t); err != nil {
+			return err
+		}
 		if err := tx.Table("transcripts").Where("id=? AND generation=?", t.ID, job.Version).Updates(map[string]any{"status": domain.Ready, "language": result.Language, "provider": provider, "error_code": nil, "error_message": nil, "processed_at": time.Now().UTC(), "updated_at": time.Now().UTC()}).Error; err != nil {
 			return err
 		}
@@ -149,7 +152,7 @@ func (r *ContentRepository) SaveTranscript(ctx context.Context, job jobs.Job, t 
 }
 
 // StartSummary читает согласованный current-generation текст после проверки аренды.
-// @parameters: ctx — deadline; job — leased AI job с EntityID=transcript UUID.
+// @args ctx — deadline; job — leased AI job с EntityID=transcript UUID.
 // @return summary metadata, сегменты и ErrSkip для stale/deleted/не-ready источника.
 func (r *ContentRepository) StartSummary(ctx context.Context, job jobs.Job) (domain.Summary, []domain.Segment, error) {
 	var s domain.Summary
@@ -187,7 +190,7 @@ func (r *ContentRepository) StartSummary(ctx context.Context, job jobs.Job) (dom
 }
 
 // SaveSummary атомарно сохраняет schema-validated JSON и готовое уведомление.
-// @parameters: ctx — deadline; job/s — аренда/поколение; output — проверенный JSON;
+// @args ctx — deadline; job/s — аренда/поколение; output — проверенный JSON;
 // provider/model/prompt/schema — воспроизводимая версия обработки; attempts — delivery budget.
 // @return ошибка commit; ни transcript, ни recording при отказе AI не меняются.
 func (r *ContentRepository) SaveSummary(ctx context.Context, job jobs.Job, s domain.Summary, output domain.SummaryOutput, provider, model, prompt, schema string, attempts int) error {
@@ -224,7 +227,7 @@ func (r *ContentRepository) SaveSummary(ctx context.Context, job jobs.Job, s dom
 }
 
 // FailJob помечает только актуальное поколение после terminal failure, сохраняя recording/transcript.
-// @parameters: ctx — свежий DB deadline; job — leased terminal job; code — безопасная техническая категория.
+// @args ctx — свежий DB deadline; job — leased terminal job; code — безопасная техническая категория.
 // @return ошибка фиксации либо ErrLeaseLost; причины поставщика/контент не логируются.
 func (r *ContentRepository) FailJob(ctx context.Context, job jobs.Job, code string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -269,7 +272,7 @@ func (r *ContentRepository) FailJob(ctx context.Context, job jobs.Job, code stri
 }
 
 // contentFailureEvent уведомляет только owner о terminal failure, без текста/error dump.
-// @parameters: tx — result transaction; event/entity/cid/rid/tid/sid — тип/IDs;
+// @args tx — result transaction; event/entity/cid/rid/tid/sid — тип/IDs;
 // code — техническая safe категория; version/attempts — bounded idempotency/retry.
 // @return ошибка создания owner-only outbox; deleted recordings не уведомляются.
 func contentFailureEvent(tx *gorm.DB, event, entity, cid, rid, tid, sid, code string, version int64, attempts int) error {

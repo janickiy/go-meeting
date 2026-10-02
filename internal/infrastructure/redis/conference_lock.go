@@ -40,7 +40,7 @@ type ConferenceLock struct {
 }
 
 // NewConferenceLock создает Redis lock для conferenceId.
-// @parameters:
+// @args
 // - client: Redis client.
 // - ttl: срок жизни lock-а.
 // @return ConferenceLock.
@@ -49,7 +49,7 @@ func NewConferenceLock(client *goredis.Client, ttl time.Duration) *ConferenceLoc
 }
 
 // Acquire пытается поставить lock conferenceId со значением recordId.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID записи-владельца lock-а.
@@ -71,7 +71,7 @@ func (l *ConferenceLock) Acquire(ctx context.Context, conferenceID string, recor
 }
 
 // Release снимает lock только если им владеет текущая запись.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID записи-владельца lock-а.
@@ -89,7 +89,7 @@ func (l *ConferenceLock) Release(ctx context.Context, conferenceID string, recor
 
 // lockKey строит Redis-ключ блокировки одной конференции.
 //
-// @parameters:
+// @args
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //
 // @return:

@@ -9,18 +9,18 @@ import (
 )
 
 // productKind допускает только категории, заданные исходным кодом, а не пользовательскими данными.
-// @parameters kind — технический вид задания.
+// @args kind — технический вид задания.
 // @return признак принадлежности ограниченному набору меток.
 func productKind(kind string) bool {
 	switch kind {
-	case "integrations.conference", "integrations.event", "integrations.delivery", "integrations.calendar", "content.transcribe", "content.summarize":
+	case "integrations.conference", "integrations.event", "integrations.delivery", "integrations.calendar", "content.transcribe", "content.summarize", "content.embed", "analytics.aggregate":
 		return true
 	}
 	return false
 }
 
 // Product учитывает исход и продолжительность законченной попытки отдельного worker.
-// @parameters kind — фиксированная категория; outcome — безопасное состояние; duration — время работы.
+// @args kind — фиксированная категория; outcome — безопасное состояние; duration — время работы.
 func Product(kind, outcome string, duration time.Duration) {
 	if !productKind(kind) {
 		return
@@ -37,7 +37,7 @@ func Product(kind, outcome string, duration time.Duration) {
 }
 
 // ProductQueue обновляет снимок очереди; entity/user/provider URL не могут стать метками.
-// @parameters kind — фиксированная категория; state — queued/processing/failed; count — число заданий.
+// @args kind — фиксированная категория; state — queued/processing/failed; count — число заданий.
 func ProductQueue(kind, state string, count int64) {
 	if !productKind(kind) || (state != "queued" && state != "processing" && state != "failed") {
 		return
@@ -48,11 +48,11 @@ func ProductQueue(kind, state string, count int64) {
 }
 
 // ProviderCall учитывает реальную попытку адаптера без содержимого и идентификаторов встречи.
-// @parameters provider — один из пяти фиксированных каналов; duration — длительность;
+// @args provider — один из пяти фиксированных каналов; duration — длительность;
 // err — классифицированная ошибка, текст которой не становится меткой или журналом.
 func ProviderCall(provider string, duration time.Duration, err error) {
 	switch provider {
-	case "email", "push", "calendar", "stt", "ai":
+	case "email", "push", "calendar", "stt", "ai", "embedding", "live_stt":
 	default:
 		return
 	}
@@ -84,7 +84,7 @@ func ProviderCall(provider string, duration time.Duration, err error) {
 }
 
 // Search учитывает время запроса и безопасный класс ответа без поисковой строки.
-// @parameters duration — полное время обработчика; failed — признак HTTP-отказа.
+// @args duration — полное время обработчика; failed — признак HTTP-отказа.
 func Search(duration time.Duration, failed bool) {
 	outcome := "success"
 	if failed {

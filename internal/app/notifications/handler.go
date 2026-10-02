@@ -26,11 +26,11 @@ import (
 type Subscriber interface {
 	// Subscribe открывает ограниченную по времени подписку на изолированный канал событий.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор пользователя, для которого выполняется операция.
 	//
-	// Результат:
+	// @return
 	//   - результат 1 (*goredis.PubSub): значение, подготовленное операцией для вызывающей стороны.
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Subscribe(context.Context, string) (*goredis.PubSub, error)
@@ -41,10 +41,10 @@ type Subscriber interface {
 type Verifier interface {
 	// VerifyWithExpiry проверяет подпись и содержимое JWT и возвращает идентификатор пользователя вместе со сроком действия.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): исходные байты JSON, пакета или сериализованного значения.
 	//
-	// Результат:
+	// @return
 	//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 	//   - результат 2 (time.Time): временная отметка результата или окончания действия разрешения.
 	//   - результат 3 (error): ошибка проверки или выполнения; nil означает успешное завершение.
@@ -56,26 +56,28 @@ type Verifier interface {
 type Limiter interface {
 	// Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
 	//   - аргумент 4 (time.Duration): значение window типа time.Duration, используемое согласно назначению этой операции.
 	//
-	// Результат:
+	// @return
 	//   - результат 1 (ratelimit.Result): значение, подготовленное операцией для вызывающей стороны.
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Allow(context.Context, string, int, time.Duration) (ratelimit.Result, error)
 }
 
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.
-//   - service: значение service типа *usecase.Service, используемое согласно назначению этой операции.
-//   - bus: транспорт публикации и подписки на доверенные события.
-//   - tokens: сервис выпуска или проверки JWT авторизации.
-//   - limiter: ограничитель частоты запросов, общий для экземпляров API.
-//   - streams: значение streams типа atomic.Int64, используемое согласно назначению этой операции.
-//   - counts: значение counts типа syncCounts, используемое согласно назначению этой операции.
-//   - namespace: пространство изолированных ключей и каналов Redis.
+//
+//	@params
+//	 - service: значение service типа *usecase.Service, используемое согласно назначению этой операции.
+//	 - bus: транспорт публикации и подписки на доверенные события.
+//	 - tokens: сервис выпуска или проверки JWT авторизации.
+//	 - limiter: ограничитель частоты запросов, общий для экземпляров API.
+//	 - streams: значение streams типа atomic.Int64, используемое согласно назначению этой операции.
+//	 - counts: значение counts типа syncCounts, используемое согласно назначению этой операции.
+//	 - namespace: пространство изолированных ключей и каналов Redis.
 type Handler struct {
 	service   *usecase.Service
 	bus       Subscriber
@@ -88,14 +90,14 @@ type Handler struct {
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в личных уведомлениях и их фоновой доставке.
 //
-// @parameters:
+// @args
 //   - service (*usecase.Service): значение service типа *usecase.Service, используемое согласно назначению этой операции.
 //   - bus (Subscriber): транспорт публикации и подписки на доверенные события.
 //   - tokens (Verifier): сервис выпуска или проверки JWT авторизации.
 //   - limiter (Limiter): ограничитель частоты запросов, общий для экземпляров API.
 //   - namespace (string): пространство изолированных ключей и каналов Redis.
 //
-// Результат:
+// @return
 //   - результат 1 (*Handler): созданный компонент с переданными зависимостями.
 func NewHandler(service *usecase.Service, bus Subscriber, tokens Verifier, limiter Limiter, namespace string) *Handler {
 	return &Handler{service: service, bus: bus, tokens: tokens, limiter: limiter, namespace: namespace, counts: syncCounts{values: map[string]int{}}}
@@ -103,7 +105,7 @@ func NewHandler(service *usecase.Service, bus Subscriber, tokens Verifier, limit
 
 // List возвращает ограниченный список личных уведомлений пользователя с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) List(c *gin.Context) {
 	limit := 30
@@ -126,7 +128,7 @@ func (h *Handler) List(c *gin.Context) {
 
 // Read идемпотентно отмечает принадлежащее пользователю уведомление прочитанным.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Read(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("notificationId"))
@@ -147,7 +149,7 @@ func (h *Handler) Read(c *gin.Context) {
 
 // Events открывает авторизованный SSE-поток личных уведомлений с ограничением соединений и срока токена.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Events(c *gin.Context) {
 	// Header authentication only: credentials never appear in URLs/access logs.
@@ -203,10 +205,10 @@ func (h *Handler) Events(c *gin.Context) {
 	defer controller.SetWriteDeadline(time.Time{})
 	// Вложенный обработчик выполняет выделенный шаг обработки в личных уведомлениях и их фоновой доставке, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - value (string): значение для проверки, нормализации или преобразования.
 	//
-	// Результат:
+	// @return
 	//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 	write := func(value string) bool {
 		// Gin's writer does not expose deadlines on every server. The bounded

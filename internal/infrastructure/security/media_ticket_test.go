@@ -12,7 +12,7 @@ import (
 
 // mediaTicketFixture подготавливает или проверяет часть тестового сценария «медиа билет тестовое окружение».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //
 // @return:
@@ -39,7 +39,7 @@ func mediaTicketFixture(t *testing.T) (*MediaTickets, media.Binding, media.Route
 
 // TestMediaTicketBindingAndExpiration проверяет сценарий «медиа билет Binding и Expiration», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaTicketBindingAndExpiration(t *testing.T) {
 	s, b, r := mediaTicketFixture(t)
@@ -85,7 +85,7 @@ func TestMediaTicketBindingAndExpiration(t *testing.T) {
 
 // TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity проверяет сценарий «медиа билет Rejects Forged Purpose Algorithm и Identity», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity(t *testing.T) {
 	s, b, r := mediaTicketFixture(t)
@@ -98,64 +98,64 @@ func TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity(t *testing.T) {
 	}{
 		{"purpose", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.Purpose = "access" }, jwt.SigningMethodHS256},
 		{"issuer", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.Issuer = "foreign" }, jwt.SigningMethodHS256},
 		{"audience", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.Audience = jwt.ClaimStrings{"go-recorder-api"} }, jwt.SigningMethodHS256},
 		{"subject", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.Subject = uuid.NewString() }, jwt.SigningMethodHS256},
 		{"identity", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.Binding.ParticipantID = "not-uuid" }, jwt.SigningMethodHS256},
 		{"missing expiry", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.ExpiresAt = nil }, jwt.SigningMethodHS256},
 		{"missing issued", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.IssuedAt = nil }, jwt.SigningMethodHS256},
 		{"future issued", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.IssuedAt = jwt.NewNumericDate(now.Add(time.Hour)) }, jwt.SigningMethodHS256},
 		{"long ttl", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.ExpiresAt = jwt.NewNumericDate(now.Add(10 * time.Minute)) }, jwt.SigningMethodHS256},
 		{"lease", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - c (*mediaClaims): значение настроек или состояния компонента согласно указанному типу.
 			*/func(c *mediaClaims) { c.Route.LeaseID = "" }, jwt.SigningMethodHS256},
 		{"algorithm", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - аргумент 1 (*mediaClaims): значение для проверки, нормализации или преобразования.
 			*/func(*mediaClaims) {}, jwt.SigningMethodHS512},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				claims := base

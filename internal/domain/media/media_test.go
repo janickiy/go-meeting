@@ -4,7 +4,7 @@ import "testing"
 
 // TestPolicyBlocksAudioRelabelledAsScreen проверяет сценарий «политика блокирует звук смена метки как экран», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPolicyBlocksAudioRelabelledAsScreen(t *testing.T) {
 	policy := ParticipantPolicy{Version: 1, MicrophoneBlocked: true}
@@ -22,7 +22,7 @@ func TestPolicyBlocksAudioRelabelledAsScreen(t *testing.T) {
 
 // TestPolicyBlocksVideoRelabelledAsScreen проверяет сценарий «политика блокирует видео смена метки как экран», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestPolicyBlocksVideoRelabelledAsScreen(t *testing.T) {
 	policy := ParticipantPolicy{Version: 1, CameraBlocked: true}

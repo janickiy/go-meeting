@@ -4,7 +4,7 @@ import "testing"
 
 // TestLifecycleAllowsOnlyForwardTransitions проверяет сценарий «жизненный цикл разрешает только Forward переходы», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLifecycleAllowsOnlyForwardTransitions(t *testing.T) {
 	statuses := []Status{Created, Active, Finished, Cancelled, "unknown"}

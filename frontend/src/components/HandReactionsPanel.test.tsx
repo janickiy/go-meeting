@@ -38,7 +38,7 @@ it("subscribes without replacing the media handler and bounds reaction bubbles",
   let receive: /**
    * Вложенный обработчик выполняет шаг «Вложенный обработчик» в проверках клиентского поведения.
    *
-   * @parameters:
+   * @args
    *   - event (RealtimeEvent) — проверенный конверт события комнаты.
    *
    * @returns void — значение не возвращается; функция выполняет описанные действия.
@@ -50,7 +50,7 @@ it("subscribes without replacing the media handler and bounds reaction bubbles",
     /**
      * subscribe подключает обработчик состояния или событий и возвращает снятие подписки.
      *
-     * @parameters:
+     * @args
      *   - callback (typeof receive) — обработчик события или изменения наблюдаемого состояния.
      *
      * @returns вычисленное значение: unsubscribe.

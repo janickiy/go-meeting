@@ -14,6 +14,7 @@ import (
 )
 
 // HTTPClient выполняет внутренние медиа-вызовы; не передаёт секрет через редиректы и не раскрывает ответ с SDP в ошибке.
+// @params
 //   - secret: секрет подписи или внутренней авторизации компонента.
 //   - client: клиент внешнего сервиса или транспорта компонента.
 type HTTPClient struct {
@@ -23,7 +24,7 @@ type HTTPClient struct {
 
 // NewHTTPClient создаёт и связывает зависимости компонента HTTPClient, используемого в защищённом управлении медиа-комнатой.
 //
-// @parameters:
+// @args
 //   - secret (string): секрет подписи или внутренней авторизации компонента.
 //   - timeout (time.Duration): максимальное время ожидания операции.
 //
@@ -33,7 +34,7 @@ func NewHTTPClient(secret string, timeout time.Duration) *HTTPClient {
 	return &HTTPClient{secret: secret, client: &http.Client{Timeout: timeout,
 		CheckRedirect:/* Вложенный обработчик выполняет выделенный шаг обработки в защищённом управлении медиа-комнатой, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - аргумент 1 (*http.Request): входящий HTTP-запрос.
 		  - аргумент 2 ([]*http.Request): входящий HTTP-запрос.
 
@@ -45,7 +46,7 @@ func NewHTTPClient(secret string, timeout time.Duration) *HTTPClient {
 
 // Call выполняет защищённый внутренний HTTP-вызов выбранной операции медиа-воркера.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - action (string): действие управления, которое необходимо проверить или исполнить.
 //   - command (domain.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.

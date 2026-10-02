@@ -77,6 +77,7 @@ return 1
 `)
 
 // RealtimeStore хранит распределённое присутствие, одноразовые билеты и доставляет события через Redis.
+// @params
 //   - client: клиент внешнего сервиса или транспорта компонента.
 //   - prefix: ограниченный префикс объектов, относящихся к одной операции.
 type RealtimeStore struct {
@@ -86,7 +87,7 @@ type RealtimeStore struct {
 
 // NewRealtimeStore создаёт и связывает зависимости компонента RealtimeStore, используемого в присутствии участников и доставке realtime-событий.
 //
-// @parameters:
+// @args
 //   - client (*goredis.Client): клиент внешнего сервиса или транспорта компонента.
 //   - prefix (string): ограниченный префикс объектов, относящихся к одной операции.
 //
@@ -98,7 +99,7 @@ func NewRealtimeStore(client *goredis.Client, prefix string) *RealtimeStore {
 
 // action вызывает соответствующий Lua-сценарий Redis для атомарной работы с распределённым состоянием.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - op (string): значение op типа string, используемое согласно назначению этой операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
@@ -113,7 +114,7 @@ func (s *RealtimeStore) action(ctx context.Context, op, id, raw string, ttl time
 
 // Register регистрирует физическое соединение и его ограниченное по времени присутствие.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (realtime.Session): историческая физическая сессия или состояние текущего соединения.
 //   - ttl (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
@@ -134,7 +135,7 @@ func (s *RealtimeStore) Register(ctx context.Context, session realtime.Session, 
 
 // Unregister закрывает физическую сессию и обновляет распределённое присутствие участника.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -146,7 +147,7 @@ func (s *RealtimeStore) Unregister(ctx context.Context, id string) error {
 
 // Touch продлевает срок активности зарегистрированной физической сессии.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - ttl (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
@@ -163,7 +164,7 @@ func (s *RealtimeStore) Touch(ctx context.Context, id string, ttl time.Duration)
 
 // Get читает состояние физических сессий и событий комнаты для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -184,7 +185,7 @@ func (s *RealtimeStore) Get(ctx context.Context, id string) (realtime.Session, e
 
 // Active возвращает действующие сессии, учитывая срок их активности.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //
@@ -209,7 +210,7 @@ func (s *RealtimeStore) Active(ctx context.Context, conferenceID string) ([]real
 
 // Prune удаляет просроченные сессии и возвращает сведения для восстановления присутствия.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -220,7 +221,7 @@ func (s *RealtimeStore) Prune(ctx context.Context) error {
 
 // Publish сериализует доверенное событие и публикует его в изолированном Redis-канале.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - bus (realtime.Bus): транспорт публикации и подписки на доверенные события.
 //
@@ -236,7 +237,7 @@ func (s *RealtimeStore) Publish(ctx context.Context, bus realtime.Bus) error {
 
 // Subscribe открывает ограниченную по времени подписку на изолированный канал событий.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -263,7 +264,7 @@ func (s *realtimeSubscription) Close() error { return s.pub.Close() }
 
 // Receive ожидает и разбирает следующее сообщение активной подписки.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -281,7 +282,7 @@ func (s *realtimeSubscription) Receive(ctx context.Context) (realtime.Bus, error
 
 // ticketKey строит изолированный Redis-ключ одноразового билета подключения.
 //
-// @parameters:
+// @args
 //   - ticket (string): одноразовый билет ограниченного подключения.
 //
 // @return:
@@ -293,7 +294,7 @@ func (s *RealtimeStore) ticketKey(ticket string) string {
 
 // SaveTicket сохраняет одноразовый билет подключения с ограниченным сроком жизни.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - ticket (string): одноразовый билет ограниченного подключения.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -315,7 +316,7 @@ func (s *RealtimeStore) SaveTicket(ctx context.Context, ticket, conferenceID str
 
 // ConsumeTicket атомарно забирает одноразовый билет, исключая повторное использование.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - ticket (string): одноразовый билет ограниченного подключения.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.

@@ -174,7 +174,7 @@ export function IntegrationsSettings() {
 
 /**
  * Сохраняет независимые предпочтения событий и каналов после явного действия.
- * @parameters initial — сохранённые значения; capabilities — доступность провайдеров.
+ * @args initial — сохранённые значения; capabilities — доступность провайдеров.
  * @return Форма с безопасными состояниями выключенных и тестовых каналов.
  */
 function PreferencesForm({
@@ -330,7 +330,7 @@ export function CalendarCallback() {
 
 /**
  * Показывает состояние автоматической синхронизации организатору встречи.
- * @parameters conferenceId, userId — идентификаторы встречи и пользователя.
+ * @args conferenceId, userId — идентификаторы встречи и пользователя.
  * @return Небольшая карточка состояния без внешних секретов.
  */
 export function ConferenceCalendarStatus({

@@ -32,6 +32,10 @@ import type {
   OffsetPage,
   SearchFilters,
   SearchResult,
+  RecordingMode,
+  Caption,
+  CaptionState,
+  MeetingAnalytics,
 } from "./types";
 
 let accessToken: string | null = null;
@@ -44,7 +48,7 @@ let accessToken: string | null = null;
 let invalidSession: /**
  * Вложенный обработчик выполняет шаг «Вложенный обработчик» в типизированных HTTP-запросах.
  *
- * @parameters:
+ * @args
  *   - usedToken (string) — токен конкретного запроса, который получил отказ авторизации.
  *
  * @returns void — значение не возвращается; функция выполняет описанные действия.
@@ -52,7 +56,7 @@ let invalidSession: /**
 /**
  * configureAuth сохраняет текущий токен и обработчик ответа 401; обработчик получает именно токен, использованный неудачным запросом.
  *
- * @parameters:
+ * @args
  *   - token (string | null) — токен текущей авторизации; null отключает авторизованные запросы.
  *   - onInvalid ((usedToken: string) => void) — обработчик отказа авторизации с использованным токеном (необязательный параметр).
  *
@@ -63,7 +67,7 @@ export function configureAuth(
   onInvalid?: /**
    * Вложенный обработчик выполняет шаг «Вложенный обработчик» в типизированных HTTP-запросах.
    *
-   * @parameters:
+   * @args
    *   - usedToken (string) — токен конкретного запроса, который получил отказ авторизации.
    *
    * @returns void — значение не возвращается; функция выполняет описанные действия.
@@ -75,14 +79,14 @@ export function configureAuth(
 /**
  * ApiError связывает HTTP-статус с понятным пользователю сообщением ошибки API.
  *
- * Состав:
+ * @params:
  *   - constructor — function Object() { [native code] }.
  */
 export class ApiError extends Error {
   /**
    * constructor function Object() { [native code] }.
    *
-   * @parameters:
+   * @args
    *   - status (number) — HTTP-статус либо состояние встречи.
    *   - message (string) — понятный текст ошибки или сообщение операции.
    *
@@ -124,7 +128,7 @@ const statuses: Record<number, string> = {
 /**
  * errorMessage выбирает безопасный текст ошибки API или сообщение о недоступной сети.
  *
- * @parameters:
+ * @args
  *   - error (unknown) — пойманная ошибка API или сети.
  *
  * @returns string — безопасный текст для отображения ошибки пользователю.
@@ -136,7 +140,7 @@ export function errorMessage(error: unknown): string {
 /**
  * request отправляет JSON-запрос к API, добавляет Bearer-токен для приватного маршрута и проверяет ответ; при 401 уведомляет владельца использованной сессии.
  *
- * @parameters:
+ * @args
  *   - path (string) — локальный путь API без базового префикса.
  *   - options ({ body?: unknown; method?: string; signal?: AbortSignal; public?: boolean; }) — метод, тело, отмена и признаки авторизации запроса (по умолчанию {}).
  *
@@ -195,7 +199,7 @@ export const api = {
   /**
    * myConferences читает страницу встреч пользователя с серверными фильтрами и курсором продолжения.
    *
-   * @parameters:
+   * @args
    *   - filters (ConferenceFilters) — серверные фильтры списка встреч (по умолчанию {}).
    *   - cursor (string) — непрозрачный курсор продолжения страницы (необязательный параметр).
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
@@ -218,7 +222,7 @@ export const api = {
   /**
    * myMembership читает собственное членство и состояние допуска в конференции.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -232,7 +236,7 @@ export const api = {
   /**
    * admit отправляет решение организатора о допуске или отклонении участника.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - participantId (string) — идентификатор членства целевого участника.
    *   - decision ("admit" | "reject") — решение admit или reject.
@@ -247,7 +251,7 @@ export const api = {
   /**
    * schedule изменяет UTC-расписание ещё не начавшейся встречи.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - scheduledAt (string) — однозначная ISO-временная отметка встречи.
    *   - plannedDurationMin (number | null) — длительность в минутах либо null, если она не указана.
@@ -266,7 +270,7 @@ export const api = {
   /**
    * history читает авторизованную сводку завершённой встречи и её записей.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -280,7 +284,7 @@ export const api = {
   /**
    * wsTicket запрашивает краткоживущий одноразовый билет подключения к комнате.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -294,7 +298,7 @@ export const api = {
   /**
    * iceConfig читает доступные настройки ICE для установления WebRTC-соединения.
    *
-   * @parameters:
+   * @args
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
@@ -304,7 +308,7 @@ export const api = {
   /**
    * register отправляет данные регистрации с нормализацией необязательного отображаемого имени.
    *
-   * @parameters:
+   * @args
    *   - email (string) — адрес электронной почты.
    *   - password (string) — пароль из формы; не предназначен для журналирования.
    *   - displayName (string) — необязательное отображаемое имя пользователя.
@@ -320,7 +324,7 @@ export const api = {
   /**
    * login отправляет учётные данные и получает токен и сведения пользователя.
    *
-   * @parameters:
+   * @args
    *   - email (string) — адрес электронной почты.
    *   - password (string) — пароль из формы; не предназначен для журналирования.
    *
@@ -335,7 +339,7 @@ export const api = {
   /**
    * me читает публичные сведения текущей авторизованной учётной записи.
    *
-   * @parameters:
+   * @args
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
@@ -351,7 +355,7 @@ export const api = {
   /**
    * conferences читает ограниченную страницу доступных конференций.
    *
-   * @parameters:
+   * @args
    *   - offset — смещение страницы списка (по умолчанию 0).
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -364,7 +368,7 @@ export const api = {
   /**
    * conference читает разрешённые сведения одной конференции.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -377,7 +381,7 @@ export const api = {
   /**
    * participants читает страницу участников, отфильтрованную сервером по полномочиям текущего пользователя.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - offset — смещение страницы списка (по умолчанию 0).
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
@@ -392,7 +396,7 @@ export const api = {
   /**
    * setMediaState сохраняет фактические признаки источников медиа конкретного физического подключения.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - state (ParticipantMediaState) — новое состояние источников медиа.
    *
@@ -406,7 +410,7 @@ export const api = {
   /**
    * moderate отправляет действие модерации над участником конференции.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - participantId (string) — идентификатор членства целевого участника.
    *   - action (ModerationAction) — разрешённое действие управления либо асинхронная операция.
@@ -421,7 +425,7 @@ export const api = {
   /**
    * recordings читает доступные записи конференции с их текущими состояниями.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -434,7 +438,7 @@ export const api = {
     ),
   /**
    * Читает отдельную приватную запись, в том числе по ссылке из поиска.
-   * @parameters id, recordingId — идентификаторы встречи и записи; signal — отмена запроса.
+   * @args id, recordingId — идентификаторы встречи и записи; signal — отмена запроса.
    * @return Запись со ссылками, разрешёнными текущему пользователю.
    */
   recording: (id: string, recordingId: string, signal?: AbortSignal) =>
@@ -444,7 +448,7 @@ export const api = {
     ),
   /**
    * Читает состояние расшифровки без запуска обработки.
-   * @parameters id, recordingId — идентификаторы; signal — отмена запроса.
+   * @args id, recordingId — идентификаторы; signal — отмена запроса.
    * @return Nullable расшифровка и проверенные сервером возможности.
    */
   transcript: (id: string, recordingId: string, signal?: AbortSignal) =>
@@ -454,7 +458,7 @@ export const api = {
     ),
   /**
    * Загружает ограниченную страницу сегментов в хронологическом порядке.
-   * @parameters id, recordingId — идентификаторы; offset — смещение; signal — отмена.
+   * @args id, recordingId — идентификаторы; offset — смещение; signal — отмена.
    * @return Страница текста с временными метками.
    */
   transcriptSegments: (
@@ -469,7 +473,7 @@ export const api = {
     ),
   /**
    * Явно запрашивает разрешённый организатору повтор распознавания.
-   * @parameters id, recordingId — идентификаторы встречи и записи.
+   * @args id, recordingId — идентификаторы встречи и записи.
    * @return Обновлённое состояние очереди либо отказ авторизации/лимита.
    */
   retryTranscript: (id: string, recordingId: string) =>
@@ -479,7 +483,7 @@ export const api = {
     ),
   /**
    * Читает сохранённые итоги ИИ, не вызывая провайдера.
-   * @parameters id, recordingId — идентификаторы; signal — отмена запроса.
+   * @args id, recordingId — идентификаторы; signal — отмена запроса.
    * @return Nullable итоги и право повторного запуска.
    */
   summary: (id: string, recordingId: string, signal?: AbortSignal) =>
@@ -489,7 +493,7 @@ export const api = {
     ),
   /**
    * Ставит новую генерацию итогов по явной команде организатора.
-   * @parameters id, recordingId — идентификаторы встречи и записи.
+   * @args id, recordingId — идентификаторы встречи и записи.
    * @return Принятое задание либо безопасная ошибка лимита.
    */
   regenerateSummary: (id: string, recordingId: string) =>
@@ -499,7 +503,7 @@ export const api = {
     ),
   /**
    * Передаёт фильтры полнотекстового поиска с авторизацией в заголовке.
-   * @parameters filters — запрос и UTC-даты; offset — смещение; signal — отмена.
+   * @args filters — запрос и UTC-даты; offset — смещение; signal — отмена.
    * @return Страница доступных результатов без выдачи storage URL.
    */
   search: (filters: SearchFilters, offset: number, signal?: AbortSignal) => {
@@ -512,18 +516,27 @@ export const api = {
     if (filters.conferenceId) params.set("conferenceId", filters.conferenceId);
     if (filters.from) params.set("from", filters.from);
     if (filters.to) params.set("to", filters.to);
-    return request<OffsetPage<SearchResult>>(`/search?${params}`, { signal });
+    if (filters.mode) params.set("mode", filters.mode);
+    if (filters.membership) params.set("membership", filters.membership);
+    if (filters.participantId)
+      params.set("participantId", filters.participantId);
+    return request<
+      OffsetPage<SearchResult> & {
+        effectiveMode?: string;
+        fallbackReason?: string;
+      }
+    >(`/search?${params}`, { signal });
   },
   /**
    * Читает предпочтения внешних уведомлений текущего пользователя.
-   * @parameters signal — необязательная отмена запроса.
+   * @args signal — необязательная отмена запроса.
    * @return Независимые флаги событий и каналов.
    */
   notificationPreferences: (signal?: AbortSignal) =>
     request<NotificationPreferences>("/notifications/preferences", { signal }),
   /**
    * Сохраняет только явно выбранные пользователем предпочтения.
-   * @parameters body — полный набор флагов без идентификатора другого пользователя.
+   * @args body — полный набор флагов без идентификатора другого пользователя.
    * @return Подтверждённые сервером настройки.
    */
   saveNotificationPreferences: (body: NotificationPreferences) =>
@@ -533,14 +546,14 @@ export const api = {
     }),
   /**
    * Читает доступность интеграций без секретов провайдеров.
-   * @parameters signal — отмена запроса.
+   * @args signal — отмена запроса.
    * @return Режимы noop/mock/http и доступность OAuth.
    */
   integrationCapabilities: (signal?: AbortSignal) =>
     request<IntegrationCapabilities>("/integrations/capabilities", { signal }),
   /**
    * Перечисляет собственные подключения календаря.
-   * @parameters signal — отмена запроса.
+   * @args signal — отмена запроса.
    * @return Безопасные метаданные без OAuth-токенов.
    */
   calendars: (signal?: AbortSignal) =>
@@ -556,7 +569,7 @@ export const api = {
     }),
   /**
    * Начинает серверный OAuth/PKCE без передачи провайдерского токена в браузер.
-   * @parameters provider — известный серверу адаптер календаря.
+   * @args provider — известный серверу адаптер календаря.
    * @return URL выдачи разрешения и одноразовое состояние.
    */
   calendarConnect: (provider: string) =>
@@ -565,7 +578,7 @@ export const api = {
     ),
   /**
    * Обменивает одноразовый код в контексте действующей пользовательской сессии.
-   * @parameters provider — адаптер; code, state — параметры возврата OAuth.
+   * @args provider — адаптер; code, state — параметры возврата OAuth.
    * @return Только публичные метаданные подключения.
    */
   calendarCallback: (provider: string, code: string, state: string) =>
@@ -575,7 +588,7 @@ export const api = {
     ),
   /**
    * Отзывает собственное подключение календаря.
-   * @parameters id — идентификатор подключения, не секрет провайдера.
+   * @args id — идентификатор подключения, не секрет провайдера.
    * @return Подтверждение 204 без JSON-тела.
    */
   disconnectCalendar: (id: string) =>
@@ -584,7 +597,7 @@ export const api = {
     }),
   /**
    * Читает статус автоматической синхронизации для организатора.
-   * @parameters id — конференция; signal — отмена запроса.
+   * @args id — конференция; signal — отмена запроса.
    * @return Состояния календарных событий без credentials.
    */
   calendarSync: (id: string, signal?: AbortSignal) =>
@@ -595,20 +608,50 @@ export const api = {
   /**
    * startRecording запрашивает начало общей записи конференции.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
    */
-  startRecording: (id: string) =>
+  startRecording: (id: string, mode: RecordingMode = "composite") =>
     request<Item<ConferenceRecording>>(
       `/conferences/${encodeURIComponent(id)}/recordings`,
-      { method: "POST", body: { segmentDurationSec: 5 } },
+      { method: "POST", body: { segmentDurationSec: 5, mode } },
+    ),
+  /** Читает состояние распознавания; @args id — встреча; signal — отмена; @return приватный снимок. */
+  captions: (id: string, signal?: AbortSignal) =>
+    request<Item<CaptionState>>(
+      `/conferences/${encodeURIComponent(id)}/captions`,
+      { signal },
+    ),
+  /** Переключает передачу звука; @args id — встреча, enabled — согласие, language — auto/ru/en; @return состояние. */
+  setCaptions: (id: string, enabled: boolean, language: string) =>
+    request<Item<CaptionState>>(
+      `/conferences/${encodeURIComponent(id)}/captions`,
+      { method: "PUT", body: { enabled, language } },
+    ),
+  /** Восстанавливает финалы; @args id — встреча, afterCursor — последняя версия, signal — отмена; @return страница. */
+  captionFinals: (id: string, afterCursor: number, signal?: AbortSignal) =>
+    request<{ items: Caption[]; nextCursor: number; hasMore: boolean }>(
+      `/conferences/${encodeURIComponent(id)}/captions/segments?afterCursor=${afterCursor}&limit=100`,
+      { signal },
+    ),
+  /** Читает агрегаты; @args id — встреча, signal — отмена; @return разрешённая аналитика. */
+  analytics: (id: string, signal?: AbortSignal) =>
+    request<Item<MeetingAnalytics>>(
+      `/conferences/${encodeURIComponent(id)}/analytics`,
+      { signal },
+    ),
+  /** Ставит переиндексацию; @args id,rid — встреча и запись; @return подтверждение постановки. */
+  reindex: (id: string, rid: string) =>
+    request(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(rid)}/search/reindex`,
+      { method: "POST", body: {} },
     ),
   /**
    * stopRecording запрашивает остановку указанной записи и её последующую финализацию.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - recordingId (string) — идентификатор записи конференции.
    *
@@ -622,7 +665,7 @@ export const api = {
   /**
    * create создаёт немедленную или запланированную встречу по переданным параметрам.
    *
-   * @parameters:
+   * @args
    *   - input (string | ConferenceInput) — название либо полный набор параметров встречи.
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
@@ -635,7 +678,7 @@ export const api = {
   /**
    * transition отправляет разрешённое действие запуска, завершения или отмены встречи.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - action ("start" | "finish" | "cancel") — разрешённое действие управления либо асинхронная операция.
    *
@@ -649,7 +692,7 @@ export const api = {
   /**
    * membership создаёт или восстанавливает членство текущего пользователя в конференции.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - action ("join" | "leave") — разрешённое действие управления либо асинхронная операция.
    *
@@ -663,7 +706,7 @@ export const api = {
   /**
    * invite получает ограниченные сведения встречи по коду приглашения.
    *
-   * @parameters:
+   * @args
    *   - code (string) — проверенный код приглашения.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -676,7 +719,7 @@ export const api = {
   /**
    * joinInvite запрашивает вход авторизованного пользователя по коду приглашения.
    *
-   * @parameters:
+   * @args
    *   - code (string) — проверенный код приглашения.
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
@@ -689,7 +732,7 @@ export const api = {
   /**
    * messages читает страницу постоянных сообщений конференции.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - before (string) — непрозрачный курсор более ранних сообщений (необязательный параметр).
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
@@ -704,7 +747,7 @@ export const api = {
   /**
    * sendMessage отправляет сообщение с ключом повторной операции, ответом и подготовленными вложениями.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - body ({ clientRequestId: string; text: string; replyTo?: string; attachmentIds?: string[]; }) — типизированное тело запроса.
    *
@@ -726,7 +769,7 @@ export const api = {
   /**
    * editMessage изменяет текст собственного сообщения.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - messageId (string) — идентификатор сообщения в этой конференции.
    *   - text (string) — обычный текст сообщения.
@@ -741,7 +784,7 @@ export const api = {
   /**
    * deleteMessage запрашивает мягкое удаление разрешённого сообщения.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - messageId (string) — идентификатор сообщения в этой конференции.
    *
@@ -755,7 +798,7 @@ export const api = {
   /**
    * chatRead читает сохранённую границу прочтения и число непрочитанных.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -769,7 +812,7 @@ export const api = {
   /**
    * markChatRead продвигает серверную отметку прочтения до указанного сообщения.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - messageId (string) — идентификатор сообщения в этой конференции.
    *
@@ -783,7 +826,7 @@ export const api = {
   /**
    * initAttachment регистрирует метаданные файла до передачи его байтов.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - body ({ clientRequestId: string; filename: string; size: number; mimeType: string; }) — типизированное тело запроса.
    *
@@ -805,7 +848,7 @@ export const api = {
   /**
    * finalizeAttachment подтверждает завершённую загрузку файла перед отправкой сообщения.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - attachmentId (string) — идентификатор подготовленного или прикреплённого вложения.
    *
@@ -819,7 +862,7 @@ export const api = {
   /**
    * attachmentDownload запрашивает временную ссылку разрешённого скачивания вложения.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - attachmentId (string) — идентификатор подготовленного или прикреплённого вложения.
    *
@@ -832,7 +875,7 @@ export const api = {
   /**
    * hands читает актуальный снимок поднятых рук комнаты.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -845,7 +888,7 @@ export const api = {
   /**
    * hand изменяет состояние собственной руки либо опускает разрешённую чужую руку.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - participantId (string) — идентификатор членства целевого участника.
    *   - raised (boolean) — true поднимает руку, false опускает её.
@@ -860,7 +903,7 @@ export const api = {
   /**
    * reaction отправляет одну временную реакцию из разрешённого набора.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *   - emoji (ReactionEmoji) — одна из четырёх допустимых реакций.
    *
@@ -874,7 +917,7 @@ export const api = {
   /**
    * notifications читает страницу личных уведомлений и число непрочитанных.
    *
-   * @parameters:
+   * @args
    *   - cursor (string) — непрозрачный курсор продолжения страницы (необязательный параметр).
    *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
    *
@@ -888,7 +931,7 @@ export const api = {
   /**
    * readNotification идемпотентно отмечает личное уведомление прочитанным.
    *
-   * @parameters:
+   * @args
    *   - id (string) — идентификатор ресурса или конференции данного запроса.
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
@@ -901,7 +944,7 @@ export const api = {
   /**
    * notificationEvents открывает fetch SSE-поток с JWT в заголовке и поддержкой отмены.
    *
-   * @parameters:
+   * @args
    *   - signal (AbortSignal) — сигнал отмены запроса или потока.
    *
    * @returns Promise, который после завершения операции возвращает: вычисленное значение: response.
@@ -934,7 +977,7 @@ export const api = {
 /**
  * uploadAttachment передаёт байты файла через XMLHttpRequest с авторизацией, отслеживает прогресс и поддерживает отмену загрузки.
  *
- * @parameters:
+ * @args
  *   - url (string) — адрес запроса или ресурса.
  *   - file (File) — выбранный пользователем файл для проверки или передачи.
  *   - onProgress ((percent: number) => void) — обработчик числа переданных байтов или процента передачи.
@@ -948,7 +991,7 @@ export function uploadAttachment(
   onProgress: /**
    * Вложенный обработчик выполняет шаг «Вложенный обработчик» в типизированных HTTP-запросах.
    *
-   * @parameters:
+   * @args
    *   - percent (number) — доля завершённой загрузки от 0 до 100.
    *
    * @returns void — значение не возвращается; функция выполняет описанные действия.
@@ -969,7 +1012,7 @@ export function uploadAttachment(
     /**
      * Вложенный обработчик выполняет шаг «Вложенный обработчик» в типизированных HTTP-запросах.
      *
-     * @parameters:
+     * @args
      *   - resolve — завершает ожидающий Promise успешным результатом.
      *   - reject — завершает ожидающий Promise ошибкой.
      *
@@ -996,7 +1039,7 @@ export function uploadAttachment(
         /**
          * Вложенный обработчик выполняет шаг «Вложенный обработчик» в типизированных HTTP-запросах.
          *
-         * @parameters:
+         * @args
          *   - event — проверенный конверт события комнаты.
          *
          * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

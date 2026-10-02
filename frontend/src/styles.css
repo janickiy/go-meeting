@@ -2635,6 +2635,42 @@ textarea:disabled {
 .search-results li:first-child {
   padding-top: 0;
 }
+.caption-transcript {
+  max-height: 24rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  margin-top: 1rem;
+}
+.caption-partial {
+  color: #627394;
+  font-style: italic;
+}
+.caption-final {
+  border-left: 2px solid #c4d6ff;
+  padding-left: 0.75rem;
+}
+.analytics-scroll {
+  overflow-x: auto;
+}
+.analytics-scroll table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+}
+.analytics-scroll th,
+.analytics-scroll td {
+  padding: 0.65rem;
+  border-bottom: 1px solid #e5ebf5;
+  white-space: nowrap;
+}
+.analytics-scroll caption {
+  text-align: left;
+  padding: 0.75rem 0;
+}
+.analytics-timeline {
+  max-height: 12rem;
+  overflow: auto;
+}
 @media (max-width: 600px) {
   .search-filters {
     grid-template-columns: 1fr;

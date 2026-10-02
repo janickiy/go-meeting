@@ -28,12 +28,12 @@ type Service interface {
 type Handler struct{ service Service }
 
 // NewHandler создаёт content routes adapter.
-// @parameters: service — зависимый сценарий с repository authorization.
+// @args service — зависимый сценарий с repository authorization.
 // @return handler без vendor SDK/network state.
 func NewHandler(service Service) *Handler { return &Handler{service: service} }
 
 // identifiers проверяет связанную пару path UUID перед чтением/запуском.
-// @parameters: c — Gin request с подтверждённой auth identity.
+// @args c — Gin request с подтверждённой auth identity.
 // @return conference/recording UUID, success flag; при ошибке пишет safe HTTP response.
 func identifiers(c *gin.Context) (string, string, bool) {
 	cid, e := uuid.Parse(c.Param("id"))
@@ -46,7 +46,7 @@ func identifiers(c *gin.Context) (string, string, bool) {
 }
 
 // pageValue разбирает decimal пагинацию, не скрывая invalid input за default.
-// @parameters: c — request; key — query key; fallback — значение при отсутствии.
+// @args c — request; key — query key; fallback — значение при отсутствии.
 // @return число и success; invalid input создаёт HTTP400.
 func pageValue(c *gin.Context, key string, fallback int) (int, bool) {
 	value, ok := c.GetQuery(key)
@@ -62,7 +62,7 @@ func pageValue(c *gin.Context, key string, fallback int) (int, bool) {
 }
 
 // Transcript возвращает nullable metadata, capabilities и честную provider-mode метку.
-// @parameters: c — авторизованный Gin request.
+// @args c — авторизованный Gin request.
 func (h *Handler) Transcript(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
 	if !ok {
@@ -77,7 +77,7 @@ func (h *Handler) Transcript(c *gin.Context) {
 }
 
 // Segments выдаёт bounded страницу для timestamp navigation.
-// @parameters: c — request с limit/offset.
+// @args c — request с limit/offset.
 func (h *Handler) Segments(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
 	if !ok {
@@ -100,7 +100,7 @@ func (h *Handler) Segments(c *gin.Context) {
 }
 
 // Summary возвращает nullable current-generation AI output без вызова provider.
-// @parameters: c — авторизованный request.
+// @args c — авторизованный request.
 func (h *Handler) Summary(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
 	if !ok {
@@ -115,7 +115,7 @@ func (h *Handler) Summary(c *gin.Context) {
 }
 
 // RetryTranscript принимает пустой JSON и только ставит дорогую обработку в queue.
-// @parameters: c — авторизованный request; права/лимит проверяет repository.
+// @args c — авторизованный request; права/лимит проверяет repository.
 func (h *Handler) RetryTranscript(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
 	if !ok || !httpresponse.BindJSON(c, &struct{}{}, true) {
@@ -130,7 +130,7 @@ func (h *Handler) RetryTranscript(c *gin.Context) {
 }
 
 // RegenerateSummary ставит bounded generation, не блокируя HTTP длительным AI.
-// @parameters: c — авторизованный request.
+// @args c — авторизованный request.
 func (h *Handler) RegenerateSummary(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
 	if !ok || !httpresponse.BindJSON(c, &struct{}{}, true) {
@@ -145,7 +145,7 @@ func (h *Handler) RegenerateSummary(c *gin.Context) {
 }
 
 // Search проверяет RFC3339 date filters и возвращает permission-filtered FTS page.
-// @parameters: c — авторизованный request с q/source/conferenceId/from/to/limit/offset.
+// @args c — авторизованный request с q/source/conferenceId/from/to/limit/offset.
 func (h *Handler) Search(c *gin.Context) {
 	started := time.Now()
 	defer func() { operations.Search(time.Since(started), c.Writer.Status() >= http.StatusBadRequest) }()
@@ -157,7 +157,7 @@ func (h *Handler) Search(c *gin.Context) {
 	if !ok {
 		return
 	}
-	q := domain.SearchQuery{Query: c.Query("q"), Source: c.Query("source"), ConferenceID: c.Query("conferenceId"), Limit: limit, Offset: offset}
+	q := domain.SearchQuery{Query: c.Query("q"), Source: c.Query("source"), ConferenceID: c.Query("conferenceId"), Mode: c.Query("mode"), ParticipantID: c.Query("participantId"), Membership: c.Query("membership"), Limit: limit, Offset: offset}
 	for key, target := range map[string]**time.Time{"from": &q.From, "to": &q.To} {
 		if value, exists := c.GetQuery(key); exists {
 			at, e := time.Parse(time.RFC3339, value)
@@ -174,5 +174,5 @@ func (h *Handler) Search(c *gin.Context) {
 		httpresponse.Fail(c, e)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "success", "items": page.Items, "total": page.Total, "limit": page.Limit, "offset": page.Offset})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "items": page.Items, "total": page.Total, "limit": page.Limit, "offset": page.Offset, "effectiveMode": page.EffectiveMode, "fallbackReason": page.FallbackReason})
 }

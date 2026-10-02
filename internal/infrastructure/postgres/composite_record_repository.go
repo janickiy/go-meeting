@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/janickiy/go-recorder/internal/domain/records"
@@ -11,7 +12,7 @@ import (
 
 // ListActiveComposite возвращает активные задачи общей записи для восстановления обработки.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -19,13 +20,13 @@ import (
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *RecordRepository) ListActiveComposite(ctx context.Context) ([]records.Record, error) {
 	var result []records.Record
-	err := r.db.WithContext(ctx).Where("mode = 'composite' AND status IN ?", []string{records.StatusStarting, records.StatusRecording, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}).Order("created_at ASC").Limit(100).Find(&result).Error
+	err := r.db.WithContext(ctx).Where("mode IN ('composite','audio_only','individual_tracks','screen_focus') AND status IN ?", []string{records.StatusStarting, records.StatusRecording, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}).Order("created_at ASC").Limit(100).Find(&result).Error
 	return result, err
 }
 
 // ClaimComposite захватывает версионную аренду задачи общей записи за конкретным воркером.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
@@ -37,7 +38,7 @@ func (r *RecordRepository) ListActiveComposite(ctx context.Context) ([]records.R
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *RecordRepository) ClaimComposite(ctx context.Context, id, token, workerID string, ttl time.Duration) (bool, error) {
 	result := r.db.WithContext(ctx).Model(&records.Record{}).
-		Where("uuid = ? AND mode = 'composite' AND status IN ?", id, []string{records.StatusStarting, records.StatusRecording, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}).
+		Where("uuid = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND status IN ?", id, []string{records.StatusStarting, records.StatusRecording, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}).
 		Where("recorder_token IS NULL OR recorder_lease_until < clock_timestamp()").
 		Updates(map[string]any{"recorder_token": token, "recorder_lease_until": gorm.Expr("clock_timestamp() + (? * interval '1 millisecond')", ttl.Milliseconds()), "worker_id": workerID})
 	return result.RowsAffected == 1, result.Error
@@ -45,7 +46,7 @@ func (r *RecordRepository) ClaimComposite(ctx context.Context, id, token, worker
 
 // RenewComposite продлевает аренду общей записи при совпадении владельца и версии.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
@@ -56,14 +57,14 @@ func (r *RecordRepository) ClaimComposite(ctx context.Context, id, token, worker
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *RecordRepository) RenewComposite(ctx context.Context, id, token string, ttl time.Duration) (bool, error) {
 	result := r.db.WithContext(ctx).Model(&records.Record{}).
-		Where("uuid = ? AND mode = 'composite' AND recorder_token = ? AND recorder_lease_until > clock_timestamp() AND status IN ?", id, token, []string{records.StatusStarting, records.StatusRecording, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}).
+		Where("uuid = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND recorder_token = ? AND recorder_lease_until > clock_timestamp() AND status IN ?", id, token, []string{records.StatusStarting, records.StatusRecording, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}).
 		Update("recorder_lease_until", gorm.Expr("clock_timestamp() + (? * interval '1 millisecond')", ttl.Milliseconds()))
 	return result.RowsAffected == 1, result.Error
 }
 
 // ReleaseComposite освобождает только действующую аренду общей записи.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
@@ -76,7 +77,7 @@ func (r *RecordRepository) ReleaseComposite(ctx context.Context, id, token strin
 
 // TransitionComposite условно меняет состояние общей записи, проверяя владельца и версию аренды.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
@@ -105,7 +106,7 @@ func (r *RecordRepository) TransitionComposite(ctx context.Context, id, token, s
 	default:
 		return records.ErrRecordStateChanged
 	}
-	result := r.db.WithContext(ctx).Model(&records.Record{}).Where("uuid = ? AND mode = 'composite' AND recorder_token = ? AND recorder_lease_until > clock_timestamp() AND status IN ?", id, token, from).Updates(updates)
+	result := r.db.WithContext(ctx).Model(&records.Record{}).Where("uuid = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND recorder_token = ? AND recorder_lease_until > clock_timestamp() AND status IN ?", id, token, from).Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -118,7 +119,7 @@ func (r *RecordRepository) TransitionComposite(ctx context.Context, id, token, s
 // SaveCompositeArtifacts сохраняет итоговые артефакты общей записи с защитой от устаревшего воркера.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
@@ -131,23 +132,35 @@ func (r *RecordRepository) TransitionComposite(ctx context.Context, id, token, s
 func (r *RecordRepository) SaveCompositeArtifacts(ctx context.Context, id, token string, final records.RecordFile, preview *records.RecordFile, segments []records.RecordSegment) error {
 	return r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
 		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(tx *gorm.DB) error {
 			var record records.Record
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ? AND mode = 'composite' AND recorder_token = ? AND recorder_lease_until > clock_timestamp() AND status = ?", id, token, records.StatusUploading).First(&record).Error; err != nil {
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND recorder_token = ? AND recorder_lease_until > clock_timestamp() AND status = ?", id, token, records.StatusUploading).First(&record).Error; err != nil {
 				if err == gorm.ErrRecordNotFound {
 					return records.ErrRecordStateChanged
 				}
 				return err
 			}
 			final.RecordID = record.ID
+			for i := range final.Related {
+				final.Related[i].RecordID = record.ID
+				if err := upsertRecordFile(tx, &final.Related[i]); err != nil {
+					return err
+				}
+			}
 			if err := upsertRecordFile(tx, &final); err != nil {
 				return err
 			}
 			updates := map[string]any{"status": records.StatusReady, "storage_bucket": final.Bucket, "storage_object_key": final.ObjectKey, "size_bytes": final.SizeBytes, "duration_sec": final.DurationSec, "ended_at": gorm.Expr("clock_timestamp()"), "error_message": nil}
+			var metadata struct {
+				TimelineOriginNS int64 `json:"timelineOriginNs"`
+			}
+			if json.Unmarshal(final.MetadataJSON, &metadata) == nil && metadata.TimelineOriginNS > 0 {
+				updates["media_started_at"] = time.Unix(0, metadata.TimelineOriginNS).UTC()
+			}
 			if preview != nil {
 				preview.RecordID = record.ID
 				if err := upsertRecordFile(tx, preview); err != nil {

@@ -28,6 +28,7 @@ import (
 )
 
 // CompositeRepository задаёт контракт зависимого компонента CompositeRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - FindByUUID: операция поиск By UUID с контрактом, описанным у метода.
 //   - ListActiveComposite: операция список Active общая запись с контрактом, описанным у метода.
 //   - ClaimComposite: операция Claim общая запись с контрактом, описанным у метода.
@@ -40,7 +41,7 @@ import (
 type CompositeRepository interface {
 	// FindByUUID читает задачу записи по её внешнему UUID.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 	//
@@ -50,7 +51,7 @@ type CompositeRepository interface {
 	FindByUUID(context.Context, string) (records.Record, error)
 	// ListActiveComposite возвращает активные задачи общей записи для восстановления обработки.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//
 	// @return:
@@ -59,7 +60,7 @@ type CompositeRepository interface {
 	ListActiveComposite(context.Context) ([]records.Record, error)
 	// ClaimComposite захватывает версионную аренду задачи общей записи за конкретным воркером.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): подписанный токен или токен владения, который необходимо проверить.
@@ -72,7 +73,7 @@ type CompositeRepository interface {
 	ClaimComposite(context.Context, string, string, string, time.Duration) (bool, error)
 	// RenewComposite продлевает аренду общей записи при совпадении владельца и версии.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): подписанный токен или токен владения, который необходимо проверить.
@@ -84,7 +85,7 @@ type CompositeRepository interface {
 	RenewComposite(context.Context, string, string, time.Duration) (bool, error)
 	// ReleaseComposite освобождает только действующую аренду общей записи.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): подписанный токен или токен владения, который необходимо проверить.
@@ -94,7 +95,7 @@ type CompositeRepository interface {
 	ReleaseComposite(context.Context, string, string) error
 	// TransitionComposite условно меняет состояние общей записи, проверяя владельца и версию аренды.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): подписанный токен или токен владения, который необходимо проверить.
@@ -106,7 +107,7 @@ type CompositeRepository interface {
 	TransitionComposite(context.Context, string, string, string, error) error
 	// SaveCompositeArtifacts сохраняет итоговые артефакты общей записи с защитой от устаревшего воркера.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 	//   - аргумент 3 (string): подписанный токен или токен владения, который необходимо проверить.
@@ -119,7 +120,7 @@ type CompositeRepository interface {
 	SaveCompositeArtifacts(context.Context, string, string, records.RecordFile, *records.RecordFile, []records.RecordSegment) error
 	// MarkStopping условно переводит задачу записи в состояние «Stopping», соблюдая ограничения жизненного цикла.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 	//   - аргумент 3 (string): причина завершения, отказа или изменения состояния.
@@ -129,7 +130,7 @@ type CompositeRepository interface {
 	MarkStopping(context.Context, string, string) error
 	// AddEvent добавляет постоянное диагностическое событие жизненного цикла записи.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор связанного ресурса, заданного параметром recordUUID.
 	//   - аргумент 3 (string): значение eventType типа string, используемое согласно назначению этой операции.
@@ -148,7 +149,7 @@ type CompositeRepository interface {
 type CompositeRegistry interface {
 	// GetOwner читает актуального владельца медиа-комнаты и его версию владения.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 	//
@@ -159,7 +160,7 @@ type CompositeRegistry interface {
 }
 
 // CompositeOptions собирает зависимости и настройки общей записи конференции.
-// Состав:
+// @params:
 //   - Repository: хранилище постоянных данных прикладного сценария.
 //   - Registry: распределённый реестр воркеров и владения комнатами.
 //   - S3: клиент приватного объектного хранилища MinIO/S3.
@@ -211,7 +212,7 @@ type CompositeService struct {
 
 // NewCompositeService создаёт и связывает зависимости компонента CompositeService, используемого в управлении задачами записи и её артефактами.
 //
-// @parameters:
+// @args
 //   - o (CompositeOptions): зависимости и настройки создаваемого компонента.
 //
 // @return:
@@ -225,7 +226,7 @@ func NewCompositeService(o CompositeOptions) *CompositeService {
 	transport.ResponseHeaderTimeout = 5 * time.Second
 	return &CompositeService{o: o, composer: composite.NewComposer(o.FFmpegPath, o.Config.Width, o.Config.Height, o.Config.FPS, o.Config.Concurrency), processor: ffmpeg.NewPostProcessor(o.FFmpegPath), client: &http.Client{Transport: transport, CheckRedirect: /* Вложенный обработчик выполняет выделенный шаг обработки в управлении задачами записи и её артефактами, используя состояние окружающей функции.
 
-	@parameters:
+	@args
 	  - аргумент 1 (*http.Request): входящий HTTP-запрос.
 	  - аргумент 2 ([]*http.Request): входящий HTTP-запрос.
 
@@ -236,7 +237,7 @@ func NewCompositeService(o CompositeOptions) *CompositeService {
 // Start запускает обработку задач записи и связанных артефактов и подготавливает связанные ресурсы.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (s *CompositeService) Start(ctx context.Context) {
 	s.mu.Lock()
@@ -288,7 +289,7 @@ func (s *CompositeService) WaitContext(ctx context.Context) error {
 
 // HandleCommand исполняет внутреннюю команду запуска или завершения записи с защитой от повторной доставки.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
 //   - record (records.Record): задача записи с её сохранённым состоянием.
@@ -323,7 +324,7 @@ func (s *CompositeService) HandleCommand(ctx context.Context, command records.Co
 
 // reconcile восстанавливает согласованность сохранённого состояния и действующих ресурсов после сбоев.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (s *CompositeService) reconcile(ctx context.Context) {
 	queryCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -342,7 +343,7 @@ func (s *CompositeService) reconcile(ctx context.Context) {
 // launch запускает обработку задачи общей записи после получения аренды.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - record (records.Record): задача записи с её сохранённым состоянием.
 //
@@ -415,7 +416,7 @@ func (s *CompositeService) launch(ctx context.Context, record records.Record) er
 
 // run выполняет основной цикл компонента до завершения работы или отмены контекста.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - record (records.Record): задача записи с её сохранённым состоянием.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
@@ -453,7 +454,13 @@ func (s *CompositeService) run(ctx context.Context, record records.Record, token
 		return err
 	}
 	finalizationStart := time.Now()
-	result, err := s.processor.FinalizeComposite(ctx, dir)
+	var result ffmpeg.Result
+	audioOnly := record.Mode == records.ModeAudioOnly || record.Mode == records.ModeIndividualTracks
+	if audioOnly {
+		result, err = s.processor.FinalizeAudio(ctx, dir)
+	} else {
+		result, err = s.processor.FinalizeComposite(ctx, dir)
+	}
 	operations.Observe("finalization", time.Since(finalizationStart).Seconds())
 	if err != nil {
 		return err
@@ -475,22 +482,45 @@ func (s *CompositeService) run(ctx context.Context, record records.Record, token
 			_ = s.o.S3.RemovePrefix(cleanup, base+"/")
 		}
 	}()
-	finalUpload, err := s.o.S3.UploadFile(ctx, base+"/final.mp4", result.FinalPath, "video/mp4")
+	mime, fileType := "video/mp4", records.FileTypeFinalMP4
+	if audioOnly {
+		mime, fileType = "audio/mp4", records.FileTypeFinalAudio
+	}
+	finalUpload, err := s.o.S3.UploadFile(ctx, base+"/final.mp4", result.FinalPath, mime)
 	if err != nil {
 		return fmt.Errorf("upload final recording: %w", err)
 	}
-	previewUpload, err := s.o.S3.UploadFile(ctx, base+"/preview.jpg", result.PreviewPath, "image/jpeg")
-	if err != nil {
-		return fmt.Errorf("upload recording preview: %w", err)
+	final := records.RecordFile{FileType: fileType, Bucket: finalUpload.Bucket, ObjectKey: finalUpload.ObjectKey, FileName: "final.mp4", MimeType: mime, SizeBytes: &result.FinalSizeBytes, DurationSec: &result.DurationSec, ChecksumSHA256: &result.FinalChecksum, IsPrimary: true}
+	if origin, e := composite.TimelineOrigin(dir); e == nil && origin > 0 {
+		final.MetadataJSON, _ = json.Marshal(map[string]any{"timelineOriginNs": origin, "mode": record.Mode})
 	}
-	final := records.RecordFile{FileType: records.FileTypeFinalMP4, Bucket: finalUpload.Bucket, ObjectKey: finalUpload.ObjectKey, FileName: "final.mp4", MimeType: "video/mp4", SizeBytes: &result.FinalSizeBytes, DurationSec: &result.DurationSec, ChecksumSHA256: &result.FinalChecksum, IsPrimary: true}
-	preview := &records.RecordFile{FileType: records.FileTypePreviewJPG, Bucket: previewUpload.Bucket, ObjectKey: previewUpload.ObjectKey, FileName: "preview.jpg", MimeType: "image/jpeg", SizeBytes: &result.PreviewSizeBytes, ChecksumSHA256: &result.PreviewChecksum}
+	var preview *records.RecordFile
+	if !audioOnly {
+		previewUpload, err := s.o.S3.UploadFile(ctx, base+"/preview.jpg", result.PreviewPath, "image/jpeg")
+		if err != nil {
+			return fmt.Errorf("upload recording preview: %w", err)
+		}
+		preview = &records.RecordFile{FileType: records.FileTypePreviewJPG, Bucket: previewUpload.Bucket, ObjectKey: previewUpload.ObjectKey, FileName: "preview.jpg", MimeType: "image/jpeg", SizeBytes: &result.PreviewSizeBytes, ChecksumSHA256: &result.PreviewChecksum}
+	}
+	if record.Mode == records.ModeIndividualTracks {
+		archive, size, sum, err := composite.ArchiveTracks(ctx, dir, s.o.Config.MaxBytes)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(archive)
+		upload, err := s.o.S3.UploadFile(ctx, base+"/tracks.zip", archive, "application/zip")
+		if err != nil {
+			return err
+		}
+		final.Related = []records.RecordFile{{FileType: records.FileTypeTracksArchive, Bucket: upload.Bucket, ObjectKey: upload.ObjectKey, FileName: "tracks.zip", MimeType: "application/zip", SizeBytes: &size, ChecksumSHA256: &sum}}
+	}
 	if err := s.o.Repository.SaveCompositeArtifacts(ctx, record.UUID, token, final, preview, segmentMetadata(result.Segments)); err != nil {
 		return err
 	}
 	committed = true
 	current, err = s.o.Repository.FindByUUID(ctx, record.UUID)
 	operations.Event("recording_ready")
+	operations.Event("recording_mode_" + record.Mode)
 	if err == nil {
 		s.publish(ctx, current, "recording.ready")
 	}
@@ -511,7 +541,7 @@ func (s *CompositeService) run(ctx context.Context, record records.Record, token
 
 // capture принимает поток закодированных медиа для устойчивого сохранения и последующей композиции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - record (records.Record): задача записи с её сохранённым состоянием.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
@@ -592,7 +622,7 @@ func (s *CompositeService) capture(ctx context.Context, record records.Record, t
 			}
 		}
 	}()
-	err = s.composer.Capture(captureCtx, ctx, input, dir, composite.CaptureOptions{SegmentDuration: time.Duration(seconds) * time.Second, MaxBytes: s.o.Config.MaxBytes, OnStarted: /* Вложенный обработчик выполняет выделенный шаг обработки в управлении задачами записи и её артефактами, используя состояние окружающей функции.
+	err = s.composer.Capture(captureCtx, ctx, input, dir, composite.CaptureOptions{Mode: record.Mode, SegmentDuration: time.Duration(seconds) * time.Second, MaxBytes: s.o.Config.MaxBytes, OnStarted: /* Вложенный обработчик выполняет выделенный шаг обработки в управлении задачами записи и её артефактами, используя состояние окружающей функции.
 
 
 	@return:
@@ -635,7 +665,7 @@ type activityReader struct {
 
 // Read читает состояние задач записи и связанных артефактов для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - p ([]byte): байты, переданные по контракту io.Writer.
 //
 // @return:
@@ -662,7 +692,7 @@ func (r *activityReader) Close() error {
 
 // fail фиксирует ошибочное завершение и запускает предусмотренную очистку ресурса.
 //
-// @parameters:
+// @args
 //   - record (records.Record): задача записи с её сохранённым состоянием.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.
 //   - cause (error): значение cause типа error, используемое согласно назначению этой операции.
@@ -689,7 +719,7 @@ func (s *CompositeService) fail(record records.Record, token string, cause error
 
 // publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - record (records.Record): задача записи с её сохранённым состоянием.
 //   - event (string): конверт входящего или публикуемого события.

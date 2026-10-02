@@ -17,7 +17,7 @@ import (
 
 // testRepository подготавливает или проверяет часть тестового сценария «проверка Repository».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //
 // @return:
@@ -56,7 +56,7 @@ func testRepository(t *testing.T) (*RecordRepository, *gorm.DB) {
 
 // createTestRecord подготавливает или проверяет часть тестового сценария «создание проверка запись».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - repo (*RecordRepository): хранилище постоянных данных прикладного сценария.
 //   - status (string): состояние ресурса, ответа или фильтра выборки.
@@ -77,7 +77,7 @@ func createTestRecord(t *testing.T, repo *RecordRepository, status string) recor
 
 // TestTerminalRecordCannotBeOverwritten проверяет сценарий «Terminal запись Cannot Be Overwritten», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestTerminalRecordCannotBeOverwritten(t *testing.T) {
 	repo, _ := testRepository(t)
@@ -85,7 +85,7 @@ func TestTerminalRecordCannotBeOverwritten(t *testing.T) {
 	for _, status := range []string{records.StatusReady, records.StatusPartialReady, records.StatusFailed, records.StatusCancelled} {
 		t.Run(status, /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				record := createTestRecord(t, repo, status)
@@ -138,7 +138,7 @@ func TestTerminalRecordCannotBeOverwritten(t *testing.T) {
 
 // TestStopMetadataSurvivesLateStartAndDuplicateStop проверяет сценарий «остановка Metadata Survives Late запуск и повторный остановка», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStopMetadataSurvivesLateStartAndDuplicateStop(t *testing.T) {
 	repo, _ := testRepository(t)
@@ -181,7 +181,7 @@ func TestStopMetadataSurvivesLateStartAndDuplicateStop(t *testing.T) {
 
 // TestSummaryLoadsOnlyFinalFilesWithTwoQueries проверяет сценарий «Summary Loads только итоговый файлы с два Queries», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestSummaryLoadsOnlyFinalFilesWithTwoQueries(t *testing.T) {
 	repo, tx := testRepository(t)
@@ -227,7 +227,7 @@ func TestSummaryLoadsOnlyFinalFilesWithTwoQueries(t *testing.T) {
 }
 
 // queryCounter хранит изолированное состояние тестового компонента «query Counter».
-// Состав:
+// @params:
 //   - logger.Interface: встроенный тип, добавляющий свой контракт или данные.
 //   - queries: значение queries типа atomic.Int32, используемое согласно назначению этой операции.
 type queryCounter struct {
@@ -237,7 +237,7 @@ type queryCounter struct {
 
 // Trace подготавливает или проверяет часть тестового сценария «Trace».
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (time.Time): значение для проверки, нормализации или преобразования.
 //   - аргумент 3 (func() (string, int64)): значение для проверки, нормализации или преобразования.

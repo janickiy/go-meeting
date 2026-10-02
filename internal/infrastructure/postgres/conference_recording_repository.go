@@ -19,7 +19,7 @@ type ConferenceRecordingRepository struct{ db *gorm.DB }
 
 // NewConferenceRecordingRepository создаёт и связывает зависимости компонента ConferenceRecordingRepository, используемого в жизненном цикле конференций и правах участников.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //
 // @return:
@@ -33,7 +33,7 @@ type RecordingOutbox = records.OutboxCommand
 // Start запускает обработку конференций и членств участников и подготавливает связанные ресурсы.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -44,11 +44,21 @@ type RecordingOutbox = records.OutboxCommand
 //   - результат 2 (bool): признак выполнения проверяемого условия или изменения состояния.
 //   - результат 3 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ConferenceRecordingRepository) Start(ctx context.Context, userID, conferenceID string, segmentDuration int) (records.Record, bool, error) {
+	return r.StartMode(ctx, userID, conferenceID, segmentDuration, records.ModeComposite)
+}
+
+// StartMode создаёт запись выбранной стратегии, сериализуя её с модерацией и завершением встречи.
+// @args ctx — deadline; userID/conferenceID — актор и встреча; segmentDuration — секунды фрагмента; mode — серверная стратегия.
+// @return запись, признак создания и ошибка прав/состояния.
+func (r *ConferenceRecordingRepository) StartMode(ctx context.Context, userID, conferenceID string, segmentDuration int, mode string) (records.Record, bool, error) {
+	if !records.ValidConferenceMode(mode) {
+		return records.Record{}, false, apperrors.ErrInvalidInput
+	}
 	var record records.Record
 	created := false
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -67,14 +77,17 @@ func (r *ConferenceRecordingRepository) Start(ctx context.Context, userID, confe
 			if conference.Status != conferences.Active {
 				return apperrors.New(apperrors.ErrConflict, "conference is not active")
 			}
-			err = tx.Where("platform_conference_id = ? AND mode = 'composite' AND status IN ?", conferenceID, activeRecordingStatuses()).Take(&record).Error
+			err = tx.Where("platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND status IN ?", conferenceID, activeRecordingStatuses()).Take(&record).Error
 			if err == nil {
+				if record.Mode != mode {
+					return apperrors.New(apperrors.ErrConflict, "another recording mode is active")
+				}
 				return nil
 			}
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
-			record = records.Record{UUID: uuid.NewString(), ConferenceID: conferenceID, PlatformConferenceID: &conferenceID, RequestedBy: &userID, Mode: records.ModeComposite, SourceType: "conference", TransportType: "sfu", Status: records.StatusStarting, QualityMode: "auto", SegmentDurationSec: segmentDuration, NeedPreview: true}
+			record = records.Record{UUID: uuid.NewString(), ConferenceID: conferenceID, PlatformConferenceID: &conferenceID, RequestedBy: &userID, Mode: mode, SourceType: "conference", TransportType: "sfu", Status: records.StatusStarting, QualityMode: "auto", SegmentDurationSec: segmentDuration, NeedPreview: mode != records.ModeAudioOnly && mode != records.ModeIndividualTracks}
 			if err = tx.Create(&record).Error; err != nil {
 				return err
 			}
@@ -90,7 +103,7 @@ func (r *ConferenceRecordingRepository) Start(ctx context.Context, userID, confe
 // Stop останавливает активную обработку конференций и членств участников и освобождает связанные ресурсы.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -103,7 +116,7 @@ func (r *ConferenceRecordingRepository) Stop(ctx context.Context, userID, confer
 	var record records.Record
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -119,7 +132,7 @@ func (r *ConferenceRecordingRepository) Stop(ctx context.Context, userID, confer
 			if conference.OwnerID != userID || actor.Role != conferences.Owner || !actor.CanReadHistory() {
 				return apperrors.ErrForbidden
 			}
-			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ? AND platform_conference_id = ? AND mode = 'composite'", recordID, conferenceID).Take(&record).Error; err != nil {
+			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ? AND platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", recordID, conferenceID).Take(&record).Error; err != nil {
 				return mapNotFound(err)
 			}
 			if records.IsTerminalStatus(record.Status) || record.Status == records.StatusFinalizing || record.Status == records.StatusUploading {
@@ -137,7 +150,7 @@ func (r *ConferenceRecordingRepository) Stop(ctx context.Context, userID, confer
 
 // Accessible проверяет связь записи с конференцией и право пользователя читать её.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -151,13 +164,13 @@ func (r *ConferenceRecordingRepository) Accessible(ctx context.Context, userID, 
 		return records.Record{}, err
 	}
 	var record records.Record
-	err := r.db.WithContext(ctx).Where("uuid = ? AND platform_conference_id = ? AND mode = 'composite'", recordID, conferenceID).Take(&record).Error
+	err := r.db.WithContext(ctx).Where("uuid = ? AND platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", recordID, conferenceID).Take(&record).Error
 	return record, mapNotFound(err)
 }
 
 // List возвращает ограниченный список конференций и членств участников с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -172,13 +185,13 @@ func (r *ConferenceRecordingRepository) List(ctx context.Context, userID, confer
 		return nil, err
 	}
 	items := []records.Record{}
-	err := r.db.WithContext(ctx).Where("platform_conference_id = ? AND mode = 'composite'", conferenceID).Order("created_at DESC, id DESC").Limit(limit).Offset(offset).Find(&items).Error
+	err := r.db.WithContext(ctx).Where("platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", conferenceID).Order("created_at DESC, id DESC").Limit(limit).Offset(offset).Find(&items).Error
 	return items, err
 }
 
 // authorizeRead проверяет допуск к записи конференции, не выдавая доступ по одному идентификатору.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -206,7 +219,7 @@ func activeRecordingStatuses() []string {
 
 // enqueueRecording сохраняет команду записи в транзакционном журнале доставки вместе с изменением записи.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - recordID (string): внешний UUID задачи записи.
 //   - command (string): внутренняя команда с типом операции и серверной идентичностью ресурса.
@@ -220,7 +233,7 @@ func enqueueRecording(tx *gorm.DB, recordID, command, reason string) error {
 
 // stopConferenceRecordings переводит активные записи закрываемой встречи в остановку и сохраняет команды завершения.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //
@@ -228,7 +241,7 @@ func enqueueRecording(tx *gorm.DB, recordID, command, reason string) error {
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func stopConferenceRecordings(tx *gorm.DB, conferenceID string) error {
 	var rows []records.Record
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("platform_conference_id = ? AND mode = 'composite' AND status IN ?", conferenceID, []string{records.StatusStarting, records.StatusRecording, records.StatusDegraded, records.StatusStopping}).Find(&rows).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND status IN ?", conferenceID, []string{records.StatusStarting, records.StatusRecording, records.StatusDegraded, records.StatusStopping}).Find(&rows).Error; err != nil {
 		return err
 	}
 	for _, record := range rows {
@@ -247,7 +260,7 @@ func stopConferenceRecordings(tx *gorm.DB, conferenceID string) error {
 // ClaimCommand захватывает очередную команду записи с ограниченным сроком обработки и соблюдением порядка.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -259,7 +272,7 @@ func (r *ConferenceRecordingRepository) ClaimCommand(ctx context.Context) (Recor
 	var record records.Record
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -288,7 +301,7 @@ func (r *ConferenceRecordingRepository) ClaimCommand(ctx context.Context) (Recor
 
 // CompleteCommand подтверждает обработку команды только для её действующего владельца.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - command (RecordingOutbox): внутренняя команда с типом операции и серверной идентичностью ресурса.
 //
@@ -300,7 +313,7 @@ func (r *ConferenceRecordingRepository) CompleteCommand(ctx context.Context, com
 
 // RetryCommand назначает повторную попытку доставки команды после временной ошибки.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - command (RecordingOutbox): внутренняя команда с типом операции и серверной идентичностью ресурса.
 //

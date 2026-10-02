@@ -23,11 +23,13 @@ import (
 )
 
 // CaptureOptions задаёт ограничения фрагментов, буферов и кодирования захватываемых источников.
+// @params
 //   - SegmentDuration: значение SegmentDuration типа time.Duration, используемое согласно назначению этой операции.
 //   - MaxBytes: значение MaxBytes типа int64, используемое согласно назначению этой операции.
 //   - MaxTracks: значение MaxTracks типа int, используемое согласно назначению этой операции.
 //   - OnStarted: операция OnStarted с контрактом, описанным у метода.
 type CaptureOptions struct {
+	Mode            string
 	SegmentDuration time.Duration
 	MaxBytes        int64
 	MaxTracks       int
@@ -38,7 +40,7 @@ var ErrEgressEnded = errors.New("media egress ended")
 
 // OnlyEgressEnded отличает нормальное завершение входящего потока от совместной ошибки записи или композиции.
 //
-// @parameters:
+// @args
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 //
 // @return:
@@ -64,7 +66,7 @@ func OnlyEgressEnded(err error) bool {
 
 // Capture сохраняет закодированные медиа в ограниченные по времени устойчивые фрагменты; давление записи не должно останавливать SFU.
 //
-// @parameters:
+// @args
 //   - captureCtx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - workCtx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - reader (io.Reader): источник содержимого либо читатель карточек записи согласно типу.
@@ -113,14 +115,14 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 	started := false
 	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - end (int64): значение end типа int64, используемое согласно назначению этой операции.
 	//   - final (bool): логический признак final, управляющий соответствующей веткой обработки.
 	//
 	// @return:
 	//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	closeChunk := func(end int64, final bool) error {
-		chunk := Chunk{Index: index, Duration: float64(end-epoch) / 1e9, Sources: []Source{}}
+		chunk := Chunk{Index: index, Mode: options.Mode, StartedAtNS: epoch, Duration: float64(end-epoch) / 1e9, Sources: []Source{}}
 		var closeErr error
 		// A live browser video source may send no packets for a whole chunk
 		// (for example a static screen). Carry its last decodable GOP forward;
@@ -167,7 +169,7 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 		}
 		sort.Slice(chunk.Sources, /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - i (int): значение i типа int, используемое согласно назначению этой операции.
 			  - j (int): значение j типа int, используемое согласно назначению этой операции.
 
@@ -310,6 +312,9 @@ readLoop:
 				captureErr = fmt.Errorf("RTP without egress track")
 				break readLoop
 			}
+			if options.Mode == "audio_only" && track.Kind != media.KindAudio {
+				continue
+			}
 			bytesReceived += int64(len(frame.RTP))
 			if bytesReceived > options.MaxBytes {
 				captureErr = fmt.Errorf("recording byte limit reached")
@@ -399,7 +404,7 @@ readLoop:
 
 // validCodec проверяет, поддерживается ли кодек для сохранения данного источника.
 //
-// @parameters:
+// @args
 //   - track (media.EgressTrack): медиа-дорожка, которую обрабатывает или подписывает компонент.
 //
 // @return:
@@ -409,6 +414,7 @@ func validCodec(track media.EgressTrack) bool {
 }
 
 // sourceWriter собирает элементарный поток одного источника в устойчивый фрагмент записи.
+// @params
 //   - track: медиа-дорожка, которую обрабатывает или подписывает компонент.
 //   - path: путь к локальному файлу или каталогу операции.
 //   - state: значение state типа *sourceState, используемое согласно назначению этой операции.
@@ -437,6 +443,7 @@ type sourceWriter struct {
 }
 
 // encodedSample хранит закодированный образец с временными параметрами для записи в контейнер.
+// @params
 //   - data: полезная нагрузка события или байты обрабатываемого содержимого.
 //   - timestamp: значение timestamp типа uint32, используемое согласно назначению этой операции.
 //   - at: однозначное время планируемой операции; nil означает отсутствие значения, если это допускает тип.
@@ -449,6 +456,7 @@ type encodedSample struct {
 }
 
 // sourceState сохраняет состояние источника между пакетами и границами фрагментов.
+// @params
 //   - builder: значение builder типа *samplebuilder.SampleBuilder, используемое согласно назначению этой операции.
 //   - arrivals: индекс значений arrivals для поиска и согласования состояния.
 //   - preroll: набор значений preroll для последовательной или пакетной обработки.
@@ -464,7 +472,7 @@ type sourceState struct {
 
 // newSourceWriter создаёт запись элементарного потока для одного источника медиа.
 //
-// @parameters:
+// @args
 //   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
 //   - index (int): значение index типа int, используемое согласно назначению этой операции.
 //   - track (media.EgressTrack): медиа-дорожка, которую обрабатывает или подписывает компонент.
@@ -478,7 +486,7 @@ func newSourceWriter(dir string, index int, track media.EgressTrack) (*sourceWri
 
 // newSourceWriterState инициализирует состояние кодирования и сборки фрагментов одного источника.
 //
-// @parameters:
+// @args
 //   - dir (string): значение dir типа string, используемое согласно назначению этой операции.
 //   - index (int): значение index типа int, используемое согласно назначению этой операции.
 //   - track (media.EgressTrack): медиа-дорожка, которую обрабатывает или подписывает компонент.
@@ -545,7 +553,7 @@ func newSourceWriterState(dir string, index int, track media.EgressTrack, state 
 
 // WriteRTP принимает RTP-пакет и добавляет его к собираемому элементарному потоку.
 //
-// @parameters:
+// @args
 //   - packet (*rtp.Packet): закодированный RTP- или управляющий пакет.
 //   - capturedAt (int64): значение capturedAt типа int64, используемое согласно назначению этой операции.
 //
@@ -606,7 +614,7 @@ func (w *sourceWriter) pop() error {
 
 // writeSample записывает закодированный образец в текущий фрагмент источника.
 //
-// @parameters:
+// @args
 //   - sample (encodedSample): значение sample типа encodedSample, используемое согласно назначению этой операции.
 //
 // @return:
@@ -660,7 +668,7 @@ func (w *sourceWriter) Close() error {
 
 // closeChunk закрывает потоки фрагмента и публикует устойчивый манифест после успешного завершения файлов.
 //
-// @parameters:
+// @args
 //   - final (bool): логический признак final, управляющий соответствующей веткой обработки.
 //
 // @return:

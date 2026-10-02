@@ -14,17 +14,18 @@ import (
 )
 
 // Limiter задаёт контракт зависимого компонента Limiter в поднятых руках и временных реакциях участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params:
 //   - Allow: операция Allow с контрактом, описанным у метода.
 type Limiter interface {
 	// Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
 	//   - аргумент 4 (time.Duration): значение window типа time.Duration, используемое согласно назначению этой операции.
 	//
-	// Результат:
+	// @return
 	//   - результат 1 (ratelimit.Result): значение, подготовленное операцией для вызывающей стороны.
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Allow(context.Context, string, int, time.Duration) (ratelimit.Result, error)
@@ -42,12 +43,12 @@ type Handler struct {
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в поднятых руках и временных реакциях участников.
 //
-// @parameters:
+// @args
 //   - service (*usecase.Engagement): значение service типа *usecase.Engagement, используемое согласно назначению этой операции.
 //   - limiter (Limiter): ограничитель частоты запросов, общий для экземпляров API.
 //   - namespace (string): пространство изолированных ключей и каналов Redis.
 //
-// Результат:
+// @return
 //   - результат 1 (*Handler): созданный компонент с переданными зависимостями.
 func NewHandler(service *usecase.Engagement, limiter Limiter, namespace string) *Handler {
 	return &Handler{service: service, limiter: limiter, namespace: namespace}
@@ -55,10 +56,10 @@ func NewHandler(service *usecase.Engagement, limiter Limiter, namespace string) 
 
 // id проверяет и нормализует идентификатор ресурса из HTTP-маршрута.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
-// Результат:
+// @return
 //   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 //   - результат 2 (bool): признак выполнения проверяемого условия или изменения состояния.
 func id(c *gin.Context) (string, bool) {
@@ -72,14 +73,14 @@ func id(c *gin.Context) (string, bool) {
 
 // limit проверяет отдельные пользовательские и комнатные ограничения частоты действия.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 //   - n (int): значение n типа int, используемое согласно назначению этой операции.
 //   - window (time.Duration): значение window типа time.Duration, используемое согласно назначению этой операции.
 //
-// Результат:
+// @return
 //   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func (h *Handler) limit(c *gin.Context, conferenceID, kind string, n int, window time.Duration) bool {
 	if h.limiter == nil {
@@ -113,7 +114,7 @@ func (h *Handler) limit(c *gin.Context, conferenceID, kind string, n int, window
 
 // List возвращает ограниченный список поднятых рук и реакций комнаты с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) List(c *gin.Context) {
 	conf, ok := id(c)
@@ -142,7 +143,7 @@ func (h *Handler) List(c *gin.Context) {
 
 // Hand меняет состояние руки с проверкой прав участника или модератора.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Hand(c *gin.Context) {
 	conf, ok := id(c)
@@ -177,7 +178,7 @@ func (h *Handler) Hand(c *gin.Context) {
 
 // Reaction публикует разрешённую временную реакцию допущенного участника.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Reaction(c *gin.Context) {
 	conf, ok := id(c)

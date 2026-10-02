@@ -19,6 +19,7 @@ import (
 )
 
 // apiRepository задаёт контракт зависимого компонента apiRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - Create: операция создание с контрактом, описанным у метода.
 //   - FindByUUID: операция поиск By UUID с контрактом, описанным у метода.
 //   - MarkStopping: операция Mark Stopping с контрактом, описанным у метода.
@@ -29,7 +30,7 @@ import (
 type apiRepository interface {
 	// Create создаёт новое состояние задач записи и связанных артефактов по переданным параметрам.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - record (records.Record): задача записи с её сохранённым состоянием.
 	//
@@ -39,7 +40,7 @@ type apiRepository interface {
 	Create(ctx context.Context, record records.Record) (records.Record, error)
 	// FindByUUID читает задачу записи по её внешнему UUID.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - recordUUID (string): идентификатор связанного ресурса, заданного параметром recordUUID.
 	//
@@ -49,7 +50,7 @@ type apiRepository interface {
 	FindByUUID(ctx context.Context, recordUUID string) (records.Record, error)
 	// MarkStopping условно переводит задачу записи в состояние «Stopping», соблюдая ограничения жизненного цикла.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - recordUUID (string): идентификатор связанного ресурса, заданного параметром recordUUID.
 	//   - reason (string): причина завершения, отказа или изменения состояния.
@@ -59,7 +60,7 @@ type apiRepository interface {
 	MarkStopping(ctx context.Context, recordUUID string, reason string) error
 	// MarkFailed условно переводит задачу записи в состояние «Failed», соблюдая ограничения жизненного цикла.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - recordUUID (string): идентификатор связанного ресурса, заданного параметром recordUUID.
 	//   - cause (error): значение cause типа error, используемое согласно назначению этой операции.
@@ -69,7 +70,7 @@ type apiRepository interface {
 	MarkFailed(ctx context.Context, recordUUID string, cause error) error
 	// ListDetails читает записи вместе со связанными артефактами и событиями.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - limit (int): максимальное число элементов страницы или порции обработки.
 	//   - offset (int): число элементов, пропускаемых перед началом страницы.
@@ -80,7 +81,7 @@ type apiRepository interface {
 	ListDetails(ctx context.Context, limit int, offset int) ([]records.RecordDetails, error)
 	// ListSummaryDetailsByConferenceIDs пакетно читает краткие сведения записей нескольких конференций без запроса для каждой записи.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - conferenceIDs ([]string): идентификаторы конференций для пакетной выборки.
 	//   - status (string): состояние ресурса, ответа или фильтра выборки.
@@ -91,7 +92,7 @@ type apiRepository interface {
 	ListSummaryDetailsByConferenceIDs(ctx context.Context, conferenceIDs []string, status string) ([]records.RecordDetails, error)
 	// FindDetailsByUUID читает задачу записи и связанные сведения по её UUID.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - recordUUID (string): идентификатор связанного ресурса, заданного параметром recordUUID.
 	//
@@ -102,12 +103,13 @@ type apiRepository interface {
 }
 
 // workerCommander задаёт контракт зависимого компонента workerCommander в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// @params
 //   - StartRecord: операция запуск запись с контрактом, описанным у метода.
 //   - StopRecord: операция остановка запись с контрактом, описанным у метода.
 type workerCommander interface {
 	// StartRecord передаёт команду начала записи выбранному транспорту воркера.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - recordID (string): внешний UUID задачи записи.
 	//   - segmentDurationSec (int): плановая длительность сегмента записи в секундах.
@@ -117,7 +119,7 @@ type workerCommander interface {
 	StartRecord(ctx context.Context, recordID string, segmentDurationSec int) error
 	// StopRecord передаёт команду остановки записи выбранному транспорту воркера.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - recordID (string): внешний UUID задачи записи.
 	//   - reason (string): причина завершения, отказа или изменения состояния.
@@ -133,7 +135,7 @@ type workerCommander interface {
 type conferenceLocker interface {
 	// Acquire пытается занять блокировку ресурса на ограниченный срок без замены действующего владельца.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 	//   - recordID (string): внешний UUID задачи записи.
@@ -144,7 +146,7 @@ type conferenceLocker interface {
 	Acquire(ctx context.Context, conferenceID string, recordID string) (bool, error)
 	// Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 	//
-	// @parameters:
+	// @args
 	//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 	//   - recordID (string): внешний UUID задачи записи.
@@ -163,7 +165,7 @@ type workerRepository interface {
 	ingestFailureRepository
 	// MarkFinalizing условно переводит задачу записи в состояние «Finalizing», соблюдая ограничения жизненного цикла.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 	//
@@ -172,7 +174,7 @@ type workerRepository interface {
 	MarkFinalizing(context.Context, string) error
 	// MarkUploading условно переводит задачу записи в состояние «Uploading», соблюдая ограничения жизненного цикла.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 	//
@@ -181,7 +183,7 @@ type workerRepository interface {
 	MarkUploading(context.Context, string) error
 	// SaveFinalArtifacts сохраняет итоговый файл, превью и сегменты после успешной обработки записи.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID обрабатываемой записи.
 	//   - аргумент 3 (records.RecordFile): значение finalFile типа records.RecordFile, используемое согласно назначению этой операции.
@@ -200,7 +202,7 @@ type workerRepository interface {
 type mediaIngest interface {
 	// Prepare подготавливает состояние WebRTC-приёма конкретной записи до обмена SDP.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): внешний UUID задачи записи.
 	//   - аргумент 2 (int): плановая длительность сегмента записи в секундах.
 	//
@@ -209,7 +211,7 @@ type mediaIngest interface {
 	Prepare(string, int) error
 	// Stop останавливает активную обработку задач записи и связанных артефактов и освобождает связанные ресурсы.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): внешний UUID задачи записи.
 	//
 	// @return:
@@ -217,7 +219,7 @@ type mediaIngest interface {
 	Stop(string) error
 	// HandleOffer обрабатывает SDP-предложение и возвращает SDP-ответ приёмника записи.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): внешний UUID задачи записи.
 	//   - аргумент 3 (records.WebRTCOfferRequest): входные параметры соответствующего прикладного запроса.
@@ -241,6 +243,7 @@ type Service struct {
 }
 
 // WorkerService обрабатывает команды записи, входящие медиа, финализацию и загрузку артефактов.
+// @params
 //   - repository: хранилище постоянных данных прикладного сценария.
 //   - postProcessor: компонент FFmpeg для сборки итогового файла и превью.
 //   - ingest: значение ingest типа mediaIngest, используемое согласно назначению этой операции.
@@ -266,13 +269,13 @@ type WorkerService struct {
 
 // SetComposite подключает сценарий общей записи конференции к обработчику команд записи.
 //
-// @parameters:
+// @args
 //   - service (*CompositeService): значение service типа *CompositeService, используемое согласно назначению этой операции.
 func (s *WorkerService) SetComposite(service *CompositeService) { s.composite = service }
 
 // ValidateLegacyRecord запрещает старым неавторизованным маршрутам воркера управлять защищённой записью конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -290,7 +293,7 @@ func (s *WorkerService) ValidateLegacyRecord(ctx context.Context, id string) err
 }
 
 // recordCommandLock задаёт согласованное представление данных «запись Command Lock» для управлении задачами записи и её артефактами.
-// Состав:
+// @params:
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - refs: значение refs типа int, используемое согласно назначению этой операции.
 type recordCommandLock struct {
@@ -299,7 +302,7 @@ type recordCommandLock struct {
 }
 
 // NewService создает API use-case.
-// @parameters:
+// @args
 // - repository: repository записей.
 // - workerCommander: транспорт команд recorder-worker, сейчас RabbitMQ publisher.
 // - s3: MinIO/S3-клиент для генерации ссылок на артефакты.
@@ -315,7 +318,7 @@ func NewService(repository apiRepository, workerCommander workerCommander, s3 *s
 }
 
 // NewWorkerService создает worker use-case.
-// @parameters:
+// @args
 // - repository: repository записей.
 // - postProcessor: FFmpeg post-processor.
 // - s3: MinIO/S3-клиент.
@@ -335,7 +338,7 @@ func NewWorkerService(repository workerRepository, postProcessor *ffmpeg.PostPro
 }
 
 // Start создает запись и публикует команду подготовки WebRTC ingest в RabbitMQ.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса.
 // - request: параметры записи.
 // @return response с recordId или ошибку.
@@ -406,7 +409,7 @@ func (s *Service) Start(ctx context.Context, request records.StartRequest) (reco
 }
 
 // Stop помечает запись stopping и публикует в RabbitMQ команду завершения.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса.
 // - request: recordId и reason.
 // @return ошибку БД или публикации RabbitMQ-команды.
@@ -435,7 +438,7 @@ func (s *Service) Stop(ctx context.Context, request records.EndRequest) error {
 }
 
 // List возвращает список записей с файлами из MinIO и метаданными сегментов.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса.
 // - limit: количество.
 // - offset: смещение.
@@ -461,7 +464,7 @@ func (s *Service) List(ctx context.Context, limit int, offset int) ([]records.Re
 }
 
 // CountByConference возвращает количество записей и краткие карточки записей для каждой переданной конференции.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса.
 // - conferenceIDs: список UUID конференций.
 // - status: optional фильтр по статусу записи.
@@ -507,7 +510,7 @@ func (s *Service) CountByConference(ctx context.Context, conferenceIDs []string,
 }
 
 // Read возвращает карточку записи по UUID.
-// @parameters:
+// @args
 // - ctx: контекст HTTP-запроса.
 // - uuid: UUID записи.
 // @return карточку записи или ошибку БД/MinIO.
@@ -524,7 +527,7 @@ func (s *Service) Read(ctx context.Context, uuid string) (records.RecordCard, er
 }
 
 // acquireConferenceLock ставит lock на активную запись конференции.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID создаваемой записи.
@@ -538,7 +541,7 @@ func (s *Service) acquireConferenceLock(ctx context.Context, conferenceID string
 }
 
 // releaseConferenceLock снимает lock активной записи конференции.
-// @parameters:
+// @args
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID записи-владельца lock-а.
@@ -552,7 +555,7 @@ func (s *Service) releaseConferenceLock(ctx context.Context, conferenceID string
 }
 
 // HandleCommand исполняет внутреннюю команду worker-а.
-// @parameters:
+// @args
 // - ctx: контекст worker-а.
 // - command: record.start или record.stop.
 // @return ошибку обработки команды.
@@ -593,7 +596,7 @@ func (s *WorkerService) HandleCommand(ctx context.Context, command records.Comma
 // lockCommand сериализует команды одной записи; удаляет блокировку после завершения всех использующих её вызовов.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - recordID (string): внешний UUID задачи записи.
 //
 // @return:
@@ -627,7 +630,7 @@ func (s *WorkerService) lockCommand(recordID string) func() {
 
 // handleStart идемпотентно подготавливает приём медиа по команде начала записи.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
 //
@@ -662,7 +665,7 @@ func (s *WorkerService) handleStart(ctx context.Context, command records.Command
 
 // failWorkerRecord сохраняет ошибку обработки записи и освобождает принадлежащие ей ресурсы.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - recordID (string): внешний UUID задачи записи.
 //   - eventType (string): значение eventType типа string, используемое согласно назначению этой операции.
@@ -678,7 +681,7 @@ func (s *WorkerService) failWorkerRecord(ctx context.Context, recordID string, e
 
 // handleStop останавливает приём медиа, финализирует и сохраняет артефакты по команде завершения.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
 //
@@ -770,7 +773,7 @@ func (s *WorkerService) handleStop(ctx context.Context, command records.Command)
 
 // recordDir строит локальный каталог конкретной задачи записи.
 //
-// @parameters:
+// @args
 //   - recordID (string): внешний UUID задачи записи.
 //
 // @return:
@@ -781,7 +784,7 @@ func (s *WorkerService) recordDir(recordID string) string {
 
 // recordCard собирает карточку записи, связанных файлов и временных ссылок чтения.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - details (records.RecordDetails): запись вместе со связанными файлами, сегментами и событиями.
 //
@@ -826,7 +829,7 @@ func (s *Service) recordCard(ctx context.Context, details records.RecordDetails)
 }
 
 // conferenceRecordItem собирает краткую карточку записи для endpoint-а count-by-conference.
-// @parameters:
+// @args
 // - details: запись с итоговым файлом и превью, без событий и сегментов.
 // @return recordId, ссылки на final/preview и временные поля записи.
 func (s *Service) conferenceRecordItem(ctx context.Context, details records.RecordDetails) (records.ConferenceRecordItem, error) {
@@ -841,7 +844,7 @@ func (s *Service) conferenceRecordItem(ctx context.Context, details records.Reco
 		CreatedAt:   record.CreatedAt,
 	}
 	for _, file := range details.Files {
-		if file.FileType != records.FileTypeFinalMP4 && file.FileType != records.FileTypePreviewJPG {
+		if file.FileType != records.FileTypeFinalMP4 && file.FileType != records.FileTypeFinalAudio && file.FileType != records.FileTypePreviewJPG {
 			continue
 		}
 		url, err := s.presignedURL(ctx, file.ObjectKey)
@@ -849,7 +852,7 @@ func (s *Service) conferenceRecordItem(ctx context.Context, details records.Reco
 			return records.ConferenceRecordItem{}, err
 		}
 		switch file.FileType {
-		case records.FileTypeFinalMP4:
+		case records.FileTypeFinalMP4, records.FileTypeFinalAudio:
 			result.FinalURL = url
 		case records.FileTypePreviewJPG:
 			result.PreviewURL = url
@@ -861,7 +864,7 @@ func (s *Service) conferenceRecordItem(ctx context.Context, details records.Reco
 
 // presignedURL формирует временную ссылку на приватный артефакт записи.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - objectKey (string): серверный ключ объекта внутри приватного бакета.
 //
@@ -878,7 +881,7 @@ func (s *Service) presignedURL(ctx context.Context, objectKey string) (string, e
 
 // segmentMetadata преобразует сведения локального сегмента в сохраняемые метаданные.
 //
-// @parameters:
+// @args
 //   - segments ([]ffmpeg.Segment): доступные сегменты записи для итоговой сборки.
 //
 // @return:
@@ -903,7 +906,7 @@ func segmentMetadata(segments []ffmpeg.Segment) []records.RecordSegment {
 
 // cleanupLocalStorage удаляет локальные артефакты завершённой записи после принятой последовательности сохранения.
 //
-// @parameters:
+// @args
 //   - recordID (string): внешний UUID задачи записи.
 //
 // @return:
@@ -921,7 +924,7 @@ func (s *WorkerService) cleanupLocalStorage(recordID string) error {
 
 // cleanupEmptyLocalStorage удаляет пустые каталоги локального хранения после завершения обработки.
 //
-// @parameters:
+// @args
 //   - recordID (string): внешний UUID задачи записи.
 //
 // @return:
@@ -935,7 +938,7 @@ func (s *WorkerService) cleanupEmptyLocalStorage(recordID string) error {
 
 // cleanupEmptyLocalStorageAfterFailure очищает пустые каталоги после сбоя, не удаляя оставшиеся артефакты.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - recordID (string): внешний UUID задачи записи.
 func (s *WorkerService) cleanupEmptyLocalStorageAfterFailure(ctx context.Context, recordID string) {
@@ -945,7 +948,7 @@ func (s *WorkerService) cleanupEmptyLocalStorageAfterFailure(ctx context.Context
 }
 
 // HandleOffer передает browser SDP offer в WebRTC ingest manager.
-// @parameters:
+// @args
 // - ctx: HTTP context worker-а.
 // - recordID: UUID записи.
 // - request: SDP offer.

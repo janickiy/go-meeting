@@ -18,7 +18,7 @@ import (
 
 // TestRecordsStartValidationErrorResponse проверяет сценарий «Records запуск проверка входных данных ошибка Response», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsStartValidationErrorResponse(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -35,7 +35,7 @@ func TestRecordsStartValidationErrorResponse(t *testing.T) {
 
 // TestRecordsLegacyStartRouteIsRemoved проверяет сценарий «Records Legacy запуск Route является Removed», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsLegacyStartRouteIsRemoved(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -53,7 +53,7 @@ func TestRecordsLegacyStartRouteIsRemoved(t *testing.T) {
 
 // TestRecordsStartAcceptedResponse проверяет сценарий «Records запуск Accepted Response», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsStartAcceptedResponse(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -86,7 +86,7 @@ func TestRecordsStartAcceptedResponse(t *testing.T) {
 
 // TestRecordsStartConferenceLockConflict проверяет сценарий «Records запуск конференция Lock Conflict», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsStartConferenceLockConflict(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -105,7 +105,7 @@ func TestRecordsStartConferenceLockConflict(t *testing.T) {
 
 // TestRecordsEndReadsRecordIDFromBody проверяет сценарий «Records End Reads запись ID из Body», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsEndReadsRecordIDFromBody(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -130,7 +130,7 @@ func TestRecordsEndReadsRecordIDFromBody(t *testing.T) {
 
 // TestRecordsListUsesQueryFallbacks проверяет сценарий «Records список Uses Query Fallbacks», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsListUsesQueryFallbacks(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -154,7 +154,7 @@ func TestRecordsListUsesQueryFallbacks(t *testing.T) {
 
 // TestRecordsCountByConference проверяет сценарий «Records количество By конференция», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsCountByConference(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -199,7 +199,7 @@ func TestRecordsCountByConference(t *testing.T) {
 
 // TestRecordsCountByConferenceSupportsCSVQuery проверяет сценарий «Records количество By конференция Supports CSV Query», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsCountByConferenceSupportsCSVQuery(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -216,7 +216,7 @@ func TestRecordsCountByConferenceSupportsCSVQuery(t *testing.T) {
 
 // TestRecordsCountByConferenceValidation проверяет сценарий «Records количество By конференция проверка входных данных», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsCountByConferenceValidation(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -246,7 +246,7 @@ func TestRecordsCountByConferenceValidation(t *testing.T) {
 
 // TestRecordsReadNotFoundResponse проверяет сценарий «Records чтение не Found Response», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsReadNotFoundResponse(t *testing.T) {
 	router, service := newRecordsRouter("")
@@ -263,12 +263,12 @@ func TestRecordsReadNotFoundResponse(t *testing.T) {
 
 // TestRecordsOfferProxiesWorkerAnswer проверяет сценарий «Records SDP-предложение Proxies воркер SDP-ответ», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRecordsOfferProxiesWorkerAnswer(t *testing.T) {
 	worker := httptest.NewServer(http.HandlerFunc( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) {
@@ -293,7 +293,7 @@ func TestRecordsOfferProxiesWorkerAnswer(t *testing.T) {
 
 // newRecordsRouter подготавливает или проверяет часть тестового сценария «новый Records Router».
 //
-// @parameters:
+// @args
 //   - workerURL (string): значение workerURL типа string, используемое согласно назначению этой операции.
 //
 // @return:
@@ -311,7 +311,7 @@ func newRecordsRouter(workerURL string) (*gin.Engine, *fakeRecordService) {
 
 // performJSON подготавливает или проверяет часть тестового сценария «perform JSON».
 //
-// @parameters:
+// @args
 //   - router (http.Handler): значение router типа http.Handler, используемое согласно назначению этой операции.
 //   - method (string): значение method типа string, используемое согласно назначению этой операции.
 //   - path (string): путь к локальному файлу или каталогу операции.
@@ -330,7 +330,7 @@ func performJSON(router http.Handler, method string, path string, body string) *
 
 // assertStatus подготавливает или проверяет часть тестового сценария «проверка состояние».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - got (int): значение got типа int, используемое согласно назначению этой операции.
 //   - want (int): значение want типа int, используемое согласно назначению этой операции.
@@ -343,7 +343,7 @@ func assertStatus(t *testing.T, got int, want int) {
 
 // assertJSONField подготавливает или проверяет часть тестового сценария «проверка JSON Field».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - body (string): тело входящего запроса или сериализованные данные передачи.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
@@ -362,7 +362,7 @@ func assertJSONField(t *testing.T, body string, key string, want string) {
 
 // assertJSONRecordsCount подготавливает или проверяет часть тестового сценария «проверка JSON Records количество».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - body (string): тело входящего запроса или сериализованные данные передачи.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -388,7 +388,7 @@ func assertJSONRecordsCount(t *testing.T, body string, conferenceID string, want
 
 // assertJSONConferenceSummary подготавливает или проверяет часть тестового сценария «проверка JSON конференция Summary».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - body (string): тело входящего запроса или сериализованные данные передачи.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -434,7 +434,7 @@ func assertJSONConferenceSummary(t *testing.T, body string, conferenceID string,
 }
 
 // fakeRecordService хранит изолированное состояние тестового компонента «fake запись сервис».
-// Состав:
+// @params:
 //   - startCalled: логический признак startCalled, управляющий соответствующей веткой обработки.
 //   - startRequest: значение startRequest типа records.StartRequest, используемое согласно назначению этой операции.
 //   - startResponse: значение startResponse типа records.StartResponse, используемое согласно назначению этой операции.
@@ -482,7 +482,7 @@ type fakeRecordService struct {
 
 // Start запускает обработку ресурсов компонента и подготавливает связанные ресурсы.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - request (records.StartRequest): входные параметры соответствующего прикладного запроса.
 //
@@ -497,7 +497,7 @@ func (s *fakeRecordService) Start(_ context.Context, request records.StartReques
 
 // Stop останавливает активную обработку ресурсов компонента и освобождает связанные ресурсы.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - request (records.EndRequest): входные параметры соответствующего прикладного запроса.
 //
@@ -511,7 +511,7 @@ func (s *fakeRecordService) Stop(_ context.Context, request records.EndRequest) 
 
 // List возвращает ограниченный список ресурсов компонента с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - limit (int): максимальное число элементов страницы или порции обработки.
 //   - offset (int): число элементов, пропускаемых перед началом страницы.
@@ -527,7 +527,7 @@ func (s *fakeRecordService) List(_ context.Context, limit int, offset int) ([]re
 
 // CountByConference пакетно собирает количество и краткие карточки записей переданных конференций.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceIDs ([]string): идентификаторы конференций для пакетной выборки.
 //   - status (string): состояние ресурса, ответа или фильтра выборки.
@@ -545,7 +545,7 @@ func (s *fakeRecordService) CountByConference(_ context.Context, conferenceIDs [
 
 // Read читает состояние ресурсов компонента для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - uuid (string): внешний UUID обрабатываемой записи.
 //

@@ -9,6 +9,7 @@ import (
 )
 
 // NotificationBus изолирует личные уведомления в Redis-каналах пользователей.
+// @params
 //   - client: клиент внешнего сервиса или транспорта компонента.
 //   - prefix: ограниченный префикс объектов, относящихся к одной операции.
 type NotificationBus struct {
@@ -18,7 +19,7 @@ type NotificationBus struct {
 
 // NewNotificationBus создаёт и связывает зависимости компонента NotificationBus, используемого в личных уведомлениях и их фоновой доставке.
 //
-// @parameters:
+// @args
 //   - client (*goredis.Client): клиент внешнего сервиса или транспорта компонента.
 //   - namespace (string): изолированное пространство Redis-ключей и каналов приложения или теста.
 //
@@ -30,7 +31,7 @@ func NewNotificationBus(client *goredis.Client, namespace string) *NotificationB
 
 // Publish сериализует доверенное событие и публикует его в изолированном Redis-канале.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - event (domain.Envelope): конверт входящего или публикуемого события.
@@ -47,7 +48,7 @@ func (b *NotificationBus) Publish(ctx context.Context, userID string, event doma
 
 // Subscribe открывает ограниченную по времени подписку на изолированный канал событий.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //

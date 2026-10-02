@@ -7,7 +7,7 @@ import (
 )
 
 // TestProviderTokenBinding проверяет непереносимость ciphertext между владельцами и отсутствие plaintext.
-// @parameters: t — контекст изолированной проверки.
+// @args t — контекст изолированной проверки.
 func TestProviderTokenBinding(t *testing.T) {
 	cipher, err := NewProviderTokens(base64.StdEncoding.EncodeToString([]byte(strings.Repeat("x", 32))))
 	if err != nil {

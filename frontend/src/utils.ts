@@ -2,7 +2,7 @@ export const SESSION_KEY = "meet.session.v1";
 /**
  * Session связывает сохранённый токен, пользователя и сведения клиентской авторизации.
  *
- * Состав:
+ * @params:
  *   - token — токен текущей авторизации; null отключает авторизованные запросы.
  *   - expiresAt — поле или операция этого контракта.
  */
@@ -48,7 +48,7 @@ export function readSession(): Session | null {
 /**
  * saveSession сохраняет либо удаляет сессию в локальном хранилище браузера.
  *
- * @parameters:
+ * @args
  *   - session (Session | null) — проверенная клиентская сессия либо null для удаления.
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -64,7 +64,7 @@ export function saveSession(session: Session | null) {
 /**
  * safeNext проверяет локальный путь возврата после авторизации и исключает внешний переход.
  *
- * @parameters:
+ * @args
  *   - value (string | null) — значение для проверки, преобразования или отображения.
  *
  * @returns string — вычисленное значение: "/app"; url.pathname + url.search.
@@ -95,7 +95,7 @@ export function safeNext(value: string | null): string {
 /**
  * inviteCode извлекает допустимый код приглашения из кода или ссылки.
  *
- * @parameters:
+ * @args
  *   - value (string) — значение для проверки, преобразования или отображения.
  *
  * @returns string | null — вычисленное значение: trimmed; null; match?.[1] || null.
@@ -117,7 +117,7 @@ export function inviteCode(value: string): string | null {
 /**
  * inviteLink строит ссылку приглашения для текущего адреса приложения.
  *
- * @parameters:
+ * @args
  *   - code (string) — проверенный код приглашения.
  *
  * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -127,7 +127,7 @@ export const inviteLink = (code: string) =>
 /**
  * formatDate форматирует временную отметку для отображения даты и времени встречи.
  *
- * @parameters:
+ * @args
  *   - value (string) — значение для проверки, преобразования или отображения.
  *
  * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
@@ -140,7 +140,7 @@ export const formatDate = (value: string) =>
 /**
  * utf8Bytes считает длину строки в байтах UTF-8.
  *
- * @parameters:
+ * @args
  *   - value (string) — значение для проверки, преобразования или отображения.
  *
  * @returns вычисленное значение: new TextEncoder().encode(value).length.
@@ -150,7 +150,7 @@ export const utf8Bytes = (value: string) =>
 /**
  * passwordLength считает символы Unicode пароля без привязки к числу байтов.
  *
- * @parameters:
+ * @args
  *   - value (string) — значение для проверки, преобразования или отображения.
  *
  * @returns вычисленное значение: Array.from(value).length.
@@ -159,7 +159,7 @@ export const passwordLength = (value: string) => Array.from(value).length;
 /**
  * initials выбирает инициалы имени для аватара участника.
  *
- * @parameters:
+ * @args
  *   - name (string) — отображаемое имя пользователя для инициалов.
  *
  * @returns вычисленное значение: Array.from(name.trim())[0]?.toUpperCase() || "М".

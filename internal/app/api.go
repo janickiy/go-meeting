@@ -13,6 +13,7 @@ import (
 	"time"
 
 	authapp "github.com/janickiy/go-recorder/internal/app/auth"
+	captionsapp "github.com/janickiy/go-recorder/internal/app/captions"
 	chatapp "github.com/janickiy/go-recorder/internal/app/chat"
 	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
 	contentapp "github.com/janickiy/go-recorder/internal/app/content"
@@ -43,7 +44,7 @@ import (
 )
 
 // RunAPI запускает HTTP API.
-// @parameters: нет.
+// @args нет.
 // @return ошибку bootstrap или HTTP server-а.
 func RunAPI() error {
 	cfg, err := config.Load()
@@ -134,6 +135,9 @@ func RunAPI() error {
 	hands := redisinfra.NewHands(redisClient, realtimeConfig.Namespace)
 	hub.SetHands(hands)
 	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hands, hub)
+	if cfg.StageEight.AnalyticsEnabled {
+		engagementService.SetHandObserver(postgresinfra.NewAnalyticsRepository(db).RecordHand)
+	}
 	notificationBus := redisinfra.NewNotificationBus(redisClient, realtimeConfig.Namespace)
 	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db).DisableLegacyReminders(), notificationBus)
 	chatService, err := chatusecase.NewService(context.Background(), postgresinfra.NewChatRepository(db), s3Client, hub)
@@ -162,7 +166,8 @@ func RunAPI() error {
 	if err != nil {
 		return fmt.Errorf("product initialization failed: %w", err)
 	}
-	httptransport.RegisterContentRoutes(router, contentapp.NewHandler(product.content), httpmiddleware.Authenticate(tokens))
+	httptransport.RegisterContentRoutes(router, contentapp.NewHandler(product.content), httpmiddleware.Authenticate(tokens), rateLimiter)
+	httptransport.RegisterCaptionRoutes(router, &captionsapp.Handler{Repo: postgresinfra.NewCaptionsRepository(db), Enabled: cfg.StageEight.LiveEnabled, Config: cfg.StageEight, Analytics: postgresinfra.NewAnalyticsRepository(db), Search: postgresinfra.NewSearchRepository(db)}, httpmiddleware.Authenticate(tokens), rateLimiter)
 	httptransport.RegisterIntegrationRoutes(router, integrationsapp.NewHandler(product.integrations), httpmiddleware.Authenticate(tokens), rateLimiter)
 	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
 
@@ -181,7 +186,7 @@ func RunAPI() error {
 	}
 	server := &http.Server{Handler: router, BaseContext: /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 
-	@parameters:
+	@args
 	  - аргумент 1 (net.Listener): значение для проверки, нормализации или преобразования.
 
 	@return:
@@ -213,7 +218,7 @@ func RunAPI() error {
 
 // rateLimitConfig преобразует общие настройки приложения в конфигурацию HTTP-ограничителя.
 //
-// @parameters:
+// @args
 //   - cfg (config.Config): проверенные настройки соответствующего компонента.
 //
 // @return:
@@ -223,7 +228,7 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 	defaultLimit := cfg.RateLimit.DefaultRPM
 	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - value (int): значение для проверки, нормализации или преобразования.
 	//
 	// @return:
@@ -237,7 +242,7 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 	}
 	// Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - route (string): адрес и версия действующего владельца медиа-комнаты.
 	//
 	// @return:
@@ -329,7 +334,7 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 }
 
 // RunMigrations применяет миграции без запуска API.
-// @parameters: нет.
+// @args нет.
 // @return ошибку подключения или миграции.
 func RunMigrations() error {
 	cfg, err := config.Load()

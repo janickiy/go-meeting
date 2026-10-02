@@ -9,7 +9,7 @@ import (
 )
 
 // NewClient создает Redis-клиент и проверяет соединение.
-// @parameters:
+// @args
 // - ctx: контекст подключения.
 // - addr: host:port Redis.
 // - password: пароль Redis, если задан.

@@ -16,7 +16,7 @@ import (
 
 // ChunkSegments разбивает UTF-8 текст детерминированно с сохранением original IDs.
 // Один длинный сегмент делится на части без выдуманных новых source IDs.
-// @parameters: segments — хронологический transcript; maximum — rune-budget;
+// @args segments — хронологический transcript; maximum — rune-budget;
 // maxChunks — абсолютный предел стоимости.
 // @return bounded chunks либо ошибку превышения бюджета.
 func ChunkSegments(segments []domain.Segment, maximum, maxChunks int) ([][]domain.Segment, error) {
@@ -61,7 +61,7 @@ func ChunkSegments(segments []domain.Segment, maximum, maxChunks int) ([][]domai
 }
 
 // ValidateSummary проверяет JSON-схему, refs и отсутствие выдуманных assignee/date.
-// @parameters: data — untrusted provider output; source — разрешённые original segments.
+// @args data — untrusted provider output; source — разрешённые original segments.
 // @return нормализованный output; сомнительные optional facts очищаются до null.
 func ValidateSummary(data json.RawMessage, source []domain.Segment) (domain.SummaryOutput, error) {
 	var out domain.SummaryOutput
@@ -131,7 +131,7 @@ func ValidateSummary(data json.RawMessage, source []domain.Segment) (domain.Summ
 }
 
 // explicitAssignee консервативно требует явный assignment marker, а не упоминание имени.
-// @parameters: evidence — cited untrusted text; name — предлагаемый исполнитель.
+// @args evidence — cited untrusted text; name — предлагаемый исполнитель.
 // @return true при буквальном marker «ответственный/исполнитель/assignee: NAME».
 func explicitAssignee(evidence, name string) bool {
 	text := strings.ToLower(evidence)
@@ -145,7 +145,7 @@ func explicitAssignee(evidence, name string) bool {
 }
 
 // explicitDeadline требует явный marker срока с ISO-date, не дату обычной встречи.
-// @parameters: evidence — cited text; date — YYYY-MM-DD из проверяемого JSON.
+// @args evidence — cited text; date — YYYY-MM-DD из проверяемого JSON.
 // @return true для «срок/deadline/due: DATE» или «до DATE».
 func explicitDeadline(evidence, date string) bool {
 	text := strings.ToLower(evidence)
@@ -158,14 +158,14 @@ func explicitDeadline(evidence, date string) bool {
 }
 
 // validText ограничивает UTF-8 строку и не допускает embedded NUL для PostgreSQL.
-// @parameters: text — проверяемая строка; maximum — rune-limit; empty — допустимость пустоты.
+// @args text — проверяемая строка; maximum — rune-limit; empty — допустимость пустоты.
 // @return true для безопасного строкового значения.
 func validText(text string, maximum int, empty bool) bool {
 	return utf8.ValidString(text) && !strings.ContainsRune(text, 0) && utf8.RuneCountInString(text) <= maximum && (empty || strings.TrimSpace(text) != "")
 }
 
 // summarize выполняет bounded map и иерархический reduce без смешивания инструкций с input.
-// @parameters: ctx — общий AI deadline; key — стабильная idempotency identity; segments — original source.
+// @args ctx — общий AI deadline; key — стабильная idempotency identity; segments — original source.
 // @return проверенный результат либо retry/permanent ошибка.
 func (s *Service) summarize(ctx context.Context, key string, segments []domain.Segment) (domain.SummaryOutput, error) {
 	chunks, err := ChunkSegments(segments, s.cfg.ChunkRunes, s.cfg.MaxChunks)
@@ -249,7 +249,7 @@ schedule:
 }
 
 // aiCall передаёт untrusted JSON отдельно от immutable prompt и строго проверяет ответ.
-// @parameters: ctx — deadline; key — chunk-specific dedup; input — ограниченный JSON;
+// @args ctx — deadline; key — chunk-specific dedup; input — ограниченный JSON;
 // merge — стадия reduce; source — допустимый whitelist original refs.
 // @return schema/evidence-validated output или классифицированную ошибку.
 func (s *Service) aiCall(ctx context.Context, key, input string, merge bool, source []domain.Segment) (domain.SummaryOutput, error) {

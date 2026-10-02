@@ -15,7 +15,7 @@ import (
 
 // TestRateLimitDisabledSkipsLimiter проверяет сценарий «Rate лимит Disabled Skips Limiter», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitDisabledSkipsLimiter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -36,7 +36,7 @@ func TestRateLimitDisabledSkipsLimiter(t *testing.T) {
 	}))
 	router.GET("/api/v1/records", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "success"})
@@ -53,7 +53,7 @@ func TestRateLimitDisabledSkipsLimiter(t *testing.T) {
 
 // TestRateLimitExceededReturnsFailedJSON проверяет сценарий «Rate лимит Exceeded Returns Failed JSON», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitExceededReturnsFailedJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -83,7 +83,7 @@ func TestRateLimitExceededReturnsFailedJSON(t *testing.T) {
 	}))
 	router.POST("/api/v1/records/start", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			t.Fatal("handler must not be called after rate limit exceeded")
@@ -115,7 +115,7 @@ func TestRateLimitExceededReturnsFailedJSON(t *testing.T) {
 
 // TestRateLimitJSONFieldRestoresBodyForHandler проверяет сценарий «Rate лимит JSON Field Restores Body для Handler», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitJSONFieldRestoresBodyForHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -143,7 +143,7 @@ func TestRateLimitJSONFieldRestoresBodyForHandler(t *testing.T) {
 	}))
 	router.POST("/api/v1/records/start", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			var request struct {
@@ -171,7 +171,7 @@ func TestRateLimitJSONFieldRestoresBodyForHandler(t *testing.T) {
 
 // TestRateLimitPathParamKey проверяет сценарий «Rate лимит путь Param ключ», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRateLimitPathParamKey(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -194,7 +194,7 @@ func TestRateLimitPathParamKey(t *testing.T) {
 	}))
 	router.POST("/api/v1/records/:id/webrtc/offer", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "success"})
@@ -209,7 +209,7 @@ func TestRateLimitPathParamKey(t *testing.T) {
 }
 
 // fakeLimiter хранит изолированное состояние тестового компонента «fake Limiter».
-// Состав:
+// @params:
 //   - calls: значение calls типа int, используемое согласно назначению этой операции.
 //   - result: результат проверки или обработки, передаваемый следующему шагу.
 //   - err: сохранённая причина ошибочного завершения.
@@ -225,7 +225,7 @@ type fakeLimiter struct {
 
 // Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 //   - limit (int): предел количества обрабатываемых элементов.

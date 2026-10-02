@@ -15,7 +15,7 @@ import (
 // InitAttachment создаёт или возвращает метаданные незавершённого вложения для безопасной повторной загрузки.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -30,7 +30,7 @@ func (r *ChatRepository) InitAttachment(ctx context.Context, userID, conferenceI
 	created := false
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -64,7 +64,7 @@ func (r *ChatRepository) InitAttachment(ctx context.Context, userID, conferenceI
 
 // attachmentOwned проверяет принадлежность вложения пользователю и конференции перед изменением.
 //
-// @parameters:
+// @args
 //   - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -92,7 +92,7 @@ func attachmentOwned(tx *gorm.DB, userID, conferenceID, id string, write bool) (
 // ClaimUpload атомарно захватывает попытку загрузки ограниченным по времени токеном.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -106,7 +106,7 @@ func (r *ChatRepository) ClaimUpload(ctx context.Context, userID, conferenceID, 
 	var attachment chat.Attachment
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -137,7 +137,7 @@ func (r *ChatRepository) ClaimUpload(ctx context.Context, userID, conferenceID, 
 // CompleteUpload сохраняет результат передачи объекта только для действующей попытки загрузки.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -152,7 +152,7 @@ func (r *ChatRepository) CompleteUpload(ctx context.Context, userID, conferenceI
 	var attachment chat.Attachment
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -180,7 +180,7 @@ func (r *ChatRepository) CompleteUpload(ctx context.Context, userID, conferenceI
 // AttachmentForFinalize читает метаданные вложения, доступного владельцу для подтверждения загрузки.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -193,7 +193,7 @@ func (r *ChatRepository) AttachmentForFinalize(ctx context.Context, userID, conf
 	var a chat.Attachment
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -214,7 +214,7 @@ func (r *ChatRepository) AttachmentForFinalize(ctx context.Context, userID, conf
 // FinalizeAttachment подтверждает готовность загруженного вложения к привязке к сообщению.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -228,7 +228,7 @@ func (r *ChatRepository) FinalizeAttachment(ctx context.Context, userID, confere
 	var a chat.Attachment
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -256,7 +256,7 @@ func (r *ChatRepository) FinalizeAttachment(ctx context.Context, userID, confere
 // DownloadAttachment проверяет доступ к сообщению и возвращает метаданные прикреплённого файла для скачивания.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
@@ -269,7 +269,7 @@ func (r *ChatRepository) DownloadAttachment(ctx context.Context, userID, confere
 	var a chat.Attachment
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -301,7 +301,7 @@ func (r *ChatRepository) DownloadAttachment(ctx context.Context, userID, confere
 // CleanupCandidates выбирает ограниченную порцию просроченных вложений, учитывая действующие попытки загрузки.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - limit (int): максимальное число элементов страницы или порции обработки.
 //
@@ -312,7 +312,7 @@ func (r *ChatRepository) CleanupCandidates(ctx context.Context, limit int) ([]ch
 	var rows []chat.Attachment
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -335,7 +335,7 @@ func (r *ChatRepository) CleanupCandidates(ctx context.Context, limit int) ([]ch
 
 // CompleteCleanup помечает завершённую очистку вложения после удаления ненужных объектов.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - key (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
@@ -348,7 +348,7 @@ func (r *ChatRepository) CompleteCleanup(ctx context.Context, id, key string) er
 
 // AbortUpload освобождает только указанную попытку загрузки после ошибки.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - token (string): подписанный токен или токен владения, который необходимо проверить.

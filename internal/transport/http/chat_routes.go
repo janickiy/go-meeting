@@ -11,7 +11,7 @@ import (
 
 // RegisterChatRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
 //
-// @parameters:
+// @args
 //   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
 //   - handler (*chatapp.Handler): обработчик вызываемой команды или маршрута.
 //   - authentication (gin.HandlerFunc): значение authentication типа gin.HandlerFunc, используемое согласно назначению этой операции.
@@ -19,7 +19,7 @@ import (
 func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentication gin.HandlerFunc, limiter httpmiddleware.Limiter) {
 	// Вложенный обработчик выполняет выделенный шаг обработки в постоянном чате и приватных вложениях, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	//
 	// @return:
@@ -45,7 +45,7 @@ func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentica
 	}
 	// Вложенный обработчик выполняет выделенный шаг обработки в постоянном чате и приватных вложениях, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 	private := func(c *gin.Context) {
 		c.Header("Cache-Control", "private, no-store")

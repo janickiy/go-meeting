@@ -14,7 +14,7 @@ import (
 type measuredEmail struct{ integrations.EmailProvider }
 
 // Send сохраняет контракт адаптера и измеряет одну фактическую отправку.
-// @parameters ctx — deadline; message — минимальные данные письма и стабильный ключ.
+// @args ctx — deadline; message — минимальные данные письма и стабильный ключ.
 // @return исходная классифицированная ошибка без изменения политики повторов.
 func (p measuredEmail) Send(ctx context.Context, message integrations.EmailMessage) (err error) {
 	started := time.Now()
@@ -26,7 +26,7 @@ func (p measuredEmail) Send(ctx context.Context, message integrations.EmailMessa
 type measuredPush struct{ integrations.PushProvider }
 
 // Send учитывает отдельную попытку доставки устройству.
-// @parameters ctx — deadline; message — разрешённый push и серверный токен.
+// @args ctx — deadline; message — разрешённый push и серверный токен.
 // @return неизменённая ошибка адаптера.
 func (p measuredPush) Send(ctx context.Context, message integrations.PushMessage) (err error) {
 	started := time.Now()
@@ -38,7 +38,7 @@ func (p measuredPush) Send(ctx context.Context, message integrations.PushMessage
 type measuredCalendar struct{ integrations.CalendarProvider }
 
 // CreateEvent измеряет идемпотентное создание внешнего события.
-// @parameters ctx — deadline; credentials — приватные OAuth данные; event — разрешённое расписание.
+// @args ctx — deadline; credentials — приватные OAuth данные; event — разрешённое расписание.
 // @return событие и неизменённая ошибка провайдера.
 func (p measuredCalendar) CreateEvent(ctx context.Context, credentials integrations.CalendarCredentials, event integrations.CalendarEvent) (out integrations.CalendarEvent, err error) {
 	started := time.Now()
@@ -47,7 +47,7 @@ func (p measuredCalendar) CreateEvent(ctx context.Context, credentials integrati
 }
 
 // UpdateEvent измеряет версионированное обновление без публикации event ID.
-// @parameters ctx — deadline; credentials — секреты подключения; event — новое расписание.
+// @args ctx — deadline; credentials — секреты подключения; event — новое расписание.
 // @return событие и исходная ошибка.
 func (p measuredCalendar) UpdateEvent(ctx context.Context, credentials integrations.CalendarCredentials, event integrations.CalendarEvent) (out integrations.CalendarEvent, err error) {
 	started := time.Now()
@@ -56,7 +56,7 @@ func (p measuredCalendar) UpdateEvent(ctx context.Context, credentials integrati
 }
 
 // CancelEvent измеряет отмену соответствующего внешнего события.
-// @parameters ctx — deadline; credentials — приватные токены; event — сохранённое соответствие.
+// @args ctx — deadline; credentials — приватные токены; event — сохранённое соответствие.
 // @return исходная ошибка отмены.
 func (p measuredCalendar) CancelEvent(ctx context.Context, credentials integrations.CalendarCredentials, event integrations.CalendarEvent) (err error) {
 	started := time.Now()
@@ -65,7 +65,7 @@ func (p measuredCalendar) CancelEvent(ctx context.Context, credentials integrati
 }
 
 // GetEvent измеряет чтение внешнего события, если оно потребуется сценарию сверки.
-// @parameters ctx — deadline; credentials — серверные секреты; event — идентификаторы соответствия.
+// @args ctx — deadline; credentials — серверные секреты; event — идентификаторы соответствия.
 // @return событие и исходная ошибка чтения.
 func (p measuredCalendar) GetEvent(ctx context.Context, credentials integrations.CalendarCredentials, event integrations.CalendarEvent) (out integrations.CalendarEvent, err error) {
 	started := time.Now()
@@ -77,7 +77,7 @@ func (p measuredCalendar) GetEvent(ctx context.Context, credentials integrations
 type measuredSTT struct{ content.TranscriptionProvider }
 
 // Transcribe учитывает попытку распознавания без аудио или текста в метриках.
-// @parameters ctx — deadline; request — ограниченный поток WAV и ключ дедупликации.
+// @args ctx — deadline; request — ограниченный поток WAV и ключ дедупликации.
 // @return исходные сегменты либо классифицированная ошибка.
 func (p measuredSTT) Transcribe(ctx context.Context, request content.TranscriptionRequest) (out content.TranscriptionResult, err error) {
 	started := time.Now()
@@ -89,7 +89,7 @@ func (p measuredSTT) Transcribe(ctx context.Context, request content.Transcripti
 type measuredAI struct{ content.AIProvider }
 
 // Summarize учитывает отдельный внешний вызов без prompt, текста и модели в labels.
-// @parameters ctx — deadline; request — версия prompt и недоверенные данные.
+// @args ctx — deadline; request — версия prompt и недоверенные данные.
 // @return исходный JSON, который по-прежнему обязан проверить usecase.
 func (p measuredAI) Summarize(ctx context.Context, request content.AIRequest) (out json.RawMessage, err error) {
 	started := time.Now()

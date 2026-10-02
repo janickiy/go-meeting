@@ -13,6 +13,7 @@ import (
 const handLifetime = time.Hour
 
 // Hands хранит поднятые руки в Redis с ограничением количества и времени жизни.
+// @params
 //   - client: клиент внешнего сервиса или транспорта компонента.
 //   - prefix: ограниченный префикс объектов, относящихся к одной операции.
 type Hands struct {
@@ -22,7 +23,7 @@ type Hands struct {
 
 // NewHands создаёт и связывает зависимости компонента Hands, используемого в поднятых руках и временных реакциях участников.
 //
-// @parameters:
+// @args
 //   - client (*goredis.Client): клиент внешнего сервиса или транспорта компонента.
 //   - namespace (string): изолированное пространство Redis-ключей и каналов приложения или теста.
 //
@@ -43,7 +44,7 @@ return {ARGV[1],1}`)
 
 // Raise сохраняет поднятую руку в Redis с ограничением количества и времени хранения.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
@@ -72,7 +73,7 @@ func (s *Hands) Raise(ctx context.Context, conferenceID, participantID string) (
 
 // Lower удаляет активную поднятую руку из Redis.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - participantID (string): идентификатор членства участника внутри конференции.
@@ -87,7 +88,7 @@ func (s *Hands) Lower(ctx context.Context, conferenceID, participantID string) (
 
 // List возвращает ограниченный список поднятых рук и реакций комнаты с принятыми в данном слое фильтрами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //

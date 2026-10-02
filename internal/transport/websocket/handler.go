@@ -35,7 +35,7 @@ import (
 type Verifier interface {
 	// VerifyWithExpiry проверяет подпись и содержимое JWT и возвращает идентификатор пользователя вместе со сроком действия.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (string): исходные байты JSON, пакета или сериализованного значения.
 	//
 	// @return:
@@ -51,7 +51,7 @@ type Verifier interface {
 type Tickets interface {
 	// SaveTicket сохраняет одноразовый билет подключения с ограниченным сроком жизни.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): одноразовый билет ограниченного подключения.
 	//   - аргумент 3 (string): идентификатор конференции, ограничивающий область операции.
@@ -63,7 +63,7 @@ type Tickets interface {
 	SaveTicket(context.Context, string, string, domain.Identity, time.Duration) error
 	// ConsumeTicket атомарно забирает одноразовый билет, исключая повторное использование.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): одноразовый билет ограниченного подключения.
 	//   - аргумент 3 (string): идентификатор конференции, ограничивающий область операции.
@@ -79,7 +79,7 @@ type Tickets interface {
 type Limiter interface {
 	// Allow проверяет ограничение частоты и возвращает решение, остаток и время сброса.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): ключ ограничителя, блокировки или объекта в соответствующем хранилище.
 	//   - аргумент 3 (int): предел количества обрабатываемых элементов.
@@ -113,7 +113,7 @@ type Handler struct {
 type MediaController interface {
 	// Handle обрабатывает проверенное событие сигнализации в рамках живой серверной сессии.
 	//
-	// @parameters:
+	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (domain.Session): историческая физическая сессия или состояние текущего соединения.
 	//   - аргумент 3 (time.Time): момент окончания действия сессии, токена или аренды.
@@ -126,7 +126,7 @@ type MediaController interface {
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в присутствии участников и доставке realtime-событий.
 //
-// @parameters:
+// @args
 //   - hub (*usecase.Hub): координатор присутствия и доставки событий комнаты.
 //   - verifier (Verifier): значение verifier типа Verifier, используемое согласно назначению этой операции.
 //   - tickets (Tickets): сервис выпуска и проверки ограниченных билетов подключения.
@@ -141,7 +141,7 @@ func NewHandler(hub *usecase.Hub, verifier Verifier, tickets Tickets, limiter Li
 
 // SetMedia подключает обработчик медиа-команд к WebSocket-транспорту.
 //
-// @parameters:
+// @args
 //   - controller (MediaController): значение controller типа MediaController, используемое согласно назначению этой операции.
 //
 // @return:
@@ -150,7 +150,7 @@ func (h *Handler) SetMedia(controller MediaController) *Handler { h.media = cont
 
 // RegisterRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.
 //
-// @parameters:
+// @args
 //   - router (gin.IRouter): значение router типа gin.IRouter, используемое согласно назначению этой операции.
 func (h *Handler) RegisterRoutes(router gin.IRouter) {
 	router.GET("/api/v1/conferences/:id/ws", h.Connect)
@@ -160,7 +160,7 @@ func (h *Handler) RegisterRoutes(router gin.IRouter) {
 
 // identity извлекает доверенную идентичность пользователя из проверенной авторизации.
 //
-// @parameters:
+// @args
 //   - r (*http.Request): входящий HTTP-запрос.
 //
 // @return:
@@ -177,7 +177,7 @@ func (h *Handler) identity(r *http.Request) (domain.Identity, error) {
 
 // conferenceID проверяет и нормализует идентификатор конференции из HTTP-маршрута.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //
 // @return:
@@ -193,7 +193,7 @@ func conferenceID(c *gin.Context) (string, error) {
 
 // Ticket создаёт ограниченный по времени билет подключения после проверки авторизации.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Ticket(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
@@ -247,7 +247,7 @@ func (h *Handler) Ticket(c *gin.Context) {
 // credentials и relay-policy. Shared secret не включается в ответ; no-store
 // предотвращает кеширование credentials за пределами их короткого TTL.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) ICE(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
@@ -260,7 +260,7 @@ func (h *Handler) ICE(c *gin.Context) {
 
 // origin проверяет Origin подключения по настроенному списку допустимых источников.
 //
-// @parameters:
+// @args
 //   - r (*http.Request): входящий HTTP-запрос.
 //
 // @return:
@@ -287,7 +287,7 @@ func (h *Handler) origin(r *http.Request) bool {
 
 // Connect проверяет билет, Origin и членство, открывает WebSocket и запускает единственные циклы чтения и записи.
 //
-// @parameters:
+// @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Connect(c *gin.Context) {
 	if h.cfg.MaxConnections > 0 && h.connections.Add(1) > int64(h.cfg.MaxConnections) {
@@ -369,7 +369,7 @@ func (h *Handler) Connect(c *gin.Context) {
 }
 
 // control передаёт управляющую WebSocket-команду писателю сокета.
-// Состав:
+// @params:
 //   - kind: тип события, ошибки или медиа, определяющий ветку обработки.
 //   - data: полезная нагрузка события или байты обрабатываемого содержимого.
 type control struct {
@@ -378,7 +378,7 @@ type control struct {
 }
 
 // client хранит физический WebSocket-клиент, единственного писателя, очереди событий и ограничения входящих сообщений.
-// Состав:
+// @params:
 //   - conn: действующее сетевое соединение операции.
 //   - handler: обработчик вызываемой команды или маршрута.
 //   - session: историческая физическая сессия или состояние текущего соединения.
@@ -404,7 +404,7 @@ type client struct {
 
 // newClient создаёт состояние сокета с единственным писателем и ограниченными очередями событий.
 //
-// @parameters:
+// @args
 //   - conn (*ws.Conn): действующее сетевое соединение операции.
 //   - h (*Handler): значение h типа *Handler, используемое согласно назначению этой операции.
 //   - s (domain.Session): значение s типа domain.Session, используемое согласно назначению этой операции.
@@ -418,7 +418,7 @@ func newClient(conn *ws.Conn, h *Handler, s domain.Session, expiry time.Time) *c
 
 // Offer ставит событие в соответствующую ограниченную очередь сокета с учётом приоритета.
 //
-// @parameters:
+// @args
 //   - event (domain.Envelope): конверт входящего или публикуемого события.
 //
 // @return:
@@ -451,7 +451,7 @@ func (c *client) Offer(event domain.Envelope) bool {
 
 // Stop останавливает активную обработку физических сессий и событий комнаты и освобождает связанные ресурсы.
 //
-// @parameters:
+// @args
 //   - reason (string): причина завершения, отказа или изменения состояния.
 func (c *client) Stop(reason string) {
 	c.once.Do( /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
@@ -482,7 +482,7 @@ func (c *client) write() {
 	defer expiry.Stop()
 	// Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
 	//
-	// @parameters:
+	// @args
 	//   - kind (int): тип события, ошибки или медиа, определяющий ветку обработки.
 	//   - data ([]byte): полезная нагрузка события или байты обрабатываемого содержимого.
 	//
@@ -538,7 +538,7 @@ func (c *client) write() {
 }
 
 // bucket хранит локальное состояние ограничения частоты для физического сокета.
-// Состав:
+// @params:
 //   - tokens: сервис выпуска или проверки JWT авторизации.
 //   - updated: временная отметка updated; указатель допускает отсутствие значения.
 //   - rate: значение rate типа float64, используемое согласно назначению этой операции.
@@ -573,7 +573,7 @@ func (c *client) read() {
 	lastPong := time.Time{}
 	c.conn.SetPongHandler( /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - value (string): значение для проверки, нормализации или преобразования.
 
 		@return:
@@ -599,7 +599,7 @@ func (c *client) read() {
 		})
 	c.conn.SetPingHandler( /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - value (string): значение для проверки, нормализации или преобразования.
 
 		@return:
@@ -616,7 +616,7 @@ func (c *client) read() {
 		})
 	c.conn.SetCloseHandler( /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - _ (int): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		  - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 
@@ -711,7 +711,7 @@ func (c *client) read() {
 
 // failure формирует безопасное событие ошибки протокола для клиента.
 //
-// @parameters:
+// @args
 //   - replyTo (string): идентификатор исходного запроса или сообщения, на которое даётся ответ.
 //   - code (string): код приглашения или машинный код результата.
 func (c *client) failure(replyTo, code string) {
@@ -724,7 +724,7 @@ func (c *client) failure(replyTo, code string) {
 
 // strictJSON строго разбирает JSON-пакет и отвергает неизвестные поля и лишние данные.
 //
-// @parameters:
+// @args
 //   - raw ([]byte): исходные байты JSON, пакета или сериализованного значения.
 //   - value (any): значение для проверки, нормализации или преобразования.
 //

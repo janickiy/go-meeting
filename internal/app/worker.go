@@ -28,7 +28,7 @@ import (
 )
 
 // RunWorker запускает recorder-worker.
-// @parameters: нет.
+// @args нет.
 // @return ошибку bootstrap-а.
 func RunWorker() error {
 	cfg, err := config.Load()
@@ -94,7 +94,7 @@ func RunWorker() error {
 		Logger:      logger,
 		OnStarted: /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 		  - recordID (string): внешний UUID задачи записи.
 		*/func(ctx context.Context, recordID string) {
@@ -104,7 +104,7 @@ func RunWorker() error {
 		},
 		OnFailed: /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 		  - recordID (string): внешний UUID задачи записи.
 		  - cause (error): значение cause типа error, используемое согласно назначению этой операции.
@@ -131,7 +131,7 @@ func RunWorker() error {
 		Config: compositeConfig, ConferenceLock: conferenceLock, Logger: logger,
 		Publish: /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 		  - record (records.Record): задача записи с её сохранённым состоянием.
 		  - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
@@ -142,7 +142,7 @@ func RunWorker() error {
 			if status == records.StatusFinalizing || status == records.StatusUploading {
 				status = "processing"
 			}
-			event := realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": status, "mode": "composite", "error": record.ErrorMessage})
+			event := realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": status, "mode": record.Mode, "error": record.ErrorMessage})
 			return store.Publish(ctx, realtime.Bus{Kind: "event", ConferenceID: record.ConferenceID, Event: &event})
 		},
 	})
@@ -210,7 +210,7 @@ func RunWorker() error {
 
 // serveWorkerHTTP запускает HTTP-сервер воркера и завершает его по отмене контекста.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - port (int): локальный сетевой порт передачи RTP.
 //   - service (*recorder.WorkerService): значение service типа *recorder.WorkerService, используемое согласно назначению этой операции.
@@ -220,7 +220,7 @@ func serveWorkerHTTP(ctx context.Context, port int, service *recorder.WorkerServ
 	ops.Register(mux)
 	mux.HandleFunc("/health", /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - _ (*http.Request): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		*/func(w http.ResponseWriter, _ *http.Request) {
@@ -229,7 +229,7 @@ func serveWorkerHTTP(ctx context.Context, port int, service *recorder.WorkerServ
 		})
 	mux.HandleFunc("/records/", /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и запуске компонентов приложения, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
 		*/func(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +286,7 @@ func sampleRecorder(ctx context.Context, service *recorder.CompositeService) {
 
 // handleWorkerRecords обрабатывает HTTP-операции воркера над записью.
 //
-// @parameters:
+// @args
 //   - w (http.ResponseWriter): получатель HTTP-ответа.
 //   - r (*http.Request): входящий HTTP-запрос.
 //   - service (*recorder.WorkerService): значение service типа *recorder.WorkerService, используемое согласно назначению этой операции.
@@ -320,7 +320,7 @@ func handleWorkerRecords(w http.ResponseWriter, r *http.Request, service *record
 
 // handleWorkerCommand разбирает и исполняет внутреннюю HTTP-команду воркера записи.
 //
-// @parameters:
+// @args
 //   - w (http.ResponseWriter): получатель HTTP-ответа.
 //   - r (*http.Request): входящий HTTP-запрос.
 //   - service (*recorder.WorkerService): значение service типа *recorder.WorkerService, используемое согласно назначению этой операции.
@@ -346,7 +346,7 @@ func handleWorkerCommand(w http.ResponseWriter, r *http.Request, service *record
 
 // handleWorkerWebRTCOffer принимает SDP-предложение на внутреннем HTTP-маршруте старого воркера записи.
 //
-// @parameters:
+// @args
 //   - w (http.ResponseWriter): получатель HTTP-ответа.
 //   - r (*http.Request): входящий HTTP-запрос.
 //   - service (*recorder.WorkerService): значение service типа *recorder.WorkerService, используемое согласно назначению этой операции.

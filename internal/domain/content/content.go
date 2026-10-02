@@ -112,13 +112,16 @@ type SegmentPage struct {
 
 // SearchQuery задаёт серверные фильтры; время передаётся как однозначный UTC instant.
 type SearchQuery struct {
-	Query, Source, ConferenceID string
-	From, To                    *time.Time
-	Limit, Offset               int
+	Mode, ParticipantID, Membership string
+	Query, Source, ConferenceID     string
+	From, To                        *time.Time
+	Limit, Offset                   int
 }
 
 // SearchResult возвращает plain-text snippet и точку перехода к записи, не выдавая storage URL.
 type SearchResult struct {
+	SpeakerID       *string `json:"speakerId,omitempty"`
+	Speaker         string  `json:"speaker,omitempty"`
 	Type            string  `json:"type"`
 	ConferenceID    string  `json:"conferenceId"`
 	ConferenceTitle string  `json:"conferenceTitle"`
@@ -132,10 +135,12 @@ type SearchResult struct {
 
 // SearchPage содержит ограниченную страницу только разрешённых результатов.
 type SearchPage struct {
-	Items  []SearchResult `json:"items"`
-	Total  int64          `json:"total"`
-	Limit  int            `json:"limit"`
-	Offset int            `json:"offset"`
+	EffectiveMode  string         `json:"effectiveMode"`
+	FallbackReason string         `json:"fallbackReason,omitempty"`
+	Items          []SearchResult `json:"items"`
+	Total          int64          `json:"total"`
+	Limit          int            `json:"limit"`
+	Offset         int            `json:"offset"`
 }
 
 // RecordingSource описывает приватный объект из проверенной БД, а не пользовательский URL.
@@ -172,7 +177,7 @@ type TranscriptionProvider interface {
 	// Name возвращает постоянное имя адаптера без секретов.
 	Name() string
 	// Transcribe распознаёт аудио, соблюдая отмену контекста.
-	// @parameters: ctx — deadline; request — ограниченное аудио и ключ дедупликации.
+	// @args ctx — deadline; request — ограниченное аудио и ключ дедупликации.
 	// @return непроверенный результат или классифицированную ошибку.
 	Transcribe(context.Context, TranscriptionRequest) (TranscriptionResult, error)
 }
@@ -191,7 +196,7 @@ type AIProvider interface {
 	// Model возвращает техническое имя модели без credentials.
 	Model() string
 	// Summarize обрабатывает только переданный input, не выполняя внешних действий.
-	// @parameters: ctx — deadline; request — инструкции и недоверенные данные.
+	// @args ctx — deadline; request — инструкции и недоверенные данные.
 	// @return сырой JSON для строгой серверной проверки или ошибку.
 	Summarize(context.Context, AIRequest) (json.RawMessage, error)
 }

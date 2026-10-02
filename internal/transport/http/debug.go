@@ -15,10 +15,10 @@ import (
 var webrtcSmokeHTML string
 
 // CompletedRecordsLister задаёт контракт зависимого компонента CompletedRecordsLister в регистрации и обработке HTTP-маршрутов; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-//   - ListCompletedRecords: операция список Completed Records с контрактом, описанным у метода.
+// - ListCompletedRecords: операция список Completed Records с контрактом, описанным у метода.
 type CompletedRecordsLister interface {
 	// ListCompletedRecords возвращает записи, у которых в MinIO есть preview.jpg и final.mp4.
-	// @parameters:
+	// @args
 	// - ctx: контекст HTTP-запроса.
 	// - limit: максимальное количество записей.
 	// @return список записей или ошибку хранилища.
@@ -26,14 +26,14 @@ type CompletedRecordsLister interface {
 }
 
 // RegisterDebugRoutes регистрирует local-only debug страницы.
-// @parameters:
+// @args
 // - router: Gin router.
 // - completedRecords: источник завершенных записей из MinIO.
 // @return ничего.
 func RegisterDebugRoutes(router gin.IRouter, completedRecords CompletedRecordsLister) {
 	router.GET("/debug/webrtc-smoke", /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			noStore(c)
@@ -45,7 +45,7 @@ func RegisterDebugRoutes(router gin.IRouter, completedRecords CompletedRecordsLi
 	}
 	router.GET("/debug/records/completed", /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
 
-		@parameters:
+		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 		*/func(c *gin.Context) {
 			noStore(c)
@@ -65,7 +65,7 @@ func RegisterDebugRoutes(router gin.IRouter, completedRecords CompletedRecordsLi
 }
 
 // noStore отключает browser cache для debug endpoint-ов.
-// @parameters:
+// @args
 // - c: Gin context.
 // @return ничего.
 func noStore(c *gin.Context) {
@@ -75,7 +75,7 @@ func noStore(c *gin.Context) {
 }
 
 // debugLimit читает query-параметр limit для debug endpoint-ов.
-// @parameters:
+// @args
 // - c: Gin context.
 // - fallback: значение по умолчанию.
 // @return корректный limit в диапазоне 1..100.

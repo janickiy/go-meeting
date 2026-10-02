@@ -36,7 +36,7 @@ type testEngine struct {
 // Join создаёт или восстанавливает членство участника, учитывая приглашение, состояние встречи и зал ожидания.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - b (media.Binding): контекст измерения производительности теста.
 //
@@ -59,7 +59,7 @@ func (e *testEngine) Join(_ context.Context, b media.Binding) (media.PeerView, e
 // Offer обрабатывает или передаёт SDP-предложение действующего WebRTC-подключения.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
@@ -77,7 +77,7 @@ func (e *testEngine) Offer(_ context.Context, _, _, _ string) (webrtc.SessionDes
 
 // Ready принимает подтверждение установки SDP-ответа клиентом и разрешает дорожки только для текущего согласования.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 //   - аргумент 3 (string): идентификатор связанного ресурса, заданного параметром negotiationID.
@@ -88,7 +88,7 @@ func (*testEngine) Ready(context.Context, string, string) error { return nil }
 
 // ICE передаёт проверенного кандидата ICE действующему медиа-соединению.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 //   - аргумент 3 (*webrtc.ICECandidateInit): проверенный кандидат ICE для WebRTC-соединения.
@@ -99,7 +99,7 @@ func (*testEngine) ICE(context.Context, string, *webrtc.ICECandidateInit) error 
 
 // Unpublish останавливает публикацию указанного медиа-источника.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 //   - аргумент 3 (string): идентификатор связанного ресурса, заданного параметром trackID.
@@ -111,7 +111,7 @@ func (*testEngine) Unpublish(context.Context, string, string) error { return nil
 // Leave фиксирует выход участника, сохраняя историю членства и состояние допуска.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -126,7 +126,7 @@ func (e *testEngine) Leave(_ context.Context, id string) error {
 
 // LeaveConnection отключает только указанное физическое медиа-соединение.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 func (e *testEngine) LeaveConnection(ctx context.Context, id string) {
@@ -141,7 +141,7 @@ func (e *testEngine) LeaveConnection(ctx context.Context, id string) {
 // PeerBinding возвращает серверную идентичность медиа-пира по физическому соединению.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
 // @return:
@@ -183,7 +183,7 @@ func (e *testEngine) Bindings() []media.Binding {
 
 // Tracks возвращает снимок доступных опубликованных дорожек комнаты.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (string): идентификатор обрабатываемого ресурса.
 //
 // @return:
@@ -192,7 +192,7 @@ func (*testEngine) Tracks(string) []media.Track { return []media.Track{} }
 
 // CloseConference закрывает все медиа-подключения и ресурсы конкретной конференции.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
 //
@@ -209,7 +209,7 @@ func (e *testEngine) CloseConference(ctx context.Context, id string) error {
 
 // Shutdown останавливает менеджер и ожидает завершения принадлежащих ему ресурсов.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -222,7 +222,7 @@ func (e *testEngine) Shutdown(ctx context.Context) error {
 }
 
 // testRegistry хранит изолированное состояние тестового компонента «проверка Registry».
-// Состав:
+// @params:
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - route: адрес и версия действующего владельца медиа-комнаты.
 //   - lost: логический признак lost, управляющий соответствующей веткой обработки.
@@ -243,7 +243,7 @@ type testRegistry struct {
 // RegisterWorker сохраняет сведения и срок присутствия доступного медиа-воркера.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (media.Worker): значение worker типа media.Worker, используемое согласно назначению этой операции.
 //   - аргумент 3 (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
@@ -259,7 +259,7 @@ func (r *testRegistry) RegisterWorker(context.Context, media.Worker, time.Durati
 // GetOwner читает актуального владельца медиа-комнаты и его версию владения.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 //
@@ -278,7 +278,7 @@ func (r *testRegistry) GetOwner(context.Context, string) (media.Route, error) {
 // Renew продлевает владение только при совпадении идентичности текущего владельца.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //   - _ (media.Route): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
@@ -312,7 +312,7 @@ func (r *testRegistry) Renew(ctx context.Context, _ string, _ media.Route, _ tim
 // Release освобождает ресурс только при совпадении сохранённого владельца или токена.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 //   - аргумент 3 (media.Route): адрес и версия действующего владельца медиа-комнаты.
@@ -328,7 +328,7 @@ func (r *testRegistry) Release(context.Context, string, media.Route) error {
 
 // RemoveWorker удаляет присутствие воркера из реестра.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор воркера-владельца операции.
 //   - аргумент 3 (string): адрес конечной точки вызываемого сервиса.
@@ -338,7 +338,7 @@ func (r *testRegistry) Release(context.Context, string, media.Route) error {
 func (*testRegistry) RemoveWorker(context.Context, string, string) error { return nil }
 
 // testSessions хранит изолированное состояние тестового компонента «проверка сессии».
-// Состав:
+// @params:
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - session: историческая физическая сессия или состояние текущего соединения.
 //   - missing: логический признак missing, управляющий соответствующей веткой обработки.
@@ -353,7 +353,7 @@ type testSessions struct {
 // Get читает состояние ресурсов компонента для дальнейшей обработки или ответа.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
 //
@@ -373,7 +373,7 @@ func (s *testSessions) Get(context.Context, string) (realtime.Session, error) {
 }
 
 // fixture хранит изолированное состояние тестового компонента «тестовое окружение».
-// Состав:
+// @params:
 //   - h: значение h типа *Handler, используемое согласно назначению этой операции.
 //   - cfg: проверенные настройки соответствующего компонента.
 //   - engine: значение engine типа *testEngine, используемое согласно назначению этой операции.
@@ -393,7 +393,7 @@ type fixture struct {
 
 // newFixture подготавливает или проверяет часть тестового сценария «новый тестовое окружение».
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //
 // @return:
@@ -430,7 +430,7 @@ func newFixture(t *testing.T) *fixture {
 
 // request подготавливает или проверяет часть тестового сценария «request».
 //
-// @parameters:
+// @args
 //   - op (string): значение op типа string, используемое согласно назначению этой операции.
 //   - cmd (media.Command): значение cmd типа media.Command, используемое согласно назначению этой операции.
 //   - secret (string): секрет внутренней авторизации или подписи, не предназначенный для журналирования.
@@ -452,7 +452,7 @@ func (f *fixture) request(op string, cmd media.Command, secret string) (int, med
 
 // join назначает владельца медиа-комнаты и создаёт подключение для проверенной физической сессии.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //
 // @return:
@@ -468,7 +468,7 @@ func (f *fixture) join(t *testing.T) string {
 
 // TestInternalMediaAuthorizationAndBinding проверяет сценарий «Internal медиа авторизация и Binding», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestInternalMediaAuthorizationAndBinding(t *testing.T) {
 	f := newFixture(t)
@@ -506,7 +506,7 @@ func TestInternalMediaAuthorizationAndBinding(t *testing.T) {
 // TestMediaJoinPropagatesConfiguredCaptureTarget проверяет сценарий «медиа Join Propagates Configured захват Target», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaJoinPropagatesConfiguredCaptureTarget(t *testing.T) {
 	f := newFixture(t)
@@ -535,7 +535,7 @@ func TestMediaJoinPropagatesConfiguredCaptureTarget(t *testing.T) {
 // TestRoomGateCancellationAndReferenceCleanup проверяет сценарий «Room Gate Cancellation и Reference очистка», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestRoomGateCancellationAndReferenceCleanup(t *testing.T) {
 	f := newFixture(t)
@@ -564,7 +564,7 @@ func TestRoomGateCancellationAndReferenceCleanup(t *testing.T) {
 
 // TestMediaUUIDAndUTF8StrictValidation проверяет сценарий «медиа UUID и UTF8Strict проверка входных данных», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaUUIDAndUTF8StrictValidation(t *testing.T) {
 	if validUUID(uuid.Nil.String()) || validUUID("AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA") || validUUID("not-uuid") {
@@ -578,7 +578,7 @@ func TestMediaUUIDAndUTF8StrictValidation(t *testing.T) {
 // TestLocalLeaseWatchdogFencesWhileRenewalIsBlocked проверяет сценарий «локальный аренда Watchdog Fences While Renewal является Blocked», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLocalLeaseWatchdogFencesWhileRenewalIsBlocked(t *testing.T) {
 	f := newFixture(t)
@@ -617,7 +617,7 @@ func TestLocalLeaseWatchdogFencesWhileRenewalIsBlocked(t *testing.T) {
 // TestMediaSessionBrokerFailureClosesEveryOwnedRoom проверяет сценарий «медиа сессия Broker сбой Closes Every Owned Room», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaSessionBrokerFailureClosesEveryOwnedRoom(t *testing.T) {
 	f := newFixture(t)
@@ -642,13 +642,13 @@ func TestMediaSessionBrokerFailureClosesEveryOwnedRoom(t *testing.T) {
 }
 
 // deadlineSessions хранит изолированное состояние тестового компонента «deadline сессии».
-// Состав:
+// @params:
 //   - calls: значение calls типа atomic.Int32, используемое согласно назначению этой операции.
 type deadlineSessions struct{ calls atomic.Int32 }
 
 // Get читает состояние ресурсов компонента для дальнейшей обработки или ответа.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - _ (string): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 //
@@ -664,7 +664,7 @@ func (s *deadlineSessions) Get(ctx context.Context, _ string) (realtime.Session,
 // TestMediaSessionSweepUsesOneGlobalBudget проверяет сценарий «медиа сессия Sweep Uses один Global Budget», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaSessionSweepUsesOneGlobalBudget(t *testing.T) {
 	base := newFixture(t)
@@ -699,7 +699,7 @@ func TestMediaSessionSweepUsesOneGlobalBudget(t *testing.T) {
 // TestInternalMediaOfferIdempotenceAndBounds проверяет сценарий «Internal медиа SDP-предложение Idempotence и Bounds», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestInternalMediaOfferIdempotenceAndBounds(t *testing.T) {
 	f := newFixture(t)
@@ -764,14 +764,14 @@ func TestInternalMediaOfferIdempotenceAndBounds(t *testing.T) {
 // TestWorkerLostLeaseAndOrphanCleanup проверяет сценарий «воркер Lost аренда и Orphan очистка», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestWorkerLostLeaseAndOrphanCleanup(t *testing.T) {
 	for _, lostLease := range []bool{true, false} {
 		t.Run(map[bool]string{true: "lease", false: "session"}[lostLease], /* Вложенный обработчик выполняет отдельный вариант тестового сценария с проверкой результата и очисткой ресурсов.
 			Синхронизирует доступ к разделяемому состоянию блокировкой.
 
-			@parameters:
+			@args
 			  - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 			*/func(t *testing.T) {
 				f := newFixture(t)
@@ -805,7 +805,7 @@ func TestWorkerLostLeaseAndOrphanCleanup(t *testing.T) {
 // TestLeaveDoesNotRequireLiveSession проверяет сценарий «Leave выполняет не Require Live сессия», фиксируя ошибки поведения как регрессию.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestLeaveDoesNotRequireLiveSession(t *testing.T) {
 	f := newFixture(t)

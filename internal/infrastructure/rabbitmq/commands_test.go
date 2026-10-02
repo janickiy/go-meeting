@@ -12,7 +12,7 @@ import (
 
 // TestNormalizeOptionsLocalBroker проверяет сценарий «нормализация Options локальный Broker», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestNormalizeOptionsLocalBroker(t *testing.T) {
 	got := normalizeOptions(Options{})
@@ -26,7 +26,7 @@ func TestNormalizeOptionsLocalBroker(t *testing.T) {
 
 // TestCommandRoundTrip проверяет сценарий «Command Round Trip», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestCommandRoundTrip(t *testing.T) {
 	dsn := os.Getenv("RABBITMQ_TEST_URL")
@@ -68,7 +68,7 @@ func TestCommandRoundTrip(t *testing.T) {
 	 */func() {
 		done <- consumer.Consume(ctx, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-			@parameters:
+			@args
 			  - _ (context.Context): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 			  - command (records.Command): внутренняя команда с типом операции и серверной идентичностью ресурса.
 

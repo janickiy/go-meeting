@@ -17,7 +17,7 @@ type SessionRepository struct{ db *gorm.DB }
 
 // NewSessionRepository создаёт и связывает зависимости компонента SessionRepository, используемого в присутствии участников и доставке realtime-событий.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //
 // @return:
@@ -26,7 +26,7 @@ func NewSessionRepository(db *gorm.DB) *SessionRepository { return &SessionRepos
 
 // authorizeSession проверяет допуск участника к живому соединению данной конференции.
 //
-// @parameters:
+// @args
 //   - db (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -58,7 +58,7 @@ func authorizeSession(db *gorm.DB, conferenceID, userID string, locked bool) (co
 
 // Authorize проверяет право пользователя участвовать в операции до работы с защищёнными ресурсами.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //   - userID (string): идентификатор пользователя, для которого выполняется операция.
@@ -73,7 +73,7 @@ func (r *SessionRepository) Authorize(ctx context.Context, conferenceID, userID 
 // Open создаёт историческую физическую сессию только для действующего допущенного участника.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - session (realtime.Session): историческая физическая сессия или состояние текущего соединения.
 //
@@ -82,7 +82,7 @@ func (r *SessionRepository) Authorize(ctx context.Context, conferenceID, userID 
 func (r *SessionRepository) Open(ctx context.Context, session realtime.Session) error {
 	return r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -101,7 +101,7 @@ func (r *SessionRepository) Open(ctx context.Context, session realtime.Session) 
 // Close фиксирует завершение исторической физической сессии.
 // Операции с базой данных объединяет в транзакцию.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - connectionID (string): идентификатор физического медиа-соединения.
 //   - seen (time.Time): временная отметка seen; указатель допускает отсутствие значения.
@@ -112,7 +112,7 @@ func (r *SessionRepository) Close(ctx context.Context, connectionID string, seen
 	// Idempotent; PostgreSQL is updated only on open/close, not on every pong.
 	return r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
-		@parameters:
+		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
 
 		@return:
@@ -135,7 +135,7 @@ func (r *SessionRepository) Close(ctx context.Context, connectionID string, seen
 
 // Stale находит незакрытые исторические сессии старше контрольной границы.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - before (time.Time): временная отметка before; указатель допускает отсутствие значения.
 //   - cursor (string): непрозрачная граница продолжения предыдущей страницы.
@@ -155,7 +155,7 @@ func (r *SessionRepository) Stale(ctx context.Context, before time.Time, cursor 
 
 // Roster читает конференцию и членства для авторизации и построения снимка комнаты.
 //
-// @parameters:
+// @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
 //

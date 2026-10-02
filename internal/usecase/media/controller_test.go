@@ -15,7 +15,7 @@ import (
 )
 
 // testRegistry хранит изолированное состояние тестового компонента «проверка Registry».
-// Состав:
+// @params:
 //   - route: адрес и версия действующего владельца медиа-комнаты.
 //   - err: ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 type testRegistry struct {
@@ -25,7 +25,7 @@ type testRegistry struct {
 
 // Workers возвращает действующие медиа-воркеры для распределения комнаты.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //
 // @return:
@@ -37,7 +37,7 @@ func (r *testRegistry) Workers(context.Context) ([]domain.Worker, error) {
 
 // Claim пытается закрепить распределённое владение ресурсом за указанным воркером.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 //   - аргумент 3 (string): идентификатор воркера-владельца операции.
@@ -52,7 +52,7 @@ func (r *testRegistry) Claim(context.Context, string, string, time.Duration) (do
 
 // GetOwner читает актуального владельца медиа-комнаты и его версию владения.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (string): идентификатор конференции, ограничивающий область операции.
 //
@@ -62,7 +62,7 @@ func (r *testRegistry) Claim(context.Context, string, string, time.Duration) (do
 func (r *testRegistry) GetOwner(context.Context, string) (domain.Route, error) { return r.route, r.err }
 
 // testTickets хранит изолированное состояние тестового компонента «проверка билеты».
-// Состав:
+// @params:
 //   - binding: проверенная идентичность медиа-подключения, назначенная сервером.
 //   - route: адрес и версия действующего владельца медиа-комнаты.
 type testTickets struct {
@@ -72,7 +72,7 @@ type testTickets struct {
 
 // Issue выпускает подписанный JWT пользователя с настроенным сроком действия.
 //
-// @parameters:
+// @args
 //   - b (domain.Binding): контекст измерения производительности теста.
 //   - r (domain.Route): входящий HTTP-запрос.
 //
@@ -86,13 +86,13 @@ func (t *testTickets) Issue(b domain.Binding, r domain.Route) (string, error) {
 }
 
 // testSessions хранит изолированное состояние тестового компонента «проверка сессии».
-// Состав:
+// @params:
 //   - err: ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 type testSessions struct{ err error }
 
 // ValidateSession связывает медиа-команду с действующей разрешённой физической WebSocket-сессией.
 //
-// @parameters:
+// @args
 //   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - аргумент 2 (realtime.Session): историческая физическая сессия или состояние текущего соединения.
 //
@@ -101,7 +101,7 @@ type testSessions struct{ err error }
 func (s *testSessions) ValidateSession(context.Context, realtime.Session) error { return s.err }
 
 // testPublisher хранит изолированное состояние тестового компонента «проверка Publisher».
-// Состав:
+// @params:
 //   - events: получатель или издатель событий прикладного сценария.
 //   - err: ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 type testPublisher struct {
@@ -111,7 +111,7 @@ type testPublisher struct {
 
 // Publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - bus (realtime.Bus): транспорт публикации и подписки на доверенные события.
 //
@@ -123,7 +123,7 @@ func (p *testPublisher) Publish(_ context.Context, bus realtime.Bus) error {
 }
 
 // testTransport хранит изолированное состояние тестового компонента «проверка транспорт».
-// Состав:
+// @params:
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - commands: транспорт доставки управляющих команд записи.
 //   - actions: набор значений actions для последовательной или пакетной обработки.
@@ -144,7 +144,7 @@ type testTransport struct {
 // Call выполняет защищённый внутренний HTTP-вызов выбранной операции медиа-воркера.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
-// @parameters:
+// @args
 //   - _ (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - action (string): действие управления, которое необходимо проверить или исполнить.
 //   - c (domain.Command): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
@@ -165,7 +165,7 @@ func (t *testTransport) Call(_ context.Context, action string, c domain.Command)
 }
 
 // controllerFixture хранит изолированное состояние тестового компонента «controller тестовое окружение».
-// Состав:
+// @params:
 //   - controller: значение controller типа *Controller, используемое согласно назначению этой операции.
 //   - registry: распределённый реестр воркеров и владения комнатами.
 //   - tickets: сервис выпуска и проверки ограниченных билетов подключения.
@@ -198,7 +198,7 @@ func newControllerFixture() *controllerFixture {
 
 // event формирует серверное событие сохранённого изменения членства конференции.
 //
-// @parameters:
+// @args
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 //   - data (any): полезная нагрузка события или байты обрабатываемого содержимого.
 //
@@ -210,7 +210,7 @@ func (f *controllerFixture) event(kind string, data any) realtime.Envelope {
 
 // join назначает владельца медиа-комнаты и создаёт подключение для проверенной физической сессии.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func (f *controllerFixture) join(t *testing.T) {
 	t.Helper()
@@ -221,7 +221,7 @@ func (f *controllerFixture) join(t *testing.T) {
 
 // TestControllerTrustedIdentityAndReplies проверяет сценарий «Controller Trusted Identity и ответы», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerTrustedIdentityAndReplies(t *testing.T) {
 	f := newControllerFixture()
@@ -258,7 +258,7 @@ func TestControllerTrustedIdentityAndReplies(t *testing.T) {
 
 // TestControllerRejectsSpoofingUnsupportedMessagesAndLeaseLoss проверяет сценарий «Controller Rejects Spoofing Unsupported Messages и аренда Loss», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerRejectsSpoofingUnsupportedMessagesAndLeaseLoss(t *testing.T) {
 	f := newControllerFixture()
@@ -294,7 +294,7 @@ func TestControllerRejectsSpoofingUnsupportedMessagesAndLeaseLoss(t *testing.T) 
 
 // TestControllerICEEndOfCandidatesLeaveAndIdempotentCleanup проверяет сценарий «Controller ICE End Of Candidates Leave и идемпотентность очистка», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerICEEndOfCandidatesLeaveAndIdempotentCleanup(t *testing.T) {
 	f := newControllerFixture()
@@ -318,7 +318,7 @@ func TestControllerICEEndOfCandidatesLeaveAndIdempotentCleanup(t *testing.T) {
 
 // TestControllerSessionBoundJoinCancellation проверяет сценарий «Controller сессия Bound Join Cancellation», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerSessionBoundJoinCancellation(t *testing.T) {
 	f := newControllerFixture()
@@ -336,7 +336,7 @@ func TestControllerSessionBoundJoinCancellation(t *testing.T) {
 
 // TestControllerReadyHasStrictBindingAndNegotiationCorrelation проверяет сценарий «Controller готовность Has строгий Binding и Negotiation Correlation», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerReadyHasStrictBindingAndNegotiationCorrelation(t *testing.T) {
 	f := newControllerFixture()
@@ -361,7 +361,7 @@ func TestControllerReadyHasStrictBindingAndNegotiationCorrelation(t *testing.T) 
 
 // TestControllerPublishFailureCleansPreparedMedia проверяет сценарий «Controller публикация сбой Cleans Prepared медиа», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerPublishFailureCleansPreparedMedia(t *testing.T) {
 	f := newControllerFixture()
@@ -376,7 +376,7 @@ func TestControllerPublishFailureCleansPreparedMedia(t *testing.T) {
 
 // TestControllerRequiresLiveAuthorizedSession проверяет сценарий «Controller Requires Live Authorized сессия», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerRequiresLiveAuthorizedSession(t *testing.T) {
 	f := newControllerFixture()
@@ -395,7 +395,7 @@ func TestControllerRequiresLiveAuthorizedSession(t *testing.T) {
 
 // TestControllerRequiresObjectPayload проверяет сценарий «Controller Requires Object Payload», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerRequiresObjectPayload(t *testing.T) {
 	f := newControllerFixture()
@@ -410,7 +410,7 @@ func TestControllerRequiresObjectPayload(t *testing.T) {
 
 // TestControllerValidatesAndPropagatesCustomCaptureTarget проверяет сценарий «Controller Validates и Propagates Custom захват Target», фиксируя ошибки поведения как регрессию.
 //
-// @parameters:
+// @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestControllerValidatesAndPropagatesCustomCaptureTarget(t *testing.T) {
 	f := newControllerFixture()
