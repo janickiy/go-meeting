@@ -148,6 +148,15 @@ export function useNotificationStream(userId?: string) {
                   void client.invalidateQueries({
                     queryKey: ["recordings", conferenceId],
                   });
+                  void client.invalidateQueries({
+                    queryKey: ["transcript", userId, conferenceId],
+                  });
+                  void client.invalidateQueries({
+                    queryKey: ["summary", userId, conferenceId],
+                  });
+                  void client.invalidateQueries({
+                    queryKey: ["content-search", userId],
+                  });
                 }
               }
             }

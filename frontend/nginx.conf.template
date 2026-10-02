@@ -13,7 +13,7 @@ server {
     resolver 127.0.0.11 valid=10s ipv6=off;
     set $api_upstream "${API_UPSTREAM}";
     add_header X-Content-Type-Options nosniff always;
-    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Referrer-Policy no-referrer always;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; font-src 'self'; connect-src 'self' ws://$http_host wss://$http_host; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
 
     location = /healthz { access_log off; return 200 "ok\n"; }
@@ -75,6 +75,12 @@ server {
         expires 1y;
     }
     location /media/ { try_files $uri =404; expires 1d; }
+    # Секретный OAuth query не нужен для выдачи SPA и не должен входить в error log.
+    location ~ ^/app/settings/calendar/[^/]+/callback$ {
+        error_log /dev/null crit;
+        try_files /index.html =404;
+        expires -1;
+    }
     location / { try_files $uri $uri/ /index.html; }
     location = /index.html { expires -1; }
 }

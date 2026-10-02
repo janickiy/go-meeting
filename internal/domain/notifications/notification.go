@@ -19,6 +19,9 @@ type Payload struct {
 	RecordingID    string     `json:"recordingId,omitempty"`
 	ScheduledAt    *time.Time `json:"scheduledAt,omitempty"`
 	AdmissionState string     `json:"admissionState,omitempty"`
+	TranscriptID   string     `json:"transcriptId,omitempty"`
+	SummaryID      string     `json:"summaryId,omitempty"`
+	Generation     int64      `json:"generation,omitempty"`
 }
 
 // Notification сохраняет личное уведомление, ссылочную нагрузку, дедупликацию, прочтение и факт публикации.

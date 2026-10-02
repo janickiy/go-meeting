@@ -238,7 +238,7 @@ func serveWorkerHTTP(ctx context.Context, port int, service *recorder.WorkerServ
 				return
 			}
 			if !ops.Ready() {
-				http.Error(w, "worker unavailable", 503)
+				http.Error(w, "worker unavailable", http.StatusServiceUnavailable)
 				return
 			}
 			r.Body = http.MaxBytesReader(w, r.Body, ops.Config.HTTPBodyBytes)

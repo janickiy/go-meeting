@@ -9,6 +9,7 @@ import { Bell, Check } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { formatDate } from "../utils";
+import { notificationLink } from "../intelligence";
 import type { Notification } from "../types";
 import { Button, ErrorNotice, Loading, Modal } from "./ui";
 
@@ -21,8 +22,19 @@ import { Button, ErrorNotice, Loading, Modal } from "./ui";
  * @returns string — вычисленное значение: "Запись встречи готова"; "Скоро начнётся встреча"; "Вас пригласили войти во встречу"; "Запрос на вход отклонён"; "Вы исключены из встречи"; "Обновление вашей конференции".
  */
 export function notificationLabel(item: Notification): string {
+  if (item.type === "transcript.failed")
+    return "Не удалось подготовить расшифровку";
+  if (item.type === "summary.failed")
+    return "Не удалось подготовить итоги встречи";
+  if (item.type.includes("transcript")) return "Расшифровка встречи готова";
+  if (item.type.includes("summary")) return "Итоги встречи готовы";
   if (item.type.includes("recording")) return "Запись встречи готова";
   if (item.type === "conference.soon") return "Скоро начнётся встреча";
+  if (item.type === "conference.invited") return "Вас пригласили на встречу";
+  if (item.type === "conference.rescheduled") return "Время встречи изменилось";
+  if (item.type === "conference.cancelled") return "Встреча отменена";
+  if (item.type === "processing.failed")
+    return "Обработка материалов не завершена";
   if (item.payload.admissionState === "admitted")
     return "Вас пригласили войти во встречу";
   if (item.payload.admissionState === "rejected")
@@ -171,7 +183,7 @@ export function NotificationBell() {
                         </p>
                         {item.payload.conferenceId && (
                           <Link
-                            to={`/conferences/${encodeURIComponent(item.payload.conferenceId)}`}
+                            to={notificationLink(item)}
                             onClick={
                               /**
                                * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.

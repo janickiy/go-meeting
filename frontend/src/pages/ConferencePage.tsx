@@ -17,6 +17,7 @@ import {
 import { api } from "../api";
 import { RealtimePanel } from "../components/RealtimePanel";
 import { RecordingPanel } from "../components/RecordingPanel";
+import { ConferenceCalendarStatus } from "../components/IntegrationsSettings";
 import type { ModerationAction } from "../types";
 import { useAuth } from "../auth";
 import { useConference, useParticipants, useMembership } from "../queries";
@@ -418,7 +419,19 @@ export function ConferencePage() {
           недоступно.
         </ErrorNotice>
       )}
-      <RecordingPanel conference={conference} membership={membership} />
+      <RecordingPanel
+        conference={conference}
+        membership={membership}
+        showInsights
+      />
+      {admitted &&
+        user &&
+        (membership?.role === "owner" || membership?.role === "co_host") && (
+          <ConferenceCalendarStatus
+            conferenceId={conference.id}
+            userId={user.id}
+          />
+        )}
       {admitted && membership && (
         <ChatPanel
           conferenceId={id}

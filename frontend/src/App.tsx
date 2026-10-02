@@ -9,6 +9,8 @@ import { ConferencePage } from "./pages/ConferencePage";
 import { InvitePage } from "./pages/InvitePage";
 import { RecordingsPage, SettingsPage } from "./pages/AccountPages";
 import { Link } from "react-router";
+import { SearchPage } from "./pages/SearchPage";
+import { CalendarCallback } from "./components/IntegrationsSettings";
 
 /**
  * Protected проверяет восстановленную авторизацию и допускает защищённые страницы либо перенаправляет на вход.
@@ -102,6 +104,10 @@ export function App() {
       <Route path="/login" element={<AuthPage />} />
       <Route path="/register" element={<AuthPage register />} />
       <Route path="/register/success" element={<RegistrationSuccess />} />
+      <Route
+        path="/app/settings/calendar/:provider/callback"
+        element={<CalendarCallback />}
+      />
       <Route element={<Protected />}>
         <Route element={<Layout />}>
           <Route path="/app" element={<Dashboard />} />
@@ -111,6 +117,7 @@ export function App() {
           <Route path="/i/:code" element={<InvitePage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
           <Route path="/app/recordings" element={<RecordingsPage />} />
+          <Route path="/app/search" element={<SearchPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFound />} />

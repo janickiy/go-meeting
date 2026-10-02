@@ -52,6 +52,26 @@ describe("API contract", /**
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
+  it("принимает успешный ответ 204 при отзыве календаря", async () => {
+    configureAuth("private-test-token");
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      api.disconnectCalendar("calendar/id"),
+    ).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/integrations/calendars/calendar%2Fid",
+      expect.objectContaining({
+        method: "DELETE",
+        credentials: "omit",
+      }),
+    );
+    expect(
+      (fetch.mock.calls[0][1].headers as Headers).get("Authorization"),
+    ).toBe("Bearer private-test-token");
+  });
   it("opens notification SSE with bearer header and an abortable fetch, not a query token", /**
    * Проверка: opens notification SSE with bearer header and an abortable fetch, not a query token выполняет тестовый сценарий «opens notification SSE with bearer header and an abortable fetch, not a query token» и проверяет ожидаемые результаты.
    *

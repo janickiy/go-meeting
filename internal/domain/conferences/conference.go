@@ -238,12 +238,7 @@ type ParticipantView struct {
 // @return:
 //   - результат 1 (ParticipantView): значение, подготовленное операцией для вызывающей стороны.
 func (p Participant) View() ParticipantView {
-	return ParticipantView{ID: p.ID, ConferenceID: p.ConferenceID, UserID: p.UserID,
-		DisplayName: p.DisplayName, Role: p.Role, Status: p.Status, JoinedAt: p.JoinedAt,
-		LeftAt: p.LeftAt, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
-		MicrophoneEnabled: p.MicrophoneEnabled, CameraEnabled: p.CameraEnabled, ScreenSharing: p.ScreenSharing,
-		MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, MediaPolicyVersion: p.MediaPolicyVersion,
-		AdmissionState: p.AdmissionState, AdmissionDecidedAt: p.AdmissionDecidedAt, AdmissionVersion: p.AdmissionVersion}
+	return ParticipantView(p)
 }
 
 // CreateRequest передаёт входные параметры создания конференции, включая расписание и зал ожидания.

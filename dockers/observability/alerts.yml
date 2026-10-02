@@ -51,3 +51,15 @@ groups:
         expr: rate(process_cpu_seconds_total[5m]) > 3
         for: 10m
         labels: {severity: warning}
+      - alert: RecorderProductBacklog
+        expr: sum by(service,kind) (recorder_product_queue{state="queued"}) > 100
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: "Product queue backlog exceeds the initial operator threshold"}
+      - alert: RecorderProductFailures
+        expr: sum by(service,kind) (increase(recorder_product_jobs_total{outcome="failed"}[10m])) > 0
+        labels: {severity: warning}
+      - alert: RecorderProviderRateLimited
+        expr: sum by(service,provider) (increase(recorder_product_provider_calls_total{outcome="rate_limited"}[5m])) > 0
+        for: 2m
+        labels: {severity: warning}

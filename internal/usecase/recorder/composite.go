@@ -672,6 +672,7 @@ func (s *CompositeService) fail(record records.Record, token string, cause error
 	defer cancel()
 	// Full FFmpeg diagnostics stay local; clients receive a bounded safe error.
 	s.o.Logger.Printf("composite record=%s failed: %v", record.UUID, cause)
+	//lint:ignore ST1005 Сообщение клиенту сохраняет существующий текст ошибки.
 	safe := errors.New("Conference recording failed; completed segments were retained")
 	if err := s.o.Repository.TransitionComposite(ctx, record.UUID, token, records.StatusFailed, safe); err != nil {
 		return

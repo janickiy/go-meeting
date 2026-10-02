@@ -44,6 +44,13 @@ type Runtime struct {
 	customNames     map[string]struct{}
 	events          *prometheus.CounterVec
 	workDuration    *prometheus.HistogramVec
+	productJobs     *prometheus.CounterVec
+	productDuration *prometheus.HistogramVec
+	productQueue    *prometheus.GaugeVec
+	providerCalls   *prometheus.CounterVec
+	providerTime    *prometheus.HistogramVec
+	searchRequests  *prometheus.CounterVec
+	searchTime      prometheus.Histogram
 }
 
 var current atomic.Pointer[Runtime]
@@ -67,6 +74,14 @@ func New(service, instance string, cfg config.OperationsConfig, checks map[strin
 	r.events = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "recorder_events_total", Help: "Bounded operational events and failures."}, []string{"event"})
 	r.workDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "recorder_work_duration_seconds", Help: "Command, recording and finalization duration.", Buckets: []float64{.01, .1, 1, 5, 15, 60, 300, 1800, 7200}}, []string{"operation"})
 	r.Registry.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}), r.dependency, r.requests, r.duration, w, r.wsMessages, r.custom, r.events, r.workDuration)
+	r.productJobs = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "recorder_product_jobs_total", Help: "Product job attempts by fixed kind and safe outcome."}, []string{"kind", "outcome"})
+	r.productDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "recorder_product_job_duration_seconds", Help: "Off-hot-path provider job duration.", Buckets: []float64{.01, .1, 1, 5, 15, 60, 300, 900}}, []string{"kind"})
+	r.productQueue = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "recorder_product_queue", Help: "Persistent product backlog by fixed kind and state."}, []string{"kind", "state"})
+	r.providerCalls = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "recorder_product_provider_calls_total", Help: "Provider usage attempts without payload, URL, model or identity labels."}, []string{"provider", "outcome"})
+	r.providerTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "recorder_product_provider_duration_seconds", Help: "Individual provider call latency.", Buckets: []float64{.01, .1, 1, 5, 15, 60, 300, 900}}, []string{"provider"})
+	r.searchRequests = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "recorder_search_requests_total", Help: "Search requests by safe result class, never query text."}, []string{"outcome"})
+	r.searchTime = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "recorder_search_duration_seconds", Help: "Permission-filtered search HTTP latency.", Buckets: []float64{.005, .025, .1, .25, .5, 1, 2, 5}})
+	r.Registry.MustRegister(r.productJobs, r.productDuration, r.productQueue, r.providerCalls, r.providerTime, r.searchRequests, r.searchTime)
 	current.Store(r)
 	return r
 }
@@ -274,7 +289,7 @@ func Event(name string) {
 // Observe записывает время seconds для одной фиксированной операции name.
 func Observe(name string, seconds float64) {
 	switch name {
-	case "recording", "finalization", "command", "ffmpeg":
+	case "recording", "finalization", "command", "ffmpeg", "search", "transcription", "summary", "email", "push", "calendar":
 	default:
 		return
 	}

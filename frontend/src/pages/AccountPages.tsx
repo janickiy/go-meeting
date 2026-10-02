@@ -4,6 +4,7 @@ import { useAuth } from "../auth";
 import { formatDate } from "../utils";
 import { useConferences } from "../queries";
 import { Button, ErrorNotice, Loading } from "../components/ui";
+import { IntegrationsSettings } from "../components/IntegrationsSettings";
 
 /**
  * SettingsPage показывает доступные сведения и настройки текущей учётной записи.
@@ -50,6 +51,7 @@ export function SettingsPage() {
           действует 1 час. Для выхода используйте кнопку в боковом меню.
         </p>
       </section>
+      <IntegrationsSettings />
     </>
   );
 }

@@ -2,7 +2,7 @@ DOCKER_COMPOSE ?= docker compose
 GO_IMAGE ?= golang:1.26.6-alpine3.23
 APP_NETWORK ?= go-recorder_app-network
 
-.PHONY: serve api worker media-worker migrate doctor test up restart migrate-up test-run debug-api debug-worker debug-both debug-stop docker-build docker-up docker-down docker-restart
+.PHONY: serve api worker media-worker product-worker migrate doctor test up restart migrate-up test-run debug-api debug-worker debug-both debug-stop docker-build docker-up docker-down docker-restart
 
 serve:
 	go run ./cmd/main serve
@@ -15,6 +15,9 @@ worker:
 
 media-worker:
 	go run ./cmd/media-worker
+
+product-worker:
+	go run ./cmd/product-worker
 
 migrate:
 	$(MAKE) migrate-up
@@ -65,7 +68,7 @@ debug-stop:
 	$(DOCKER_COMPOSE) stop api-debug worker-debug
 
 docker-build:
-	$(DOCKER_COMPOSE) build api worker media-worker frontend minio
+	$(DOCKER_COMPOSE) build api worker media-worker product-worker frontend minio
 
 docker-up:
 	$(MAKE) up

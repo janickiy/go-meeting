@@ -40,11 +40,21 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 	}
 	f := stageTwo(t)
 	ctx := context.Background()
-	storage, err := s3storage.NewClient(ctx, "localhost:9000", "go_recorder", "go_recorder_pass", "recordings", false)
+	endpoint, access, secret := os.Getenv("RECORDER_STAGE4_TEST_MINIO_ENDPOINT"), os.Getenv("RECORDER_STAGE4_TEST_MINIO_ACCESS_KEY"), os.Getenv("RECORDER_STAGE4_TEST_MINIO_SECRET_KEY")
+	if endpoint == "" {
+		endpoint = "localhost:9000"
+	}
+	if access == "" {
+		access = "go_recorder"
+	}
+	if secret == "" {
+		secret = "go_recorder_pass"
+	}
+	storage, err := s3storage.NewClient(ctx, endpoint, access, secret, "recordings", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	storage.SetPublicEndpoint("localhost:9000")
+	storage.SetPublicEndpoint(endpoint)
 	t.Cleanup( /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
 		 */func() {

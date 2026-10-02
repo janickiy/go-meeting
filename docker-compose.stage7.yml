@@ -1,0 +1,52 @@
+# Дополнение к изолированному stage6 стенду. Все mock credentials только тестовые.
+# docker compose -p recorder-stage6 -f docker-compose.stage6.yml -f docker-compose.stage7.yml --profile browser up -d --build
+x-product: &product
+  PUBLIC_FRONTEND_URL: https://localhost:15482
+  PROVIDER_TOKEN_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+  EMAIL_PROVIDER_MODE: mock
+  PUSH_PROVIDER_MODE: mock
+  CALENDAR_PROVIDER_MODE: mock
+  TRANSCRIPTION_ENABLED: "true"
+  STT_PROVIDER_MODE: mock
+  AI_SUMMARY_ENABLED: "true"
+  AI_PROVIDER_MODE: mock
+  AI_PROVIDER_MODEL: stage7-test-fixture
+  PRODUCT_POLL_INTERVAL: 1s
+  TRANSCRIPTION_MAX_VIDEO_BYTES: "268435456"
+  TRANSCRIPTION_MAX_AUDIO_BYTES: "134217728"
+
+services:
+  api:
+    environment:
+      <<: *product
+  product-worker:
+    build: {context: ., dockerfile: dockers/product-worker/Dockerfile, target: runtime}
+    init: true
+    environment:
+      <<: *product
+      APP_ENV: test
+      GIN_MODE: release
+      JWT_SECRET: stage6-test-only-jwt-000000000000000000
+      WORKER_INTERNAL_SECRET: stage6-test-only-worker-00000000000000
+      METRICS_SECRET: stage6-test-only-metrics-0000000000000
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: recorder_stage6
+      POSTGRES_USER: recorder_stage6
+      POSTGRES_PASSWORD: stage6-test-only-password
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ROOT_USER: recorder_stage6
+      MINIO_ROOT_PASSWORD: stage6-test-only-password
+      MINIO_BUCKET: recordings
+    ports: ["127.0.0.1:18092:8092"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      minio: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8092/health/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    stop_grace_period: 45s
+    mem_limit: 768m
+    pids_limit: 96
+    tmpfs: ["/tmp:size=512m,mode=1777"]

@@ -15,7 +15,9 @@ import (
 	authapp "github.com/janickiy/go-recorder/internal/app/auth"
 	chatapp "github.com/janickiy/go-recorder/internal/app/chat"
 	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
+	contentapp "github.com/janickiy/go-recorder/internal/app/content"
 	engagementapp "github.com/janickiy/go-recorder/internal/app/engagement"
+	integrationsapp "github.com/janickiy/go-recorder/internal/app/integrations"
 	notificationsapp "github.com/janickiy/go-recorder/internal/app/notifications"
 	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
@@ -133,7 +135,7 @@ func RunAPI() error {
 	hub.SetHands(hands)
 	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hands, hub)
 	notificationBus := redisinfra.NewNotificationBus(redisClient, realtimeConfig.Namespace)
-	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db), notificationBus)
+	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db).DisableLegacyReminders(), notificationBus)
 	chatService, err := chatusecase.NewService(context.Background(), postgresinfra.NewChatRepository(db), s3Client, hub)
 	if err != nil {
 		return fmt.Errorf("chat initialization: %w", err)
@@ -156,6 +158,12 @@ func RunAPI() error {
 	httptransport.RegisterChatRoutes(router, chatapp.NewHandler(chatService), httpmiddleware.Authenticate(tokens), rateLimiter)
 	httptransport.RegisterNotificationRoutes(router, notificationsapp.NewHandler(notificationService, notificationBus, tokens, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(tokens))
 	httptransport.RegisterEngagementRoutes(router, engagementapp.NewHandler(engagementService, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(tokens))
+	product, err := newProductServices(cfg, db, s3Client)
+	if err != nil {
+		return fmt.Errorf("product initialization failed: %w", err)
+	}
+	httptransport.RegisterContentRoutes(router, contentapp.NewHandler(product.content), httpmiddleware.Authenticate(tokens))
+	httptransport.RegisterIntegrationRoutes(router, integrationsapp.NewHandler(product.integrations), httpmiddleware.Authenticate(tokens), rateLimiter)
 	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

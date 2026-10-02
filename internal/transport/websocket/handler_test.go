@@ -98,7 +98,8 @@ func TestStrictJSONAndBucket(t *testing.T) {
 		t.Fatal("valid JSON rejected")
 	}
 	b := bucket{tokens: 2, burst: 2, rate: 1, updated: time.Now()}
-	if !b.allow() || !b.allow() || b.allow() {
+	first, second, third := b.allow(), b.allow(), b.allow()
+	if !first || !second || third {
 		t.Fatal("burst limit not enforced")
 	}
 }

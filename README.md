@@ -26,6 +26,11 @@ signaling между участниками. Протокол, настройк�
 смешивание звука и FFmpeg. MP4 и превью доступны участникам по подписанным ссылкам.
 Архитектура, права, API, проверки и ограничения: [Stage 4 Recording](docs/stage-4-recording.md).
 
+Этап 7 добавляет отдельный `product-worker`: email/push, синхронизацию календаря,
+асинхронные расшифровки, итоги ИИ и поиск по встречам. Внешние каналы по умолчанию
+выключены; mock явно обозначает тестовые данные. Настройка, контракты провайдеров,
+права и retention: [Stage 7](docs/stage-7-intelligence.md).
+
 В `frontend/` добавлен интерфейс **Meet** на React + TypeScript + Vite по макету:
 регистрация/вход, личный кабинет, конференции, приглашения и участники.
 Запуск, тесты и ограничения: [Frontend](docs/frontend.md).
@@ -39,7 +44,8 @@ signaling между участниками. Протокол, настройк�
 │   ├── main/                 # общий entrypoint: serve, migrate ...
 │   ├── api/                  # отдельный API binary
 │   ├── worker/               # отдельный recorder-worker binary
-│   └── media-worker/         # отдельный SFU binary, без FFmpeg/DB/MinIO
+│   ├── media-worker/         # отдельный SFU binary, без FFmpeg/DB/MinIO
+│   └── product-worker/       # фоновые интеграции, STT/ИИ, вне медиа-пути
 ├── internal/
 │   ├── app/                  # bootstrap: config, DB, repositories, transport
 │   ├── config/               # env config
@@ -69,6 +75,7 @@ signaling между участниками. Протокол, настройк�
 - `frontend` - production-сборка Meet, Nginx и same-origin proxy к API.
 - `worker` - Go recorder-worker: читает команды из RabbitMQ, поднимает WebRTC ingest через Pion и управляет FFmpeg.
 - `media-worker` - SFU: Room/Peer/Track, RTP/RTCP, ICE; внутренний HTTP 8091 не публикуется.
+- `product-worker` - PostgreSQL background jobs: уведомления, календарь, извлечение аудио, STT и ИИ; внутренний HTTP 8092.
 - `postgres` - PostgreSQL 16.
 - `redis` - Redis 7, используется для lock-а активной записи по `conferenceId` и HTTP rate limit.
 - `minio` - локальное S3-compatible хранилище итоговых артефактов записи.

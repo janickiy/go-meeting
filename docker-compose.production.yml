@@ -64,6 +64,25 @@ services:
       redis: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
       minio: {condition: service_healthy}
+  product-worker:
+    <<: *process
+    build: {context: ., dockerfile: dockers/product-worker/Dockerfile, target: runtime}
+    environment: {APP_ENV: production, GIN_MODE: release, PRODUCT_WORKER_PORT: "8092"}
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 96
+    read_only: true
+    # Под стандартный один STT job: max video 1GiB + max audio 256MiB.
+    tmpfs: ["/tmp:size=1536m,mode=1777"]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, "http://127.0.0.1:8092/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 30s
+    depends_on:
+      postgres: {condition: service_healthy}
+      minio: {condition: service_healthy}
   frontend:
     build: {context: ./frontend, dockerfile: Dockerfile}
     restart: unless-stopped

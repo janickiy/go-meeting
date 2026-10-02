@@ -22,6 +22,16 @@ import type {
   ReactionEmoji,
   NotificationsPage,
   Notification,
+  NotificationPreferences,
+  IntegrationCapabilities,
+  CalendarConnection,
+  CalendarSync,
+  TranscriptView,
+  TranscriptSegment,
+  SummaryView,
+  OffsetPage,
+  SearchFilters,
+  SearchResult,
 } from "./types";
 
 let accessToken: string | null = null;
@@ -153,6 +163,7 @@ async function request<T>(
     signal: options.signal,
     credentials: "omit",
   });
+  if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(
     /**
      * Обработчик catch выполняет переданный шаг вызова catch в типизированных HTTP-запросах.
@@ -419,6 +430,166 @@ export const api = {
   recordings: (id: string, signal?: AbortSignal) =>
     request<Items<ConferenceRecording>>(
       `/conferences/${encodeURIComponent(id)}/recordings`,
+      { signal },
+    ),
+  /**
+   * Читает отдельную приватную запись, в том числе по ссылке из поиска.
+   * @parameters id, recordingId — идентификаторы встречи и записи; signal — отмена запроса.
+   * @return Запись со ссылками, разрешёнными текущему пользователю.
+   */
+  recording: (id: string, recordingId: string, signal?: AbortSignal) =>
+    request<Item<ConferenceRecording>>(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}`,
+      { signal },
+    ),
+  /**
+   * Читает состояние расшифровки без запуска обработки.
+   * @parameters id, recordingId — идентификаторы; signal — отмена запроса.
+   * @return Nullable расшифровка и проверенные сервером возможности.
+   */
+  transcript: (id: string, recordingId: string, signal?: AbortSignal) =>
+    request<TranscriptView>(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/transcript`,
+      { signal },
+    ),
+  /**
+   * Загружает ограниченную страницу сегментов в хронологическом порядке.
+   * @parameters id, recordingId — идентификаторы; offset — смещение; signal — отмена.
+   * @return Страница текста с временными метками.
+   */
+  transcriptSegments: (
+    id: string,
+    recordingId: string,
+    offset: number,
+    signal?: AbortSignal,
+  ) =>
+    request<OffsetPage<TranscriptSegment>>(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/transcript/segments?limit=100&offset=${offset}`,
+      { signal },
+    ),
+  /**
+   * Явно запрашивает разрешённый организатору повтор распознавания.
+   * @parameters id, recordingId — идентификаторы встречи и записи.
+   * @return Обновлённое состояние очереди либо отказ авторизации/лимита.
+   */
+  retryTranscript: (id: string, recordingId: string) =>
+    request<TranscriptView>(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/transcript/retry`,
+      { method: "POST", body: {} },
+    ),
+  /**
+   * Читает сохранённые итоги ИИ, не вызывая провайдера.
+   * @parameters id, recordingId — идентификаторы; signal — отмена запроса.
+   * @return Nullable итоги и право повторного запуска.
+   */
+  summary: (id: string, recordingId: string, signal?: AbortSignal) =>
+    request<SummaryView>(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/summary`,
+      { signal },
+    ),
+  /**
+   * Ставит новую генерацию итогов по явной команде организатора.
+   * @parameters id, recordingId — идентификаторы встречи и записи.
+   * @return Принятое задание либо безопасная ошибка лимита.
+   */
+  regenerateSummary: (id: string, recordingId: string) =>
+    request<SummaryView>(
+      `/conferences/${encodeURIComponent(id)}/recordings/${encodeURIComponent(recordingId)}/summary/regenerate`,
+      { method: "POST", body: {} },
+    ),
+  /**
+   * Передаёт фильтры полнотекстового поиска с авторизацией в заголовке.
+   * @parameters filters — запрос и UTC-даты; offset — смещение; signal — отмена.
+   * @return Страница доступных результатов без выдачи storage URL.
+   */
+  search: (filters: SearchFilters, offset: number, signal?: AbortSignal) => {
+    const params = new URLSearchParams({
+      q: filters.q,
+      source: filters.source,
+      limit: "20",
+      offset: String(offset),
+    });
+    if (filters.conferenceId) params.set("conferenceId", filters.conferenceId);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    return request<OffsetPage<SearchResult>>(`/search?${params}`, { signal });
+  },
+  /**
+   * Читает предпочтения внешних уведомлений текущего пользователя.
+   * @parameters signal — необязательная отмена запроса.
+   * @return Независимые флаги событий и каналов.
+   */
+  notificationPreferences: (signal?: AbortSignal) =>
+    request<NotificationPreferences>("/notifications/preferences", { signal }),
+  /**
+   * Сохраняет только явно выбранные пользователем предпочтения.
+   * @parameters body — полный набор флагов без идентификатора другого пользователя.
+   * @return Подтверждённые сервером настройки.
+   */
+  saveNotificationPreferences: (body: NotificationPreferences) =>
+    request<NotificationPreferences>("/notifications/preferences", {
+      method: "PUT",
+      body,
+    }),
+  /**
+   * Читает доступность интеграций без секретов провайдеров.
+   * @parameters signal — отмена запроса.
+   * @return Режимы noop/mock/http и доступность OAuth.
+   */
+  integrationCapabilities: (signal?: AbortSignal) =>
+    request<IntegrationCapabilities>("/integrations/capabilities", { signal }),
+  /**
+   * Перечисляет собственные подключения календаря.
+   * @parameters signal — отмена запроса.
+   * @return Безопасные метаданные без OAuth-токенов.
+   */
+  calendars: (signal?: AbortSignal) =>
+    request<Items<CalendarConnection>>("/integrations/calendars", { signal }),
+  /**
+   * Создаёт демонстрационное подключение только при разрешении сервера.
+   * @return Тестовое подключение либо отказ для production.
+   */
+  connectMockCalendar: () =>
+    request<Item<CalendarConnection>>("/integrations/calendars/mock", {
+      method: "POST",
+      body: {},
+    }),
+  /**
+   * Начинает серверный OAuth/PKCE без передачи провайдерского токена в браузер.
+   * @parameters provider — известный серверу адаптер календаря.
+   * @return URL выдачи разрешения и одноразовое состояние.
+   */
+  calendarConnect: (provider: string) =>
+    request<{ authUrl: string; state: string }>(
+      `/integrations/calendars/${encodeURIComponent(provider)}/connect`,
+    ),
+  /**
+   * Обменивает одноразовый код в контексте действующей пользовательской сессии.
+   * @parameters provider — адаптер; code, state — параметры возврата OAuth.
+   * @return Только публичные метаданные подключения.
+   */
+  calendarCallback: (provider: string, code: string, state: string) =>
+    request<Item<CalendarConnection>>(
+      `/integrations/calendars/${encodeURIComponent(provider)}/callback`,
+      { method: "POST", body: { code, state } },
+    ),
+  /**
+   * Отзывает собственное подключение календаря.
+   * @parameters id — идентификатор подключения, не секрет провайдера.
+   * @return Подтверждение 204 без JSON-тела.
+   */
+  disconnectCalendar: (id: string) =>
+    request<void>(`/integrations/calendars/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  /**
+   * Читает статус автоматической синхронизации для организатора.
+   * @parameters id — конференция; signal — отмена запроса.
+   * @return Состояния календарных событий без credentials.
+   */
+  calendarSync: (id: string, signal?: AbortSignal) =>
+    request<Items<CalendarSync>>(
+      `/conferences/${encodeURIComponent(id)}/calendar`,
       { signal },
     ),
   /**

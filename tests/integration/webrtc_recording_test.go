@@ -3,7 +3,6 @@ package integration_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -272,7 +271,7 @@ func (a *localAPI) json(t *testing.T, method, path string, payload, result any) 
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		data, _ := io.ReadAll(resp.Body)
-		t.Fatal(fmt.Sprintf("%s %s: HTTP %d: %s", method, path, resp.StatusCode, data))
+		t.Fatalf("%s %s: HTTP %d: %s", method, path, resp.StatusCode, data)
 	}
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {

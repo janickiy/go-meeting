@@ -7,6 +7,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  Search,
   X,
 } from "lucide-react";
 import { useAuth } from "../auth";
@@ -135,6 +136,7 @@ export function Layout() {
               Icon: CalendarDays,
             },
             { to: "/app/recordings", label: "Записи", Icon: Clapperboard },
+            { to: "/app/search", label: "Поиск", Icon: Search },
             { to: "/app/settings", label: "Настройки", Icon: Settings },
           ].map(
             /**

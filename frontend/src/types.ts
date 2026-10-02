@@ -467,6 +467,8 @@ export interface Notification {
   payload: {
     conferenceId: string;
     recordingId?: string;
+    transcriptId?: string;
+    summaryId?: string;
     scheduledAt?: string;
     admissionState?: string;
   };
@@ -481,4 +483,114 @@ export interface Notification {
  */
 export interface NotificationsPage extends CursorItems<Notification> {
   unreadCount: number;
+}
+
+export type ProviderMode = "noop" | "mock" | "http";
+export interface NotificationPreferences {
+  invitation: boolean;
+  reminder: boolean;
+  recording: boolean;
+  summary: boolean;
+  email: boolean;
+  push: boolean;
+}
+export interface IntegrationCapabilities {
+  email: ProviderMode;
+  push: ProviderMode;
+  calendar: ProviderMode;
+  calendarOAuthConfigured: boolean;
+  mockConnectAllowed: boolean;
+}
+export interface CalendarConnection {
+  id: string;
+  provider: string;
+  calendarId: string;
+  status: "connected" | "revoked";
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CalendarSync {
+  provider: string;
+  externalCalendarId: string;
+  externalEventId: string;
+  syncStatus: string;
+  lastSyncedAt?: string;
+}
+export type ContentStatus = "queued" | "processing" | "ready" | "failed";
+export interface Transcript {
+  id: string;
+  conferenceId: string;
+  recordingId: string;
+  status: ContentStatus;
+  language: string;
+  provider: string;
+  createdAt: string;
+  updatedAt: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+export interface TranscriptView extends Item<Transcript | null> {
+  enabled: boolean;
+  canRetry: boolean;
+  providerMode: ProviderMode;
+}
+export interface TranscriptSegment {
+  id: string;
+  transcriptId: string;
+  startMs: number;
+  endMs: number;
+  speakerId?: string | null;
+  speakerLabel?: string | null;
+  text: string;
+  confidence?: number | null;
+}
+export interface OffsetPage<T> extends Items<T> {
+  limit: number;
+  offset: number;
+  total: number;
+}
+export interface MeetingSummary {
+  id: string;
+  conferenceId: string;
+  transcriptId: string;
+  status: ContentStatus;
+  summary: string;
+  keyPoints: string[];
+  actionItems: {
+    text: string;
+    assignee: string | null;
+    dueDate: string | null;
+    sourceSegmentIds: string[];
+  }[];
+  topics: string[];
+  provider: string;
+  model: string;
+  promptVersion: string;
+  schemaVersion: string | number;
+  errorCode?: string;
+}
+export interface SummaryView extends Item<MeetingSummary | null> {
+  enabled: boolean;
+  canRegenerate: boolean;
+  providerMode: ProviderMode;
+}
+export type SearchSource = "all" | "conference" | "transcript" | "summary";
+export interface SearchFilters {
+  q: string;
+  source: SearchSource;
+  conferenceId?: string;
+  from?: string;
+  to?: string;
+}
+export interface SearchResult {
+  type: Exclude<SearchSource, "all">;
+  conferenceId: string;
+  conferenceTitle: string;
+  recordingId?: string;
+  transcriptId?: string;
+  segmentId?: string;
+  startMs?: number;
+  snippet: string;
+  rank: number;
 }

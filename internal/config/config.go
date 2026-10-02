@@ -76,6 +76,7 @@ type Config struct {
 	JWTSecret          string
 	TrustedProxies     []string
 	Operations         OperationsConfig
+	StageSeven         StageSevenConfig
 }
 
 // Load читает .env и переменные окружения.
@@ -138,6 +139,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	if err := validateProduction(cfg); err != nil {
+		return Config{}, err
+	}
+	cfg.StageSeven, err = LoadStageSeven(cfg.IsLocal() || cfg.AppEnv == "test")
+	if err != nil {
 		return Config{}, err
 	}
 	if cfg.MinIOBucket == "" {

@@ -61,7 +61,9 @@ func TestHTTPMediaClientRedirectTimeoutAndBoundedResponse(t *testing.T) {
 		@parameters:
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - r (*http.Request): входящий HTTP-запрос.
-		*/func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, other.URL, 307) }))
+		*/func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, other.URL, http.StatusTemporaryRedirect)
+		}))
 	defer redirect.Close()
 	client := NewHTTPClient(strings.Repeat("i", 32), 50*time.Millisecond)
 	defer client.Close()

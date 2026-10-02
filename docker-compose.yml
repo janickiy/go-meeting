@@ -41,6 +41,25 @@ services:
         aliases:
           - record-api
 
+  product-worker:
+    image: go-recorder-product-worker:local
+    restart: unless-stopped
+    init: true
+    build: {context: ., dockerfile: dockers/product-worker/Dockerfile, target: runtime}
+    env_file: [.env]
+    environment:
+      PRODUCT_WORKER_PORT: "8092"
+    depends_on:
+      postgres: {condition: service_healthy}
+      minio: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8092/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+    stop_grace_period: 45s
+    networks: [app-network]
+
   frontend:
     image: go-recorder-frontend:local
     restart: unless-stopped

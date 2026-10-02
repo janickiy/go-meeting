@@ -5,6 +5,7 @@ import type { Conference, Participant } from "../types";
 import { Button, ErrorNotice } from "./ui";
 import { formatDate } from "../utils";
 import { isAdmitted } from "../collaboration";
+import { RecordingInsights } from "./RecordingInsights";
 
 const labels = {
   starting: "Запись запускается",
@@ -26,9 +27,11 @@ const labels = {
 export function RecordingPanel({
   conference,
   membership,
+  showInsights = false,
 }: {
   conference: Conference;
   membership?: Participant;
+  showInsights?: boolean;
 }) {
   const client = useQueryClient();
   const query = useQuery({
@@ -221,6 +224,13 @@ export function RecordingPanel({
           },
         )}
       </div>
+      {showInsights && (
+        <RecordingInsights
+          conferenceId={conference.id}
+          membership={membership}
+          recordings={items}
+        />
+      )}
     </section>
   );
 }

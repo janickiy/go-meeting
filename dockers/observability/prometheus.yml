@@ -14,3 +14,5 @@ scrape_configs:
         labels: {service: media-worker}
       - targets: ["worker:8090"]
         labels: {service: recorder-worker}
+      - targets: ["product-worker:8092"]
+        labels: {service: product-worker}

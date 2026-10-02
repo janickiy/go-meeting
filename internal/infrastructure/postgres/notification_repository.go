@@ -12,7 +12,17 @@ import (
 
 // NotificationRepository реализует постоянное хранение личных уведомлений пользователя через GORM.
 //   - db: подключение или текущая транзакция GORM, задающая контекст доступа к базе.
-type NotificationRepository struct{ db *gorm.DB }
+type NotificationRepository struct {
+	db                      *gorm.DB
+	legacyRemindersDisabled bool
+}
+
+// DisableLegacyReminders передаёт планирование напоминаний общему durable scheduler интеграций без второго fixed-15m источника.
+// @return: тот же репозиторий для DI; флаг меняется только до запуска goroutines.
+func (r *NotificationRepository) DisableLegacyReminders() *NotificationRepository {
+	r.legacyRemindersDisabled = true
+	return r
+}
 
 // NewNotificationRepository создаёт и связывает зависимости компонента NotificationRepository, используемого в личных уведомлениях и их фоновой доставке.
 //
@@ -102,8 +112,10 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
               AND NOT EXISTS(SELECT 1 FROM notifications n WHERE n.user_id=p.user_id AND n.dedup_key='soon:' || c.id::text || ':' || (extract(epoch from c.scheduled_at)*1000000)::bigint::text)
             ORDER BY c.scheduled_at,c.id,p.id LIMIT 100)
           INSERT INTO notifications(id,user_id,type,payload,dedup_key) SELECT gen_random_uuid(),user_id,'conference.soon',payload,dedup_key FROM candidates ON CONFLICT(user_id,dedup_key) DO NOTHING`
-	if err := r.db.WithContext(ctx).Exec(soon).Error; err != nil {
-		return err
+	if !r.legacyRemindersDisabled {
+		if err := r.db.WithContext(ctx).Exec(soon).Error; err != nil {
+			return err
+		}
 	}
 	// job задаёт согласованное представление данных «задание» для личных уведомлениях и их фоновой доставке.
 	// Состав:
@@ -152,6 +164,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 					ids := []string{}
 					q := tx.Table("conference_participants p").Joins("JOIN record r ON r.uuid = ? AND r.platform_conference_id = p.conference_id AND r.mode = 'composite' AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL", item.RecordingID).
 						Where("p.conference_id = ? AND p.user_id IS NOT NULL AND p.admission_state='admitted' AND p.status IN ('joined','left')", item.ConferenceID).
+						Where("COALESCE((SELECT pref.recording FROM notification_preferences pref WHERE pref.user_id=p.user_id),TRUE)").
 						Where("p.created_at <= ? AND (p.admission_decided_at IS NULL OR p.admission_decided_at <= ?)", item.CreatedAt, item.CreatedAt)
 					if item.CursorParticipantID != nil {
 						q = q.Where("p.id > ?", *item.CursorParticipantID)
@@ -170,6 +183,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
                         WHERE j.id=? AND p.id IN ? AND p.user_id IS NOT NULL AND p.admission_state='admitted' AND p.status IN ('joined','left')
                           AND p.created_at <= j.created_at AND (p.admission_decided_at IS NULL OR p.admission_decided_at <= j.created_at)
                           AND r.mode='composite' AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL
+                          AND COALESCE((SELECT pref.recording FROM notification_preferences pref WHERE pref.user_id=p.user_id),TRUE)
                         ON CONFLICT(user_id,dedup_key) DO NOTHING`, item.ID, ids).Error; err != nil {
 							return err
 						}
