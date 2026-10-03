@@ -107,7 +107,7 @@ verify_archive_security() {
 # verify_loaded_images связывает уже загруженные приложения с source snapshot.
 # @args версия, commit и sourceSHA256 берутся из манифеста текущего релиза.
 verify_loaded_images() {
-  local service image source architecture
+  local service image source architecture expected_version expected_commit expected_source
   source="$(jq -er .sourceSHA256 "$RELEASE_MANIFEST")"
   architecture="$(jq -r '.platform | split("/")[1]' "$RELEASE_MANIFEST")"
   for service in "${RELEASE_SERVICES[@]}"; do
@@ -115,7 +115,18 @@ verify_loaded_images() {
     docker image inspect "$image" | jq -e --arg architecture "$architecture" '.[0].Architecture == $architecture' >/dev/null || fail "Loaded image architecture mismatch for $service"
     case "$service" in
       api|media-worker|worker|product-worker|live-worker|frontend|minio)
-        docker image inspect "$image" | jq -e --arg version "$RELEASE_VERSION" --arg commit "$RELEASE_COMMIT" --arg source "$source" '
+        expected_version="$RELEASE_VERSION"; expected_commit="$RELEASE_COMMIT"; expected_source="$source"
+        if [[ "$service" == minio && "$(jq -r '.infrastructureReused // false' "$RELEASE_MANIFEST")" == true ]]; then
+          # Хранилище сохраняет собственное происхождение. При переиспользовании
+          # проверяем старые labels, а не требуем labels новой сборки приложения.
+          jq -e '.infrastructureSource.version == .infrastructureVersion
+            and (.infrastructureSource.commit | test("^[a-f0-9]{40}$"))
+            and (.infrastructureSource.sourceSHA256 | test("^[a-f0-9]{64}$"))' "$RELEASE_MANIFEST" >/dev/null || fail "Reused storage provenance missing"
+          expected_version="$(jq -r .infrastructureSource.version "$RELEASE_MANIFEST")"
+          expected_commit="$(jq -r .infrastructureSource.commit "$RELEASE_MANIFEST")"
+          expected_source="$(jq -r .infrastructureSource.sourceSHA256 "$RELEASE_MANIFEST")"
+        fi
+        docker image inspect "$image" | jq -e --arg version "$expected_version" --arg commit "$expected_commit" --arg source "$expected_source" '
           .[0].Config.Labels | .["org.opencontainers.image.version"] == $version
           and .["org.opencontainers.image.revision"] == $commit
           and .["io.go-recorder.source-sha256"] == $source

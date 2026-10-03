@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const [input, output] = process.argv.slice(2);
+const [input, output, infrastructureFile] = process.argv.slice(2);
 if (!input || !output || resolve(input) !== input || resolve(output) !== output || existsSync(output)) throw new Error('New absolute output directory required');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -17,7 +17,27 @@ const archive = join(input, 'images.tar');
 if (fileSha(archive) !== manifest.archiveSHA256) throw new Error('Archive checksum mismatch');
 const member = name => execFileSync('tar', ['-xOf', archive, name], {maxBuffer:4*1024*1024});
 const index = JSON.parse(member('index.json'));
+// Повторно используемые immutable образы могут быть сохранены без RepoTags.
+// Связываем их с отчётом по проверенным байтам manifest/config, а не по имени.
+const saved = index.manifests.map(item => {
+  const digest = item.digest;
+  if (!/^sha256:[a-f0-9]{64}$/.test(digest)) throw new Error('Invalid OCI digest');
+  const bytes = member(`blobs/sha256/${digest.slice(7)}`);
+  if (`sha256:${sha(bytes)}` !== digest) throw new Error('OCI manifest checksum mismatch');
+  const configID = JSON.parse(bytes).config?.digest;
+  if (!/^sha256:[a-f0-9]{64}$/.test(configID)) throw new Error('Invalid configuration digest');
+  return {digest, configID};
+});
 const originalIDs = {...manifest.images};
+if (manifest.infrastructureReused) {
+  if (!infrastructureFile || resolve(infrastructureFile) !== infrastructureFile || fileSha(infrastructureFile) !== manifest.infrastructureManifestSHA256) throw new Error('Checksummed infrastructure manifest required');
+  const infrastructure = JSON.parse(readFileSync(infrastructureFile, 'utf8'));
+  if (infrastructure.version !== manifest.infrastructureVersion || infrastructure.sourceDirty || !infrastructure.securityScanned || !infrastructure.sourceFingerprintVerified || !/^[a-f0-9]{40}$/.test(infrastructure.commit) || !/^[a-f0-9]{64}$/.test(infrastructure.sourceSHA256)) throw new Error('Invalid infrastructure provenance');
+  for (const service of ['minio','postgres','redis','rabbitmq','coturn','proxy','prometheus']) {
+    if (infrastructure.images[service] !== originalIDs[service]) throw new Error(`Reused infrastructure changed: ${service}`);
+  }
+  manifest.infrastructureSource = {version:infrastructure.version,commit:infrastructure.commit,sourceSHA256:infrastructure.sourceSHA256};
+}
 manifest.imageConfigIDs = {};
 for (const service of Object.keys(manifest.images)) {
   const scanName = `${service}.scan.json`, sbomName = `${service}.sbom.json`;
@@ -28,15 +48,9 @@ for (const service of Object.keys(manifest.images)) {
   const scan = JSON.parse(scanBytes);
   if (!Array.isArray(scan.Results) || scan.Results.some(r => r.Vulnerabilities?.some(v => ['HIGH','CRITICAL'].includes(v.Severity)))) throw new Error(`Security gate failed: ${service}`);
   if (scan.Metadata.ImageConfig.architecture !== manifest.platform.split('/')[1]) throw new Error(`Architecture mismatch: ${service}`);
-  const names = scan.Metadata.RepoTags.map(tag => tag.startsWith('docker.io/') ? tag : `docker.io/${tag.includes('/') ? tag : `library/${tag}`}`);
-  const matches = index.manifests.filter(item => names.includes(item.annotations?.['io.containerd.image.name']));
+  const matches = saved.filter(item => item.configID === scan.Metadata.ImageID);
   if (matches.length !== 1) throw new Error(`Ambiguous saved image: ${service}`);
-  const digest = matches[0].digest;
-  if (!/^sha256:[a-f0-9]{64}$/.test(digest)) throw new Error('Invalid OCI digest');
-  const bytes = member(`blobs/sha256/${digest.slice(7)}`);
-  if (`sha256:${sha(bytes)}` !== digest) throw new Error('OCI manifest checksum mismatch');
-  const configID = JSON.parse(bytes).config.digest;
-  if (configID !== scan.Metadata.ImageID || !/^sha256:[a-f0-9]{64}$/.test(configID)) throw new Error(`Report not bound to saved image: ${service}`);
+  const {digest, configID} = matches[0];
   if (`sha256:${sha(member(`blobs/sha256/${configID.slice(7)}`))}` !== configID) throw new Error('Configuration checksum mismatch');
   manifest.images[service] = digest;
   manifest.imageConfigIDs[service] = configID;
