@@ -5,6 +5,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
 import { formatDate } from "../utils";
+import { PRODUCT_NAME } from "../brand";
 
 /**
  * InvitePage показывает сведения приглашения и обрабатывает авторизованный вход или включение в будущую встречу.
@@ -84,7 +85,7 @@ export function InvitePage() {
       <p>
         {closed
           ? "Организатор уже закрыл эту конференцию."
-          : "Нажмите кнопку ниже, чтобы присоединиться с вашим аккаунтом Meet."}
+          : `Нажмите кнопку ниже, чтобы присоединиться с вашим аккаунтом ${PRODUCT_NAME}.`}
       </p>
       <ErrorNotice error={mutation.error} />
       {!closed && (

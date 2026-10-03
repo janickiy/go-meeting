@@ -1,0 +1,19 @@
+FROM postgres:16-alpine AS patched
+# Сохраняем major PostgreSQL 16 и формат данных, устанавливаем исправления ОС.
+RUN apk upgrade --no-cache && apk add --no-cache su-exec
+# Убираем старую Go-утилиту gosu; её единственная используемая операция
+# смены UID/GID выполняется поддерживаемым su-exec без Go runtime.
+COPY dockers/postgres/gosu.sh /usr/local/bin/gosu
+RUN chmod 755 /usr/local/bin/gosu
+
+# Новый слой содержит только итоговую файловую систему: старый gosu не остаётся
+# даже в нижних слоях распространяемого архива и не попадает в SBOM.
+FROM scratch AS runtime
+COPY --from=patched / /
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV LANG=en_US.utf8 PG_MAJOR=16 PGDATA=/var/lib/postgresql/data
+VOLUME /var/lib/postgresql/data
+EXPOSE 5432
+STOPSIGNAL SIGINT
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["postgres"]

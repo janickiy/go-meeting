@@ -13,11 +13,11 @@ import {
   Eye,
   EyeOff,
   LoaderCircle,
-  Video,
   X,
 } from "lucide-react";
 import { errorMessage, statusLabels } from "../api";
 import type { ConferenceStatus } from "../types";
+import { PRODUCT_NAME } from "../brand";
 
 /**
  * Brand показывает фирменный знак Meet со ссылкой на указанную страницу.
@@ -29,11 +29,11 @@ import type { ConferenceStatus } from "../types";
  */
 export function Brand({ to = "/" }: { to?: string }) {
   return (
-    <Link to={to} className="brand" aria-label="Meet — главная">
+    <Link to={to} className="brand" aria-label={`${PRODUCT_NAME} — главная`}>
       <span className="brand-mark">
-        <Video size={21} fill="currentColor" strokeWidth={2.3} />
+        <img src="/brand-mark.svg" width="32" height="36" alt="" />
       </span>
-      <span>Meet</span>
+      <span>{PRODUCT_NAME}</span>
     </Link>
   );
 }

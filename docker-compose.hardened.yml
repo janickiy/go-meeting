@@ -1,0 +1,28 @@
+# Применяется только к новому/явно мигрированному окружению.
+# Старый том MinIO не открывается SeaweedFS: форматы несовместимы.
+services:
+  minio:
+    # Имя службы и MINIO_* сохранены как совместимые адрес/настройки S3-клиента.
+    image: ${OBJECT_STORAGE_IMAGE:?set scanned immutable object storage image}
+    command: !reset []
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set S3 access key}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set S3 secret key}
+      S3_BUCKET: ${MINIO_BUCKET:-recordings}
+      S3_MAX_VOLUMES: ${S3_MAX_VOLUMES:-16}
+    volumes: !override ["objects:/data"]
+    read_only: true
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    pids_limit: 128
+    healthcheck:
+      # 403 подтверждает работающий S3 listener без анонимного доступа.
+      test: [CMD-SHELL, 'wget -q -S -O /dev/null http://127.0.0.1:9000/ 2>&1 | grep -q "403 Forbidden"']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+volumes:
+  objects:

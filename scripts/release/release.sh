@@ -10,7 +10,11 @@ validate_release
 
 # pull_images получает только digest из манифеста; локальные ID уже должны существовать.
 pull_images() {
-  if [[ "$RELEASE_ENVIRONMENT" == local ]]; then
+  if [[ "$RELEASE_ARTIFACT_MODE" == archive ]]; then
+    # Архив и все отчёты уже проверены validate_release до загрузки в Docker.
+    docker image load --quiet --input "$(dirname "$RELEASE_MANIFEST")/images.tar"
+    verify_loaded_images
+  elif [[ "$RELEASE_ENVIRONMENT" == local ]]; then
     local service ref
     for service in "${RELEASE_SERVICES[@]}"; do
       ref="$(jq -r --arg service "$service" '.images[$service]' "$RELEASE_MANIFEST")"
@@ -69,7 +73,9 @@ deploy_apps() {
   done
   compose up -d --no-build --no-deps proxy
   wait_healthy proxy
-  compose --profile observability up -d --no-build --no-deps prometheus grafana
+  observability_services=(prometheus)
+  if [[ "$RELEASE_LAYOUT" == classic ]]; then observability_services+=(grafana); fi
+  compose --profile observability up -d --no-build --no-deps "${observability_services[@]}"
   printf 'Release %s deployed to %s; run smoke and record the observation window.\n' "$RELEASE_VERSION" "$RELEASE_PROJECT"
 }
 

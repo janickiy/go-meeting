@@ -5,9 +5,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api } from "../api";
 import { SearchPage } from "./SearchPage";
 
+const capabilities = vi.hoisted(() => ({
+  isSuccess: true,
+  isError: false,
+  isPending: false,
+}));
 vi.mock("../auth", () => ({ useAuth: () => ({ user: { id: "user" } }) }));
 vi.mock("../useCapabilities", () => ({
-  useCapabilities: () => ({ data: { capabilities: { semanticSearch: true } } }),
+  useCapabilities: () => ({
+    ...capabilities,
+    data: { capabilities: { semanticSearch: true } },
+  }),
 }));
 vi.mock("../queries", () => ({
   useConferences: () => ({
@@ -36,6 +44,9 @@ function show(url = "/app/search") {
   );
 }
 beforeEach(() => {
+  capabilities.isSuccess = true;
+  capabilities.isError = false;
+  capabilities.isPending = false;
   vi.spyOn(api, "search").mockResolvedValue({
     status: "success",
     items: [],
@@ -51,6 +62,32 @@ afterEach(() => {
 });
 
 describe("поиск по доступным материалам", () => {
+  it.each(["semantic", "hybrid"])(
+    "отключает %s после ошибки capabilities, даже если в кеше остался флаг true",
+    async (mode) => {
+      capabilities.isSuccess = false;
+      capabilities.isError = true;
+      show(`/app/search?q=план&mode=${mode}`);
+      await screen.findByText(/Ничего не найдено/);
+      expect(
+        screen.queryByRole("option", { name: "По смыслу" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("option", { name: "Комбинированный" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Способ поиска")).toHaveValue("keyword");
+      expect(api.search).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "план", mode: "keyword" }),
+        0,
+        expect.any(AbortSignal),
+      );
+      expect(
+        vi
+          .mocked(api.search)
+          .mock.calls.every(([filters]) => filters.mode === "keyword"),
+      ).toBe(true);
+    },
+  );
   it("не запрашивает результаты до явного ввода запроса", async () => {
     show();
     expect(api.search).not.toHaveBeenCalled();

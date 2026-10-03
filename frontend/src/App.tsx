@@ -11,6 +11,16 @@ import { CalendarCallback } from "./components/IntegrationsSettings";
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
 );
+const CalendarPage = lazy(() =>
+  import("./pages/CalendarPage").then((module) => ({
+    default: module.CalendarPage,
+  })),
+);
+const AnalyticsPage = lazy(() =>
+  import("./pages/AnalyticsPage").then((module) => ({
+    default: module.AnalyticsPage,
+  })),
+);
 const ConferencePage = lazy(() =>
   import("./pages/ConferencePage").then((module) => ({
     default: module.ConferencePage,
@@ -154,6 +164,8 @@ export function App() {
       <Route element={<Protected />}>
         <Route element={<Layout />}>
           <Route path="/app" element={<Dashboard />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/meetings" element={<Dashboard all />} />
           <Route path="/meetings/new" element={<Dashboard create />} />
           <Route path="/meetings/:id" element={<ConferencePage />} />

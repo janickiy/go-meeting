@@ -15,6 +15,7 @@ const fixture = vi.hoisted(() => ({
   },
   captions: true,
   analytics: true,
+  capabilitiesError: false,
 }));
 
 beforeEach(() => {
@@ -22,6 +23,7 @@ beforeEach(() => {
   fixture.membership.admissionState = "admitted";
   fixture.captions = true;
   fixture.analytics = true;
+  fixture.capabilitiesError = false;
 });
 
 vi.mock("../auth", () => ({ useAuth: () => ({ user: { id: "self" } }) }));
@@ -59,7 +61,8 @@ vi.mock("../realtime", () => ({
 }));
 vi.mock("../useCapabilities", () => ({
   useCapabilities: () => ({
-    isSuccess: true,
+    isSuccess: !fixture.capabilitiesError,
+    isError: fixture.capabilitiesError,
     data: {
       capabilities: {
         liveCaptions: fixture.captions,
@@ -153,4 +156,21 @@ it("hides optional panels behind server flags and never mounts media while waiti
   expect(screen.queryByTestId("hand-shortcut")).toBeNull();
   waiting.client.clear();
   view.client.clear();
+});
+
+it("не использует устаревшие разрешения субтитров и аналитики после ошибки capabilities", () => {
+  fixture.capabilitiesError = true;
+  const active = page();
+  expect(
+    screen.queryByRole("tab", { name: "Субтитры" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByTestId("captions-panel")).not.toBeInTheDocument();
+  expect(screen.getByTestId("realtime-panel")).toBeInTheDocument();
+  active.unmount();
+  active.client.clear();
+  fixture.membership.status = "left";
+  const left = page();
+  expect(screen.queryByTestId("analytics-panel")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("captions-panel")).not.toBeInTheDocument();
+  left.client.clear();
 });

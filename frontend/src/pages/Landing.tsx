@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { ArrowRight, CalendarDays, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "../auth";
 import { Brand } from "../components/ui";
+import { PRODUCT_NAME } from "../brand";
 
 /**
  * Landing показывает приветственную страницу Meet и переходы к регистрации и входу.
@@ -93,7 +94,7 @@ export function Landing() {
             <ArrowRight size={18} />
           </Link>
           <span className="hero-note">
-            Управление встречами уже доступно. Видеосвязь — следующий этап.
+            Видеосвязь, совместная работа и материалы встреч в одном месте.
           </span>
         </div>
         <div className="hero-visual">
@@ -118,7 +119,7 @@ export function Landing() {
         </div>
       </main>
       <footer className="landing-footer">
-        <span>Meet — быть рядом стало проще.</span>
+        <span>{PRODUCT_NAME} — быть рядом стало проще.</span>
         <span>Создавайте. Приглашайте. Встречайтесь.</span>
       </footer>
     </div>

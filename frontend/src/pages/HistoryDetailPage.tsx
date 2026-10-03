@@ -1,16 +1,30 @@
-import { useId } from "react";
+import { lazy, Suspense, useId } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Clock3, Users } from "lucide-react";
 import { api } from "../api";
 import { isAdmitted } from "../collaboration";
-import { AnalyticsPanel } from "../components/AnalyticsPanel";
-import { ChatPanel } from "../components/ChatPanel";
-import { RecordingPanel } from "../components/RecordingPanel";
 import { ErrorNotice, Loading } from "../components/ui";
 import { useMembership } from "../queries";
 import { formatDate } from "../utils";
+import { useCapabilities } from "../useCapabilities";
 import "./history-notifications.css";
+
+const AnalyticsPanel = lazy(() =>
+  import("../components/AnalyticsPanel").then((module) => ({
+    default: module.AnalyticsPanel,
+  })),
+);
+const ChatPanel = lazy(() =>
+  import("../components/ChatPanel").then((module) => ({
+    default: module.ChatPanel,
+  })),
+);
+const RecordingPanel = lazy(() =>
+  import("../components/RecordingPanel").then((module) => ({
+    default: module.RecordingPanel,
+  })),
+);
 
 const sections = [
   ["overview", "Обзор"],
@@ -27,10 +41,8 @@ export function HistoryDetailPage() {
   const { id = "" } = useParams();
   const [params, setParams] = useSearchParams();
   const tabId = useId();
+  const capabilities = useCapabilities();
   const requested = params.get("section");
-  const section: Section = sections.some(([value]) => value === requested)
-    ? (requested as Section)
-    : "overview";
   const history = useQuery({
     queryKey: ["history", id],
     queryFn: ({ signal }) => api.history(id, signal),
@@ -38,7 +50,26 @@ export function HistoryDetailPage() {
     retry: false,
   });
   const membership = useMembership(id, false);
+  const features =
+    capabilities.isSuccess && !capabilities.isError
+      ? capabilities.data.capabilities
+      : undefined;
+  const visibleSections = sections.filter(([value]) => {
+    if (value === "transcript") return features?.transcription === true;
+    if (value === "summary") return features?.aiSummary === true;
+    if (value === "analytics") return features?.meetingAnalytics === true;
+    if (value === "chat") return history.data?.item.chatAvailable === true;
+    return true;
+  });
+  const section: Section = visibleSections.some(
+    ([value]) => value === requested,
+  )
+    ? (requested as Section)
+    : "overview";
 
+  /** Переключает раздел без потери выбранной записи и временной метки.
+   * @args nextSection — доступная вкладка истории.
+   */
   function openSection(nextSection: Section) {
     const next = new URLSearchParams(params);
     next.set("section", nextSection);
@@ -78,12 +109,23 @@ export function HistoryDetailPage() {
       </Link>
       <section className="page-heading">
         <div>
-          <span className="eyebrow">ИСТОРИЯ ВСТРЕЧИ</span>
           <h1>{item.conference.title}</h1>
-          <p>
-            {formatDate(
-              item.conference.finishedAt || item.conference.createdAt,
+          <p className="history-heading-meta">
+            <span>
+              {formatDate(
+                item.conference.finishedAt || item.conference.createdAt,
+              )}
+            </span>
+            {item.durationSec !== null && (
+              <span>
+                <Clock3 size={15} aria-hidden="true" />
+                {Math.max(1, Math.round(item.durationSec / 60))} мин
+              </span>
             )}
+            <span>
+              <Users size={15} aria-hidden="true" />
+              {item.participantCount} участников
+            </span>
           </p>
         </div>
       </section>
@@ -92,7 +134,7 @@ export function HistoryDetailPage() {
         role="tablist"
         aria-label="Материалы встречи"
       >
-        {sections.map(([value, label], index) => (
+        {visibleSections.map(([value, label], index) => (
           <button
             key={value}
             type="button"
@@ -112,12 +154,12 @@ export function HistoryDetailPage() {
                 event.key === "Home"
                   ? 0
                   : event.key === "End"
-                    ? sections.length - 1
+                    ? visibleSections.length - 1
                     : (index +
                         (event.key === "ArrowRight" ? 1 : -1) +
-                        sections.length) %
-                      sections.length;
-              const next = sections[target][0];
+                        visibleSections.length) %
+                      visibleSections.length;
+              const next = visibleSections[target][0];
               openSection(next);
               document.getElementById(`${tabId}-${next}`)?.focus();
             }}
@@ -126,73 +168,89 @@ export function HistoryDetailPage() {
           </button>
         ))}
       </div>
+      <ErrorNotice error={capabilities.error} />
+      {requested &&
+        requested !== section &&
+        sections.some(([value]) => value === requested) &&
+        !capabilities.isPending && (
+          <p role="status" className="field-hint">
+            Этот раздел сейчас недоступен. Показан обзор встречи.
+          </p>
+        )}
       <div
+        className="history-material"
         role="tabpanel"
         id={`${tabId}-panel`}
         aria-labelledby={`${tabId}-${section}`}
       >
-        {section === "overview" && (
-          <section
-            className="content-card history-summary"
-            aria-label="Обзор встречи"
-          >
-            <h2>Обзор</h2>
-            <dl>
-              <div>
-                <dt>Организатор</dt>
-                <dd>{item.owner.displayName || "Организатор встречи"}</dd>
-              </div>
-              <div>
-                <dt>Длительность</dt>
-                <dd>
-                  {item.durationSec === null
-                    ? "—"
-                    : `${Math.max(1, Math.round(item.durationSec / 60))} мин`}
-                </dd>
-              </div>
-              <div>
-                <dt>Участников</dt>
-                <dd>{item.participantCount}</dd>
-              </div>
-              <div>
-                <dt>Записи</dt>
-                <dd>
-                  {item.recordings.ready} готово · {item.recordings.processing}{" "}
-                  обрабатывается
-                </dd>
-              </div>
-            </dl>
-            {item.participants.length > 0 && (
-              <>
-                <h3>Участники</h3>
-                <ul>
-                  {item.participants.map((person) => (
-                    <li key={person.id}>{person.displayName}</li>
-                  ))}
-                </ul>
-                {item.participantsTruncated && (
-                  <p className="field-hint">Показана часть участников.</p>
-                )}
-              </>
-            )}
-          </section>
-        )}
-        {["recording", "transcript", "summary"].includes(section) && (
-          <RecordingPanel
-            conference={item.conference}
-            membership={membership.data || undefined}
-            showInsights
-          />
-        )}
-        {section === "chat" && item.chatAvailable && membership.data && (
-          <ChatPanel conferenceId={id} membership={membership.data} readOnly />
-        )}
-        {section === "chat" && !item.chatAvailable && (
-          <p className="content-card">Чат для этой встречи недоступен.</p>
-        )}
-        {section === "analytics" && (
-          <AnalyticsPanel conferenceId={id} active={false} />
-        )}
+        <Suspense fallback={<Loading />}>
+          {section === "overview" && (
+            <section
+              className="content-card history-summary"
+              aria-label="Обзор встречи"
+            >
+              <h2>Обзор</h2>
+              <dl>
+                <div>
+                  <dt>Организатор</dt>
+                  <dd>{item.owner.displayName || "Организатор встречи"}</dd>
+                </div>
+                <div>
+                  <dt>Длительность</dt>
+                  <dd>
+                    {item.durationSec === null
+                      ? "—"
+                      : `${Math.max(1, Math.round(item.durationSec / 60))} мин`}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Участников</dt>
+                  <dd>{item.participantCount}</dd>
+                </div>
+                <div>
+                  <dt>Записи</dt>
+                  <dd>
+                    {item.recordings.ready} готово ·{" "}
+                    {item.recordings.processing} обрабатывается
+                  </dd>
+                </div>
+              </dl>
+              {item.participants.length > 0 && (
+                <>
+                  <h3>Участники</h3>
+                  <ul>
+                    {item.participants.map((person) => (
+                      <li key={person.id}>{person.displayName}</li>
+                    ))}
+                  </ul>
+                  {item.participantsTruncated && (
+                    <p className="field-hint">Показана часть участников.</p>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+          {["recording", "transcript", "summary"].includes(section) && (
+            <RecordingPanel
+              conference={item.conference}
+              membership={membership.data || undefined}
+              showInsights
+            />
+          )}
+          {section === "chat" && item.chatAvailable && membership.data && (
+            <ChatPanel
+              conferenceId={id}
+              membership={membership.data}
+              readOnly
+            />
+          )}
+          {section === "chat" && !item.chatAvailable && (
+            <p className="content-card">Чат для этой встречи недоступен.</p>
+          )}
+          {section === "analytics" && (
+            <AnalyticsPanel conferenceId={id} active={false} />
+          )}
+        </Suspense>
       </div>
     </>
   );

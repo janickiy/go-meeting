@@ -96,6 +96,7 @@ async function login(
   await page.getByRole("button", { name: "Войти", exact: true }).click();
   await expect(page).toHaveURL(/\/app/);
   await page.goto(`${base}/conferences/${conference}`);
+  await page.locator(".conference-presence-details summary").click();
   await expect(page.getByTestId("connection-id")).toBeVisible();
 }
 
@@ -594,6 +595,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
     await owner
       .getByRole("button", { name: "Начать конференцию", exact: true })
       .click();
+    await owner.getByRole("button", { name: /^Участники \(/ }).click();
     await expect(
       owner.getByRole("button", { name: "Завершить конференцию", exact: true }),
     ).toBeVisible();
@@ -808,12 +810,19 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
         response.url().endsWith(`/conferences/${conferenceId}/recordings`),
     );
     await owner
+      .getByRole("button", { name: "Записи конференции", exact: true })
+      .click();
+    await owner
       .getByRole("button", { name: "Начать запись", exact: true })
       .click();
     const startResponse = await started;
     expect(startResponse.status()).toBe(202);
     recordingId = (await startResponse.json()).item.uuid;
     summary.recordingId = recordingId;
+    await owner
+      .getByRole("dialog", { name: "Записи конференции", exact: true })
+      .getByRole("button", { name: "Закрыть окно" })
+      .click();
     for (const page of [owner, bob])
       await expect(page.getByTestId("recording-indicator")).toHaveText(
         "Идёт запись",
@@ -916,6 +925,9 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
     await owner.waitForTimeout(6500);
     await diagnostics();
     const stopAt = Date.now();
+    await owner
+      .getByRole("button", { name: "Записи конференции", exact: true })
+      .click();
     await owner
       .getByRole("button", { name: "Остановить запись", exact: true })
       .click();
@@ -1184,6 +1196,11 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
       blackIntervals,
       "whole composite must not go black at segment changes",
     ).toEqual([]);
+    await owner
+      .getByRole("dialog", { name: "Записи конференции", exact: true })
+      .getByRole("button", { name: "Закрыть окно" })
+      .click();
+    await owner.getByRole("button", { name: /^Участники \(/ }).click();
     await owner
       .getByRole("button", { name: "Завершить конференцию", exact: true })
       .click();

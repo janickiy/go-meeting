@@ -4,11 +4,12 @@ REST API сервиса записи видеопотока на Go + Gin.
 
 ## Документация и выпуск
 
-Meet включает веб-интерфейс, конференции, SFU, запись и опциональные фоновые
+Meetrix включает веб-интерфейс, конференции, SFU, запись и опциональные фоновые
 интеграции. Текущая архитектура — один Docker Compose-хост. Реальный staging
 пока не предоставлен; локальные проверки не означают готовность production.
 
 - [Руководство пользователя](docs/USER_GUIDE.md), [архитектура](docs/ARCHITECTURE.md), [потоки данных](docs/DATA_FLOWS.md), [индекс API](docs/API.md).
+- [Новый интерфейс Meetrix](docs/FRONTEND_GUIDE.md), [результаты интеграции и ограничения](docs/FRONTEND_INTEGRATION_REPORT.md).
 - [Развёртывание](docs/DEPLOYMENT.md), [процесс выпуска](docs/RELEASE_PROCESS.md), [откат](docs/ROLLBACK.md), [backup/restore](docs/operations/backup-restore.md).
 - [Launch audit и локальная репетиция](docs/operations/launch-readiness-report.md): фактические проверки и блокеры production.
 - [Production checklist](docs/PRODUCTION_LAUNCH_CHECKLIST.md), [шаблон release notes](docs/RELEASE_NOTES_TEMPLATE.md), [операционный runbook](docs/operations/README.md).
@@ -90,7 +91,7 @@ signaling между участниками. Протокол, настройк�
 │   └── transport/
 │       └── http/             # Gin HTTP routes
 ├── database/migrations/      # SQL-миграции DB
-├── frontend/                 # Meet: React + TypeScript + Vite
+├── frontend/                 # Meetrix: React + TypeScript + Vite
 ├── scripts/                  # cron/helper scripts
 ├── docs/                     # документация и Postman collection
 ├── tests/                    # unit-tests
@@ -103,7 +104,7 @@ signaling между участниками. Протокол, настройк�
 ## Сервисы
 
 - `api` - Go + Gin REST API.
-- `frontend` - production-сборка Meet, Nginx и same-origin proxy к API.
+- `frontend` - production-сборка Meetrix, Nginx и same-origin proxy к API.
 - `worker` - Go recorder-worker: читает команды из RabbitMQ, поднимает WebRTC ingest через Pion и управляет FFmpeg.
 - `media-worker` - SFU: Room/Peer/Track, RTP/RTCP, ICE; внутренний HTTP 8091 не публикуется.
 - `product-worker` - PostgreSQL background jobs: уведомления, календарь, извлечение аудио, STT и ИИ; внутренний HTTP 8092.

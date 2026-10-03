@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CalendarDays,
   Check,
+  Circle,
+  Link as LinkIcon,
   Info,
   LogIn,
   LogOut,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 import { api } from "../api";
 import { RealtimePanel } from "../components/RealtimePanel";
+import { ParticipantsPanel } from "../components/ParticipantsPanel";
 import { RecordingPanel } from "../components/RecordingPanel";
 import { CaptionsPanel } from "../components/CaptionsPanel";
 import { AnalyticsPanel } from "../components/AnalyticsPanel";
@@ -31,6 +34,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { HandReactionsPanel } from "../components/HandReactionsPanel";
 import { useCapabilities } from "../useCapabilities";
 import { meetingShortcut } from "../conferenceShortcuts";
+import { PRODUCT_NAME } from "../brand";
 import { EditSchedule } from "../components/ConferenceModals";
 import { formatDate, initials, inviteLink } from "../utils";
 import {
@@ -42,6 +46,27 @@ import {
   StatusBadge,
 } from "../components/ui";
 import "./conference.css";
+
+/** Обновляет только длительность встречи, не перерисовывая сетку видеопотоков.
+ * @args startedAt — фактическое серверное начало; @return доступный таймер или отсутствие значения.
+ */
+function MeetingClock({ startedAt }: { startedAt?: string | null }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const start = Date.parse(startedAt || "");
+  if (!Number.isFinite(start)) return null;
+  const seconds = Math.max(0, Math.floor((now - start) / 1000));
+  return (
+    <span className="room-clock" aria-label="Длительность встречи">
+      {[Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+        .map((part) => String(part).padStart(2, "0"))
+        .join(":")}
+    </span>
+  );
+}
 
 /**
  * ConferencePage координирует сведения встречи, членство, единственный WebSocket, допуск, медиа, чат, запись и историю.
@@ -78,9 +103,12 @@ export function ConferencePage() {
     admitted && membership?.status === "joined" && !closed,
   );
   const capabilities = useCapabilities();
-  const captionsEnabled = capabilities.data?.capabilities.liveCaptions === true;
-  const analyticsEnabled =
-    capabilities.data?.capabilities.meetingAnalytics === true;
+  const features =
+    capabilities.isSuccess && !capabilities.isError
+      ? capabilities.data.capabilities
+      : undefined;
+  const captionsEnabled = features?.liveCaptions === true;
+  const analyticsEnabled = features?.meetingAnalytics === true;
   const activeMeeting =
     admitted &&
     membership?.status === "joined" &&
@@ -89,12 +117,37 @@ export function ConferencePage() {
     "chat" | "participants" | "captions"
   >("chat");
   const [handShortcutToken, setHandShortcutToken] = useState(0);
+  const [panelOpen, setPanelOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth > 900,
+  );
+  const panelTrigger = useRef<HTMLButtonElement | null>(null);
+  const [utility, setUtility] = useState<"recording" | "invite" | null>(null);
+  const recordingStatus = useQuery({
+    queryKey: ["recordings", id],
+    queryFn: ({ signal }) => api.recordings(id, signal),
+    enabled: activeMeeting,
+    refetchInterval: activeMeeting ? 3000 : false,
+  });
+  const hands = useQuery({
+    queryKey: ["hands", id],
+    queryFn: ({ signal }) => api.hands(id, signal),
+    enabled: activeMeeting,
+    refetchInterval: activeMeeting ? 15000 : false,
+  });
   useEffect(() => {
     if (!captionsEnabled && stagePanel === "captions") setStagePanel("chat");
   }, [captionsEnabled, stagePanel]);
   useEffect(() => {
     if (!activeMeeting) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        !document.querySelector('[role="dialog"]')
+      ) {
+        setPanelOpen(false);
+        panelTrigger.current?.focus();
+        return;
+      }
       const key = meetingShortcut(event, ["h", "c"]);
       if (key === "h" && live.state) {
         event.preventDefault();
@@ -102,6 +155,7 @@ export function ConferencePage() {
       } else if (key === "c") {
         event.preventDefault();
         setStagePanel("chat");
+        setPanelOpen(true);
         window.setTimeout(() => {
           document.getElementById(`chat-text-${id}`)?.focus();
         }, 0);
@@ -225,6 +279,340 @@ export function ConferencePage() {
     rejected: "Отклонён",
     kicked: "Исключён",
   };
+  if (activeMeeting && membership) {
+    const activeRecording = recordingStatus.data?.items.find((item) =>
+      ["starting", "recording", "stopping"].includes(item.status),
+    );
+    const recordingLabel =
+      activeRecording?.status === "starting"
+        ? "Запись запускается"
+        : activeRecording?.status === "stopping"
+          ? "Запись останавливается"
+          : "Идёт запись";
+    const panels = captionsEnabled
+      ? (["chat", "participants", "captions"] as const)
+      : (["chat", "participants"] as const);
+    return (
+      <div
+        className={`conference-room-page ${panelOpen ? "room-panel-open" : "room-panel-closed"}`}
+      >
+        <header className="room-header">
+          <Link
+            className="icon-button room-back"
+            to="/conferences"
+            aria-label="К моим конференциям"
+          >
+            <ArrowLeft size={19} />
+          </Link>
+          <div className="room-title">
+            <h1>{conference.title}</h1>
+            <span>
+              {live.state ? "Встреча в эфире" : "Подключаемся к встрече"}
+            </span>
+          </div>
+          <MeetingClock startedAt={conference.startedAt} />
+          {activeRecording && (
+            <span
+              className="room-recording-status"
+              role="status"
+              data-testid="recording-indicator"
+            >
+              <Circle size={9} fill="currentColor" />
+              {recordingLabel}
+            </span>
+          )}
+          <button
+            className="room-header-action"
+            onClick={() => setUtility("recording")}
+            aria-label="Записи конференции"
+          >
+            <Circle size={17} />
+            <span>Запись</span>
+          </button>
+          <button
+            className="room-header-action"
+            onClick={() => setUtility("invite")}
+          >
+            <LinkIcon size={17} />
+            <span>Пригласить</span>
+          </button>
+          <span
+            className="avatar avatar-small room-self-avatar"
+            aria-label={membership.displayName}
+          >
+            {initials(membership.displayName)}
+          </span>
+        </header>
+        <div className="room-errors">
+          <ErrorNotice
+            error={mutation.error || moderation.error || self.error}
+          />
+        </div>
+        <section className="conference-stage" aria-label="Активная встреча">
+          <div className="conference-stage-main">
+            <RealtimePanel
+              conferenceId={id}
+              membership={membership}
+              live={live}
+              participants={people}
+              raisedHands={(hands.data?.items || live.state?.hands || []).map(
+                (hand) => hand.participantId,
+              )}
+              controls={
+                <>
+                  <Button
+                    variant="secondary"
+                    aria-expanded={panelOpen && stagePanel === "participants"}
+                    onClick={(event) => {
+                      panelTrigger.current = event.currentTarget;
+                      setStagePanel("participants");
+                      setPanelOpen(true);
+                    }}
+                  >
+                    <Users size={18} />
+                    Участники ({people.length})
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    aria-keyshortcuts="C"
+                    aria-expanded={panelOpen && stagePanel === "chat"}
+                    onClick={(event) => {
+                      panelTrigger.current = event.currentTarget;
+                      setStagePanel("chat");
+                      setPanelOpen(true);
+                    }}
+                  >
+                    <MessageCircle size={18} />
+                    Чат
+                  </Button>
+                  <Button
+                    variant="danger"
+                    busy={mutation.isPending}
+                    aria-label="Покинуть конференцию"
+                    onClick={() => mutation.mutate("leave")}
+                  >
+                    <LogOut size={18} />
+                    Выйти
+                  </Button>
+                </>
+              }
+            />
+            <HandReactionsPanel
+              conferenceId={id}
+              membership={membership}
+              participants={people}
+              live={live}
+              handShortcutToken={handShortcutToken}
+            />
+          </div>
+          <aside
+            className="conference-stage-rail"
+            aria-label="Панели встречи"
+            hidden={!panelOpen}
+          >
+            <div className="room-panel-header">
+              <strong>
+                {stagePanel === "chat"
+                  ? "Общение во встрече"
+                  : stagePanel === "participants"
+                    ? "Участники встречи"
+                    : "Субтитры"}
+              </strong>
+              <button
+                className="icon-button"
+                aria-label="Закрыть панель встречи"
+                onClick={() => {
+                  setPanelOpen(false);
+                  panelTrigger.current?.focus();
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div
+              className="conference-stage-tabs"
+              role="tablist"
+              aria-label="Панель встречи"
+              onKeyDown={(event) => {
+                const index = panels.findIndex((panel) => panel === stagePanel);
+                let next = index;
+                if (event.key === "ArrowRight")
+                  next = (index + 1) % panels.length;
+                else if (event.key === "ArrowLeft")
+                  next = (index - 1 + panels.length) % panels.length;
+                else if (event.key === "Home") next = 0;
+                else if (event.key === "End") next = panels.length - 1;
+                else return;
+                event.preventDefault();
+                setStagePanel(panels[next]);
+                document.getElementById(`meeting-tab-${panels[next]}`)?.focus();
+              }}
+            >
+              {panels.map((panel) => (
+                <button
+                  type="button"
+                  key={panel}
+                  role="tab"
+                  id={`meeting-tab-${panel}`}
+                  aria-controls={`meeting-panel-${panel}`}
+                  aria-selected={stagePanel === panel}
+                  tabIndex={stagePanel === panel ? 0 : -1}
+                  onClick={() => setStagePanel(panel)}
+                >
+                  {panel === "chat"
+                    ? "Чат"
+                    : panel === "participants"
+                      ? `Участники (${people.length})`
+                      : "Субтитры"}
+                </button>
+              ))}
+            </div>
+            <div
+              id="meeting-panel-chat"
+              role="tabpanel"
+              aria-labelledby="meeting-tab-chat"
+              className="conference-stage-panel"
+              hidden={stagePanel !== "chat"}
+            >
+              <ChatPanel
+                conferenceId={id}
+                membership={membership}
+                readOnly={false}
+              />
+            </div>
+            <div
+              id="meeting-panel-participants"
+              role="tabpanel"
+              aria-labelledby="meeting-tab-participants"
+              className="conference-stage-panel"
+              hidden={stagePanel !== "participants"}
+            >
+              <ParticipantsPanel
+                participants={people}
+                membership={membership}
+                presence={live.state?.participants}
+                loading={participants.isPending}
+                error={participants.error}
+                busy={moderation.isPending}
+                onModerate={(participantId, action) =>
+                  moderation.mutate({ participantId, action })
+                }
+              />
+              {participants.hasNextPage && (
+                <Button
+                  variant="outline"
+                  busy={participants.isFetchingNextPage}
+                  onClick={() => void participants.fetchNextPage()}
+                >
+                  Загрузить ещё участников
+                </Button>
+              )}
+              <WaitingRoomPanel
+                conferenceId={id}
+                membership={membership}
+                participants={people}
+                active
+                closed={false}
+              />
+              <Button variant="outline" onClick={() => setUtility("invite")}>
+                <LinkIcon size={16} />
+                Пригласить участников
+              </Button>
+              {owner && (
+                <Button
+                  variant="danger"
+                  disabled={mutation.isPending}
+                  onClick={() => setConfirm("finish")}
+                >
+                  <Square size={15} />
+                  Завершить конференцию
+                </Button>
+              )}
+            </div>
+            {captionsEnabled && (
+              <div
+                id="meeting-panel-captions"
+                role="tabpanel"
+                aria-labelledby="meeting-tab-captions"
+                className="conference-stage-panel"
+                hidden={stagePanel !== "captions"}
+              >
+                <CaptionsPanel
+                  key={`captions-${id}`}
+                  conferenceId={id}
+                  active
+                  live={live}
+                />
+              </div>
+            )}
+            {capabilities.isSuccess && !captionsEnabled && (
+              <p className="conference-feature-note">
+                Субтитры отключены для этой установки.
+              </p>
+            )}
+          </aside>
+        </section>
+        <p className="conference-shortcuts-hint">
+          Клавиши: M — микрофон, V — камера, H — рука, C — чат. В полях ввода и
+          диалогах они не действуют.
+        </p>
+        {utility && (
+          <Modal
+            title={
+              utility === "recording"
+                ? "Записи конференции"
+                : "Пригласить участников"
+            }
+            onClose={() => setUtility(null)}
+          >
+            {utility === "recording" ? (
+              <RecordingPanel conference={conference} membership={membership} />
+            ) : (
+              <>
+                <p className="modal-description">
+                  Отправьте ссылку участникам. Для входа нужен аккаунт.
+                </p>
+                <CopyLink value={inviteLink(conference.inviteCode)} />
+                <p className="field-hint">
+                  {conference.waitingRoomEnabled
+                    ? "Новые участники дождутся допуска организатора."
+                    : "Участники со ссылкой смогут присоединиться к встрече."}
+                </p>
+              </>
+            )}
+          </Modal>
+        )}
+        {confirm && (
+          <Modal
+            title="Завершить конференцию?"
+            onClose={() => {
+              if (!mutation.isPending) setConfirm(null);
+            }}
+          >
+            <p className="modal-description">
+              После завершения участники не смогут присоединиться. Текущая
+              запись остановится и будет обработана в фоне.
+            </p>
+            <ErrorNotice error={mutation.error} />
+            <Button
+              variant="danger"
+              busy={mutation.isPending}
+              onClick={() => mutation.mutate("finish")}
+            >
+              Да, завершить
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={mutation.isPending}
+              onClick={() => setConfirm(null)}
+            >
+              Вернуться к встрече
+            </Button>
+          </Modal>
+        )}
+      </div>
+    );
+  }
   return (
     <>
       <Link className="back-link" to="/conferences">
@@ -253,153 +641,6 @@ export function ConferencePage() {
       <ErrorNotice error={mutation.error} />
       <ErrorNotice error={moderation.error} />
       <ErrorNotice error={self.error} />
-      {activeMeeting && membership && (
-        <section className="conference-stage" aria-label="Активная встреча">
-          <div className="conference-stage-main">
-            <RealtimePanel
-              conferenceId={id}
-              membership={membership}
-              live={live}
-            />
-          </div>
-          <aside className="conference-stage-rail" aria-label="Панели встречи">
-            <HandReactionsPanel
-              conferenceId={id}
-              membership={membership}
-              participants={people}
-              live={live}
-              handShortcutToken={handShortcutToken}
-            />
-            <div
-              className="conference-stage-tabs"
-              role="tablist"
-              aria-label="Панель встречи"
-              onKeyDown={(event) => {
-                const panels: ("chat" | "participants" | "captions")[] =
-                  captionsEnabled
-                    ? ["chat", "participants", "captions"]
-                    : ["chat", "participants"];
-                const index = panels.indexOf(stagePanel);
-                let next = index;
-                if (event.key === "ArrowRight")
-                  next = (index + 1) % panels.length;
-                else if (event.key === "ArrowLeft")
-                  next = (index - 1 + panels.length) % panels.length;
-                else if (event.key === "Home") next = 0;
-                else if (event.key === "End") next = panels.length - 1;
-                else return;
-                event.preventDefault();
-                const panel = panels[next];
-                setStagePanel(panel);
-                document.getElementById(`meeting-tab-${panel}`)?.focus();
-              }}
-            >
-              <button
-                type="button"
-                role="tab"
-                id="meeting-tab-chat"
-                aria-controls="meeting-panel-chat"
-                aria-selected={stagePanel === "chat"}
-                aria-keyshortcuts="C"
-                tabIndex={stagePanel === "chat" ? 0 : -1}
-                onClick={() => setStagePanel("chat")}
-              >
-                <MessageCircle size={17} /> Чат
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="meeting-tab-participants"
-                aria-controls="meeting-panel-participants"
-                aria-selected={stagePanel === "participants"}
-                tabIndex={stagePanel === "participants" ? 0 : -1}
-                onClick={() => setStagePanel("participants")}
-              >
-                <Users size={17} /> Участники ({people.length})
-              </button>
-              {captionsEnabled && (
-                <button
-                  type="button"
-                  role="tab"
-                  id="meeting-tab-captions"
-                  aria-controls="meeting-panel-captions"
-                  aria-selected={stagePanel === "captions"}
-                  tabIndex={stagePanel === "captions" ? 0 : -1}
-                  onClick={() => setStagePanel("captions")}
-                >
-                  Субтитры
-                </button>
-              )}
-            </div>
-            <div
-              id="meeting-panel-chat"
-              role="tabpanel"
-              aria-labelledby="meeting-tab-chat"
-              className="conference-stage-panel"
-              hidden={stagePanel !== "chat"}
-            >
-              <ChatPanel
-                conferenceId={id}
-                membership={membership}
-                readOnly={false}
-              />
-            </div>
-            <div
-              id="meeting-panel-participants"
-              role="tabpanel"
-              aria-labelledby="meeting-tab-participants"
-              className="conference-stage-panel"
-              hidden={stagePanel !== "participants"}
-            >
-              <section
-                className="content-card conference-stage-roster"
-                aria-label="Участники встречи"
-              >
-                <h2>Участники встречи</h2>
-                <ul>
-                  {people.map((person) => (
-                    <li key={person.id}>
-                      <span
-                        className={`presence-dot ${person.status === "joined" ? "online-dot" : ""}`}
-                      />
-                      <span>{person.displayName}</span>
-                      <small>{presence[person.status]}</small>
-                    </li>
-                  ))}
-                </ul>
-                <a className="text-link" href="#conference-participants">
-                  Управление участниками
-                </a>
-              </section>
-            </div>
-            {captionsEnabled && (
-              <div
-                id="meeting-panel-captions"
-                role="tabpanel"
-                aria-labelledby="meeting-tab-captions"
-                className="conference-stage-panel"
-                hidden={stagePanel !== "captions"}
-              >
-                <CaptionsPanel
-                  key={`captions-${id}`}
-                  conferenceId={id}
-                  active
-                  live={live}
-                />
-              </div>
-            )}
-            {capabilities.isSuccess && !captionsEnabled && (
-              <p className="conference-feature-note">
-                Субтитры отключены для этой установки.
-              </p>
-            )}
-          </aside>
-          <p className="conference-shortcuts-hint">
-            Клавиши во время встречи: M — микрофон, V — камера, H — рука, C —
-            чат. В полях ввода и диалогах они не действуют.
-          </p>
-        </section>
-      )}
       <div className="conference-grid">
         <section className="content-card meeting-card">
           <div className="meeting-card-symbol">
@@ -575,7 +816,7 @@ export function ConferencePage() {
               <code>{conference.inviteCode}</code>
             </div>
             <p className="field-hint">
-              Для присоединения нужен аккаунт Meet.
+              Для присоединения нужен аккаунт {PRODUCT_NAME}.
               {closed ? " Эта конференция уже закрыта." : ""}
             </p>
           </aside>

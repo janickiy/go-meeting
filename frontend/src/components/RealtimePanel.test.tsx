@@ -135,3 +135,78 @@ it("shows measured stats and copies only a redacted report", async () => {
   });
   expect(report).not.toContain("private-sdp");
 });
+
+it("показывает настоящих участников без потоков и не выдаёт их за подключённое видео", () => {
+  const view = panel({ displayName: "Алиса", role: "owner" });
+  const colleague = {
+    id: "colleague",
+    displayName: "Борис Волков",
+    status: "joined",
+    admissionState: "admitted",
+    role: "participant",
+    microphoneEnabled: false,
+  } as Participant;
+  view.rerender(
+    <RealtimePanel
+      conferenceId="room"
+      membership={view.membership}
+      live={view.live}
+      participants={[view.membership, colleague]}
+      raisedHands={[colleague.id]}
+    />,
+  );
+  expect(screen.getByText("Борис Волков")).toBeInTheDocument();
+  expect(screen.getByText("Б")).toBeInTheDocument();
+  expect(screen.getByLabelText("Рука поднята")).toBeInTheDocument();
+  expect(screen.getByLabelText("Организатор")).toBeInTheDocument();
+  expect(screen.getAllByTestId("participant-placeholder")).toHaveLength(2);
+  expect(screen.queryByTestId("remote-media")).toBeNull();
+});
+
+it("не перепривязывает тот же поток при обновлении панелей и очищает srcObject после выхода", async () => {
+  const play = vi
+    .spyOn(HTMLMediaElement.prototype, "play")
+    .mockResolvedValue(undefined);
+  const stream = {} as MediaStream;
+  const colleague = {
+    id: "colleague",
+    displayName: "Борис Волков",
+    status: "joined",
+    role: "participant",
+  } as Participant;
+  mediaRef.current.view.remoteStreams = [
+    {
+      id: "remote",
+      mediaPeerId: "remote-peer",
+      participantId: colleague.id,
+      stream,
+      kinds: ["video", "audio"],
+      screen: false,
+    },
+  ];
+  const view = panel();
+  view.rerender(
+    <RealtimePanel
+      conferenceId="room"
+      membership={view.membership}
+      live={view.live}
+      participants={[colleague]}
+    />,
+  );
+  const video = screen.getByTestId("remote-media").querySelector("video")!;
+  expect(video.srcObject).toBe(stream);
+  const calls = play.mock.calls.length;
+  view.rerender(
+    <RealtimePanel
+      conferenceId="room"
+      membership={view.membership}
+      live={view.live}
+      participants={[{ ...colleague }]}
+      controls={<button>Чат</button>}
+    />,
+  );
+  await waitFor(() => expect(play).toHaveBeenCalledTimes(calls));
+  view.unmount();
+  expect(video.srcObject).toBeNull();
+  play.mockRestore();
+});

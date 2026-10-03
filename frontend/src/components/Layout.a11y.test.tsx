@@ -13,7 +13,11 @@ import {
 import { MemoryRouter, Route, Routes } from "react-router";
 import { Layout } from "./Layout";
 
-const adminState = vi.hoisted(() => ({ isAdmin: false }));
+const adminState = vi.hoisted(() => ({
+  isAdmin: false,
+  analytics: false,
+  capabilityError: false,
+}));
 vi.mock("../auth", () => ({
   useAuth: () => ({
     user: {
@@ -26,6 +30,13 @@ vi.mock("../auth", () => ({
   }),
 }));
 vi.mock("../notifications", () => ({ useNotificationStream: vi.fn() }));
+vi.mock("../useCapabilities", () => ({
+  useCapabilities: () => ({
+    data: { capabilities: { meetingAnalytics: adminState.analytics } },
+    isSuccess: !adminState.capabilityError,
+    isError: adminState.capabilityError,
+  }),
+}));
 vi.mock("./NotificationBell", () => ({
   NotificationBell: () => <span>Новые сообщения</span>,
 }));
@@ -40,6 +51,8 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 afterEach(() => {
   adminState.isAdmin = false;
+  adminState.analytics = false;
+  adminState.capabilityError = false;
 });
 
 function showLayout() {
@@ -55,6 +68,23 @@ function showLayout() {
 }
 
 describe("навигация приложения", () => {
+  it("не использует устаревшие возможности после ошибки обновления", () => {
+    adminState.analytics = true;
+    adminState.capabilityError = true;
+    showLayout();
+    expect(screen.queryByRole("link", { name: "Аналитика" })).toBeNull();
+  });
+  it("предлагает аналитику только после подтверждения возможности сервером", () => {
+    const view = showLayout();
+    expect(screen.queryByRole("link", { name: "Аналитика" })).toBeNull();
+    view.unmount();
+    adminState.analytics = true;
+    showLayout();
+    expect(screen.getByRole("link", { name: "Аналитика" })).toHaveAttribute(
+      "href",
+      "/analytics",
+    );
+  });
   it("предлагает переход к содержимому и доступные разделы", () => {
     showLayout();
     expect(
@@ -90,7 +120,7 @@ describe("навигация приложения", () => {
     await user.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
     expect(
-      screen.getByRole("dialog", { name: "Меню Meet" }),
+      screen.getByRole("dialog", { name: "Меню Meetrix" }),
     ).toBeInTheDocument();
     const menuAudit = await axe.run(document.body, {
       runOnly: {

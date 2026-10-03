@@ -1,4 +1,4 @@
-FROM golang:1.26.6-alpine3.23 AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine3.23 AS build
 
 WORKDIR /src
 
@@ -9,15 +9,16 @@ COPY . .
 ARG BUILD_VERSION=dev
 ARG BUILD_COMMIT=unknown
 ARG BUILD_TIME=unknown
+ARG TARGETARCH
 RUN printf '%s' "$BUILD_VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$' \
-    && CGO_ENABLED=0 GOOS=linux go build \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build \
       -trimpath -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$BUILD_TIME" \
       -o /bin/go-recorder ./cmd/api \
-    && CGO_ENABLED=0 GOOS=linux go build -trimpath \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$BUILD_TIME" \
       -o /bin/recorder-migrate ./cmd/main \
-    && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o /bin/object-backup ./tools/object-backup \
-    && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o /bin/release-smoke ./tools/release-smoke
+    && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /bin/object-backup ./tools/object-backup \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /bin/release-smoke ./tools/release-smoke
 
 FROM alpine:3.22 AS runtime
 

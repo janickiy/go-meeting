@@ -27,6 +27,20 @@ beforeEach(() => {
 });
 
 describe("профиль в настройках", () => {
+  it("показывает реальный email только для чтения без вымышленных полей профиля", () => {
+    render(<SettingsPage />);
+    expect(screen.getByRole("textbox", { name: "Email" })).toHaveValue(
+      "member@example.test",
+    );
+    expect(screen.getByRole("textbox", { name: "Email" })).toHaveAttribute(
+      "readonly",
+    );
+    expect(screen.queryByRole("textbox", { name: "Должность" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Изменить фото" })).toBeNull();
+    expect(
+      screen.getByRole("navigation", { name: "Разделы настроек" }),
+    ).toBeInTheDocument();
+  });
   it("сохраняет собственное имя без повторной авторизации", async () => {
     render(<SettingsPage />);
     fireEvent.change(screen.getByRole("textbox", { name: /Имя для встреч/ }), {

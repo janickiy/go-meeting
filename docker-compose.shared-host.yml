@@ -1,0 +1,45 @@
+# Новый небольший стенд за существующим Apache; порты 80/443 не захватываются.
+services:
+  proxy:
+    ports: !override ["127.0.0.1:${REVERSE_PROXY_PORT:-19080}:8080"]
+    volumes: !override ["./dockers/production/nginx-external-tls.conf:/etc/nginx/conf.d/default.conf:ro", "./dockers/production/routes.conf:/etc/nginx/snippets/recorder-routes.conf:ro"]
+    mem_limit: 64m
+  api:
+    mem_limit: 256m
+  media-worker:
+    mem_limit: 512m
+    cpus: 1
+  worker:
+    mem_limit: 768m
+    cpus: 1
+  product-worker:
+    mem_limit: 256m
+    cpus: 1
+    tmpfs: !override ["/tmp:size=64m,mode=1777"]
+  live-worker:
+    mem_limit: 128m
+    cpus: 1
+  frontend:
+    mem_limit: 64m
+  postgres:
+    mem_limit: 256m
+    command: !override [postgres, -c, "max_connections=60", -c, "shared_buffers=64MB"]
+  redis:
+    mem_limit: 96m
+    command: !override [/bin/sh, -c, 'exec redis-server --requirepass "$${REDIS_PASSWORD}" --save "" --appendonly no --maxmemory 48mb --maxmemory-policy noeviction']
+  rabbitmq:
+    mem_limit: 256m
+    environment:
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2"
+  coturn:
+    mem_limit: 96m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  prometheus:
+    mem_limit: 160m
+  grafana:
+    mem_limit: 256m
+networks:
+  private:
+    ipam:
+      config: [{subnet: 172.31.242.0/24}]

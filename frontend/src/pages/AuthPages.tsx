@@ -12,6 +12,7 @@ import {
   SuccessMark,
 } from "../components/ui";
 import { passwordLength, safeNext, utf8Bytes } from "../utils";
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
 
 /**
  * AuthPage показывает форму входа либо регистрации и обрабатывает проверку данных и ошибки API.
@@ -100,6 +101,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
       </Link>
       <div className={`auth-card ${register ? "register-card" : ""}`}>
         <Brand />
+        <p className="auth-tagline">{PRODUCT_TAGLINE}</p>
         <div className="auth-heading">
           <h1>{register ? "Создайте аккаунт" : "Вход в аккаунт"}</h1>
           <p>
@@ -228,6 +230,36 @@ export function AuthPage({ register = false }: { register?: boolean }) {
             <div className="divider">
               <span>или</span>
             </div>
+            <div
+              className="social-placeholders"
+              aria-label="Будущие способы входа"
+            >
+              <button
+                type="button"
+                className="social-placeholder"
+                disabled
+                aria-describedby="social-availability"
+              >
+                <strong aria-hidden="true">G</strong>
+                <span>Продолжить с Google</span>
+                <small>Скоро</small>
+              </button>
+              <button
+                type="button"
+                className="social-placeholder"
+                disabled
+                aria-describedby="social-availability"
+              >
+                <strong aria-hidden="true">⊞</strong>
+                <span>Продолжить с Microsoft</span>
+                <small>Скоро</small>
+              </button>
+            </div>
+            <p id="social-availability" className="social-availability-note">
+              Эти способы входа появятся позже.
+              <br />
+              Сейчас используйте email и пароль.
+            </p>
             <p className="auth-switch">
               Нет аккаунта?{" "}
               <Link to={`/register${nextQuery}`}>Зарегистрироваться</Link>
@@ -236,6 +268,18 @@ export function AuthPage({ register = false }: { register?: boolean }) {
         )}
       </div>
       <p className="auth-footer">Одно место. Все ваши встречи.</p>
+      <aside className="auth-scenery-caption" aria-label="О сервисе">
+        <strong>
+          Хорошие идеи
+          <br />
+          начинаются со встречи.
+        </strong>
+        <p>
+          {PRODUCT_NAME} — пространство для разговоров,
+          <br />
+          совместной работы и новых решений.
+        </p>
+      </aside>
     </div>
   );
 }
@@ -256,7 +300,7 @@ export function RegistrationSuccess() {
         <SuccessMark />
         <h1>Аккаунт создан!</h1>
         <p>
-          Добро пожаловать в Meet.
+          Добро пожаловать в {PRODUCT_NAME}.
           <br />
           Теперь вы можете создавать
           <br />и управлять своими конференциями.

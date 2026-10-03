@@ -235,6 +235,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       await page.getByRole("button", { name: "Войти", exact: true }).click();
       await expect(page).toHaveURL(/\/app/);
       await page.goto(`${base}/conferences/${conference}`);
+      await page.locator(".conference-presence-details summary").click();
       await expect(page.getByTestId("connection-id")).toBeVisible();
       await expect(page.getByTestId("local-media")).toHaveCount(0);
       await page
@@ -338,6 +339,9 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       await expect(
         alice.getByTestId("remote-media").locator("video"),
       ).toHaveCount(1);
+      await bob
+        .getByRole("button", { name: "Устройства", exact: true })
+        .click();
       await bob.getByLabel("Выбор камеры").selectOption({ index: 1 });
       await expect
         .poll(
@@ -435,6 +439,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
         .getByRole("button", { name: "Показать экран", exact: true })
         .click();
       await expect(alice.getByTestId("remote-media")).toHaveCount(2);
+      await alice.getByRole("button", { name: /^Участники \(/ }).click();
       await alice
         .getByRole("button", { name: "Отключить экран", exact: true })
         .click();
@@ -499,6 +504,8 @@ test("two browsers exchange audio/video through the SFU and recreate media after
     await expect(alice.getByTestId("remote-media")).toHaveCount(0, {
       timeout: 10000,
     });
+    if (!(await bob.getByTestId("connection-id").isVisible()))
+      await bob.locator(".conference-presence-details summary").click();
     await expect(bob.getByTestId("connection-id")).toBeVisible();
     if (process.env.MEET_STAGE4) {
       await bob

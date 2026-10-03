@@ -111,7 +111,7 @@ services:
     image: ${PROXY_IMAGE:?set immutable PROXY_IMAGE}
     restart: unless-stopped
     ports: ["443:443"]
-    volumes: ["./dockers/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro", "${TLS_CERT_DIR:?set TLS certificate directory}:/run/certs:ro"]
+    volumes: ["./dockers/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro", "./dockers/production/routes.conf:/etc/nginx/snippets/recorder-routes.conf:ro", "${TLS_CERT_DIR:?set TLS certificate directory}:/run/certs:ro"]
     networks: [private]
     depends_on: [api, frontend]
   coturn:
@@ -175,13 +175,6 @@ services:
     command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=7d]
     ports: ["127.0.0.1:19090:9090"]
     volumes: ["./dockers/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro", "./dockers/observability/alerts.yml:/etc/prometheus/alerts.yml:ro", "${METRICS_TOKEN_FILE:-./secrets/metrics_token}:/run/secrets/metrics_token:ro", "prometheus:/prometheus"]
-    networks: [private]
-  grafana:
-    image: ${GRAFANA_IMAGE:?set immutable GRAFANA_IMAGE}
-    profiles: [observability]
-    environment: {GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_password, GF_USERS_ALLOW_SIGN_UP: "false", GF_AUTH_ANONYMOUS_ENABLED: "false"}
-    ports: ["127.0.0.1:13001:3000"]
-    volumes: ["${GRAFANA_PASSWORD_FILE:-./secrets/grafana_password}:/run/secrets/grafana_password:ro", "./dockers/observability/provisioning:/etc/grafana/provisioning:ro", "./dockers/observability/dashboard.json:/var/lib/grafana/dashboards/release.json:ro", "grafana:/var/lib/grafana"]
     networks: [private]
   migrate:
     <<: *process

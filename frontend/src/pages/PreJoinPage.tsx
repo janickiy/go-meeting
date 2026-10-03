@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, CameraOff, Headphones, Mic, MicOff } from "lucide-react";
+import {
+  Camera,
+  CameraOff,
+  Headphones,
+  Mic,
+  MicOff,
+  ShieldCheck,
+} from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { isAdmitted } from "../collaboration";
@@ -13,7 +20,14 @@ import {
   saveDevicePreferences,
 } from "../prejoinDevices";
 import type { DevicePreferences } from "../prejoinDevices";
-import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
+import {
+  Brand,
+  Button,
+  ErrorNotice,
+  Loading,
+  StatusBadge,
+} from "../components/ui";
+import { initials } from "../utils";
 import "./prejoin.css";
 
 type InputKind = "audio" | "video";
@@ -429,12 +443,15 @@ export function PreJoinPage() {
 
   return (
     <section className="prejoin-page" aria-label="Проверка перед входом">
+      <div className="prejoin-brand">
+        <Brand to="/app" />
+      </div>
       <Link className="text-link" to={`/conferences/${id}`}>
         ← К встрече
       </Link>
       <div className="prejoin-heading">
         <div>
-          <span className="eyebrow">ПЕРЕД ВХОДОМ</span>
+          <span className="eyebrow">НАСТРОЙКИ ПЕРЕД ВХОДОМ</span>
           <h1>{meeting.title}</h1>
           <p>
             Проверьте устройства. Камера и микрофон пока доступны только вам.
@@ -455,7 +472,10 @@ export function PreJoinPage() {
               />
             ) : (
               <div className="prejoin-camera-off">
-                <CameraOff size={42} aria-hidden="true" />
+                <span className="prejoin-initials">
+                  {initials(user?.displayName || "Участник")}
+                </span>
+                <CameraOff size={22} aria-hidden="true" />
                 <span>Камера выключена</span>
               </div>
             )}
@@ -602,8 +622,9 @@ export function PreJoinPage() {
             Войти во встречу
           </Button>
           <p className="field-hint">
-            Предпросмотр остановится при входе. После допуска включите медиа в
-            комнате выбранными устройствами.
+            <ShieldCheck size={15} aria-hidden="true" /> Предпросмотр
+            остановится при входе. После допуска включите медиа в комнате
+            выбранными устройствами.
           </p>
         </div>
       </div>

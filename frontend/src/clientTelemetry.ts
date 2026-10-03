@@ -21,6 +21,8 @@ const staticRoutes = new Set([
   "/register",
   "/register/success",
   "/app",
+  "/calendar",
+  "/analytics",
   "/meetings",
   "/meetings/new",
   "/conferences",

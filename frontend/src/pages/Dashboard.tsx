@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router";
 import {
   ArrowRight,
   CalendarDays,
+  Clock3,
+  History,
   Link as LinkIcon,
   Plus,
   Search,
@@ -11,10 +13,11 @@ import {
 import { useAuth } from "../auth";
 import { useConferences } from "../queries";
 import { formatDate } from "../utils";
-import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
+import { Button, ErrorNotice, StatusBadge } from "../components/ui";
 import { CreateConference, JoinByLink } from "../components/ConferenceModals";
-import type { ConferenceFilters } from "../types";
+import type { Conference, ConferenceFilters } from "../types";
 import { localDayEnd, localSchedule } from "../collaboration";
+import "./dashboard.css";
 
 const views: { id: NonNullable<ConferenceFilters["view"]>; label: string }[] = [
   { id: "upcoming", label: "Предстоящие" },
@@ -23,12 +26,157 @@ const views: { id: NonNullable<ConferenceFilters["view"]>; label: string }[] = [
 ];
 
 /**
- * Dashboard показывает серверный список встреч с вкладками, фильтрами, пагинацией и действиями создания или входа.
- *
- * @args
- *   - объект параметров: all — свойство текущего компонента; create — свойство текущего компонента.
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
+ * MeetingSkeleton сохраняет место списка во время загрузки без фиктивных встреч.
+ * @return Доступное состояние ожидания с декоративными строками.
+ */
+function MeetingSkeleton() {
+  return (
+    <div
+      className="meeting-skeleton"
+      role="status"
+      aria-label="Загрузка встреч"
+    >
+      {[0, 1, 2].map((row) => (
+        <div className="meeting-skeleton-row" key={row} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * MeetingRow показывает время и фактическое состояние одной встречи.
+ * @args conference — запись сервера с проверенным доступом текущего пользователя.
+ * @return Ссылка на комнату либо материалы завершённой встречи.
+ */
+function MeetingRow({ conference }: { conference: Conference }) {
+  const past = ["finished", "cancelled"].includes(conference.status);
+  const timestamp =
+    conference.finishedAt ||
+    conference.startedAt ||
+    conference.scheduledAt ||
+    conference.createdAt;
+  const date = new Date(timestamp);
+  return (
+    <Link
+      className={`conference-row dashboard-meeting-row ${conference.status === "active" ? "dashboard-meeting-active" : ""}`}
+      to={past ? `/history/${conference.id}` : `/meetings/${conference.id}`}
+    >
+      <span className="dashboard-meeting-time" aria-hidden="true">
+        {Number.isFinite(date.getTime())
+          ? date.toLocaleTimeString("ru-RU", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "—"}
+        <small>
+          {Number.isFinite(date.getTime())
+            ? date.toLocaleDateString("ru-RU", {
+                day: "numeric",
+                month: "short",
+              })
+            : ""}
+        </small>
+      </span>
+      <div className="conference-row-copy">
+        <h3>{conference.title}</h3>
+        <p>
+          {conference.status === "created" ? "Создана: " : ""}
+          {formatDate(timestamp)}
+          {conference.plannedDurationMin
+            ? ` · ${conference.plannedDurationMin} мин`
+            : ""}
+        </p>
+      </div>
+      <StatusBadge status={conference.status} />
+      <ArrowRight className="row-arrow" size={17} aria-hidden="true" />
+    </Link>
+  );
+}
+
+/**
+ * RecentMeetings использует один серверный список истории, не запрашивая записи каждой встречи.
+ * @return Последние завершённые встречи без выдуманных превью или количества записей.
+ */
+function RecentMeetings() {
+  const query = useConferences({
+    view: "past",
+    scope: "all",
+    status: "finished",
+  });
+  const meetings =
+    query.data?.pages.flatMap((page) => page.items).slice(0, 3) || [];
+  return (
+    <section
+      className="dashboard-recent"
+      aria-labelledby="recent-meetings-heading"
+    >
+      <div className="section-heading">
+        <div>
+          <h2 id="recent-meetings-heading">Недавние встречи</h2>
+          <p className="dashboard-section-note">
+            Записи и материалы — в истории каждой встречи.
+          </p>
+        </div>
+        <Link className="text-link" to="/history">
+          Вся история <ArrowRight size={15} aria-hidden="true" />
+        </Link>
+      </div>
+      <ErrorNotice error={query.error} />
+      {query.isError && (
+        <Button variant="outline" onClick={() => void query.refetch()}>
+          Повторить загрузку истории
+        </Button>
+      )}
+      {query.isPending ? (
+        <MeetingSkeleton />
+      ) : meetings.length ? (
+        <div className="recent-meeting-grid">
+          {meetings.map((meeting) => (
+            <Link
+              key={meeting.id}
+              className="recent-meeting-card"
+              to={`/history/${meeting.id}`}
+            >
+              <div className="recent-meeting-art" aria-hidden="true">
+                <History size={26} />
+                <span>История встречи</span>
+                <ArrowRight size={19} />
+              </div>
+              <div className="recent-meeting-copy">
+                <h3>{meeting.title}</h3>
+                <p>
+                  <Clock3 size={13} aria-hidden="true" />
+                  {formatDate(meeting.finishedAt || meeting.createdAt)}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        !query.isError && (
+          <div className="dashboard-history-empty">
+            <History size={23} aria-hidden="true" />
+            <div>
+              <strong>История начинается с первой встречи</strong>
+              <p>
+                Здесь появятся завершённые встречи и доступные вам материалы.
+              </p>
+            </div>
+          </div>
+        )
+      )}
+    </section>
+  );
+}
+
+/**
+ * Dashboard объединяет реальные встречи, создание, планирование и переход в историю.
+ * @args all — показывать полный список и фильтры; create — открыть форму создания поверх страницы.
+ * @return Адаптивный кабинет со статусами загрузки, ошибки, пустого списка и пагинации.
  */
 export function Dashboard({
   all = false,
@@ -57,14 +205,18 @@ export function Dashboard({
   });
   const [search, setSearch] = useState("");
   const [joining, setJoining] = useState(false);
-  const selectView = (view: NonNullable<ConferenceFilters["view"]>) => {
+
+  /** @args view — серверная категория встреч. Сохраняет прочие параметры маршрута. */
+  function selectView(view: NonNullable<ConferenceFilters["view"]>) {
     setParams((current) => {
       const next = new URLSearchParams(current);
       next.set("view", view);
       return next;
     });
-  };
-  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+  }
+
+  /** @args event — клавиатурное событие вкладки. Реализует стрелки, Home и End по шаблону ARIA. */
+  function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     const current = views.findIndex(
       (view) => view.id === event.currentTarget.dataset.view,
     );
@@ -76,40 +228,22 @@ export function Dashboard({
     else if (event.key === "End") next = views.length - 1;
     else return;
     event.preventDefault();
-    const target = views[next];
-    selectView(target.id);
-    document.getElementById(`tab-${target.id}`)?.focus();
-  };
-  const conferences =
-    query.data?.pages.flatMap(
-      /**
-       * Обработчик flatMap преобразует текущий элемент в данные или представление результирующего списка.
-       *
-       * @args
-       *   - page — изолированная страница Playwright.
-       *
-       * @returns преобразованное значение текущего элемента для результирующего набора.
-       */ (page) => page.items,
-    ) || [];
-  const filtered = conferences.filter(
-    /**
-     * Обработчик conferences.filter проверяет, должен ли элемент войти в отфильтрованный набор.
-     *
-     * @args
-     *   - item — элемент списка, который обрабатывает текущий шаг.
-     *
-     * @returns логический признак соответствия элемента условию.
-     */ (item) =>
-      item.title
-        .toLocaleLowerCase("ru")
-        .includes(search.toLocaleLowerCase("ru")),
+    selectView(views[next].id);
+    document.getElementById(`tab-${views[next].id}`)?.focus();
+  }
+
+  const conferences = query.data?.pages.flatMap((page) => page.items) || [];
+  const filtered = conferences.filter((item) =>
+    item.title.toLocaleLowerCase("ru").includes(search.toLocaleLowerCase("ru")),
   );
-  const visible = all ? filtered : filtered.slice(0, 3);
+  const visible = all ? filtered : filtered.slice(0, 4);
   return (
-    <>
-      <section className="page-heading">
+    <div className="dashboard-page">
+      <section className="page-heading dashboard-heading">
         <div>
-          <span className="eyebrow">ВАШ ЛИЧНЫЙ КАБИНЕТ</span>
+          <span className="eyebrow">
+            {all ? "ВАШИ ВСТРЕЧИ" : "ВАШ РАБОЧИЙ ДЕНЬ"}
+          </span>
           <h1>
             {all
               ? tab === "past"
@@ -120,30 +254,28 @@ export function Dashboard({
           <p>
             {all
               ? "Все ваши встречи — от первого приглашения до завершения."
-              : "Создайте новую встречу или присоединитесь к существующей."}
+              : "Встречайтесь, обсуждайте идеи и сохраняйте важное."}
           </p>
         </div>
-        <span className="heading-art">
-          <Video size={32} />
-        </span>
+        <div className="dashboard-date" aria-label="Сегодня">
+          <CalendarDays size={17} aria-hidden="true" />
+          {new Date().toLocaleDateString("ru-RU", {
+            day: "numeric",
+            month: "long",
+          })}
+        </div>
       </section>
       <div className="dashboard-actions">
         <Link to="/conferences/new" className="button button-primary">
-          <Plus size={21} />
+          <Plus size={19} aria-hidden="true" />
           Новая конференция
         </Link>
-        <Button
-          variant="secondary"
-          onClick={
-            /**
-             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-             *
-             *
-             * @returns вычисленное значение: setJoining(true).
-             */ () => setJoining(true)
-          }
-        >
-          <LinkIcon size={19} />
+        <Link to="/meetings/new?scheduled=1" className="button button-outline">
+          <CalendarDays size={18} aria-hidden="true" />
+          Запланировать
+        </Link>
+        <Button variant="secondary" onClick={() => setJoining(true)}>
+          <LinkIcon size={18} aria-hidden="true" />
           Присоединиться по ссылке
         </Button>
       </div>
@@ -152,62 +284,37 @@ export function Dashboard({
           <h2>{all ? "Ваши встречи" : "Мои конференции"}</h2>
           {!all && (
             <Link to="/conferences" className="text-link">
-              Смотреть все <ArrowRight size={15} />
+              Смотреть все <ArrowRight size={15} aria-hidden="true" />
             </Link>
           )}
         </div>
         <div className="list-toolbar">
           <div className="tabs" role="tablist" aria-label="Статус конференций">
-            {views.map(
-              /**
-               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
-               *
-               * @args
-               *   - item — элемент списка, который обрабатывает текущий шаг.
-               *
-               * @returns преобразованное значение текущего элемента для результирующего набора.
-               */ (item) => (
-                <button
-                  key={item.id}
-                  id={`tab-${item.id}`}
-                  data-view={item.id}
-                  className={tab === item.id ? "tab tab-active" : "tab"}
-                  role="tab"
-                  aria-selected={tab === item.id}
-                  aria-controls="conference-list"
-                  tabIndex={tab === item.id ? 0 : -1}
-                  onKeyDown={onTabKeyDown}
-                  onClick={
-                    /**
-                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                     *
-                     *
-                     * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
-                     */ () => selectView(item.id)
-                  }
-                >
-                  {item.label}
-                </button>
-              ),
-            )}
+            {views.map((item) => (
+              <button
+                key={item.id}
+                id={`tab-${item.id}`}
+                data-view={item.id}
+                className={tab === item.id ? "tab tab-active" : "tab"}
+                role="tab"
+                aria-selected={tab === item.id}
+                aria-controls="conference-list"
+                tabIndex={tab === item.id ? 0 : -1}
+                onKeyDown={onTabKeyDown}
+                onClick={() => selectView(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
           {all && (
             <label className="search-field">
-              <Search size={17} />
+              <Search size={17} aria-hidden="true" />
               <input
                 aria-label="Поиск конференции по названию"
                 placeholder="Найти среди загруженных"
                 value={search}
-                onChange={
-                  /**
-                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   * @args
-                   *   - event — проверенный конверт события комнаты.
-                   *
-                   * @returns вычисленное значение: setSearch(event.target.value).
-                   */ (event) => setSearch(event.target.value)
-                }
+                onChange={(event) => setSearch(event.target.value)}
               />
             </label>
           )}
@@ -219,20 +326,12 @@ export function Dashboard({
               <select
                 aria-label="Моё участие"
                 value={scope}
-                onChange={
-                  /**
-                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   * @args
-                   *   - event — проверенный конверт события комнаты.
-                   *
-                   * @returns вычисленное значение: setScope( event.target.value as NonNullable< ConferenceFilters["scope"] >, ).
-                   */ (event) =>
-                    setScope(
-                      event.target.value as NonNullable<
-                        ConferenceFilters["scope"]
-                      >,
-                    )
+                onChange={(event) =>
+                  setScope(
+                    event.target.value as NonNullable<
+                      ConferenceFilters["scope"]
+                    >,
+                  )
                 }
               >
                 <option value="all">Все мои встречи</option>
@@ -247,16 +346,7 @@ export function Dashboard({
                 aria-label="Встречи с даты"
                 value={from}
                 max={to || undefined}
-                onChange={
-                  /**
-                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   * @args
-                   *   - event — проверенный конверт события комнаты.
-                   *
-                   * @returns вычисленное значение: setFrom(event.target.value).
-                   */ (event) => setFrom(event.target.value)
-                }
+                onChange={(event) => setFrom(event.target.value)}
               />
             </label>
             <label className="field">
@@ -266,35 +356,14 @@ export function Dashboard({
                 aria-label="Встречи по дату"
                 value={to}
                 min={from || undefined}
-                onChange={
-                  /**
-                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   * @args
-                   *   - event — проверенный конверт события комнаты.
-                   *
-                   * @returns вычисленное значение: setTo(event.target.value).
-                   */ (event) => setTo(event.target.value)
-                }
+                onChange={(event) => setTo(event.target.value)}
               />
             </label>
           </div>
         )}
         <ErrorNotice error={query.error} />
         {query.isError && (
-          <Button
-            variant="outline"
-            onClick={
-              /**
-               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */ () => {
-                void query.refetch();
-              }
-            }
-          >
+          <Button variant="outline" onClick={() => void query.refetch()}>
             Попробовать снова
           </Button>
         )}
@@ -305,61 +374,18 @@ export function Dashboard({
           tabIndex={0}
         >
           {query.isPending ? (
-            <Loading />
+            <MeetingSkeleton />
           ) : visible.length ? (
             <div className="conference-list">
-              {visible.map(
-                /**
-                 * Обработчик visible.map преобразует один элемент набора в представление или данные следующего шага.
-                 *
-                 * @args
-                 *   - item — элемент списка, который обрабатывает текущий шаг.
-                 *
-                 * @returns преобразованное значение текущего элемента для результирующего набора.
-                 */ (item) => (
-                  <Link
-                    className="conference-row"
-                    key={item.id}
-                    to={`/conferences/${item.id}`}
-                  >
-                    <span
-                      className={`meeting-icon ${item.status === "active" ? "meeting-live" : ""}`}
-                    >
-                      {item.status === "active" ? (
-                        <Video size={21} />
-                      ) : (
-                        <CalendarDays size={21} />
-                      )}
-                    </span>
-                    <div className="conference-row-copy">
-                      <h3>{item.title}</h3>
-                      <p>
-                        {item.status === "scheduled"
-                          ? "Запланировано: "
-                          : item.status === "created"
-                            ? "Создана "
-                            : item.status === "active"
-                              ? "Начало: "
-                              : "Завершение: "}
-                        {formatDate(
-                          item.finishedAt ||
-                            item.startedAt ||
-                            item.scheduledAt ||
-                            item.createdAt,
-                        )}
-                      </p>
-                    </div>
-                    <StatusBadge status={item.status} />
-                    <ArrowRight className="row-arrow" size={18} />
-                  </Link>
-                ),
-              )}
+              {visible.map((item) => (
+                <MeetingRow key={item.id} conference={item} />
+              ))}
             </div>
           ) : (
             !query.isError && (
               <div className="empty-state">
                 <span className="empty-icon">
-                  <CalendarDays size={29} />
+                  <CalendarDays size={29} aria-hidden="true" />
                 </span>
                 <h3>
                   {search
@@ -372,14 +398,14 @@ export function Dashboard({
                 </h3>
                 <p>
                   {search
-                    ? "Попробуйте другое название."
+                    ? "Поиск работает по загруженным встречам. Попробуйте другое название или загрузите ещё."
                     : tab === "upcoming"
                       ? "Создайте конференцию и пригласите коллег по ссылке."
                       : "Конференции появятся здесь, когда изменится их статус."}
                 </p>
                 {tab === "upcoming" && !search && (
                   <Link to="/conferences/new" className="text-link">
-                    <Plus size={16} />
+                    <Plus size={16} aria-hidden="true" />
                     Создать конференцию
                   </Link>
                 )}
@@ -387,52 +413,46 @@ export function Dashboard({
             )
           )}
         </div>
-        {query.hasNextPage && (
+        {all && query.hasNextPage && (
           <Button
             variant="outline"
             busy={query.isFetchingNextPage}
-            onClick={
-              /**
-               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */ () => {
-                void query.fetchNextPage();
-              }
-            }
+            onClick={() => void query.fetchNextPage()}
           >
             Загрузить ещё встречи
           </Button>
         )}
+        {!all && (filtered.length > visible.length || query.hasNextPage) && (
+          <Link
+            className="dashboard-show-more text-link"
+            to={`/meetings?view=${tab}`}
+          >
+            Открыть весь список <ArrowRight size={15} aria-hidden="true" />
+          </Link>
+        )}
       </section>
       {!all && (
-        <div className="dashboard-tip">
-          <span className="tip-icon">
-            <LinkIcon size={21} />
-          </span>
-          <div>
-            <strong>Одна ссылка — и вы вместе</strong>
-            <p>
-              Скопируйте приглашение из карточки встречи и отправьте его
-              коллегам.
-            </p>
+        <>
+          <RecentMeetings />
+          <div className="dashboard-tip">
+            <span className="tip-icon">
+              <Video size={21} aria-hidden="true" />
+            </span>
+            <div>
+              <strong>Всё готово к следующему разговору</strong>
+              <p>
+                Проверьте камеру и микрофон перед входом. Подключение к встрече
+                начнётся только после вашего подтверждения.
+              </p>
+            </div>
+            <Link className="text-link" to="/settings">
+              Устройства <ArrowRight size={15} aria-hidden="true" />
+            </Link>
           </div>
-        </div>
+        </>
       )}
       {create && <CreateConference />}
-      {joining && (
-        <JoinByLink
-          onClose={
-            /**
-             * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-             *
-             *
-             * @returns вычисленное значение: setJoining(false).
-             */ () => setJoining(false)
-          }
-        />
-      )}
-    </>
+      {joining && <JoinByLink onClose={() => setJoining(false)} />}
+    </div>
   );
 }

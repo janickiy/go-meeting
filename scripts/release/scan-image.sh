@@ -15,7 +15,12 @@ cleanup_scan() {
 }
 trap cleanup_scan EXIT
 scan_archive="$(mktemp "${TMPDIR:-/tmp}/recorder-image-scan.XXXXXX")"
-docker image save --output "$scan_archive" "$ref"
+save_options=()
+if [[ -n "${IMAGE_PLATFORM:-}" ]]; then
+  [[ "$IMAGE_PLATFORM" == linux/amd64 || "$IMAGE_PLATFORM" == linux/arm64 ]] || fail "Invalid scan platform"
+  save_options=(--platform "$IMAGE_PLATFORM")
+fi
+docker image save "${save_options[@]}" --output "$scan_archive" "$ref"
 # Повторно используется только публичная база уязвимостей; данные приложения остаются во временном контейнере.
 docker volume create recorder-release-scanner-cache >/dev/null
 scan_container="$(docker create --mount type=volume,source=recorder-release-scanner-cache,target=/root/.cache/trivy \

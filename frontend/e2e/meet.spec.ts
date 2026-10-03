@@ -608,9 +608,10 @@ test("handles errors without leaking server details or pretending registration f
  */ async ({ page }) => {
   await mockApi(page, { failList: true });
   await login(page);
-  await expect(page.getByRole("alert")).toContainText(
-    "Сервис временно недоступен",
-  );
+  await expect(page.getByRole("alert")).toHaveText([
+    /Сервис временно недоступен/,
+    /Сервис временно недоступен/,
+  ]);
   await expect(page.getByText(/postgres|secret database/)).toHaveCount(0);
   await page.goto("/register"); // Уже авторизованные пользователи перенаправляются.
   await expect(page).toHaveURL(/\/app$/);
@@ -722,7 +723,9 @@ test("mobile layouts, menu, keyboard dialog dismissal and deep-link refresh", /*
     fullPage: true,
   });
   await page.getByRole("button", { name: "Открыть меню" }).click();
-  await expect(page.getByRole("dialog", { name: "Меню Meet" })).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Меню Meetrix" }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("button", { name: "Открыть меню" }),

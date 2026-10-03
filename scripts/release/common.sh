@@ -6,6 +6,13 @@ RELEASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RELEASE_SERVICES=(api media-worker worker product-worker live-worker frontend minio postgres redis rabbitmq coturn proxy prometheus grafana)
 RELEASE_APPLICATIONS=(media-worker worker product-worker live-worker api frontend)
 
+# select_release_services выбирает только явно развёртываемые компоненты.
+# @args $1 — проверенный layout: classic либо hardened-shared-host.
+select_release_services() {
+  RELEASE_SERVICES=(api media-worker worker product-worker live-worker frontend minio postgres redis rabbitmq coturn proxy prometheus)
+  if [[ "$1" == classic ]]; then RELEASE_SERVICES+=(grafana); fi
+}
+
 # fail завершает операцию с безопасным сообщением, без содержимого конфигурации.
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 
@@ -36,8 +43,62 @@ parse_release_args() {
 # compose вызывает только зафиксированный набор Compose-файлов и явно заданный проект.
 compose() {
   local options=(-f "$RELEASE_ROOT/docker-compose.production.yml")
+  if [[ "${RELEASE_LAYOUT:-classic}" == hardened-shared-host ]]; then
+    options+=(-f "$RELEASE_ROOT/docker-compose.hardened.yml" -f "$RELEASE_ROOT/docker-compose.shared-host.yml")
+  else
+    options+=(-f "$RELEASE_ROOT/docker-compose.grafana.yml")
+  fi
   if [[ "$RELEASE_ENVIRONMENT" == local ]]; then options+=(-f "$RELEASE_ROOT/docker-compose.release-local.yml"); fi
   docker compose --project-name "$RELEASE_PROJECT" --env-file "$RELEASE_ENV_FILE" "${options[@]}" "$@"
+}
+
+# verify_archive_security проверяет целостность офлайн-пакета и отчёты каждого образа.
+# Архив не ослабляет production gate: обязательны чистый source snapshot, SBOM,
+# совпадение Image ID, архитектуры и отсутствие HIGH/CRITICAL без ignore-флагов.
+# @args параметры берутся из проверенного RELEASE_MANIFEST и его каталога.
+verify_archive_security() {
+  local directory service image expected actual scan sbom architecture
+  directory="$(dirname "$RELEASE_MANIFEST")"
+  [[ -f "$directory/images.tar" ]] || fail "Archive release images.tar is missing"
+  expected="$(jq -er '.archiveSHA256 | select(test("^[a-f0-9]{64}$"))' "$RELEASE_MANIFEST")" || fail "Archive checksum missing"
+  [[ "$(file_sha256 "$directory/images.tar")" == "$expected" ]] || fail "Archive checksum mismatch"
+  architecture="$(jq -er '.platform | select(. == "linux/amd64" or . == "linux/arm64") | split("/")[1]' "$RELEASE_MANIFEST")" || fail "Archive target architecture missing"
+  for service in "${RELEASE_SERVICES[@]}"; do
+    image="$(jq -er --arg service "$service" '.images[$service] | select(test("^sha256:[a-f0-9]{64}$"))' "$RELEASE_MANIFEST")" || fail "Archive needs immutable image IDs"
+    scan="$directory/$service.scan.json"
+    sbom="$directory/$service.sbom.json"
+    [[ -f "$scan" && -f "$sbom" ]] || fail "Archive security evidence missing for $service"
+    expected="$(jq -er --arg service "$service" '.securityEvidence[$service].scanSHA256' "$RELEASE_MANIFEST")" || fail "Scan checksum missing"
+    [[ "$(file_sha256 "$scan")" == "$expected" ]] || fail "Scan checksum mismatch for $service"
+    expected="$(jq -er --arg service "$service" '.securityEvidence[$service].sbomSHA256' "$RELEASE_MANIFEST")" || fail "SBOM checksum missing"
+    [[ "$(file_sha256 "$sbom")" == "$expected" ]] || fail "SBOM checksum mismatch for $service"
+    jq -e --arg image "$image" --arg architecture "$architecture" '
+      has("SchemaVersion") and (.Results | type == "array")
+      and .Metadata.ImageID == $image and .Metadata.ImageConfig.architecture == $architecture
+      and ([.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0)
+    ' "$scan" >/dev/null || fail "Archive security gate failed for $service"
+    jq -e '.bomFormat == "CycloneDX"' "$sbom" >/dev/null || fail "Invalid archive SBOM for $service"
+  done
+}
+
+# verify_loaded_images связывает уже загруженные приложения с source snapshot.
+# @args версия, commit и sourceSHA256 берутся из манифеста текущего релиза.
+verify_loaded_images() {
+  local service image source architecture
+  source="$(jq -er .sourceSHA256 "$RELEASE_MANIFEST")"
+  architecture="$(jq -r '.platform | split("/")[1]' "$RELEASE_MANIFEST")"
+  for service in "${RELEASE_SERVICES[@]}"; do
+    image="$(jq -er --arg service "$service" '.images[$service]' "$RELEASE_MANIFEST")"
+    docker image inspect "$image" | jq -e --arg architecture "$architecture" '.[0].Architecture == $architecture' >/dev/null || fail "Loaded image architecture mismatch for $service"
+    case "$service" in
+      api|media-worker|worker|product-worker|live-worker|frontend|minio)
+        docker image inspect "$image" | jq -e --arg version "$RELEASE_VERSION" --arg commit "$RELEASE_COMMIT" --arg source "$source" '
+          .[0].Config.Labels | .["org.opencontainers.image.version"] == $version
+          and .["org.opencontainers.image.revision"] == $commit
+          and .["io.go-recorder.source-sha256"] == $source
+        ' >/dev/null || fail "Loaded application provenance mismatch for $service";;
+    esac
+  done
 }
 
 # validate_release проверяет формат, изоляцию окружения и отсутствие изменяемых image tags.
@@ -56,18 +117,26 @@ validate_release() {
   RELEASE_VERSION="$(jq -r .version "$RELEASE_MANIFEST")"
   RELEASE_COMMIT="$(jq -r .commit "$RELEASE_MANIFEST")"
   RELEASE_MANIFEST_SHA="$(file_sha256 "$RELEASE_MANIFEST")"
+  RELEASE_LAYOUT="$(jq -r '.deploymentLayout // "classic"' "$RELEASE_MANIFEST")"
+  [[ "$RELEASE_LAYOUT" == classic || "$RELEASE_LAYOUT" == hardened-shared-host ]] || fail "Unsupported release layout"
+  select_release_services "$RELEASE_LAYOUT"
+  RELEASE_ARTIFACT_MODE="$(jq -r '.artifactMode // ""' "$RELEASE_MANIFEST")"
   if [[ "$RELEASE_ENVIRONMENT" != local ]]; then
-    jq -e '.sourceDirty == false and .sourceFingerprintVerified == true and .securityScanned == true and .artifactMode == "registry"' "$RELEASE_MANIFEST" >/dev/null || fail "Staging/production require a scanned registry release from clean source"
+    jq -e '.sourceDirty == false and .sourceFingerprintVerified == true and .securityScanned == true
+      and (.sourceSHA256 | test("^[a-f0-9]{64}$"))
+      and (.artifactMode == "registry" or .artifactMode == "archive")' "$RELEASE_MANIFEST" >/dev/null || fail "Staging/production require a scanned immutable release from clean source"
   fi
+  if [[ "$RELEASE_ARTIFACT_MODE" == archive ]]; then verify_archive_security; fi
   local service ref variable
   for service in "${RELEASE_SERVICES[@]}"; do
     ref="$(jq -er --arg service "$service" '.images[$service]' "$RELEASE_MANIFEST")" || fail "Missing image: $service"
-    if [[ "$RELEASE_ENVIRONMENT" == local && "$ref" =~ ^sha256:[a-f0-9]{64}$ ]]; then :
+    if [[ ( "$RELEASE_ENVIRONMENT" == local || "$RELEASE_ARTIFACT_MODE" == archive ) && "$ref" =~ ^sha256:[a-f0-9]{64}$ ]]; then :
     elif [[ "$ref" =~ ^[a-zA-Z0-9][a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}$ ]]; then :
     else fail "An immutable image reference is required for $service"; fi
     variable="$(printf '%s_IMAGE' "$service" | tr '[:lower:]-' '[:upper:]_')"
     export "$variable=$ref"
   done
+  if [[ "$RELEASE_LAYOUT" == hardened-shared-host ]]; then export OBJECT_STORAGE_IMAGE="$MINIO_IMAGE"; fi
   export RELEASE_ENV_FILE
   export BUILD_VERSION="$RELEASE_VERSION"
   compose --profile observability --profile migration config --quiet

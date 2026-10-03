@@ -156,6 +156,7 @@ async function enableMedia(page: Page) {
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */
 async function send(page: Page, text: string) {
+  await page.getByRole("button", { name: "Чат", exact: true }).click();
   await page.getByLabel("Сообщение", { exact: true }).fill(text);
   await page.getByRole("button", { name: "Отправить", exact: true }).click();
 }
@@ -354,6 +355,7 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       .getByRole("button", { name: "Присоединиться", exact: true })
       .click();
     await owner.getByRole("button", { name: "Войти во встречу" }).click();
+    await owner.locator(".conference-presence-details summary").click();
     await expect(owner.getByTestId("connection-id")).toBeVisible();
     await bob.reload();
     await expect(bob.getByTestId("waiting-room")).toContainText(
@@ -373,7 +375,9 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     }
     await bob.reload();
     await expect(bob.getByTestId("waiting-room")).toBeVisible();
+    await owner.getByRole("button", { name: /^Участники \(/ }).click();
     await owner.getByRole("button", { name: "Допустить: Stage5 Bob" }).click();
+    await bob.locator(".conference-presence-details summary").click();
     await expect(bob.getByTestId("connection-id")).toBeVisible();
     await rejected.goto(`${base}/i/${created.inviteCode}`);
     await rejected
@@ -423,7 +427,14 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       )
       .toBeGreaterThan(10);
     await owner
+      .getByRole("button", { name: "Записи конференции", exact: true })
+      .click();
+    await owner
       .getByRole("button", { name: "Начать запись", exact: true })
+      .click();
+    await owner
+      .getByRole("dialog", { name: "Записи конференции", exact: true })
+      .getByRole("button", { name: "Закрыть окно" })
       .click();
     await expect(owner.getByTestId("recording-indicator")).toContainText(
       "Идёт запись",
@@ -670,6 +681,9 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       );
     phase = "recording-history-notifications";
     await owner
+      .getByRole("button", { name: "Записи конференции", exact: true })
+      .click();
+    await owner
       .getByRole("button", { name: "Остановить запись", exact: true })
       .click();
     /**
@@ -709,6 +723,7 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
          */ (file) => file.fileType === "preview_jpg",
       ),
     ).toBe(true);
+    await bob.goto(`${base}/app`);
     await bob.getByRole("button", { name: "Уведомления", exact: true }).click();
     await expect(bob.getByRole("dialog")).toContainText(
       "Запись встречи готова",
@@ -749,6 +764,11 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       .toBeTruthy();
     await bob.keyboard.press("Escape");
     await owner
+      .getByRole("dialog", { name: "Записи конференции", exact: true })
+      .getByRole("button", { name: "Закрыть окно" })
+      .click();
+    await owner.getByRole("button", { name: /^Участники \(/ }).click();
+    await owner
       .getByRole("button", { name: "Завершить конференцию", exact: true })
       .click();
     await owner
@@ -759,7 +779,7 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     ).toBeVisible();
     await expect(owner.getByLabel("Сообщение", { exact: true })).toHaveCount(0);
     await expect(owner.getByRole("log")).toContainText("Материалы встречи");
-    await bob.reload();
+    await bob.goto(`${base}/conferences/${conferenceId}`);
     await expect(
       bob.getByRole("region", { name: "История встречи" }),
     ).toBeVisible();

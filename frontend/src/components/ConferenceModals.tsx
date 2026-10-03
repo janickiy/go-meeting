@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { SubmitEvent } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Info, Link as LinkIcon, Mail, Video } from "lucide-react";
 import { api } from "../api";
@@ -9,6 +9,7 @@ import { inviteCode, inviteLink } from "../utils";
 import { Button, CopyLink, ErrorNotice, Modal, SuccessMark } from "./ui";
 import { ScheduleFields } from "./ScheduleFields";
 import { localSchedule, toLocalInput } from "../collaboration";
+import { PRODUCT_NAME } from "../brand";
 
 /**
  * ShareConference показывает результат создания встречи и действия копирования ссылки и перехода в комнату.
@@ -48,7 +49,7 @@ export function ShareConference({
         </Link>
         <a
           className="button button-secondary full-width"
-          href={`mailto:?subject=${encodeURIComponent(`Приглашение: ${conference.title}`)}&body=${encodeURIComponent(`Присоединяйтесь к конференции «${conference.title}» в Meet:\n${link}\nДля входа понадобится аккаунт Meet.`)}`}
+          href={`mailto:?subject=${encodeURIComponent(`Приглашение: ${conference.title}`)}&body=${encodeURIComponent(`Присоединяйтесь к конференции «${conference.title}» в ${PRODUCT_NAME}:\n${link}\nДля входа понадобится аккаунт ${PRODUCT_NAME}.`)}`}
           title="Открыть черновик в вашем почтовом приложении"
         >
           <Mail size={19} />
@@ -56,7 +57,8 @@ export function ShareConference({
         </a>
         <p className="info-line">
           <Info size={20} />
-          По ссылке может присоединиться любой пользователь с аккаунтом Meet.
+          По ссылке может присоединиться любой пользователь с аккаунтом{" "}
+          {PRODUCT_NAME}.
         </p>
       </div>
     </Modal>
@@ -70,19 +72,25 @@ export function ShareConference({
  */
 export function CreateConference() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const client = useQueryClient();
   const [title, setTitle] = useState("");
   const [validation, setValidation] = useState("");
   const [created, setCreated] = useState<Conference | null>(null);
   const [waitingRoom, setWaitingRoom] = useState(false);
-  const [planned, setPlanned] = useState(false);
+  const [planned, setPlanned] = useState(params.get("scheduled") === "1");
   const [scheduledAt, setScheduledAt] = useState(
     /**
      * Обработчик useState выполняет переданный шаг вызова useState в конференциях, расписании и истории.
      *
      *
      * @returns вычисленное значение: toLocalInput(new Date(Date.now() + 3600000).toISOString()).
-     */ () => toLocalInput(new Date(Date.now() + 3600000).toISOString()),
+     */ () => {
+      const selected = localSchedule(params.get("at") || "");
+      return selected
+        ? toLocalInput(selected)
+        : toLocalInput(new Date(Date.now() + 3600000).toISOString());
+    },
   );
   const [duration, setDuration] = useState("");
   const mutation = useMutation({
@@ -123,7 +131,8 @@ export function CreateConference() {
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
    */
   function close() {
-    if (!mutation.isPending) navigate("/app");
+    if (!mutation.isPending)
+      navigate(params.get("returnTo") === "calendar" ? "/calendar" : "/app");
   }
   /**
    * submit проверяет поля формы, отправляет изменение и показывает результат либо ошибку.
@@ -409,7 +418,9 @@ export function JoinByLink({
     event.preventDefault();
     const code = inviteCode(value);
     if (!code) {
-      setError("Введите ссылку-приглашение этого Meet или код из 32 символов.");
+      setError(
+        `Введите ссылку-приглашение этого ${PRODUCT_NAME} или код из 32 символов.`,
+      );
       return;
     }
     navigate(`/i/${code}`);

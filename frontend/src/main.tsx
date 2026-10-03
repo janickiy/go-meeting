@@ -12,6 +12,9 @@ import "@fontsource/inter/cyrillic-600.css";
 import "@fontsource/inter/cyrillic-700.css";
 import "./styles.css";
 import "./accessibility.css";
+import "./tokens.css";
+import "./workspace.css";
+import { PRODUCT_NAME } from "./brand";
 import { ApiError } from "./api";
 import { AuthProvider } from "./auth";
 import { App } from "./App";
@@ -19,6 +22,7 @@ import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { installClientTelemetry } from "./clientTelemetry";
 
 const stopTelemetry = installClientTelemetry();
+document.title = `${PRODUCT_NAME} — встречи без границ`;
 if (import.meta.hot) import.meta.hot.dispose(stopTelemetry);
 
 const queryClient = new QueryClient({

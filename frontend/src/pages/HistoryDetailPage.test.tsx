@@ -62,6 +62,18 @@ function show(url = "/history/room") {
 }
 
 beforeEach(() => {
+  vi.spyOn(api, "capabilities").mockResolvedValue({
+    status: "success",
+    buildVersion: "test",
+    capabilities: {
+      liveCaptions: false,
+      transcription: true,
+      aiSummary: true,
+      semanticSearch: false,
+      meetingAnalytics: true,
+      recordingModes: ["composite"],
+    },
+  });
   vi.spyOn(api, "history").mockResolvedValue({
     status: "success",
     item: history,
@@ -83,17 +95,46 @@ describe("история встречи", () => {
     expect(
       await screen.findByRole("heading", { name: "План запуска" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("60 мин")).toBeInTheDocument();
+    expect(screen.getAllByText("60 мин").length).toBeGreaterThan(0);
     expect(
       screen.queryByText("Материалы записи загружены"),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Расшифровка" }));
-    expect(screen.getByText("Материалы записи загружены")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Материалы записи загружены"),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Чат" }));
-    expect(screen.getByText("История чата загружена")).toBeInTheDocument();
+    expect(
+      await screen.findByText("История чата загружена"),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText("Материалы записи загружены"),
     ).not.toBeInTheDocument();
+  });
+
+  it("не открывает выключенные вкладки из глубокой ссылки", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue({
+      status: "success",
+      buildVersion: "test",
+      capabilities: {
+        liveCaptions: false,
+        transcription: false,
+        aiSummary: false,
+        semanticSearch: false,
+        meetingAnalytics: false,
+        recordingModes: ["composite"],
+      },
+    });
+    show("/history/room?section=summary&recording=record");
+    await screen.findByRole("heading", { name: "План запуска" });
+    expect(screen.queryByRole("tab", { name: "Итоги ИИ" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Расшифровка" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Аналитика" })).toBeNull();
+    expect(screen.queryByText("Материалы записи загружены")).toBeNull();
+    expect(screen.getByRole("tab", { name: "Обзор" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("не открывает материалы без подтверждённого допуска", async () => {

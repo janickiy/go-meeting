@@ -11,6 +11,8 @@ import type {
   TranscriptView,
 } from "../types";
 
+vi.mock("../auth", () => ({ useAuth: () => ({ user: { id: "user" } }) }));
+
 const member = {
   id: "member",
   userId: "user",
@@ -75,6 +77,18 @@ function show(url = "/conferences/room?recording=record", membership = member) {
 }
 
 beforeEach(() => {
+  vi.spyOn(api, "capabilities").mockResolvedValue({
+    status: "success",
+    buildVersion: "test",
+    capabilities: {
+      liveCaptions: false,
+      transcription: true,
+      aiSummary: true,
+      semanticSearch: false,
+      meetingAnalytics: false,
+      recordingModes: ["composite"],
+    },
+  });
   vi.spyOn(api, "recording").mockResolvedValue({
     status: "success",
     item: record,
@@ -147,6 +161,38 @@ describe("приватные материалы записи", () => {
     expect(api.summary).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("tab", { name: "Итоги ИИ" }));
     await waitFor(() => expect(api.summary).toHaveBeenCalledTimes(1));
+  });
+  it("по ссылке на итоги не загружает расшифровку и сегменты заранее", async () => {
+    show("/conferences/room?recording=record&tab=summary");
+    await waitFor(() => expect(api.summary).toHaveBeenCalledTimes(1));
+    expect(api.transcript).not.toHaveBeenCalled();
+    expect(api.transcriptSegments).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "Расшифровка" }));
+    await screen.findByText(/Обсуждение запуска/);
+    expect(api.transcript).toHaveBeenCalledTimes(1);
+  });
+  it("скрывает выключенные материалы и не запрашивает их даже по глубокой ссылке", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue({
+      status: "success",
+      buildVersion: "test",
+      capabilities: {
+        liveCaptions: false,
+        transcription: false,
+        aiSummary: false,
+        semanticSearch: false,
+        meetingAnalytics: false,
+        recordingModes: ["composite"],
+      },
+    });
+    const { container } = show(
+      "/conferences/room?recording=record&tab=summary",
+    );
+    await screen.findByText(/Расшифровка отключена администратором/);
+    expect(container.querySelector("video")).not.toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(api.summary).not.toHaveBeenCalled();
+    expect(api.transcript).not.toHaveBeenCalled();
+    expect(api.transcriptSegments).not.toHaveBeenCalled();
   });
   it("переключение вкладок не возвращает проигрывание к старой метке", async () => {
     const { container } = show("/conferences/room?recording=record&t=42500");

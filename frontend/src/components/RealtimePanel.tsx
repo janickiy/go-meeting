@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Mic,
   MicOff,
+  Hand,
+  Settings,
+  ShieldCheck,
   MonitorUp,
   Radio,
   RefreshCw,
   Video,
   VideoOff,
-  Volume2,
 } from "lucide-react";
 import type { useRealtime } from "../realtime";
 import { useMedia } from "../useMedia";
@@ -25,6 +27,7 @@ import {
   type RtcDiagnostics,
 } from "../mediaDiagnostics";
 import { useCapabilities } from "../useCapabilities";
+import { initials } from "../utils";
 
 /**
  * MediaTile привязывает MediaStream к аудио- или видеоэлементу и освобождает привязку при смене потока.
@@ -34,20 +37,28 @@ import { useCapabilities } from "../useCapabilities";
  *
  * @returns JSX-представление компонента для текущих свойств и состояния.
  */
-function MediaTile({
+const MediaTile = memo(function MediaTile({
   stream,
   name,
   local = false,
   video = true,
   screen = false,
   sinkId = "",
+  microphoneEnabled = false,
+  role,
+  handRaised = false,
+  reconnecting = false,
 }: {
-  stream: MediaStream;
+  stream?: MediaStream;
   name: string;
   local?: boolean;
   video?: boolean;
   screen?: boolean;
   sinkId?: string;
+  microphoneEnabled?: boolean;
+  role?: Participant["role"];
+  handRaised?: boolean;
+  reconnecting?: boolean;
 }) {
   const element = useRef<HTMLMediaElement | null>(null);
   const [blocked, setBlocked] = useState(false);
@@ -74,7 +85,7 @@ function MediaTile({
      * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
      */ () => {
       const media = element.current;
-      if (!media) return;
+      if (!media || !stream) return;
       media.srcObject = stream;
       let active = true;
       void media.play().catch(
@@ -121,9 +132,15 @@ function MediaTile({
   return (
     <div
       className={`media-tile ${local ? "media-tile-local" : ""} ${screen ? "media-tile-screen" : ""}`}
-      data-testid={local ? "local-media" : "remote-media"}
+      data-testid={
+        stream
+          ? local
+            ? "local-media"
+            : "remote-media"
+          : "participant-placeholder"
+      }
     >
-      {video ? (
+      {video && stream ? (
         <video
           ref={
             /**
@@ -144,32 +161,55 @@ function MediaTile({
         />
       ) : (
         <>
-          <div className="media-audio-symbol">
-            <Volume2 size={34} />
+          <div className="media-audio-symbol" aria-label="Камера выключена">
+            <span className="participant-tile-initials">{initials(name)}</span>
           </div>
-          <audio
-            ref={
-              /**
-               * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
-               *
-               * @args
-               *   - node — DOM-элемент, к которому привязывается медиапоток.
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */ (node) => {
-                element.current = node;
+          {stream && (
+            <audio
+              ref={
+                /**
+                 * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
+                 *
+                 * @args
+                 *   - node — DOM-элемент, к которому привязывается медиапоток.
+                 *
+                 * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                 */ (node) => {
+                  element.current = node;
+                }
               }
-            }
-            autoPlay
-            muted={local}
-            aria-label={name}
-          />
+              autoPlay
+              muted={local}
+              aria-label={name}
+            />
+          )}
         </>
       )}
       <div className="media-tile-label">
-        {name}
-        {local ? " · вы" : ""}
+        <span>
+          {name}
+          {local ? " · вы" : ""}
+        </span>
+        {!screen && (
+          <span className="media-tile-badges">
+            {(role === "owner" || role === "co_host") && (
+              <ShieldCheck
+                size={15}
+                aria-label={role === "owner" ? "Организатор" : "Соорганизатор"}
+              />
+            )}
+            {handRaised && <Hand size={15} aria-label="Рука поднята" />}
+            {!microphoneEnabled && (
+              <MicOff size={15} aria-label="Микрофон выключен" />
+            )}
+          </span>
+        )}
       </div>
+      {reconnecting && (
+        <span className="media-tile-reconnecting" role="status">
+          Восстанавливаем связь
+        </span>
+      )}
       {blocked && (
         <Button
           variant="secondary"
@@ -192,7 +232,7 @@ function MediaTile({
       )}
     </div>
   );
-}
+});
 
 // Захват с физических устройств всегда требует явного действия пользователя.
 /**
@@ -208,11 +248,17 @@ export function RealtimePanel({
   membership,
   live,
   shortcutsEnabled = true,
+  participants = [],
+  raisedHands = [],
+  controls,
 }: {
   conferenceId: string;
   membership: Participant;
   live: ReturnType<typeof useRealtime>;
   shortcutsEnabled?: boolean;
+  participants?: Participant[];
+  raisedHands?: string[];
+  controls?: ReactNode;
 }) {
   const { user } = useAuth();
   const capabilities = useCapabilities();
@@ -226,6 +272,7 @@ export function RealtimePanel({
   const [hasSelection] = useState(() => hasDevicePreferences(user?.id || ""));
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [devicesOpen, setDevicesOpen] = useState(false);
   const [diagnostics, setDiagnostics] = useState<RtcDiagnostics | null>(null);
   const [diagnosticsError, setDiagnosticsError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
@@ -308,6 +355,21 @@ export function RealtimePanel({
     ["failed", "disconnected"].includes(media.view.iceState);
   const busy =
     media.view.controlBusy || !media.view.mediaPeerId || connectionProblem;
+  const roster = (
+    participants.length ? participants : live.state?.participants || []
+  ).filter(
+    (person) =>
+      person.status === "joined" &&
+      (!person.admissionState || person.admissionState === "admitted"),
+  );
+  const present = roster.some((person) => person.id === membership.id)
+    ? roster
+    : [...roster, membership];
+  const remoteParticipants = new Set(
+    media.view.remoteStreams
+      .filter((remote) => !remote.screen)
+      .map((remote) => remote.participantId),
+  );
   useEffect(() => {
     if (!diagnosticsOpen || !media.running || !live.state) {
       setDiagnostics(null);
@@ -472,7 +534,10 @@ export function RealtimePanel({
           {media.view.status}
         </p>
         {media.view.error && <ErrorNotice>{media.view.error}</ErrorNotice>}
-        <div className="meeting-actions">
+        <div
+          className="meeting-actions conference-control-bar"
+          aria-label="Управление медиасвязью"
+        >
           {!media.running && (
             <>
               <Button
@@ -515,6 +580,12 @@ export function RealtimePanel({
               <Button
                 variant="secondary"
                 disabled={busy || membership.microphoneBlocked}
+                aria-pressed={media.view.microphoneEnabled}
+                aria-label={
+                  media.view.microphoneEnabled
+                    ? "Выключить микрофон"
+                    : "Включить микрофон"
+                }
                 aria-keyshortcuts={shortcutsEnabled ? "M" : undefined}
                 onClick={
                   /**
@@ -530,13 +601,17 @@ export function RealtimePanel({
                 ) : (
                   <MicOff size={17} />
                 )}
-                {media.view.microphoneEnabled
-                  ? "Выключить микрофон"
-                  : "Включить микрофон"}
+                Микрофон
               </Button>
               <Button
                 variant="secondary"
                 disabled={busy || membership.cameraBlocked}
+                aria-pressed={media.view.cameraEnabled}
+                aria-label={
+                  media.view.cameraEnabled
+                    ? "Выключить камеру"
+                    : "Включить камеру"
+                }
                 aria-keyshortcuts={shortcutsEnabled ? "V" : undefined}
                 onClick={
                   /**
@@ -552,12 +627,16 @@ export function RealtimePanel({
                 ) : (
                   <VideoOff size={17} />
                 )}
-                {media.view.cameraEnabled
-                  ? "Выключить камеру"
-                  : "Включить камеру"}
+                Камера
               </Button>
               <Button
                 variant="secondary"
+                aria-pressed={media.view.screenSharing}
+                aria-label={
+                  media.view.screenSharing
+                    ? "Остановить демонстрацию"
+                    : "Показать экран"
+                }
                 disabled={
                   busy || membership.screenBlocked || membership.cameraBlocked
                 }
@@ -574,16 +653,30 @@ export function RealtimePanel({
                 }
               >
                 <MonitorUp size={17} />
-                {media.view.screenSharing
-                  ? "Остановить демонстрацию"
-                  : "Показать экран"}
+                {media.view.screenSharing ? "Остановить экран" : "Экран"}
               </Button>
-              <Button variant="secondary" onClick={media.stop}>
+              <Button
+                variant="secondary"
+                onClick={media.stop}
+                aria-label="Отключить медиа"
+              >
                 <VideoOff size={17} />
-                Отключить медиа
+                Отключиться
               </Button>
             </>
           )}
+          {media.running && (
+            <Button
+              variant="secondary"
+              aria-expanded={devicesOpen}
+              aria-controls="meeting-device-selectors"
+              onClick={() => setDevicesOpen((value) => !value)}
+            >
+              <Settings size={17} />
+              Устройства
+            </Button>
+          )}
+          {controls}
         </div>
         {(membership.microphoneBlocked ||
           membership.cameraBlocked ||
@@ -601,7 +694,11 @@ export function RealtimePanel({
           </p>
         )}
         {media.running && devices.length > 0 && (
-          <div className="media-devices">
+          <div
+            className="media-devices"
+            id="meeting-device-selectors"
+            hidden={!devicesOpen}
+          >
             {(["audioinput", "videoinput"] as const).map(
               /**
                * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
@@ -750,7 +847,8 @@ export function RealtimePanel({
         )}
         {!media.view.localStream &&
           !media.view.localScreen &&
-          media.view.remoteStreams.length === 0 && (
+          media.view.remoteStreams.length === 0 &&
+          present.length === 0 && (
             <div className="media-empty" data-testid="media-empty">
               <VideoOff size={36} aria-hidden="true" />
               <strong>Видео пока нет</strong>
@@ -763,7 +861,8 @@ export function RealtimePanel({
           )}
         {(media.view.localStream ||
           media.view.localScreen ||
-          media.view.remoteStreams.length > 0) && (
+          media.view.remoteStreams.length > 0 ||
+          present.length > 0) && (
           <div
             className={`media-grid ${
               media.view.localScreen ||
@@ -794,7 +893,11 @@ export function RealtimePanel({
                 local
                 stream={media.view.localStream}
                 video={media.view.cameraEnabled}
-                name="Локальное видео"
+                name={membership.displayName || "Вы"}
+                microphoneEnabled={media.view.microphoneEnabled}
+                role={membership.role}
+                handRaised={raisedHands.includes(membership.id)}
+                reconnecting={connectionProblem}
               />
             )}
             {media.view.remoteStreams.map(
@@ -812,9 +915,19 @@ export function RealtimePanel({
                   stream={remote.stream}
                   video={remote.kinds.includes("video")}
                   sinkId={preferences.audioOutputId}
+                  microphoneEnabled={
+                    roster.find((person) => person.id === remote.participantId)
+                      ?.microphoneEnabled ?? remote.kinds.includes("audio")
+                  }
+                  role={
+                    roster.find((person) => person.id === remote.participantId)
+                      ?.role
+                  }
+                  handRaised={raisedHands.includes(remote.participantId)}
+                  reconnecting={connectionProblem}
                   name={
                     (remote.screen ? "Экран · " : "") +
-                    (live.state?.participants.find(
+                    (roster.find(
                       /**
                        * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
                        *
@@ -829,6 +942,33 @@ export function RealtimePanel({
                 />
               ),
             )}
+            {present
+              .filter((person) =>
+                person.id === membership.id
+                  ? !media.view.localStream
+                  : !remoteParticipants.has(person.id),
+              )
+              .map((person) => (
+                <MediaTile
+                  key={`waiting-${person.id}`}
+                  name={person.displayName || "Участник"}
+                  local={person.id === membership.id}
+                  video={false}
+                  microphoneEnabled={
+                    person.id === membership.id
+                      ? media.view.microphoneEnabled
+                      : person.microphoneEnabled
+                  }
+                  role={person.role}
+                  handRaised={raisedHands.includes(person.id)}
+                  reconnecting={
+                    connectionProblem ||
+                    live.state?.participants.find(
+                      (item) => item.id === person.id,
+                    )?.online === false
+                  }
+                />
+              ))}
           </div>
         )}
         {media.view.mediaPeerId && (

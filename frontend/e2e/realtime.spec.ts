@@ -30,6 +30,7 @@ test("two browsers: presence, two tabs and reconnect without opening camera or m
       await page.getByRole("button", { name: "Войти", exact: true }).click();
       await expect(page).toHaveURL(/\/app/);
       await page.goto(`${base}/conferences/${conference}`);
+      await page.locator(".conference-presence-details summary").click();
       await expect(page.getByTestId("connection-id")).toBeVisible();
     }
     const bobPresence = a.getByTestId(
@@ -46,6 +47,7 @@ test("two browsers: presence, two tabs and reconnect without opening camera or m
     await b2.getByRole("button", { name: "Войти", exact: true }).click();
     await expect(b2).toHaveURL(/\/app/);
     await b2.goto(`${base}/conferences/${conference}`);
+    await b2.locator(".conference-presence-details summary").click();
     await expect(b2.getByTestId("connection-id")).toBeVisible();
     await expect(bobPresence).toContainText("подключений: 2");
     await b2.close();

@@ -26,6 +26,8 @@ export function SearchPage() {
   const { user } = useAuth();
   const capabilities = useCapabilities();
   const semanticAvailable =
+    capabilities.isSuccess &&
+    !capabilities.isError &&
     capabilities.data?.capabilities.semanticSearch === true;
   const [params, setParams] = useSearchParams();
   const initialSource = params.get("source") as SearchSource;
