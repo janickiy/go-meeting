@@ -120,3 +120,50 @@ it("subscribes without replacing the media handler and bounds reaction bubbles",
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   client.clear();
 });
+
+it("uses the current hand mutation only for a new admitted shortcut token", async () => {
+  vi.spyOn(api, "hands").mockResolvedValue({ status: "success", items: [] });
+  const hand = vi.spyOn(api, "hand").mockResolvedValue({ status: "success" });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const member = {
+    id: "self",
+    role: "participant",
+    status: "joined",
+  } as Participant;
+  const live = {
+    state: { connectionId: "connection" },
+    subscribe: () => () => {},
+  } as unknown as ReturnType<typeof useRealtime>;
+  const renderPanel = (token: number, connected = true) => (
+    <QueryClientProvider client={client}>
+      <HandReactionsPanel
+        conferenceId="room"
+        membership={member}
+        participants={[]}
+        live={
+          connected
+            ? live
+            : ({ ...live, state: null } as ReturnType<typeof useRealtime>)
+        }
+        handShortcutToken={token}
+      />
+    </QueryClientProvider>
+  );
+  const view = render(renderPanel(0));
+  await screen.findByRole("button", { name: "Поднять руку" });
+  await waitFor(() => expect(api.hands).toHaveBeenCalled());
+  view.rerender(renderPanel(1));
+  await waitFor(() =>
+    expect(hand).toHaveBeenCalledExactlyOnceWith("room", "self", true),
+  );
+  view.rerender(renderPanel(1));
+  expect(hand).toHaveBeenCalledTimes(1);
+  view.rerender(renderPanel(2, false));
+  expect(hand).toHaveBeenCalledTimes(1);
+  view.unmount();
+  render(renderPanel(2));
+  expect(hand).toHaveBeenCalledTimes(1);
+  client.clear();
+});

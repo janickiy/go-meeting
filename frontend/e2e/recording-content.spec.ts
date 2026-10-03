@@ -75,6 +75,19 @@ async function mockStageSeven(page: Page, disabled = false) {
         body: JSON.stringify(body),
       });
     if (path === "/auth/me") return reply({ status: "success", user });
+    if (path === "/capabilities")
+      return reply({
+        status: "success",
+        capabilities: {
+          liveCaptions: false,
+          transcription: !disabled,
+          aiSummary: !disabled,
+          semanticSearch: !disabled,
+          meetingAnalytics: false,
+          recordingModes: ["composite"],
+        },
+        buildVersion: "stage7-test",
+      });
     if (path === "/notifications/events")
       return route.fulfill({
         status: 200,
@@ -282,11 +295,18 @@ test("Stage7: поиск открывает нужную запись, вкла�
     fullPage: true,
   });
   await page.getByRole("link", { name: "Открыть фрагмент записи" }).click();
-  await expect(page).toHaveURL(
-    /recording=record&tab=transcript&t=42500&segment=segment/,
-  );
+  await expect(page).toHaveURL(/\/history\/room\?/);
+  const target = new URL(page.url());
+  expect(Object.fromEntries(target.searchParams)).toMatchObject({
+    recording: "record",
+    tab: "transcript",
+    section: "transcript",
+    t: "42500",
+    segment: "segment",
+  });
+  const recordingTabs = page.getByRole("tablist", { name: "Материалы записи" });
   await expect(
-    page.getByRole("tab", { name: "Расшифровка", exact: true }),
+    recordingTabs.getByRole("tab", { name: "Расшифровка", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(
     page.getByText(/Тестовые данные: это демонстрационная расшифровка/),
@@ -295,13 +315,15 @@ test("Stage7: поиск открывает нужную запись, вкла�
     "src",
     /private-media\.example\.test/,
   );
-  await page.getByRole("tab", { name: "Итоги ИИ", exact: true }).click();
+  await recordingTabs
+    .getByRole("tab", { name: "Итоги ИИ", exact: true })
+    .click();
   await expect(
     page.getByText("Ответственный: не указан · Срок: не указан"),
   ).toBeVisible();
   await page.getByRole("button", { name: "Источник 00:42" }).click();
   await expect(
-    page.getByRole("tab", { name: "Расшифровка", exact: true }),
+    recordingTabs.getByRole("tab", { name: "Расшифровка", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await page.screenshot({
     path: info.outputPath("transcript.png"),

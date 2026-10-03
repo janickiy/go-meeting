@@ -35,6 +35,8 @@ type Runtime struct {
 	Registry        *prometheus.Registry
 	ready, draining atomic.Bool
 	dependency      *prometheus.GaugeVec
+	dependencyMu    sync.RWMutex
+	dependencyState map[string]bool
 	requests        *prometheus.CounterVec
 	duration        *prometheus.HistogramVec
 	ws              prometheus.Gauge
@@ -63,7 +65,7 @@ type correlationKey struct{}
 // Runtime; проверка готовности начинается отдельно через Run.
 func New(service, instance string, cfg config.OperationsConfig, checks map[string]Check) *Runtime {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", service, "instance_id", instance))
-	r := &Runtime{Config: cfg, Checks: checks, Registry: prometheus.NewRegistry(), customNames: map[string]struct{}{}}
+	r := &Runtime{Config: cfg, Checks: checks, Registry: prometheus.NewRegistry(), customNames: map[string]struct{}{}, dependencyState: map[string]bool{}}
 	r.dependency = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "recorder_dependency_up", Help: "Last bounded dependency probe: 1 healthy, 0 unavailable."}, []string{"dependency"})
 	r.requests = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "recorder_http_requests_total", Help: "Completed HTTP requests by route template, method and status."}, []string{"route", "method", "status"})
 	r.duration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "recorder_http_duration_seconds", Help: "HTTP handler duration; SSE includes stream lifetime, WS counts handshake only.", Buckets: []float64{.005, .025, .1, .25, .5, 1, 2, 5, 10}}, []string{"route", "method"})
@@ -115,15 +117,21 @@ func (r *Runtime) probe(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, r.Config.ProbeTimeout)
 	defer cancel()
 	ok := true
+	states := make(map[string]bool, len(r.Checks))
 	for name, check := range r.Checks {
 		value := 1.
-		if check(ctx) != nil {
+		healthy := check(ctx) == nil
+		if !healthy {
 			Event("dependency_failed")
 			value = 0
 			ok = false
 		}
+		states[name] = healthy
 		r.dependency.WithLabelValues(name).Set(value)
 	}
+	r.dependencyMu.Lock()
+	r.dependencyState = states
+	r.dependencyMu.Unlock()
 	r.ready.Store(ok && !r.draining.Load())
 }
 
@@ -133,6 +141,17 @@ func (r *Runtime) Drain() { r.draining.Store(true); r.ready.Store(false) }
 
 // Ready сообщает готовность без обращения к зависимостям и без блокировок.
 func (r *Runtime) Ready() bool { return r.ready.Load() && !r.draining.Load() }
+
+// DependencyStatuses returns only fixed service names and cached readiness bits.
+func (r *Runtime) DependencyStatuses() map[string]bool {
+	r.dependencyMu.RLock()
+	defer r.dependencyMu.RUnlock()
+	states := make(map[string]bool, len(r.dependencyState))
+	for name, healthy := range r.dependencyState {
+		states[name] = healthy
+	}
+	return states
+}
 
 // Live отвечает на проверку жизни процесса независимо от состояния зависимостей.
 // w получает JSON; req не используется. Это не доказательство готовности к работе.

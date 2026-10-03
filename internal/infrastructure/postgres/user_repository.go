@@ -75,6 +75,18 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (users.Us
 	return user, mapNotFound(err)
 }
 
+// UpdateDisplayName меняет только имя учётной записи из проверенного JWT subject.
+func (r *UserRepository) UpdateDisplayName(ctx context.Context, userID, name string) (users.User, error) {
+	result := r.db.WithContext(ctx).Model(&users.User{}).Where("id = ?", userID).Update("display_name", name)
+	if result.Error != nil {
+		return users.User{}, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return users.User{}, apperrors.ErrNotFound
+	}
+	return r.GetByID(ctx, userID)
+}
+
 // mapNotFound преобразует отсутствие строки GORM в принятую приложением ошибку отсутствующего ресурса.
 //
 // @args

@@ -1,5 +1,6 @@
 import type { ClientRealtimeType } from "./realtime";
 import type { RealtimeEvent } from "./types";
+import { summarizeRtcStats, type RtcCounters } from "./mediaDiagnostics";
 
 /**
  * MediaSource различает микрофон, камеру, экран и звук экрана при публикации медиа.
@@ -21,6 +22,13 @@ export interface MediaPolicy {
   microphoneBlocked?: boolean;
   cameraBlocked?: boolean;
   screenBlocked?: boolean;
+}
+
+export interface MediaStartOptions {
+  audioInputId?: string;
+  videoInputId?: string;
+  microphoneEnabled?: boolean;
+  cameraEnabled?: boolean;
 }
 /**
  * MediaTrack связывает дорожку с серверным участником, источником и физическим подключением.
@@ -283,6 +291,7 @@ export class ConferenceMediaClient {
   private disposed = false;
   private started = false;
   private pc: RTCPeerConnection | null = null;
+  private lastStatsCounters: RtcCounters | null = null;
   private local: MediaStream | null = null;
   private screen: MediaStream | null = null;
   private policy: MediaPolicy = {};
@@ -356,6 +365,17 @@ export class ConferenceMediaClient {
   snapshot() {
     return this.view;
   }
+
+  /** Reads an allowlisted aggregate from the current peer without exposing raw stats. */
+  async diagnostics() {
+    const pc = this.pc;
+    if (this.disposed || !pc || typeof pc.getStats !== "function") return null;
+    const report = await pc.getStats();
+    if (this.disposed || this.pc !== pc) return null;
+    const sample = summarizeRtcStats(report, this.lastStatsCounters);
+    this.lastStatsCounters = sample.counters;
+    return sample.summary;
+  }
   /**
    * update объединяет изменение со снимком медиа и уведомляет подписчика состояния.
    *
@@ -427,6 +447,7 @@ export class ConferenceMediaClient {
     }
     this.pc?.close();
     this.pc = null;
+    this.lastStatsCounters = null;
     for (const track of this.local?.getTracks() || []) track.stop();
     for (const track of this.screen?.getTracks() || []) track.stop();
     this.local = null;
@@ -460,39 +481,81 @@ export class ConferenceMediaClient {
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
    */
-  async start(captureDevices = true) {
+  async start(captureDevices = true, options?: MediaStartOptions) {
     if (this.started || this.disposed) return;
     this.started = true;
+    const microphone =
+      captureDevices &&
+      options?.microphoneEnabled !== false &&
+      !this.policy.microphoneBlocked;
+    const camera =
+      captureDevices &&
+      options?.cameraEnabled !== false &&
+      !this.policy.cameraBlocked;
     this.update({
       active: true,
-      status: captureDevices
-        ? "Запрашиваем доступ к камере и микрофону…"
-        : "Подключаем медиасвязь без устройств…",
+      status:
+        microphone || camera
+          ? "Запрашиваем доступ к выбранным устройствам…"
+          : "Подключаем медиасвязь без устройств…",
       error: null,
     });
     try {
-      if (captureDevices && !navigator.mediaDevices?.getUserMedia)
+      if ((microphone || camera) && !navigator.mediaDevices?.getUserMedia)
         throw new Error("secure_context");
-      const stream =
-        !captureDevices ||
-        (this.policy.microphoneBlocked && this.policy.cameraBlocked)
-          ? new MediaStream()
-          : await navigator.mediaDevices.getUserMedia({
-              audio: this.policy.microphoneBlocked
-                ? false
-                : {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                  },
-              video: this.policy.cameraBlocked
-                ? false
-                : {
-                    width: { ideal: 1280, max: 1280 },
-                    height: { ideal: 720, max: 720 },
-                    frameRate: { ideal: 30, max: 30 },
-                  },
-            });
+      if (options?.audioInputId)
+        this.preferredInputs.set("microphone", options.audioInputId);
+      if (options?.videoInputId)
+        this.preferredInputs.set("camera", options.videoInputId);
+      const constraints = (preferred: boolean): MediaStreamConstraints => ({
+        audio: microphone
+          ? {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              ...(preferred && options?.audioInputId
+                ? { deviceId: { exact: options.audioInputId } }
+                : {}),
+            }
+          : false,
+        video: camera
+          ? {
+              width: { ideal: 1280, max: 1280 },
+              height: { ideal: 720, max: 720 },
+              frameRate: { ideal: 30, max: 30 },
+              ...(preferred && options?.videoInputId
+                ? { deviceId: { exact: options.videoInputId } }
+                : {}),
+            }
+          : false,
+      });
+      let stream: MediaStream;
+      if (!microphone && !camera) {
+        stream = new MediaStream();
+      } else {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints(true));
+        } catch (error) {
+          const name =
+            error &&
+            typeof error === "object" &&
+            "name" in error &&
+            typeof error.name === "string"
+              ? error.name
+              : "";
+          if (
+            !(options?.audioInputId || options?.videoInputId) ||
+            (name !== "NotFoundError" && name !== "OverconstrainedError")
+          )
+            throw error;
+          if (this.disposed) return;
+          stream = await navigator.mediaDevices.getUserMedia(
+            constraints(false),
+          );
+          this.preferredInputs.delete("microphone");
+          this.preferredInputs.delete("camera");
+        }
+      }
       if (this.disposed) {
         stream.getTracks().forEach(
           /**
@@ -771,7 +834,8 @@ export class ConferenceMediaClient {
     deviceId?: string,
   ) {
     if (this.disposed || !this.pc || this.view.controlBusy) return;
-    deviceId = deviceId || this.preferredInputs.get(source);
+    deviceId =
+      deviceId === undefined ? this.preferredInputs.get(source) : deviceId;
     if (
       enabled &&
       (source === "microphone"
@@ -786,35 +850,58 @@ export class ConferenceMediaClient {
     this.update({ controlBusy: true, error: null });
     let captured: MediaStream | null = null;
     try {
-      if (enabled)
-        captured = await navigator.mediaDevices.getUserMedia({
-          audio:
-            source === "microphone"
-              ? {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
-                }
-              : false,
-          video:
-            source === "camera"
-              ? {
-                  width: {
-                    ideal: this.capture.maxWidth,
-                    max: this.capture.maxWidth,
-                  },
-                  height: {
-                    ideal: this.capture.maxHeight,
-                    max: this.capture.maxHeight,
-                  },
-                  frameRate: {
-                    ideal: this.capture.maxFrameRate,
-                    max: this.capture.maxFrameRate,
-                  },
-                  ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
-                }
-              : false,
-        });
+      const constraints = (selected?: string): MediaStreamConstraints => ({
+        audio:
+          source === "microphone"
+            ? {
+                echoCancellation: true,
+                noiseSuppression: true,
+                ...(selected ? { deviceId: { exact: selected } } : {}),
+              }
+            : false,
+        video:
+          source === "camera"
+            ? {
+                width: {
+                  ideal: this.capture.maxWidth,
+                  max: this.capture.maxWidth,
+                },
+                height: {
+                  ideal: this.capture.maxHeight,
+                  max: this.capture.maxHeight,
+                },
+                frameRate: {
+                  ideal: this.capture.maxFrameRate,
+                  max: this.capture.maxFrameRate,
+                },
+                ...(selected ? { deviceId: { exact: selected } } : {}),
+              }
+            : false,
+      });
+      if (enabled) {
+        try {
+          captured = await navigator.mediaDevices.getUserMedia(
+            constraints(deviceId),
+          );
+        } catch (error) {
+          const name =
+            error &&
+            typeof error === "object" &&
+            "name" in error &&
+            typeof error.name === "string"
+              ? error.name
+              : "";
+          if (
+            !deviceId ||
+            (name !== "NotFoundError" && name !== "OverconstrainedError")
+          )
+            throw error;
+          if (this.disposed) return;
+          captured = await navigator.mediaDevices.getUserMedia(constraints());
+          deviceId = undefined;
+          this.preferredInputs.delete(source);
+        }
+      }
       if (
         this.disposed ||
         (enabled &&
@@ -865,6 +952,7 @@ export class ConferenceMediaClient {
           }
           await this.replaceSource(source, track);
           if (track && deviceId) this.preferredInputs.set(source, deviceId);
+          else if (track) this.preferredInputs.delete(source);
         },
       );
     } catch {
@@ -1252,8 +1340,17 @@ export class ConferenceMediaClient {
       // Applying browser constraints is async. A stop/reconnect while pending
       // must not resurrect a PeerConnection or publish the captured stream.
       if (this.disposed) return;
-      if (data.iceTransportPolicy !== undefined && data.iceTransportPolicy !== "all" && data.iceTransportPolicy !== "relay") throw new Error("invalid_ice_policy");
-      this.createPeer(data.iceServers as RTCIceServer[], Number(data.maxPeers), data.iceTransportPolicy === "relay" ? "relay" : "all");
+      if (
+        data.iceTransportPolicy !== undefined &&
+        data.iceTransportPolicy !== "all" &&
+        data.iceTransportPolicy !== "relay"
+      )
+        throw new Error("invalid_ice_policy");
+      this.createPeer(
+        data.iceServers as RTCIceServer[],
+        Number(data.maxPeers),
+        data.iceTransportPolicy === "relay" ? "relay" : "all",
+      );
       this.refreshLocal();
       await this.offer();
       return;
@@ -1422,7 +1519,11 @@ export class ConferenceMediaClient {
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
    */
-  private createPeer(iceServers: RTCIceServer[], maxPeers: number, iceTransportPolicy: RTCIceTransportPolicy = "all") {
+  private createPeer(
+    iceServers: RTCIceServer[],
+    maxPeers: number,
+    iceTransportPolicy: RTCIceTransportPolicy = "all",
+  ) {
     // SFU always negotiates BUNDLE. Share one ICE transport even before the
     // first answer: gathering per receive slot can otherwise exceed the
     // signaling rate limit as the room's preallocated transceiver count grows.
@@ -1432,6 +1533,7 @@ export class ConferenceMediaClient {
       bundlePolicy: "max-bundle",
     });
     this.pc = pc;
+    this.lastStatsCounters = null;
     for (const source of [
       "microphone",
       "camera",

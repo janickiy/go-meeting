@@ -252,6 +252,7 @@ class FakePeer {
     mid: string;
     sender: { replaceTrack: ReturnType<typeof vi.fn> };
   }[] = [];
+  getStats = vi.fn(async () => new Map() as unknown as RTCStatsReport);
   /**
    * constructor function Object() { [native code] }.
    *
@@ -554,6 +555,57 @@ describe("SFU media client", /**
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
+  it("reads safe getStats aggregates only while the current peer is active", async () => {
+    const fixture = setup();
+    const pc = await joined(fixture);
+    pc.getStats.mockResolvedValue(
+      new Map([
+        [
+          "pair",
+          {
+            type: "candidate-pair",
+            selected: true,
+            state: "succeeded",
+            currentRoundTripTime: 0.025,
+          },
+        ],
+      ]) as unknown as RTCStatsReport,
+    );
+    expect(await fixture.client.diagnostics()).toEqual({ roundTripTimeMs: 25 });
+    expect(pc.getStats).toHaveBeenCalledTimes(1);
+    fixture.client.stop();
+    expect(await fixture.client.diagnostics()).toBeNull();
+    expect(pc.getStats).toHaveBeenCalledTimes(1);
+  });
+  it("uses prejoin input choices and falls back when a saved device is gone", async () => {
+    const fixture = setup();
+    const audio = fixture.localTracks[0];
+    fixture.capture
+      .mockRejectedValueOnce(
+        new DOMException("Missing", "OverconstrainedError"),
+      )
+      .mockResolvedValueOnce(new FakeStream([audio]));
+
+    await fixture.client.start(true, {
+      audioInputId: "old-microphone",
+      microphoneEnabled: true,
+      cameraEnabled: false,
+    });
+
+    expect(fixture.capture).toHaveBeenCalledTimes(2);
+    expect(fixture.capture).toHaveBeenNthCalledWith(1, {
+      audio: expect.objectContaining({
+        deviceId: { exact: "old-microphone" },
+      }),
+      video: false,
+    });
+    expect(fixture.capture).toHaveBeenNthCalledWith(2, {
+      audio: expect.not.objectContaining({ deviceId: expect.anything() }),
+      video: false,
+    });
+    expect(fixture.send).toHaveBeenCalledWith("media.join", {});
+    fixture.client.stop();
+  });
   it("requests camera/microphone only on explicit start, bounds capture, and cleans up once", /**
    * Проверка: requests camera/microphone only on explicit start, bounds capture, and cleans up once выполняет тестовый сценарий «requests camera/microphone only on explicit start, bounds capture, and cleans up once» и проверяет ожидаемые результаты.
    *
@@ -745,6 +797,23 @@ describe("SFU media client", /**
     expect(f.capture.mock.calls[0][0]).toMatchObject({ video: false });
     expect(f.client.snapshot().microphoneEnabled).toBe(true);
     expect(f.client.snapshot().cameraEnabled).toBe(false);
+    f.capture
+      .mockRejectedValueOnce(new DOMException("Missing", "NotFoundError"))
+      .mockResolvedValueOnce(
+        new FakeStream([new FakeTrack("audio", "fallback-mic")]),
+      );
+    await f.client.changeSource("microphone", true, "removed-microphone");
+    expect(f.capture).toHaveBeenNthCalledWith(2, {
+      audio: expect.objectContaining({
+        deviceId: { exact: "removed-microphone" },
+      }),
+      video: false,
+    });
+    expect(f.capture).toHaveBeenNthCalledWith(3, {
+      audio: expect.not.objectContaining({ deviceId: expect.anything() }),
+      video: false,
+    });
+    expect(f.client.snapshot().microphoneEnabled).toBe(true);
     f.client.stop();
   });
   it("cancels an in-flight media join with authenticated session cleanup", /**

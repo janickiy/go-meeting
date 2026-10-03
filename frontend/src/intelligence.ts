@@ -17,13 +17,14 @@ export function recordingTime(milliseconds: number): string {
 /**
  * Строит внутреннюю ссылку без вставки текста результата в адрес или HTML.
  * @args result — разрешённый сервером результат поиска.
- * @return Маршрут встречи с выбранной записью и проверенным временем.
+ * @return Маршрут истории с выбранной записью и проверенным временем.
  */
 export function searchResultLink(result: SearchResult): string {
   const params = new URLSearchParams();
   if (result.recordingId) {
     params.set("recording", result.recordingId);
     params.set("tab", result.type === "summary" ? "summary" : "transcript");
+    params.set("section", result.type === "summary" ? "summary" : "transcript");
     if (
       typeof result.startMs === "number" &&
       Number.isFinite(result.startMs) &&
@@ -32,7 +33,8 @@ export function searchResultLink(result: SearchResult): string {
       params.set("t", String(result.startMs));
     if (result.segmentId) params.set("segment", result.segmentId);
   }
-  return `/conferences/${encodeURIComponent(result.conferenceId)}${params.size ? `?${params}` : ""}`;
+  const base = result.recordingId ? "/history" : "/conferences";
+  return `${base}/${encodeURIComponent(result.conferenceId)}${params.size ? `?${params}` : ""}`;
 }
 
 /**
@@ -41,7 +43,7 @@ export function searchResultLink(result: SearchResult): string {
  * @return Безопасный внутренний маршрут.
  */
 export function notificationLink(notification: Notification): string {
-  return searchResultLink({
+  const link = searchResultLink({
     type:
       notification.type.includes("summary") || notification.payload.summaryId
         ? "summary"
@@ -52,4 +54,13 @@ export function notificationLink(notification: Notification): string {
     snippet: "",
     rank: 0,
   });
+  if (
+    notification.type.includes("recording") &&
+    notification.payload.recordingId
+  ) {
+    const url = new URL(link, "https://local.invalid");
+    url.searchParams.set("section", "recording");
+    return `${url.pathname}${url.search}`;
+  }
+  return link;
 }

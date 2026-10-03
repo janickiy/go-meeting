@@ -118,19 +118,17 @@ describe("настройки интеграций", () => {
       calendarOAuthConfigured: false,
       mockConnectAllowed: true,
     });
-    const connect = vi
-      .spyOn(api, "connectMockCalendar")
-      .mockResolvedValue({
-        status: "success",
-        item: {
-          id: "calendar",
-          provider: "mock",
-          calendarId: "primary",
-          status: "connected",
-          createdAt: "now",
-          updatedAt: "now",
-        },
-      });
+    const connect = vi.spyOn(api, "connectMockCalendar").mockResolvedValue({
+      status: "success",
+      item: {
+        id: "calendar",
+        provider: "mock",
+        calendarId: "primary",
+        status: "connected",
+        createdAt: "now",
+        updatedAt: "now",
+      },
+    });
     show();
     fireEvent.click(
       await screen.findByRole("button", {
@@ -148,19 +146,17 @@ describe("настройки интеграций", () => {
       "",
       "/app/settings/calendar/generic/callback?code=authorization-code&state=nonce",
     );
-    const callback = vi
-      .spyOn(api, "calendarCallback")
-      .mockResolvedValue({
-        status: "success",
-        item: {
-          id: "calendar",
-          provider: "generic",
-          calendarId: "primary",
-          status: "connected",
-          createdAt: "now",
-          updatedAt: "now",
-        },
-      });
+    const callback = vi.spyOn(api, "calendarCallback").mockResolvedValue({
+      status: "success",
+      item: {
+        id: "calendar",
+        provider: "generic",
+        calendarId: "primary",
+        status: "connected",
+        createdAt: "now",
+        updatedAt: "now",
+      },
+    });
     show(true);
     await screen.findByText("Календарь подключён.");
     expect(callback).toHaveBeenCalledTimes(1);

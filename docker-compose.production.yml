@@ -11,7 +11,7 @@ x-process: &process
 services:
   api:
     <<: *process
-    build: {context: ., dockerfile: dockers/api/Dockerfile, target: runtime}
+    build: {context: ., dockerfile: dockers/api/Dockerfile, target: runtime, args: {BUILD_VERSION: "${BUILD_VERSION:?set immutable release version or commit}"}}
     environment: {APP_ENV: production, GIN_MODE: release, APP_PORT: "8085"}
     mem_limit: 512m
     cpus: 2
@@ -104,7 +104,7 @@ services:
   frontend:
     build: {context: ./frontend, dockerfile: Dockerfile}
     restart: unless-stopped
-    environment: {API_UPSTREAM: "api:8085"}
+    environment: {API_UPSTREAM: "api:8085", APP_ENV: production, PUBLIC_FRONTEND_URL: "${PUBLIC_FRONTEND_URL:?set frontend HTTPS origin}", MINIO_PUBLIC_ENDPOINT: "${MINIO_PUBLIC_ENDPOINT:?set public storage HTTPS origin}"}
     networks: [private]
     mem_limit: 256m
   proxy:

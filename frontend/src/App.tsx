@@ -1,16 +1,59 @@
+import { lazy } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth";
 import { Brand, Button, ErrorNotice, Loading } from "./components/ui";
 import { Layout } from "./components/Layout";
 import { Landing } from "./pages/Landing";
 import { AuthPage, RegistrationSuccess } from "./pages/AuthPages";
-import { Dashboard } from "./pages/Dashboard";
-import { ConferencePage } from "./pages/ConferencePage";
-import { InvitePage } from "./pages/InvitePage";
-import { RecordingsPage, SettingsPage } from "./pages/AccountPages";
 import { Link } from "react-router";
-import { SearchPage } from "./pages/SearchPage";
 import { CalendarCallback } from "./components/IntegrationsSettings";
+
+const Dashboard = lazy(() =>
+  import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
+);
+const ConferencePage = lazy(() =>
+  import("./pages/ConferencePage").then((module) => ({
+    default: module.ConferencePage,
+  })),
+);
+const InvitePage = lazy(() =>
+  import("./pages/InvitePage").then((module) => ({
+    default: module.InvitePage,
+  })),
+);
+const RecordingsPage = lazy(() =>
+  import("./pages/AccountPages").then((module) => ({
+    default: module.RecordingsPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("./pages/AccountPages").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
+const SearchPage = lazy(() =>
+  import("./pages/SearchPage").then((module) => ({
+    default: module.SearchPage,
+  })),
+);
+const HistoryDetailPage = lazy(() =>
+  import("./pages/HistoryDetailPage").then((module) => ({
+    default: module.HistoryDetailPage,
+  })),
+);
+const NotificationsPage = lazy(() =>
+  import("./pages/NotificationsPage").then((module) => ({
+    default: module.NotificationsPage,
+  })),
+);
+const AdminPage = lazy(() =>
+  import("./pages/AdminPage").then((module) => ({ default: module.AdminPage })),
+);
+const PreJoinPage = lazy(() =>
+  import("./pages/PreJoinPage").then((module) => ({
+    default: module.PreJoinPage,
+  })),
+);
 
 /**
  * Protected проверяет восстановленную авторизацию и допускает защищённые страницы либо перенаправляет на вход.
@@ -111,13 +154,24 @@ export function App() {
       <Route element={<Protected />}>
         <Route element={<Layout />}>
           <Route path="/app" element={<Dashboard />} />
+          <Route path="/meetings" element={<Dashboard all />} />
+          <Route path="/meetings/new" element={<Dashboard create />} />
+          <Route path="/meetings/:id" element={<ConferencePage />} />
+          <Route path="/meetings/:id/join" element={<PreJoinPage />} />
           <Route path="/conferences" element={<Dashboard all />} />
           <Route path="/conferences/new" element={<Dashboard create />} />
           <Route path="/conferences/:id" element={<ConferencePage />} />
+          <Route path="/conferences/:id/join" element={<PreJoinPage />} />
           <Route path="/i/:code" element={<InvitePage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/app/recordings" element={<RecordingsPage />} />
+          <Route path="/history" element={<RecordingsPage />} />
+          <Route path="/history/:id" element={<HistoryDetailPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/app/search" element={<SearchPage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFound />} />

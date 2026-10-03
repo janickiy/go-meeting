@@ -166,6 +166,27 @@ describe("API contract", /**
     );
     expect(options.credentials).toBe("omit");
   });
+  it("updates only the current display name with bearer auth", async () => {
+    configureAuth("profile-token");
+    const user = {
+      id: "user-1",
+      email: "person@example.test",
+      displayName: "Новое имя",
+      isAdmin: true,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-02T00:00:00Z",
+    };
+    const fetch = fetchResponse(200, { status: "success", user });
+    await expect(api.updateProfile("Новое имя")).resolves.toEqual({
+      status: "success",
+      user,
+    });
+    const [url, options] = fetch.mock.calls[0];
+    expect(url).toBe("/api/v1/auth/me");
+    expect(options.method).toBe("PATCH");
+    expect(JSON.parse(options.body)).toEqual({ displayName: "Новое имя" });
+    expect(options.headers.get("Authorization")).toBe("Bearer profile-token");
+  });
   it("never attaches a bearer token to login or registration", /**
    * Проверка: never attaches a bearer token to login or registration выполняет тестовый сценарий «never attaches a bearer token to login or registration» и проверяет ожидаемые результаты.
    *

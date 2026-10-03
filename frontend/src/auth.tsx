@@ -39,6 +39,7 @@ interface Auth {
    *
    * @returns Promise<void> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
    */ (email: string, password: string) => Promise<void>;
+  updateProfile: (displayName: string) => Promise<User>;
   logout: /**
    * Вложенный обработчик выполняет шаг «Вложенный обработчик» в клиентской авторизации.
    *
@@ -223,6 +224,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setExpired(false);
     setStartupError(false);
   }
+  /** Обновляет профиль в рамках действующей сессии без выдачи нового токена. */
+  async function updateProfile(displayName: string): Promise<User> {
+    const token = sessionRef.current?.token;
+    if (!token) throw new ApiError(401, "Войдите в аккаунт.");
+    const result = await api.updateProfile(displayName);
+    if (sessionRef.current?.token !== token)
+      throw new ApiError(409, "Сессия изменилась. Повторите действие.");
+    setUser(result.user);
+    return result.user;
+  }
   /**
    * logout отправляет запрос завершения авторизации.
    *
@@ -244,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         expired,
         startupError,
         login,
+        updateProfile,
         logout,
         /**
          * retry решает, допустим ли повтор запроса с учётом ошибки и числа отказов.

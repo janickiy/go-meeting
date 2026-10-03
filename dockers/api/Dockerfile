@@ -6,7 +6,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/go-recorder ./cmd/api
+ARG BUILD_VERSION=dev
+RUN printf '%s' "$BUILD_VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$' \
+    && CGO_ENABLED=0 GOOS=linux go build \
+      -ldflags "-X github.com/janickiy/go-recorder/internal/usecase/platform.ReleaseVersion=$BUILD_VERSION" \
+      -o /bin/go-recorder ./cmd/api
 
 FROM alpine:3.22 AS runtime
 

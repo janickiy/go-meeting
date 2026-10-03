@@ -9,6 +9,7 @@ export function mergeCaptions(
   incoming: Caption[],
 ): Caption[] {
   const entries = new Map(current.map((item) => [item.id, item]));
+  let changed = false;
   for (const next of incoming) {
     if (
       !next ||
@@ -33,7 +34,9 @@ export function mergeCaptions(
     )
       continue;
     entries.set(next.id, next);
+    changed = true;
   }
+  if (!changed) return current;
   return [...entries.values()]
     .sort((a, b) => a.startMs - b.startMs || a.id.localeCompare(b.id))
     .slice(-200);

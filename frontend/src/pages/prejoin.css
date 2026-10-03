@@ -1,0 +1,146 @@
+.prejoin-page {
+  display: grid;
+  gap: 24px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.prejoin-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.prejoin-heading h1 {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.prejoin-heading p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.prejoin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.prejoin-preview,
+.prejoin-settings {
+  min-width: 0;
+}
+
+.prejoin-video-frame {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: #101b2f;
+  border-radius: 14px;
+  color: #fff;
+}
+
+.prejoin-video-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scaleX(-1);
+}
+
+.prejoin-camera-off {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  color: #d9e3f6;
+}
+
+.prejoin-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.prejoin-level {
+  display: grid;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.prejoin-level meter {
+  width: 100%;
+  height: 18px;
+}
+
+.prejoin-settings {
+  display: grid;
+  gap: 15px;
+}
+
+.prejoin-settings h2,
+.prejoin-settings p {
+  margin: 0;
+}
+
+.prejoin-settings .field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+}
+
+.prejoin-device-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prejoin-settings select,
+.prejoin-settings input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0;
+}
+
+.prejoin-settings select {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #d5def0;
+  border-radius: 8px;
+  background: white;
+  color: #142036;
+  font: inherit;
+  font-size: 14px;
+}
+
+.prejoin-waiting-note {
+  padding: 12px;
+  border-radius: 9px;
+  color: #344c70;
+  background: #eef4ff;
+}
+
+.prejoin-join {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .prejoin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .prejoin-heading {
+    display: block;
+  }
+
+  .prejoin-toggles .button {
+    flex: 1 1 100%;
+  }
+}

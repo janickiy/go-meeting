@@ -61,7 +61,10 @@ export function IntegrationsSettings() {
   });
   return (
     <>
-      <section className="content-card settings-section">
+      <section
+        className="content-card settings-section"
+        id="notification-settings"
+      >
         <h2>Уведомления</h2>
         <p className="field-hint">
           Выберите события и разрешённые внешние каналы. Если email или push
@@ -81,7 +84,10 @@ export function IntegrationsSettings() {
           )
         )}
       </section>
-      <section className="content-card settings-section">
+      <section
+        className="content-card settings-section"
+        id="integration-settings"
+      >
         <h2>Календарь</h2>
         <p className="field-hint">
           Созданные вами запланированные встречи синхронизируются автоматически.

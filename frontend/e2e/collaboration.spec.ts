@@ -353,6 +353,7 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     await owner
       .getByRole("button", { name: "Присоединиться", exact: true })
       .click();
+    await owner.getByRole("button", { name: "Войти во встречу" }).click();
     await expect(owner.getByTestId("connection-id")).toBeVisible();
     await bob.reload();
     await expect(bob.getByTestId("waiting-room")).toContainText(
@@ -377,10 +378,11 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     await rejected.goto(`${base}/i/${created.inviteCode}`);
     await rejected
       .getByRole("button", {
-        name: "Присоединиться к конференции",
+        name: "Проверить устройства и войти",
         exact: true,
       })
       .click();
+    await rejected.getByRole("button", { name: "Войти во встречу" }).click();
     await expect(rejected.getByTestId("waiting-room")).toBeVisible();
     await owner
       .getByRole("button", { name: "Отклонить: Stage5 rejected" })
@@ -883,11 +885,10 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     if (terminal) {
       try {
         summary.cleanup = (
-          await execute(
-            "go",
-            ["run", "./tools/smoke_cleanup", manifest],
-            { cwd: root, timeout: 60000 },
-          )
+          await execute("go", ["run", "./tools/smoke_cleanup", manifest], {
+            cwd: root,
+            timeout: 60000,
+          })
         ).stdout.trim();
       } catch (error) {
         summary.cleanupError = String(error).slice(0, 1200);

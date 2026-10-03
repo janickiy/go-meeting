@@ -7,6 +7,7 @@ import { Button, ErrorNotice } from "./ui";
 import { formatDate } from "../utils";
 import { isAdmitted } from "../collaboration";
 import { RecordingInsights } from "./RecordingInsights";
+import { useCapabilities } from "../useCapabilities";
 
 const labels = {
   starting: "Запись запускается",
@@ -35,6 +36,10 @@ export function RecordingPanel({
   showInsights?: boolean;
 }) {
   const client = useQueryClient();
+  const capabilities = useCapabilities();
+  const recordingModes = capabilities.data?.capabilities.recordingModes ?? [];
+  const [mode, setMode] = useState<RecordingMode>("composite");
+  const selectedMode = recordingModes.includes(mode) ? mode : recordingModes[0];
   const query = useQuery({
     queryKey: ["recordings", conference.id],
     /**
@@ -47,7 +52,7 @@ export function RecordingPanel({
      */
     queryFn: ({ signal }) => api.recordings(conference.id, signal),
     enabled: isAdmitted(membership),
-    refetchInterval: 3000,
+    refetchInterval: conference.status === "active" ? 3000 : false,
   });
   const items = query.data?.items || [];
   const current = items.find(
@@ -75,7 +80,9 @@ export function RecordingPanel({
     mutationFn: (stopId: string | null) =>
       stopId
         ? api.stopRecording(conference.id, stopId)
-        : api.startRecording(conference.id, mode),
+        : selectedMode
+          ? api.startRecording(conference.id, selectedMode)
+          : Promise.reject(new Error("Режимы записи недоступны")),
     /**
      * onSettled обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
      *
@@ -89,7 +96,6 @@ export function RecordingPanel({
     },
   });
   const owner = membership?.role === "owner" && membership.status === "joined";
-  const [mode, setMode] = useState<RecordingMode>("composite");
   if (!membership || !isAdmitted(membership)) return null;
   return (
     <section
@@ -112,26 +118,41 @@ export function RecordingPanel({
       <ErrorNotice error={query.error || mutation.error} />
       {owner && conference.status === "active" && (
         <div className="meeting-actions">
-          {!current && (
+          {!current && recordingModes.length > 0 && (
             <label>
               Режим записи
               <select
-                value={mode}
+                value={selectedMode}
                 disabled={mutation.isPending}
                 onChange={(event) =>
                   setMode(event.target.value as RecordingMode)
                 }
               >
-                <option value="composite">Общая видеозапись</option>
-                <option value="audio_only">Только аудио</option>
-                <option value="individual_tracks">
-                  Отдельные дорожки + аудиомикс
-                </option>
-                <option value="screen_focus">Фокус на экране</option>
+                {recordingModes.includes("composite") && (
+                  <option value="composite">Общая видеозапись</option>
+                )}
+                {recordingModes.includes("audio_only") && (
+                  <option value="audio_only">Только аудио</option>
+                )}
+                {recordingModes.includes("individual_tracks") && (
+                  <option value="individual_tracks">
+                    Отдельные дорожки + аудиомикс
+                  </option>
+                )}
+                {recordingModes.includes("screen_focus") && (
+                  <option value="screen_focus">Фокус на экране</option>
+                )}
               </select>
             </label>
           )}
-          {!current ? (
+          {!current && recordingModes.length === 0 && (
+            <p className="field-hint" role="status">
+              {capabilities.isPending
+                ? "Проверяем доступные режимы записи…"
+                : "Режимы записи сейчас недоступны."}
+            </p>
+          )}
+          {!current && recordingModes.length > 0 ? (
             <Button
               onClick={
                 /**

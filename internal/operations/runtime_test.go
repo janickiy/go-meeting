@@ -57,6 +57,14 @@ func TestReadinessCacheDrainAndSecret(t *testing.T) {
 	if w.Code != 503 || strings.Contains(w.Body.String(), "private-error") {
 		t.Fatal(w.Body.String())
 	}
+	states := r.DependencyStatuses()
+	if states["database"] {
+		t.Fatal("failed dependency reported ready")
+	}
+	states["database"] = true
+	if r.DependencyStatuses()["database"] {
+		t.Fatal("caller modified cached dependency state")
+	}
 	r.Drain()
 	r.Checks["database"] = func(context.Context) error { return nil }
 	r.probe(ctx)

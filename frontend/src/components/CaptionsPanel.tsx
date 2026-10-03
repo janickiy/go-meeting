@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { mergeCaptions } from "../captions";
@@ -16,6 +16,20 @@ const statuses: Record<string, string> = {
   completed: "Распознавание завершено",
 };
 
+const CaptionLine = memo(function CaptionLine({ row }: { row: Caption }) {
+  return (
+    <p className={row.final ? "caption-final" : "caption-partial"}>
+      <strong>{row.speaker || "Участник"}</strong>{" "}
+      <span className="field-hint">
+        {recordingTime(row.startMs)} · {row.language}
+        {!row.final ? " · черновик" : ""}
+      </span>
+      <br />
+      {row.text}
+    </p>
+  );
+});
+
 /** CaptionsPanel показывает согласие, язык и версии субтитров независимо от состояния медиасвязи.
  * @args conferenceId — разрешённая встреча; active — можно ли менять настройку; live — транспорт комнаты.
  * @return Панель с локальным скрытием текста и восстановлением сохранённых финалов.
@@ -32,6 +46,33 @@ export function CaptionsPanel({
   const client = useQueryClient();
   const [visible, setVisible] = useState(true);
   const [rows, setRows] = useState<Caption[]>([]);
+  const rowsRef = useRef<Caption[]>([]);
+  const [announcement, setAnnouncement] = useState("");
+  const announcedFinals = useRef(new Map<string, number>());
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const announceFinals = useCallback((captions: Caption[]) => {
+    let latest = "";
+    for (const caption of captions) {
+      if (!caption.final || !caption.text.trim()) continue;
+      const previousRevision = announcedFinals.current.get(caption.id) ?? -1;
+      if (caption.revision <= previousRevision) continue;
+      announcedFinals.current.set(caption.id, caption.revision);
+      if (visibleRef.current)
+        latest = `${caption.speaker || "Участник"}: ${caption.text}`;
+    }
+    if (latest) setAnnouncement(latest);
+  }, []);
+  const appendCaptions = useCallback(
+    (incoming: Caption[]) => {
+      const next = mergeCaptions(rowsRef.current, incoming);
+      if (next === rowsRef.current) return;
+      rowsRef.current = next;
+      setRows(next);
+      announceFinals(incoming.filter((caption) => next.includes(caption)));
+    },
+    [announceFinals],
+  );
   const [recoveryError, setRecoveryError] = useState<unknown>();
   const query = useQuery({
     queryKey: ["captions", conferenceId],
@@ -51,6 +92,12 @@ export function CaptionsPanel({
     onSuccess: () =>
       void client.invalidateQueries({ queryKey: ["captions", conferenceId] }),
   });
+  useEffect(() => {
+    rowsRef.current = [];
+    setRows([]);
+    announcedFinals.current.clear();
+    setAnnouncement("");
+  }, [conferenceId]);
   useEffect(
     () =>
       live.subscribe((event) => {
@@ -69,15 +116,14 @@ export function CaptionsPanel({
           value.generation < (state?.generation || 0)
         )
           return;
-        setRows((old) => mergeCaptions(old, [value]));
+        appendCaptions([value]);
       }),
-    [live.subscribe, conferenceId, client, state?.generation],
+    [live.subscribe, conferenceId, client, state?.generation, appendCaptions],
   );
   useEffect(() => {
     const controller = new AbortController();
     let cursor = 0;
     let timer: ReturnType<typeof setTimeout>;
-    setRows([]);
     /** poll восстанавливает потерянные финалы с отменой при выходе/смене прав.
      * @return Завершение одной ограниченной страницы; следующий запрос планируется отдельно.
      */
@@ -90,7 +136,7 @@ export function CaptionsPanel({
           controller.signal,
         );
         if (controller.signal.aborted) return;
-        setRows((old) => mergeCaptions(old, page.items));
+        appendCaptions(page.items);
         cursor = page.nextCursor;
         more = page.hasMore;
         setRecoveryError(undefined);
@@ -105,7 +151,7 @@ export function CaptionsPanel({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [conferenceId]);
+  }, [conferenceId, appendCaptions]);
   return (
     <section className="content-card" aria-label="Живые субтитры">
       <div className="section-heading">
@@ -130,7 +176,10 @@ export function CaptionsPanel({
         <input
           type="checkbox"
           checked={visible}
-          onChange={(event) => setVisible(event.target.checked)}
+          onChange={(event) => {
+            setVisible(event.target.checked);
+            if (!event.target.checked) setAnnouncement("");
+          }}
         />{" "}
         Показывать текст на этом устройстве
       </label>
@@ -179,28 +228,25 @@ export function CaptionsPanel({
       {visible && (
         <div
           className="caption-transcript"
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions text"
+          role="region"
+          aria-live="off"
           aria-label="Текст субтитров"
         >
           {!rows.length && <p className="muted">Реплик пока нет.</p>}
           {rows.map((row) => (
-            <p
-              key={row.id}
-              className={row.final ? "caption-final" : "caption-partial"}
-            >
-              <strong>{row.speaker || "Участник"}</strong>{" "}
-              <span className="field-hint">
-                {recordingTime(row.startMs)} · {row.language}
-                {!row.final ? " · черновик" : ""}
-              </span>
-              <br />
-              {row.text}
-            </p>
+            <CaptionLine key={row.id} row={row} />
           ))}
         </div>
       )}
+      <div
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="caption-announcement"
+      >
+        {visible ? announcement : ""}
+      </div>
     </section>
   );
 }

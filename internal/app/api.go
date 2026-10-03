@@ -20,9 +20,11 @@ import (
 	engagementapp "github.com/janickiy/go-recorder/internal/app/engagement"
 	integrationsapp "github.com/janickiy/go-recorder/internal/app/integrations"
 	notificationsapp "github.com/janickiy/go-recorder/internal/app/notifications"
+	platformapp "github.com/janickiy/go-recorder/internal/app/platform"
 	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
 	"github.com/janickiy/go-recorder/internal/config"
+	healthinfra "github.com/janickiy/go-recorder/internal/infrastructure/health"
 	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
 	rabbitmqinfra "github.com/janickiy/go-recorder/internal/infrastructure/rabbitmq"
 	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
@@ -38,13 +40,13 @@ import (
 	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
 	mediausecase "github.com/janickiy/go-recorder/internal/usecase/media"
 	notificationsusecase "github.com/janickiy/go-recorder/internal/usecase/notifications"
+	platformusecase "github.com/janickiy/go-recorder/internal/usecase/platform"
 	realtimeusecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 	recordingsusecase "github.com/janickiy/go-recorder/internal/usecase/recordings"
 )
 
 // RunAPI запускает HTTP API.
-// @args нет.
 // @return ошибку bootstrap или HTTP server-а.
 func RunAPI() error {
 	cfg, err := config.Load()
@@ -169,6 +171,11 @@ func RunAPI() error {
 	httptransport.RegisterContentRoutes(router, contentapp.NewHandler(product.content), httpmiddleware.Authenticate(tokens), rateLimiter)
 	httptransport.RegisterCaptionRoutes(router, &captionsapp.Handler{Repo: postgresinfra.NewCaptionsRepository(db), Enabled: cfg.StageEight.LiveEnabled, Config: cfg.StageEight, Analytics: postgresinfra.NewAnalyticsRepository(db), Search: postgresinfra.NewSearchRepository(db)}, httpmiddleware.Authenticate(tokens), rateLimiter)
 	httptransport.RegisterIntegrationRoutes(router, integrationsapp.NewHandler(product.integrations), httpmiddleware.Authenticate(tokens), rateLimiter)
+	mediaReady := healthinfra.NewHTTPReady(mediaConfig.WorkerInternalURL)
+	defer mediaReady.Close()
+	platformRepository := postgresinfra.NewPlatformRepository(db)
+	platformService := &platformusecase.Service{Repo: platformRepository, Vector: postgresinfra.NewSearchRepository(db), MediaWorker: mediaReady, APIReady: ops.Ready, DependencyStatuses: ops.DependencyStatuses, StageSeven: cfg.StageSeven, StageEight: cfg.StageEight}
+	httptransport.RegisterPlatformStatusRoutes(router, &platformapp.Handler{Service: platformService, BuildVersion: platformusecase.BuildVersion()}, httpmiddleware.Authenticate(tokens), platformRepository)
 	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

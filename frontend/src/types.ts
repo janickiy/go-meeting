@@ -12,6 +12,7 @@ export interface User {
   id: string;
   email: string;
   displayName: string | null;
+  isAdmin?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -651,4 +652,36 @@ export interface MeetingAnalytics {
     messageCount: number;
     handRaises: number;
   }[];
+}
+
+/** ProductCapabilities содержит только безопасные признаки включённых серверных функций. */
+export interface ProductCapabilities {
+  liveCaptions: boolean;
+  transcription: boolean;
+  aiSummary: boolean;
+  semanticSearch: boolean;
+  meetingAnalytics: boolean;
+  recordingModes: RecordingMode[];
+}
+
+export interface CapabilitiesResponse {
+  status: string;
+  capabilities: ProductCapabilities;
+  buildVersion: string;
+}
+
+/** AdminSummary содержит только агрегаты и коды отказов, без персональных данных. */
+export interface AdminSummary {
+  asOf: string;
+  activeConferences: number;
+  joinedParticipants: number;
+  activeRecordings: number;
+  queuedJobs: number;
+  failedJobs24h: number;
+  failedRecordings24h: number;
+  failedTranscriptions24h: number;
+  apiReady: boolean;
+  mediaWorkerReady: boolean;
+  dependencies: Record<string, boolean>;
+  recentFailures: { kind: string; code: string; at: string }[];
 }

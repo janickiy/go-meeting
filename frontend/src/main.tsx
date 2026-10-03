@@ -11,6 +11,7 @@ import "@fontsource/inter/cyrillic-500.css";
 import "@fontsource/inter/cyrillic-600.css";
 import "@fontsource/inter/cyrillic-700.css";
 import "./styles.css";
+import "./accessibility.css";
 import { ApiError } from "./api";
 import { AuthProvider } from "./auth";
 import { App } from "./App";

@@ -23,6 +23,8 @@ describe("Версии субтитров", () => {
     expect(
       mergeCaptions([final], [{ ...base, sequence: 5, revision: 5 }]),
     ).toEqual([final]);
+    const current = [final];
+    expect(mergeCaptions(current, [base, final])).toBe(current);
   });
   it("разрешает final той же ревизии, но запрещает откат sequence", () => {
     expect(mergeCaptions([base], [{ ...base, final: true }])[0].final).toBe(

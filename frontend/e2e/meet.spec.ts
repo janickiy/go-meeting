@@ -467,6 +467,8 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
   await page
     .getByRole("button", { name: "Присоединиться", exact: true })
     .click();
+  await expect(page).toHaveURL(/\/conferences\/conference-1\/join$/);
+  await page.getByRole("button", { name: "Войти во встречу" }).click();
   await expect(
     page.getByRole("button", { name: "Покинуть конференцию" }),
   ).toBeVisible();
@@ -517,8 +519,10 @@ test("an invitation survives login and a participant cannot see owner controls",
     page.getByRole("heading", { name: "Обсуждение проекта" }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Присоединиться к конференции" })
+    .getByRole("button", { name: "Проверить устройства и войти" })
     .click();
+  await expect(page).toHaveURL(/\/conferences\/conference-1\/join\?invite=/);
+  await page.getByRole("button", { name: "Войти во встречу" }).click();
   await expect(page).toHaveURL(/\/conferences\/conference-1$/);
   await expect(
     page.getByRole("button", { name: "Покинуть конференцию" }),

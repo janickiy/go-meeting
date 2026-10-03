@@ -21,11 +21,12 @@ describe("ссылки на материалы", () => {
       segmentId: "segment/1",
       startMs: 42_500,
     } as SearchResult);
-    expect(link).toContain("/conferences/room%2Fa?");
+    expect(link).toContain("/history/room%2Fa?");
     const params = new URLSearchParams(link.split("?")[1]);
     expect(params.get("recording")).toBe("record&b");
     expect(params.get("t")).toBe("42500");
     expect(params.get("segment")).toBe("segment/1");
+    expect(params.get("section")).toBe("transcript");
   });
   it("не переносит бесконечное смещение и выбирает вкладку итогов", () => {
     const link = searchResultLink({

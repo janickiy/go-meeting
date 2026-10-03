@@ -4,6 +4,7 @@ import (
 	"net/mail"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
@@ -22,6 +23,7 @@ type User struct {
 	Email        string    `json:"-"`
 	PasswordHash string    `gorm:"column:password_hash" json:"-"`
 	DisplayName  *string   `gorm:"column:display_name" json:"-"`
+	IsAdmin      bool      `gorm:"column:is_admin" json:"-"`
 	CreatedAt    time.Time `json:"-"`
 	UpdatedAt    time.Time `json:"-"`
 }
@@ -48,6 +50,7 @@ type View struct {
 	ID          string    `json:"id"`
 	Email       string    `json:"email"`
 	DisplayName *string   `json:"displayName"`
+	IsAdmin     bool      `json:"isAdmin"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
@@ -57,7 +60,7 @@ type View struct {
 // @return:
 //   - результат 1 (View): значение, подготовленное операцией для вызывающей стороны.
 func (u User) View() View {
-	return View{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
+	return View{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, IsAdmin: u.IsAdmin, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
 }
 
 // ParticipantName выбирает отображаемое имя пользователя для сохранённого членства в конференции.
@@ -80,6 +83,26 @@ type RegisterRequest struct {
 	Email       string  `json:"email"`
 	Password    string  `json:"password"`
 	DisplayName *string `json:"displayName"`
+}
+
+// UpdateProfileRequest разрешает изменение только отображаемого имени текущей учётной записи.
+type UpdateProfileRequest struct {
+	DisplayName string `json:"displayName"`
+}
+
+// NormalizeDisplayName принимает непустое имя из 1–100 Unicode символов без управляющих знаков.
+func NormalizeDisplayName(value string) (string, error) {
+	name := strings.TrimSpace(value)
+	length := utf8.RuneCountInString(name)
+	if !utf8.ValidString(name) || length < 1 || length > 100 {
+		return "", apperrors.New(apperrors.ErrInvalidInput, "displayName must contain 1 to 100 characters")
+	}
+	for _, character := range name {
+		if unicode.IsControl(character) {
+			return "", apperrors.New(apperrors.ErrInvalidInput, "displayName must not contain control characters")
+		}
+	}
+	return name, nil
 }
 
 // LoginRequest передаёт учётные данные запроса входа.

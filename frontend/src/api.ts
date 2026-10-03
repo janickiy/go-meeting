@@ -36,6 +36,8 @@ import type {
   Caption,
   CaptionState,
   MeetingAnalytics,
+  CapabilitiesResponse,
+  AdminSummary,
 } from "./types";
 
 let accessToken: string | null = null;
@@ -196,6 +198,12 @@ async function request<T>(
   return data as T;
 }
 export const api = {
+  /** Читает эффективные серверные функции без адресов и секретов провайдеров. */
+  capabilities: (signal?: AbortSignal) =>
+    request<CapabilitiesResponse>("/capabilities", { signal }),
+  /** Читает только безопасные агрегаты после отдельной серверной проверки admin. */
+  adminSummary: (signal?: AbortSignal) =>
+    request<Item<AdminSummary>>("/admin/summary", { signal }),
   /**
    * myConferences читает страницу встреч пользователя с серверными фильтрами и курсором продолжения.
    *
@@ -345,6 +353,12 @@ export const api = {
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
    */
   me: (signal?: AbortSignal) => request<{ user: User }>("/auth/me", { signal }),
+  /** Обновляет имя текущего пользователя, оставляя токен и остальные поля без изменений. */
+  updateProfile: (displayName: string) =>
+    request<{ status: string; user: User }>("/auth/me", {
+      method: "PATCH",
+      body: { displayName },
+    }),
   /**
    * logout отправляет запрос завершения авторизации.
    *

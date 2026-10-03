@@ -95,14 +95,20 @@ export function InvitePage() {
              * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
              *
              *
-             * @returns вычисленное значение: mutation.mutate().
-             */ () => mutation.mutate()
+             * @returns значение не возвращается; открывает проверку устройств до фактического входа.
+             */ () => {
+              if (conference.status === "scheduled") mutation.mutate();
+              else
+                navigate(
+                  `/conferences/${encodeURIComponent(conference.id)}/join?invite=${encodeURIComponent(code)}`,
+                );
+            }
           }
         >
           <LogIn size={18} />
           {conference.status === "scheduled"
             ? "Добавить в мои встречи"
-            : "Присоединиться к конференции"}
+            : "Проверить устройства и войти"}
         </Button>
       )}
       <Link className="text-link" to="/app">

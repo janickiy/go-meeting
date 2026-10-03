@@ -1,0 +1,27 @@
+.history-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.history-tabs button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.history-tabs button:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: -3px;
+}
+
+.notifications-page-list {
+  max-height: none;
+  overflow: visible;
+}
+
+@media (max-width: 600px) {
+  .notifications-page-list .notification-row {
+    flex-direction: column;
+  }
+}

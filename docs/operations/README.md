@@ -9,10 +9,15 @@
 1. Скопировать `.env.production.example` в неотслеживаемый `.env.production`.
    Заполнить все пустые поля. Для каждого JWT/media/internal/metrics/TURN ключа
    сгенерировать отдельное значение `openssl rand -hex 32`. Пароли зависимостей
-   также генерировать независимо; образцы не содержат готовых паролей.
+   также генерировать независимо; образцы не содержат готовых паролей. Задать
+   `BUILD_VERSION` как неизменяемый release ID или короткий commit SHA; API
+   возвращает его как `buildVersion` в авторизованном `/api/v1/capabilities`.
 2. Указать действительные `WS_ALLOWED_ORIGINS`, `MINIO_PUBLIC_ENDPOINT`,
    `TURN_URLS`, `TURN_REALM`, публичный IPv4 `MEDIA_NAT_IPS` и `TURN_PUBLIC_IP`.
-   `example.invalid` — только обозначение, не рабочий адрес.
+   `example.invalid` — только обозначение, не рабочий адрес. Production frontend
+   требует HTTPS `PUBLIC_FRONTEND_URL` и HTTPS `MINIO_PUBLIC_ENDPOINT` как точные
+   origins без пути/query/userinfo: по ним формируется ограниченный CSP для WSS
+   и внешнего хранилища. Заголовок Host на CSP не влияет.
 3. Подготовить действительные HTTPS и TURN TLS сертификаты. В каталогах
    `TLS_CERT_DIR` / `TURN_TLS_CERT_DIR` должны находиться `fullchain.pem` и
    `privkey.pem`. Coturn работает как nobody; ключ должен быть читаем этим
@@ -28,6 +33,11 @@
    с `TURN_FORCE_RELAY=true`. Затем вернуть `TURN_FORCE_RELAY=false` и повторить
    с обеими реальными сетями. Миграции выполняются при старте; развёртывание
    API/recorder лучше производить последовательно, особенно при изменении схемы.
+
+Миграция `000021_admin_capability.up.sql` создаёт три обычных индекса в общей
+транзакции при старте API. На больших таблицах возможны задержка и блокировки
+записей. До production измерить её на копии с сопоставимым объёмом данных и
+запланировать окно; не менять её на сервере во время запуска.
 
 Внутренний транспорт на одном доверенном Compose-хосте — HTTP/AMQP/Redis без
 TLS, не опубликованный наружу. Между отдельными хостами нужны TLS/mTLS/VPN и

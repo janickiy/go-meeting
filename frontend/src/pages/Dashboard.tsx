@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
   ArrowRight,
@@ -15,6 +15,12 @@ import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
 import { CreateConference, JoinByLink } from "../components/ConferenceModals";
 import type { ConferenceFilters } from "../types";
 import { localDayEnd, localSchedule } from "../collaboration";
+
+const views: { id: NonNullable<ConferenceFilters["view"]>; label: string }[] = [
+  { id: "upcoming", label: "Предстоящие" },
+  { id: "active", label: "Активные" },
+  { id: "past", label: "Завершённые" },
+];
 
 /**
  * Dashboard показывает серверный список встреч с вкладками, фильтрами, пагинацией и действиями создания или входа.
@@ -51,6 +57,29 @@ export function Dashboard({
   });
   const [search, setSearch] = useState("");
   const [joining, setJoining] = useState(false);
+  const selectView = (view: NonNullable<ConferenceFilters["view"]>) => {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("view", view);
+      return next;
+    });
+  };
+  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const current = views.findIndex(
+      (view) => view.id === event.currentTarget.dataset.view,
+    );
+    let next = current;
+    if (event.key === "ArrowRight") next = (current + 1) % views.length;
+    else if (event.key === "ArrowLeft")
+      next = (current - 1 + views.length) % views.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = views.length - 1;
+    else return;
+    event.preventDefault();
+    const target = views[next];
+    selectView(target.id);
+    document.getElementById(`tab-${target.id}`)?.focus();
+  };
   const conferences =
     query.data?.pages.flatMap(
       /**
@@ -129,11 +158,7 @@ export function Dashboard({
         </div>
         <div className="list-toolbar">
           <div className="tabs" role="tablist" aria-label="Статус конференций">
-            {[
-              { id: "upcoming", label: "Предстоящие" },
-              { id: "active", label: "Активные" },
-              { id: "past", label: "Завершённые" },
-            ].map(
+            {views.map(
               /**
                * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
                *
@@ -145,17 +170,20 @@ export function Dashboard({
                 <button
                   key={item.id}
                   id={`tab-${item.id}`}
+                  data-view={item.id}
                   className={tab === item.id ? "tab tab-active" : "tab"}
                   role="tab"
                   aria-selected={tab === item.id}
                   aria-controls="conference-list"
+                  tabIndex={tab === item.id ? 0 : -1}
+                  onKeyDown={onTabKeyDown}
                   onClick={
                     /**
                      * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                      *
                      *
                      * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
-                     */ () => setParams({ view: item.id })
+                     */ () => selectView(item.id)
                   }
                 >
                   {item.label}
@@ -274,6 +302,7 @@ export function Dashboard({
           id="conference-list"
           role="tabpanel"
           aria-labelledby={`tab-${tab}`}
+          tabIndex={0}
         >
           {query.isPending ? (
             <Loading />

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   Info,
   LogIn,
   LogOut,
+  MessageCircle,
   Play,
   Square,
   Users,
@@ -28,6 +29,8 @@ import { useRealtime } from "../realtime";
 import { WaitingRoomPanel } from "../components/WaitingRoomPanel";
 import { ChatPanel } from "../components/ChatPanel";
 import { HandReactionsPanel } from "../components/HandReactionsPanel";
+import { useCapabilities } from "../useCapabilities";
+import { meetingShortcut } from "../conferenceShortcuts";
 import { EditSchedule } from "../components/ConferenceModals";
 import { formatDate, initials, inviteLink } from "../utils";
 import {
@@ -38,6 +41,7 @@ import {
   Modal,
   StatusBadge,
 } from "../components/ui";
+import "./conference.css";
 
 /**
  * ConferencePage координирует сведения встречи, членство, единственный WebSocket, допуск, медиа, чат, запись и историю.
@@ -47,6 +51,7 @@ import {
  */
 export function ConferencePage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const client = useQueryClient();
   const query = useConference(id);
@@ -72,6 +77,39 @@ export function ConferencePage() {
     id,
     admitted && membership?.status === "joined" && !closed,
   );
+  const capabilities = useCapabilities();
+  const captionsEnabled = capabilities.data?.capabilities.liveCaptions === true;
+  const analyticsEnabled =
+    capabilities.data?.capabilities.meetingAnalytics === true;
+  const activeMeeting =
+    admitted &&
+    membership?.status === "joined" &&
+    query.data?.item.status === "active";
+  const [stagePanel, setStagePanel] = useState<
+    "chat" | "participants" | "captions"
+  >("chat");
+  const [handShortcutToken, setHandShortcutToken] = useState(0);
+  useEffect(() => {
+    if (!captionsEnabled && stagePanel === "captions") setStagePanel("chat");
+  }, [captionsEnabled, stagePanel]);
+  useEffect(() => {
+    if (!activeMeeting) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = meetingShortcut(event, ["h", "c"]);
+      if (key === "h" && live.state) {
+        event.preventDefault();
+        setHandShortcutToken((value) => value + 1);
+      } else if (key === "c") {
+        event.preventDefault();
+        setStagePanel("chat");
+        window.setTimeout(() => {
+          document.getElementById(`chat-text-${id}`)?.focus();
+        }, 0);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeMeeting, id, live.state]);
   const history = useQuery({
     queryKey: ["history", user?.id, id],
     /**
@@ -215,6 +253,153 @@ export function ConferencePage() {
       <ErrorNotice error={mutation.error} />
       <ErrorNotice error={moderation.error} />
       <ErrorNotice error={self.error} />
+      {activeMeeting && membership && (
+        <section className="conference-stage" aria-label="Активная встреча">
+          <div className="conference-stage-main">
+            <RealtimePanel
+              conferenceId={id}
+              membership={membership}
+              live={live}
+            />
+          </div>
+          <aside className="conference-stage-rail" aria-label="Панели встречи">
+            <HandReactionsPanel
+              conferenceId={id}
+              membership={membership}
+              participants={people}
+              live={live}
+              handShortcutToken={handShortcutToken}
+            />
+            <div
+              className="conference-stage-tabs"
+              role="tablist"
+              aria-label="Панель встречи"
+              onKeyDown={(event) => {
+                const panels: ("chat" | "participants" | "captions")[] =
+                  captionsEnabled
+                    ? ["chat", "participants", "captions"]
+                    : ["chat", "participants"];
+                const index = panels.indexOf(stagePanel);
+                let next = index;
+                if (event.key === "ArrowRight")
+                  next = (index + 1) % panels.length;
+                else if (event.key === "ArrowLeft")
+                  next = (index - 1 + panels.length) % panels.length;
+                else if (event.key === "Home") next = 0;
+                else if (event.key === "End") next = panels.length - 1;
+                else return;
+                event.preventDefault();
+                const panel = panels[next];
+                setStagePanel(panel);
+                document.getElementById(`meeting-tab-${panel}`)?.focus();
+              }}
+            >
+              <button
+                type="button"
+                role="tab"
+                id="meeting-tab-chat"
+                aria-controls="meeting-panel-chat"
+                aria-selected={stagePanel === "chat"}
+                aria-keyshortcuts="C"
+                tabIndex={stagePanel === "chat" ? 0 : -1}
+                onClick={() => setStagePanel("chat")}
+              >
+                <MessageCircle size={17} /> Чат
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="meeting-tab-participants"
+                aria-controls="meeting-panel-participants"
+                aria-selected={stagePanel === "participants"}
+                tabIndex={stagePanel === "participants" ? 0 : -1}
+                onClick={() => setStagePanel("participants")}
+              >
+                <Users size={17} /> Участники ({people.length})
+              </button>
+              {captionsEnabled && (
+                <button
+                  type="button"
+                  role="tab"
+                  id="meeting-tab-captions"
+                  aria-controls="meeting-panel-captions"
+                  aria-selected={stagePanel === "captions"}
+                  tabIndex={stagePanel === "captions" ? 0 : -1}
+                  onClick={() => setStagePanel("captions")}
+                >
+                  Субтитры
+                </button>
+              )}
+            </div>
+            <div
+              id="meeting-panel-chat"
+              role="tabpanel"
+              aria-labelledby="meeting-tab-chat"
+              className="conference-stage-panel"
+              hidden={stagePanel !== "chat"}
+            >
+              <ChatPanel
+                conferenceId={id}
+                membership={membership}
+                readOnly={false}
+              />
+            </div>
+            <div
+              id="meeting-panel-participants"
+              role="tabpanel"
+              aria-labelledby="meeting-tab-participants"
+              className="conference-stage-panel"
+              hidden={stagePanel !== "participants"}
+            >
+              <section
+                className="content-card conference-stage-roster"
+                aria-label="Участники встречи"
+              >
+                <h2>Участники встречи</h2>
+                <ul>
+                  {people.map((person) => (
+                    <li key={person.id}>
+                      <span
+                        className={`presence-dot ${person.status === "joined" ? "online-dot" : ""}`}
+                      />
+                      <span>{person.displayName}</span>
+                      <small>{presence[person.status]}</small>
+                    </li>
+                  ))}
+                </ul>
+                <a className="text-link" href="#conference-participants">
+                  Управление участниками
+                </a>
+              </section>
+            </div>
+            {captionsEnabled && (
+              <div
+                id="meeting-panel-captions"
+                role="tabpanel"
+                aria-labelledby="meeting-tab-captions"
+                className="conference-stage-panel"
+                hidden={stagePanel !== "captions"}
+              >
+                <CaptionsPanel
+                  key={`captions-${id}`}
+                  conferenceId={id}
+                  active
+                  live={live}
+                />
+              </div>
+            )}
+            {capabilities.isSuccess && !captionsEnabled && (
+              <p className="conference-feature-note">
+                Субтитры отключены для этой установки.
+              </p>
+            )}
+          </aside>
+          <p className="conference-shortcuts-hint">
+            Клавиши во время встречи: M — микрофон, V — камера, H — рука, C —
+            чат. В полях ввода и диалогах они не действуют.
+          </p>
+        </section>
+      )}
       <div className="conference-grid">
         <section className="content-card meeting-card">
           <div className="meeting-card-symbol">
@@ -250,11 +435,12 @@ export function ConferencePage() {
                      * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                      *
                      *
-                     * @returns вычисленное значение: mutation.mutate( membership?.status === "joined" ? "leave" : "join", ).
-                     */ () =>
-                      mutation.mutate(
-                        membership?.status === "joined" ? "leave" : "join",
-                      )
+                     * @returns значение не возвращается; открывает проверку устройств или завершает членство.
+                     */ () => {
+                      if (membership?.status === "joined")
+                        mutation.mutate("leave");
+                      else navigate(`/conferences/${id}/join`);
+                    }
                   }
                   disabled={self.isPending || self.isError}
                 >
@@ -402,17 +588,15 @@ export function ConferencePage() {
         active={conference.status === "active"}
         closed={closed}
       />
-      {admitted && membership?.status === "joined" && !closed && (
-        <RealtimePanel conferenceId={id} membership={membership} live={live} />
-      )}
       {admitted &&
         membership?.status === "joined" &&
-        conference.status === "active" && (
-          <HandReactionsPanel
+        !closed &&
+        !activeMeeting && (
+          <RealtimePanel
             conferenceId={id}
             membership={membership}
-            participants={people}
             live={live}
+            shortcutsEnabled={false}
           />
         )}
       {membership?.status === "kicked" && (
@@ -426,7 +610,7 @@ export function ConferencePage() {
         membership={membership}
         showInsights
       />
-      {admitted && (
+      {admitted && captionsEnabled && !activeMeeting && (
         <CaptionsPanel
           key={`captions-${id}`}
           conferenceId={id}
@@ -436,12 +620,17 @@ export function ConferencePage() {
           live={live}
         />
       )}
-      {admitted && (
+      {admitted && analyticsEnabled && (
         <AnalyticsPanel
           key={`analytics-${id}`}
           conferenceId={id}
           active={conference.status === "active"}
         />
+      )}
+      {admitted && capabilities.isSuccess && !analyticsEnabled && (
+        <p className="conference-feature-note">
+          Аналитика встречи отключена для этой установки.
+        </p>
       )}
       {admitted &&
         user &&
@@ -451,7 +640,7 @@ export function ConferencePage() {
             userId={user.id}
           />
         )}
-      {admitted && membership && (
+      {admitted && membership && !activeMeeting && (
         <ChatPanel
           conferenceId={id}
           membership={membership}
@@ -509,7 +698,10 @@ export function ConferencePage() {
         </section>
       )}
       {admitted && (
-        <section className="content-card participants-card">
+        <section
+          className="content-card participants-card"
+          id="conference-participants"
+        >
           <div className="section-heading">
             <h2>
               <Users size={20} />

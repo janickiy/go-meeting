@@ -61,8 +61,9 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
     await register(other, "Участник");
     await other.goto(invitation);
     await other
-      .getByRole("button", { name: "Присоединиться к конференции" })
+      .getByRole("button", { name: "Проверить устройства и войти" })
       .click();
+    await other.getByRole("button", { name: "Войти во встречу" }).click();
     await expect(other).toHaveURL(conferenceURL);
     await expect(
       other.getByRole("button", { name: "Покинуть конференцию" }),
@@ -77,6 +78,7 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
     await other
       .getByRole("button", { name: "Присоединиться", exact: true })
       .click();
+    await other.getByRole("button", { name: "Войти во встречу" }).click();
     await expect(
       other.getByRole("button", { name: "Покинуть конференцию" }),
     ).toBeVisible();
@@ -98,7 +100,7 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
       other.getByText("Организатор уже закрыл эту конференцию."),
     ).toBeVisible();
     await expect(
-      other.getByRole("button", { name: "Присоединиться к конференции" }),
+      other.getByRole("button", { name: "Проверить устройства и войти" }),
     ).toHaveCount(0);
   } finally {
     await otherContext.close();

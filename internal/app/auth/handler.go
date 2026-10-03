@@ -48,6 +48,7 @@ type Service interface {
 	//   - результат 1 (users.View): значение, подготовленное операцией для вызывающей стороны.
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Me(context.Context, string) (users.View, error)
+	UpdateProfile(context.Context, string, users.UpdateProfileRequest) (users.View, error)
 }
 
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.
@@ -103,6 +104,20 @@ func (h *Handler) Login(c *gin.Context) {
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Me(c *gin.Context) {
 	user, err := h.service.Me(c.Request.Context(), httpmiddleware.UserID(c))
+	if err != nil {
+		httpresponse.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "user": user})
+}
+
+// UpdateProfile принимает только новое имя и использует идентичность из Bearer JWT.
+func (h *Handler) UpdateProfile(c *gin.Context) {
+	var request users.UpdateProfileRequest
+	if !httpresponse.BindJSON(c, &request, false) {
+		return
+	}
+	user, err := h.service.UpdateProfile(c.Request.Context(), httpmiddleware.UserID(c), request)
 	if err != nil {
 		httpresponse.Fail(c, err)
 		return

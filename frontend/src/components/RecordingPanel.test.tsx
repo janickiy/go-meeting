@@ -5,6 +5,15 @@ import { RecordingPanel } from "./RecordingPanel";
 import { api } from "../api";
 import type { Conference, Participant, ConferenceRecording } from "../types";
 
+const capabilityState = vi.hoisted(() => ({
+  modes: ["composite", "audio_only", "individual_tracks", "screen_focus"],
+}));
+vi.mock("../useCapabilities", () => ({
+  useCapabilities: () => ({
+    data: { capabilities: { recordingModes: capabilityState.modes } },
+  }),
+}));
+
 const conference = { id: "room", status: "active" } as Conference;
 const membership = {
   id: "member",
@@ -52,6 +61,12 @@ afterEach(
    */ () => {
     cleanup();
     vi.restoreAllMocks();
+    capabilityState.modes = [
+      "composite",
+      "audio_only",
+      "individual_tracks",
+      "screen_focus",
+    ];
   },
 );
 describe("conference recording controls", /**
@@ -94,6 +109,23 @@ describe("conference recording controls", /**
    */ async () => {
     const client = show("co_host", []);
     await screen.findByText(/Записей пока нет/);
+    expect(screen.queryByRole("button", { name: "Начать запись" })).toBeNull();
+    client.clear();
+  });
+  it("shows only recording modes enabled by server capabilities", async () => {
+    capabilityState.modes = ["composite"];
+    const client = show("owner", []);
+    const modes = await screen.findByRole("combobox", { name: "Режим записи" });
+    expect(modes.querySelectorAll("option")).toHaveLength(1);
+    expect(modes).toHaveValue("composite");
+    client.clear();
+  });
+  it("does not offer recording when the server exposes no modes", async () => {
+    capabilityState.modes = [];
+    const client = show("owner", []);
+    expect(
+      await screen.findByText("Режимы записи сейчас недоступны."),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Начать запись" })).toBeNull();
     client.clear();
   });

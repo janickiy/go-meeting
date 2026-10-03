@@ -9,6 +9,7 @@ import { useConferences } from "../queries";
 import { recordingTime, searchResultLink } from "../intelligence";
 import type { SearchFilters, SearchSource } from "../types";
 import { Button, ErrorNotice, Loading } from "../components/ui";
+import { useCapabilities } from "../useCapabilities";
 
 const labels: Record<SearchSource, string> = {
   all: "Все материалы",
@@ -23,6 +24,9 @@ const labels: Record<SearchSource, string> = {
  */
 export function SearchPage() {
   const { user } = useAuth();
+  const capabilities = useCapabilities();
+  const semanticAvailable =
+    capabilities.data?.capabilities.semanticSearch === true;
   const [params, setParams] = useSearchParams();
   const initialSource = params.get("source") as SearchSource;
   const [query, setQuery] = useState(params.get("q") || "");
@@ -52,11 +56,11 @@ export function SearchPage() {
       ? {
           q: text,
           source: nextSource,
-          mode: ["keyword", "semantic", "hybrid"].includes(
-            params.get("mode") || "",
-          )
-            ? (params.get("mode") as SearchFilters["mode"])
-            : "keyword",
+          mode:
+            semanticAvailable &&
+            ["semantic", "hybrid"].includes(params.get("mode") || "")
+              ? (params.get("mode") as SearchFilters["mode"])
+              : "keyword",
           membership: ["all", "owned", "participating"].includes(
             params.get("membership") || "",
           )
@@ -68,7 +72,7 @@ export function SearchPage() {
           to: endDate,
         }
       : null;
-  }, [params]);
+  }, [params, semanticAvailable]);
   useEffect(() => {
     setQuery(filters?.q || "");
     setSource(filters?.source || "all");
@@ -96,7 +100,7 @@ export function SearchPage() {
     queryKey: ["content-search", user?.id, filters],
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) => api.search(filters!, pageParam, signal),
-    enabled: !!filters,
+    enabled: !!filters && !capabilities.isPending,
     getNextPageParam: (page) =>
       page.items.length &&
       page.offset + page.items.length < page.total &&
@@ -139,7 +143,7 @@ export function SearchPage() {
               to: to ? localDayEnd(to) || undefined : undefined,
             };
             const url = new URLSearchParams({ q: text, source });
-            url.set("mode", mode || "keyword");
+            url.set("mode", semanticAvailable ? mode || "keyword" : "keyword");
             url.set("membership", membership || "all");
             if (participantId) url.set("participantId", participantId);
             if (conferenceId) url.set("conferenceId", conferenceId);
@@ -170,10 +174,23 @@ export function SearchPage() {
                 }
               >
                 <option value="keyword">По ключевым словам</option>
-                <option value="semantic">По смыслу</option>
-                <option value="hybrid">Слова и смысл</option>
+                {semanticAvailable && (
+                  <option value="semantic">По смыслу</option>
+                )}
+                {semanticAvailable && (
+                  <option value="hybrid">Слова и смысл</option>
+                )}
               </select>
             </label>
+            {capabilities.isPending && (
+              <p className="field-hint">Проверяем доступные способы поиска…</p>
+            )}
+            {!capabilities.isPending && !semanticAvailable && (
+              <p className="field-hint">
+                Поиск по смыслу сейчас недоступен. Используется поиск по
+                ключевым словам.
+              </p>
+            )}
             <label>
               Моё участие
               <select

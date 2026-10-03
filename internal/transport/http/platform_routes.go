@@ -20,6 +20,7 @@ func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conferenc
 	public.POST("/login", auth.Login)
 	protected := public.Group("", authentication)
 	protected.GET("/me", auth.Me)
+	protected.PATCH("/me", auth.UpdateProfile)
 	protected.POST("/logout", auth.Logout)
 
 	conferenceRoutes := router.Group(APIV1Prefix+"/conferences", authentication)

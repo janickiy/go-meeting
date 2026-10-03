@@ -1306,11 +1306,10 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
     );
     if (terminal) {
       try {
-        await execute(
-          "go",
-          ["run", "./tools/smoke_cleanup", cleanupManifest],
-          { cwd: root, timeout: 60000 },
-        );
+        await execute("go", ["run", "./tools/smoke_cleanup", cleanupManifest], {
+          cwd: root,
+          timeout: 60000,
+        });
         summary.cleanup =
           "created SQL identities, private recording prefix and local recorder files removed";
       } catch (error) {

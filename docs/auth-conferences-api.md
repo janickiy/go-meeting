@@ -75,6 +75,7 @@ token sessions не реализованы. Unknown email и wrong password во
 | `POST /auth/register` | `{email,password,displayName?}` → `201 {status,user}` | public |
 | `POST /auth/login` | `{email,password}` → `200 {status,accessToken,tokenType,expiresIn,user}` | public |
 | `GET /auth/me` | `200 {status,user}` | authenticated |
+| `PATCH /auth/me` | `{displayName}` → `200 {status,user}`; имя после trim: 1–100 Unicode code points, без управляющих символов; другие поля запрещены | authenticated, только свой профиль |
 | `POST /auth/logout` | пустое тело или `{}` → `200 {status,message}` | authenticated |
 | `POST /conferences` | `{title}` → `201 {status,item: Conference}` | authenticated |
 | `GET /conferences` | `200 {status,items: Conference[]}` | свои membership |

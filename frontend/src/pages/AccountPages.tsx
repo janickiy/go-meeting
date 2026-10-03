@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { CalendarDays, Clapperboard, Mail, UserRound } from "lucide-react";
 import { Link } from "react-router";
 import { useAuth } from "../auth";
@@ -5,6 +7,7 @@ import { formatDate } from "../utils";
 import { useConferences } from "../queries";
 import { Button, ErrorNotice, Loading } from "../components/ui";
 import { IntegrationsSettings } from "../components/IntegrationsSettings";
+import { DeviceSettings } from "../components/DeviceSettings";
 
 /**
  * SettingsPage показывает доступные сведения и настройки текущей учётной записи.
@@ -13,7 +16,40 @@ import { IntegrationsSettings } from "../components/IntegrationsSettings";
  * @returns JSX-представление компонента для текущих свойств и состояния.
  */
 export function SettingsPage() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
+  const [name, setName] = useState(user?.displayName || "");
+  const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState<unknown>();
+  const [profileValidation, setProfileValidation] = useState("");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => setName(user?.displayName || ""), [user?.displayName]);
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = name.trim();
+    if (
+      !value ||
+      [...value].length > 100 ||
+      /[\u0000-\u001f\u007f]/u.test(value)
+    ) {
+      setProfileValidation(
+        "Укажите имя от 1 до 100 символов без управляющих знаков.",
+      );
+      setSaved(false);
+      return;
+    }
+    setSaving(true);
+    setProfileValidation("");
+    setProfileError(undefined);
+    setSaved(false);
+    try {
+      await updateProfile(value);
+      setSaved(true);
+    } catch (error) {
+      setProfileError(error);
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
     <>
       <section className="page-heading">
@@ -23,15 +59,50 @@ export function SettingsPage() {
           <p>Всё, что важно знать о вашем профиле.</p>
         </div>
       </section>
+      <nav className="settings-links" aria-label="Разделы настроек">
+        <a className="text-link" href="#audio-video">
+          Аудио и видео
+        </a>
+        <a className="text-link" href="#notification-settings">
+          Уведомления
+        </a>
+        <a className="text-link" href="#integration-settings">
+          Интеграции
+        </a>
+      </nav>
       <section className="content-card account-card">
         <h2>Ваш профиль</h2>
-        <div className="account-property">
-          <UserRound size={20} />
-          <div>
-            <span>Имя</span>
-            <strong>{user?.displayName || "Не указано"}</strong>
-          </div>
-        </div>
+        <form onSubmit={(event) => void saveProfile(event)}>
+          <label className="field">
+            <span>
+              <UserRound size={18} aria-hidden="true" /> Имя для встреч
+            </span>
+            <input
+              autoComplete="name"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setSaved(false);
+                setProfileValidation("");
+              }}
+              required
+              aria-describedby="profile-name-hint"
+            />
+          </label>
+          <p id="profile-name-hint" className="field-hint">
+            Имя будет видно другим участникам новых встреч.
+          </p>
+          <ErrorNotice>{profileValidation || null}</ErrorNotice>
+          <ErrorNotice error={profileError} />
+          {saved && <p role="status">Имя сохранено.</p>}
+          <Button
+            type="submit"
+            busy={saving}
+            disabled={name.trim() === (user?.displayName || "")}
+          >
+            Сохранить имя
+          </Button>
+        </form>
         <div className="account-property">
           <Mail size={20} />
           <div>
@@ -47,16 +118,16 @@ export function SettingsPage() {
           </div>
         </div>
         <p className="field-hint">
-          Редактирование профиля и смена пароля пока недоступны. Сессия
-          действует 1 час. Для выхода используйте кнопку в боковом меню.
+          Сессия действует 1 час. Для выхода используйте кнопку в боковом меню.
         </p>
       </section>
+      <DeviceSettings />
       <IntegrationsSettings />
     </>
   );
 }
 /**
- * RecordingsPage собирает доступные записи завершённых встреч и разрешённые ссылки просмотра.
+ * RecordingsPage собирает завершённые встречи для отдельной истории и материалов.
  *
  *
  * @returns JSX-представление компонента для текущих свойств и состояния.
@@ -79,18 +150,18 @@ export function RecordingsPage() {
       <section className="page-heading">
         <div>
           <span className="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
-          <h1>Записи встреч</h1>
-          <p>Важные моменты ваших конференций.</p>
+          <h1>История встреч</h1>
+          <p>Завершённые встречи, записи и материалы.</p>
         </div>
       </section>
       <section className="content-card">
         <span className="empty-icon">
           <Clapperboard size={32} />
         </span>
-        <h2>Записи в истории встреч</h2>
+        <h2>Завершённые встречи</h2>
         <p className="field-hint">
-          Откройте завершённую встречу, чтобы увидеть её записи, статус
-          обработки и приватные ссылки на скачивание.
+          Откройте встречу, чтобы увидеть записи, расшифровку, итоги и
+          аналитику.
         </p>
         <ErrorNotice error={query.error} />
         {query.isPending ? (
@@ -109,7 +180,7 @@ export function RecordingsPage() {
                 <Link
                   className="conference-row"
                   key={item.id}
-                  to={`/conferences/${item.id}`}
+                  to={`/history/${item.id}`}
                 >
                   <Clapperboard size={22} />
                   <div>
@@ -118,7 +189,7 @@ export function RecordingsPage() {
                       {formatDate(item.finishedAt || item.createdAt)}
                     </p>
                   </div>
-                  <span className="text-link">История и записи</span>
+                  <span className="text-link">Открыть историю</span>
                 </Link>
               ),
             )}
@@ -143,7 +214,7 @@ export function RecordingsPage() {
             Ещё встречи
           </Button>
         )}
-        <Link className="text-link" to="/conferences?view=past">
+        <Link className="text-link" to="/meetings?view=past">
           Вся история встреч
         </Link>
       </section>

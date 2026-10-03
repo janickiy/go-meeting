@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Hand } from "lucide-react";
 import { api } from "../api";
@@ -35,11 +35,13 @@ export function HandReactionsPanel({
   membership,
   participants,
   live,
+  handShortcutToken = 0,
 }: {
   conferenceId: string;
   membership: Participant;
   participants: Participant[];
   live: ReturnType<typeof useRealtime>;
+  handShortcutToken?: number;
 }) {
   const client = useQueryClient();
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -293,6 +295,20 @@ export function HandReactionsPanel({
       void client.invalidateQueries({ queryKey: ["hands", conferenceId] });
     },
   });
+  const lastShortcutToken = useRef(handShortcutToken);
+  useEffect(() => {
+    if (lastShortcutToken.current === handShortcutToken) return;
+    lastShortcutToken.current = handShortcutToken;
+    if (!live.state || hand.isPending || query.isPending) return;
+    hand.mutate({ participantId: membership.id, raised: !raised });
+  }, [
+    handShortcutToken,
+    hand,
+    live.state,
+    membership.id,
+    query.isPending,
+    raised,
+  ]);
   const reaction = useMutation({
     /**
      * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
@@ -334,6 +350,7 @@ export function HandReactionsPanel({
           variant={raised ? "primary" : "outline"}
           busy={hand.isPending}
           disabled={!live.state}
+          aria-keyshortcuts="H"
           onClick={
             /**
              * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.

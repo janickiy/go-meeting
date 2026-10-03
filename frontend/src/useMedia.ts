@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ConferenceMediaClient, emptyMediaView } from "./media";
-import type { MediaPolicy } from "./media";
+import type { MediaPolicy, MediaStartOptions } from "./media";
 import { api } from "./api";
 import type { useRealtime } from "./realtime";
 
@@ -158,7 +158,7 @@ export function useMedia(
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
    */
-  const start = (captureDevices = true) => {
+  const start = (captureDevices = true, options?: MediaStartOptions) => {
     const connectionId = liveRef.current.state?.connectionId;
     if (!connectionId) return;
     stop();
@@ -195,13 +195,21 @@ export function useMedia(
     controller.current = next;
     next.setPolicy(policyRef.current);
     setRunning(true);
-    void next.start(captureDevices);
+    if (options) void next.start(captureDevices, options);
+    else void next.start(captureDevices);
   };
+  const diagnostics = useCallback(async () => {
+    const current = controller.current;
+    if (!current) return null;
+    const sample = await current.diagnostics();
+    return controller.current === current ? sample : null;
+  }, []);
   return {
     view,
     running,
     start,
     stop,
+    diagnostics,
     /**
      * microphone меняет активность или устройство микрофона.
      *

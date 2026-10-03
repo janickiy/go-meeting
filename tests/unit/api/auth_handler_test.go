@@ -115,6 +115,80 @@ func TestAuthLoginMeAndStatelessLogout(t *testing.T) {
 	assertStatus(t, result.Code, 200)
 }
 
+func TestAuthProfileUpdateValidationAndPublicResponse(t *testing.T) {
+	router, repo := authRouter(t, nil)
+	register := performJSON(router, "POST", "/api/v1/auth/register", `{"email":"profile@example.com","password":"StrongPassword123","displayName":"Before"}`)
+	assertStatus(t, register.Code, 201)
+	repo.user.IsAdmin = true
+	login := performJSON(router, "POST", "/api/v1/auth/login", `{"email":"profile@example.com","password":"StrongPassword123"}`)
+	assertStatus(t, login.Code, 200)
+	var session users.LoginResponse
+	if err := json.Unmarshal(login.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	patch := func(token, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest("PATCH", "/api/v1/auth/me", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			request.Header.Set("Authorization", "Bearer "+token)
+		}
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		return response
+	}
+	assertStatus(t, patch("", `{"displayName":"Intruder"}`).Code, 401)
+	for _, body := range []string{
+		`{}`, `{"displayName":null}`, `{"displayName":"  "}`,
+		`{"displayName":"` + strings.Repeat("я", 101) + `"}`,
+		`{"displayName":"Line\nBreak"}`,
+	} {
+		assertStatus(t, patch(session.AccessToken, body).Code, 422)
+	}
+	for _, body := range []string{
+		`{"displayName":"Forged","email":"other@example.com"}`,
+		`{"displayName":"Forged","isAdmin":false}`,
+		`{"displayName":"Forged","userId":"another-user"}`,
+	} {
+		assertStatus(t, patch(session.AccessToken, body).Code, 400)
+	}
+	if repo.user.DisplayName == nil || *repo.user.DisplayName != "Before" || !repo.user.IsAdmin {
+		t.Fatal("invalid profile updates changed stored user")
+	}
+	otherToken, err := security.NewTokenService(authTestSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignToken, err := otherToken.Issue(uuid.NewString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertStatus(t, patch(foreignToken, `{"displayName":"Intruder"}`).Code, 401)
+	response := patch(session.AccessToken, `{"displayName":"  `+strings.Repeat("界", 100)+`  "}`)
+	assertStatus(t, response.Code, 200)
+	assertNoCredentials(t, response.Body.String())
+	if strings.Contains(response.Body.String(), session.AccessToken) || strings.Contains(response.Body.String(), "accessToken") {
+		t.Fatal("profile response leaked a token")
+	}
+	var result struct {
+		Status string     `json:"status"`
+		User   users.View `json:"user"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "success" || result.User.DisplayName == nil || *result.User.DisplayName != strings.Repeat("界", 100) || !result.User.IsAdmin || result.User.Email != "profile@example.com" {
+		t.Fatal("profile update did not return a safe, current user view")
+	}
+	request := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
+	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	current := httptest.NewRecorder()
+	router.ServeHTTP(current, request)
+	assertStatus(t, current.Code, 200)
+	if !strings.Contains(current.Body.String(), strings.Repeat("界", 100)) {
+		t.Fatal("updated display name was not persisted")
+	}
+}
+
 // TestAuthPasswordCharacterPolicy проверяет сценарий «авторизация Password Character политика», фиксируя ошибки поведения как регрессию.
 //
 // @args
@@ -280,6 +354,14 @@ func (r *authRepository) GetByEmail(_ context.Context, email string) (users.User
 		return r.user, nil
 	}
 	return users.User{}, apperrors.ErrNotFound
+}
+
+func (r *authRepository) UpdateDisplayName(_ context.Context, id, name string) (users.User, error) {
+	if r.user.ID != id || id == "" {
+		return users.User{}, apperrors.ErrNotFound
+	}
+	r.user.DisplayName = &name
+	return r.user, nil
 }
 
 // authPasswords хранит изолированное состояние тестового компонента «авторизация Passwords».

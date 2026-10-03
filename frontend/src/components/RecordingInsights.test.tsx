@@ -141,6 +141,13 @@ describe("приватные материалы записи", () => {
     fireEvent.click(button);
     expect(video.currentTime).toBe(30);
   });
+  it("загружает итоги ИИ только после открытия вкладки", async () => {
+    show();
+    await screen.findByText(/Обсуждение запуска/);
+    expect(api.summary).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "Итоги ИИ" }));
+    await waitFor(() => expect(api.summary).toHaveBeenCalledTimes(1));
+  });
   it("переключение вкладок не возвращает проигрывание к старой метке", async () => {
     const { container } = show("/conferences/room?recording=record&t=42500");
     await screen.findByText(/Обсуждение запуска/);

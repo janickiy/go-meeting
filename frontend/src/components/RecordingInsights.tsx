@@ -125,7 +125,7 @@ function RecordingMaterial({
   const summary = useQuery({
     queryKey: ["summary", ...key],
     queryFn: ({ signal }) => api.summary(conferenceId, recordingId, signal),
-    enabled: available,
+    enabled: available && tab === "summary",
     retry: false,
     refetchInterval: (query) =>
       query.state.data?.item && processing.has(query.state.data.item.status)

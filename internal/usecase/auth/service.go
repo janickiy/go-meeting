@@ -47,6 +47,7 @@ type userRepository interface {
 	//   - результат 1 (users.User): значение, подготовленное операцией для вызывающей стороны.
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	GetByEmail(context.Context, string) (users.User, error)
+	UpdateDisplayName(context.Context, string, string) (users.User, error)
 }
 
 // passwordHasher задаёт контракт зависимого компонента passwordHasher в авторизации и учётных записях пользователей; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
@@ -202,6 +203,22 @@ func (s *Service) Login(ctx context.Context, request users.LoginRequest) (users.
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *Service) Me(ctx context.Context, userID string) (users.View, error) {
 	user, err := s.repository.GetByID(ctx, userID)
+	if errors.Is(err, apperrors.ErrNotFound) {
+		return users.View{}, apperrors.ErrUnauthorized
+	}
+	if err != nil {
+		return users.View{}, err
+	}
+	return user.View(), nil
+}
+
+// UpdateProfile обновляет только имя текущего пользователя, сохраняя пароль, email, роль и JWT.
+func (s *Service) UpdateProfile(ctx context.Context, userID string, request users.UpdateProfileRequest) (users.View, error) {
+	name, err := users.NormalizeDisplayName(request.DisplayName)
+	if err != nil {
+		return users.View{}, err
+	}
+	user, err := s.repository.UpdateDisplayName(ctx, userID, name)
 	if errors.Is(err, apperrors.ErrNotFound) {
 		return users.View{}, apperrors.ErrUnauthorized
 	}

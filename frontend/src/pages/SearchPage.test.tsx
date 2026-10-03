@@ -6,6 +6,9 @@ import { api } from "../api";
 import { SearchPage } from "./SearchPage";
 
 vi.mock("../auth", () => ({ useAuth: () => ({ user: { id: "user" } }) }));
+vi.mock("../useCapabilities", () => ({
+  useCapabilities: () => ({ data: { capabilities: { semanticSearch: true } } }),
+}));
 vi.mock("../queries", () => ({
   useConferences: () => ({
     data: { pages: [{ items: [{ id: "room", title: "План запуска" }] }] },
@@ -101,7 +104,7 @@ describe("поиск по доступным материалам", () => {
       screen.getByRole("link", { name: "Открыть фрагмент записи" }),
     ).toHaveAttribute(
       "href",
-      "/conferences/room?recording=record&tab=transcript&t=42500&segment=segment",
+      "/history/room?recording=record&tab=transcript&section=transcript&t=42500&segment=segment",
     );
   });
   it("отклоняет перевёрнутый диапазон дат до обращения к API", async () => {

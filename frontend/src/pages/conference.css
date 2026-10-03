@@ -1,0 +1,242 @@
+.conference-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(310px, 360px);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+
+.conference-stage-main,
+.conference-stage-rail {
+  min-width: 0;
+}
+
+.conference-stage-main .realtime-panel {
+  margin: 0;
+  padding: 18px;
+}
+
+.conference-stage .realtime-panel > .section-heading {
+  margin-bottom: 8px;
+}
+
+.conference-stage .conference-media {
+  display: flex;
+  flex-direction: column;
+  border-top: 0;
+  padding: 8px 0;
+}
+
+.conference-stage .conference-media > .media-grid,
+.conference-stage .conference-media > .media-empty {
+  order: -1;
+  margin: 0 0 14px;
+}
+
+.conference-stage .conference-media > .meeting-actions {
+  order: 1;
+  margin: 12px 0;
+}
+
+.conference-stage .conference-media > .media-devices {
+  order: 2;
+}
+
+.conference-stage .conference-media > .media-diagnostics {
+  order: 3;
+}
+
+.conference-stage .media-grid,
+.conference-stage .media-empty {
+  min-height: 250px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #101b2f;
+}
+
+.conference-stage .media-grid .media-tile {
+  border-color: #33415b;
+}
+
+.conference-stage .media-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  align-content: center;
+  text-align: center;
+  color: #e5edfa;
+}
+
+.conference-stage .media-empty span {
+  color: #a8b8d1;
+  font-size: 13px;
+}
+
+.conference-presence-details {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.conference-presence-details summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.conference-presence-details .realtime-people {
+  margin: 8px 0 0;
+}
+
+.conference-link-lost {
+  color: #a34718;
+  background: #fff3e7;
+}
+
+.conference-link-ready {
+  color: #136341;
+  background: #eaf8f0;
+}
+
+.conference-connection-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 12px;
+  border: 1px solid #f5c9a6;
+  border-radius: 10px;
+  background: #fff7ef;
+  color: #80401b;
+  font-size: 13px;
+}
+
+.conference-connection-notice span {
+  flex: 1 1 220px;
+}
+
+.conference-stage-rail {
+  display: grid;
+  gap: 10px;
+  align-self: start;
+}
+
+.conference-stage-rail > .hand-reactions,
+.conference-stage-panel > .chat-panel,
+.conference-stage-panel > .content-card,
+.conference-stage-panel > .captions-panel {
+  margin: 0;
+}
+
+.conference-stage-rail .hand-reactions {
+  padding: 14px;
+}
+
+.conference-stage-rail .collaboration-toolbar {
+  flex-wrap: wrap;
+}
+
+.conference-stage-tabs {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid #dfe6f3;
+}
+
+.conference-stage-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1 0 auto;
+  min-height: 40px;
+  padding: 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.conference-stage-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--blue);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.conference-stage-tabs button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.conference-stage-panel[hidden] {
+  display: none !important;
+}
+
+.conference-stage-roster {
+  padding: 16px;
+}
+
+.conference-stage-roster h2 {
+  font-size: 16px;
+}
+
+.conference-stage-roster ul {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.conference-stage-roster li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid #edf0f6;
+  font-size: 13px;
+}
+
+.conference-stage-roster li small {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.conference-stage-rail .chat-messages {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.conference-feature-note,
+.conference-shortcuts-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.conference-shortcuts-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 1050px) {
+  .conference-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .conference-stage-main .realtime-panel,
+  .conference-stage-rail .hand-reactions {
+    padding: 12px;
+  }
+
+  .conference-stage .media-grid,
+  .conference-stage .media-empty {
+    min-height: 200px;
+  }
+
+  .conference-stage .conference-media .meeting-actions .button {
+    flex: 1 1 42%;
+  }
+}

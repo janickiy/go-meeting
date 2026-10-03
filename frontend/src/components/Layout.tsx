@@ -1,18 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import {
+  Bell,
   CalendarDays,
-  Clapperboard,
   Home,
+  History,
   LogOut,
   Menu,
   Settings,
   Search,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { useAuth } from "../auth";
 import { initials } from "../utils";
-import { Brand } from "./ui";
+import { Brand, Loading } from "./ui";
 import { NotificationBell } from "./NotificationBell";
 import { useNotificationStream } from "../notifications";
 
@@ -103,7 +105,11 @@ export function Layout() {
   );
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#workspace-main">
+        Перейти к содержимому
+      </a>
       <aside
+        id="app-sidebar"
         ref={sidebar}
         className={`sidebar ${open ? "sidebar-open" : ""}`}
         role={open ? "dialog" : undefined}
@@ -135,7 +141,8 @@ export function Layout() {
               label: "Мои конференции",
               Icon: CalendarDays,
             },
-            { to: "/app/recordings", label: "Записи", Icon: Clapperboard },
+            { to: "/history", label: "История", Icon: History },
+            { to: "/notifications", label: "Уведомления", Icon: Bell },
             { to: "/app/search", label: "Поиск", Icon: Search },
             { to: "/app/settings", label: "Настройки", Icon: Settings },
           ].map(
@@ -171,10 +178,22 @@ export function Layout() {
                     isActive ? "nav-item nav-active" : "nav-item"
                 }
               >
-                <Icon size={19} />
+                <Icon size={19} aria-hidden="true" />
                 {label}
               </NavLink>
             ),
+          )}
+          {user?.isAdmin === true && (
+            <NavLink
+              to="/admin"
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                isActive ? "nav-item nav-active" : "nav-item"
+              }
+            >
+              <ShieldCheck size={19} aria-hidden="true" />
+              Администрирование
+            </NavLink>
           )}
         </nav>
         <div className="sidebar-bottom">
@@ -245,6 +264,8 @@ export function Layout() {
           <button
             className="icon-button mobile-only"
             aria-label="Открыть меню"
+            aria-controls="app-sidebar"
+            aria-expanded={open}
             ref={menuButton}
             onClick={
               /**
@@ -255,7 +276,7 @@ export function Layout() {
                */ () => setOpen(true)
             }
           >
-            <Menu />
+            <Menu aria-hidden="true" />
           </button>
           <span>Ваше пространство для встреч</span>
           <span className="workspace-account">
@@ -264,8 +285,10 @@ export function Layout() {
             {user?.displayName || "Личный кабинет"}
           </span>
         </header>
-        <main className="workspace-main">
-          <Outlet />
+        <main id="workspace-main" className="workspace-main" tabIndex={-1}>
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </main>
         <footer className="workspace-footer">
           <span>Meet</span>

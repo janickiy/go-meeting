@@ -111,7 +111,10 @@ export function useParticipants(id: string, enabled = true) {
  *
  * @returns состояние, данные или действия React-хука; ресурсы освобождаются при изменении зависимостей.
  */
-export function useMembership(id: string) {
+export function useMembership(
+  id: string,
+  refetchInterval: number | false = 3000,
+) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["membership", user?.id, id],
@@ -132,6 +135,6 @@ export function useMembership(id: string) {
         throw error;
       }
     },
-    refetchInterval: 3000,
+    refetchInterval,
   });
 }

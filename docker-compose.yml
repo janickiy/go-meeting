@@ -15,6 +15,8 @@ services:
       context: .
       dockerfile: dockers/api/Dockerfile
       target: runtime
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-dev}
     env_file:
       - .env
     environment:
@@ -94,6 +96,11 @@ services:
       dockerfile: Dockerfile
     environment:
       API_UPSTREAM: "api:${APP_PORT:-8085}"
+      APP_ENV: local
+      PUBLIC_FRONTEND_URL: ${PUBLIC_FRONTEND_URL:-https://localhost:18482}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-https://localhost:18482}
+      CSP_EXTRA_WS_ORIGIN: "ws://localhost:${FRONTEND_HOST_PORT:-5173}"
+      CSP_EXTRA_WS_ORIGIN_2: "ws://127.0.0.1:${FRONTEND_HOST_PORT:-5173}"
     depends_on:
       - api
     ports:
