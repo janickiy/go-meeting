@@ -82,7 +82,7 @@ export function safeNext(value: string | null): string {
     const url = new URL(value, "https://meet.invalid");
     if (
       url.origin !== "https://meet.invalid" ||
-      !/^\/(?:app(?:\/[^]*)?|conferences(?:\/[^]*)?|i\/[A-Za-z0-9_-]{32})$/.test(
+      !/^\/(?:app(?:\/[^]*)?|conferences(?:\/[^]*)?|recordings(?:\/[^]*)?|i\/[A-Za-z0-9_-]{32})$/.test(
         url.pathname,
       )
     )

@@ -436,19 +436,27 @@ export const api = {
       { method: "POST", body: action },
     ),
   /**
-   * recordings читает доступные записи конференции с их текущими состояниями.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
+   * recordings читает защищённую страницу записей выбранной конференции.
+   * @args id — конференция; signal — отмена запроса; pagination — лимит и смещение.
+   * Без pagination сохраняет прежний контракт для панели действующей встречи.
+   * @return записи и разрешённые backend ссылки на их реальные артефакты.
    */
-  recordings: (id: string, signal?: AbortSignal) =>
-    request<Items<ConferenceRecording>>(
-      `/conferences/${encodeURIComponent(id)}/recordings`,
+  recordings: (
+    id: string,
+    signal?: AbortSignal,
+    pagination?: { limit: number; offset: number },
+  ) => {
+    const params = pagination
+      ? new URLSearchParams({
+          limit: String(pagination.limit),
+          offset: String(pagination.offset),
+        })
+      : null;
+    return request<Items<ConferenceRecording>>(
+      `/conferences/${encodeURIComponent(id)}/recordings${params ? `?${params}` : ""}`,
       { signal },
-    ),
+    );
+  },
   /**
    * Читает отдельную приватную запись, в том числе по ссылке из поиска.
    * @args id, recordingId — идентификаторы встречи и записи; signal — отмена запроса.

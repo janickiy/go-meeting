@@ -52,6 +52,34 @@ describe("API contract", /**
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
+  it("передаёт лимит и смещение записей третьим аргументом с авторизацией и отменой", async () => {
+    configureAuth("recordings-test-token");
+    const fetch = fetchResponse(200, { status: "success", items: [] });
+    const abort = new AbortController();
+    await api.recordings("conference/id", abort.signal, {
+      limit: 20,
+      offset: 40,
+    });
+    const [url, options] = fetch.mock.calls[0];
+    expect(url).toBe(
+      "/api/v1/conferences/conference%2Fid/recordings?limit=20&offset=40",
+    );
+    expect(url).not.toContain("recordings-test-token");
+    expect(options.signal).toBe(abort.signal);
+    expect(options.headers.get("Authorization")).toBe(
+      "Bearer recordings-test-token",
+    );
+    expect(options.credentials).toBe("omit");
+  });
+  it("сохраняет прежнюю сигнатуру списка записей без параметров пагинации", async () => {
+    const fetch = fetchResponse(200, { status: "success", items: [] });
+    const abort = new AbortController();
+    await api.recordings("conference/id", abort.signal);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/conferences/conference%2Fid/recordings",
+      expect.objectContaining({ signal: abort.signal }),
+    );
+  });
   it("принимает успешный ответ 204 при отзыве календаря", async () => {
     configureAuth("private-test-token");
     const fetch = vi

@@ -17,6 +17,14 @@ describe("безопасная телеметрия браузера", () => {
     ).toBe("/app/settings/calendar/:provider/callback");
     expect(telemetryRoute("/private-name@example.test")).toBe("unknown");
     expect(telemetryRoute("/meetings/new")).toBe("/meetings/new");
+    expect(
+      telemetryRoute(
+        "/recordings/private-id?conference=private-room&signature=secret",
+      ),
+    ).toBe("/recordings/:id");
+    expect(telemetryRoute("/recordings?conference=private-room")).toBe(
+      "/recordings",
+    );
   });
 
   it("оставляет только семейство браузера", () => {

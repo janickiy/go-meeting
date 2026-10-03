@@ -30,6 +30,7 @@ const staticRoutes = new Set([
   "/app/settings",
   "/settings",
   "/app/recordings",
+  "/recordings",
   "/history",
   "/notifications",
   "/app/search",
@@ -53,6 +54,7 @@ export function telemetryRoute(pathname: string): string {
   }
   if (/^\/i\/[^/]+$/.test(path)) return "/i/:code";
   if (/^\/history\/[^/]+$/.test(path)) return "/history/:id";
+  if (/^\/recordings\/[^/]+$/.test(path)) return "/recordings/:id";
   if (/^\/app\/settings\/calendar\/[^/]+\/callback$/.test(path))
     return "/app/settings/calendar/:provider/callback";
   return "unknown";

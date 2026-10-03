@@ -107,6 +107,12 @@ describe("navigation and invitations", /**
    */ () => {
     expect(safeNext(`/i/${code}`)).toBe(`/i/${code}`);
     expect(safeNext("/conferences/test?x=1")).toBe("/conferences/test?x=1");
+    expect(safeNext("/recordings/test?conference=room")).toBe(
+      "/recordings/test?conference=room",
+    );
+    expect(safeNext("/recordings?conference=room")).toBe(
+      "/recordings?conference=room",
+    );
   });
   it("accepts only codes and invitation URLs from the current origin", /**
    * Проверяет приём только кодов и ссылок приглашения с текущего источника.

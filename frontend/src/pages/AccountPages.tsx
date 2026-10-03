@@ -217,7 +217,7 @@ export function SettingsPage() {
 /** Читает историю из общего серверного списка без дополнительных запросов для каждой строки.
  * @return Список доступных завершённых встреч с локальным поиском по загруженным страницам.
  */
-export function RecordingsPage() {
+export function HistoryPage() {
   const query = useConferences({ view: "past" });
   const [search, setSearch] = useState("");
   const conferences = query.data?.pages.flatMap((page) => page.items) || [];

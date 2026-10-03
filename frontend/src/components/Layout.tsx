@@ -9,6 +9,7 @@ import {
   History,
   LogOut,
   Menu,
+  CirclePlay,
   Search,
   Settings,
   ShieldCheck,
@@ -98,6 +99,7 @@ export function Layout() {
     { to: "/app", label: "Главная", Icon: Home, end: true },
     { to: "/conferences", label: "Встречи", Icon: Video },
     { to: "/calendar", label: "Календарь", Icon: CalendarDays },
+    { to: "/recordings", label: "Записи", Icon: CirclePlay },
     { to: "/history", label: "История", Icon: History },
     ...(capabilities.isSuccess &&
     !capabilities.isError &&
@@ -272,8 +274,8 @@ export function Layout() {
             <CalendarDays size={20} />
             Календарь
           </NavLink>
-          <NavLink to="/history" aria-label="Записи и история">
-            <History size={20} />
+          <NavLink to="/recordings" aria-label="Записи — быстрая навигация">
+            <CirclePlay size={20} />
             Записи
           </NavLink>
           <button

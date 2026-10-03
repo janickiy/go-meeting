@@ -32,8 +32,18 @@ const InvitePage = lazy(() =>
   })),
 );
 const RecordingsPage = lazy(() =>
-  import("./pages/AccountPages").then((module) => ({
+  import("./pages/RecordingsPage").then((module) => ({
     default: module.RecordingsPage,
+  })),
+);
+const HistoryPage = lazy(() =>
+  import("./pages/AccountPages").then((module) => ({
+    default: module.HistoryPage,
+  })),
+);
+const RecordingDetailPage = lazy(() =>
+  import("./pages/RecordingDetailPage").then((module) => ({
+    default: module.RecordingDetailPage,
   })),
 );
 const SettingsPage = lazy(() =>
@@ -178,7 +188,9 @@ export function App() {
           <Route path="/app/settings" element={<SettingsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/app/recordings" element={<RecordingsPage />} />
-          <Route path="/history" element={<RecordingsPage />} />
+          <Route path="/recordings" element={<RecordingsPage />} />
+          <Route path="/recordings/:id" element={<RecordingDetailPage />} />
+          <Route path="/history" element={<HistoryPage />} />
           <Route path="/history/:id" element={<HistoryDetailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/app/search" element={<SearchPage />} />
