@@ -236,6 +236,19 @@ test("новая сборка с настоящими SFU, чатом, прив�
       }
       const page = await context.newPage();
       page.on("websocket", (socket) => {
+        const messages = new Map<string,string>();
+        socket.on("framesent", frame => {
+          try {
+            const event = JSON.parse(String(frame.payload));
+            if (event.id) messages.set(event.id,event.type);
+          } catch { /* Не журналируем бинарные сообщения или токены. */ }
+        });
+        socket.on("framereceived", frame => {
+          try {
+            const event = JSON.parse(String(frame.payload));
+            if (event.type === "error") networkErrors.push(`error:${event.data?.code || ""}:${messages.get(event.replyTo) || "unknown"}`);
+          } catch { /* Полные SDP, ICE-пароли и токены не выводятся. */ }
+        });
         socket.on("socketerror", (message) => {
           networkErrors.push(
             message.replace(/([?&]ticket=)[^\s'"&]+/g, "$1[redacted]"),
@@ -274,7 +287,28 @@ test("новая сборка с настоящими SFU, чатом, прив�
       } catch { /* Полный SDP, ключи ICE и токены никогда не журналируются. */ }
     }));
     await Promise.all(pages.map(connectMedia));
-    for (const page of pages)
+    for (const page of pages) {
+      // Firefox может требовать отдельный жест для воспроизведения удалённого звука.
+      const play = page.getByTestId("remote-media").getByRole("button", {name:"Включить воспроизведение",exact:true});
+      if (await play.isVisible()) await play.click();
+    }
+    for (const page of pages) {
+      if (remote) {
+        // Firefox не учитывает WebRTC в totalVideoFrames. Проверяем декодирование
+        // настоящего входящего RTP и запущенный DOM-плеер без замены медиаданных.
+        await expect.poll(() => page.evaluate(async () => {
+          const peers = (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers;
+          for (const peer of peers) {
+            const stats = await peer.getStats();
+            if ([...stats.values()].some(s=>s.type==="inbound-rtp" &&
+              (s.kind || s.mediaType)==="video" && s.framesDecoded > 5 && s.bytesReceived > 0)) return true;
+          }
+          return false;
+        }),{timeout:15_000}).toBe(true);
+        await expect.poll(() => page.getByTestId("remote-media").locator("video").evaluate((video:HTMLVideoElement)=>
+          !video.paused && video.videoWidth > 0 && video.currentTime > 0.2),{timeout:15_000}).toBe(true);
+        continue;
+      }
       await expect
         .poll(
           () =>
@@ -288,6 +322,7 @@ test("новая сборка с настоящими SFU, чатом, прив�
           { timeout: 15_000 },
         )
         .toBeGreaterThan(5);
+    }
     checks.push("two-participant-sfu-video");
     if (remote) {
       for (const page of pages) {
@@ -459,6 +494,19 @@ test("новая сборка с настоящими SFU, чатом, прив�
       fullPage: true,
     });
   } finally {
+    for (const context of contexts) for (const page of context.pages()) {
+      try {
+        console.log("Final media counters:", JSON.stringify(await page.evaluate(async () => {
+          const peers = (window as unknown as { __smokePeers?: RTCPeerConnection[] }).__smokePeers || [];
+          const results = [];
+          for (const peer of peers) {
+            const stats = await peer.getStats();
+            results.push({state:peer.connectionState,rtp:[...stats.values()].filter(s=>s.type==="inbound-rtp" || s.type==="outbound-rtp").map(s=>({type:s.type,kind:s.kind || s.mediaType,packetsReceived:s.packetsReceived,bytesReceived:s.bytesReceived,framesDecoded:s.framesDecoded,packetsSent:s.packetsSent,framesEncoded:s.framesEncoded}))});
+          }
+          return results;
+        })));
+      } catch { /* Закрытая страница не заменяет первоначальный результат проверки. */ }
+    }
     if (conferenceId && actors[0]) {
       try {
         const current = await api<{ item: { status: string } }>(
