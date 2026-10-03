@@ -1,6 +1,7 @@
 FROM postgres:16-alpine AS patched
 # Сохраняем major PostgreSQL 16 и формат данных, устанавливаем исправления ОС.
-RUN apk upgrade --no-cache && apk add --no-cache su-exec
+RUN apk upgrade --no-cache && apk add --no-cache su-exec \
+    && rm -f /usr/local/bin/gosu /usr/local/bin/su-exec
 # Убираем старую Go-утилиту gosu; её единственная используемая операция
 # смены UID/GID выполняется поддерживаемым su-exec без Go runtime.
 COPY dockers/postgres/gosu.sh /usr/local/bin/gosu

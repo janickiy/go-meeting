@@ -48,7 +48,11 @@ compose() {
   else
     options+=(-f "$RELEASE_ROOT/docker-compose.grafana.yml")
   fi
-  if [[ "$RELEASE_ENVIRONMENT" == local ]]; then options+=(-f "$RELEASE_ROOT/docker-compose.release-local.yml"); fi
+  if [[ "$RELEASE_ENVIRONMENT" == local ]]; then
+    options+=(-f "$RELEASE_ROOT/docker-compose.release-local.yml")
+    if [[ "${RELEASE_LAYOUT:-classic}" == classic ]]; then options+=(-f "$RELEASE_ROOT/docker-compose.release-local-grafana.yml");
+    else options+=(-f "$RELEASE_ROOT/docker-compose.release-local-hardened.yml"); fi
+  fi
   docker compose --project-name "$RELEASE_PROJECT" --env-file "$RELEASE_ENV_FILE" "${options[@]}" "$@"
 }
 
@@ -57,7 +61,7 @@ compose() {
 # совпадение Image ID, архитектуры и отсутствие HIGH/CRITICAL без ignore-флагов.
 # @args параметры берутся из проверенного RELEASE_MANIFEST и его каталога.
 verify_archive_security() {
-  local directory service image expected actual scan sbom architecture
+  local directory service image expected actual scan sbom architecture config_id descriptor
   directory="$(dirname "$RELEASE_MANIFEST")"
   [[ -f "$directory/images.tar" ]] || fail "Archive release images.tar is missing"
   expected="$(jq -er '.archiveSHA256 | select(test("^[a-f0-9]{64}$"))' "$RELEASE_MANIFEST")" || fail "Archive checksum missing"
@@ -65,6 +69,17 @@ verify_archive_security() {
   architecture="$(jq -er '.platform | select(. == "linux/amd64" or . == "linux/arm64") | split("/")[1]' "$RELEASE_MANIFEST")" || fail "Archive target architecture missing"
   for service in "${RELEASE_SERVICES[@]}"; do
     image="$(jq -er --arg service "$service" '.images[$service] | select(test("^sha256:[a-f0-9]{64}$"))' "$RELEASE_MANIFEST")" || fail "Archive needs immutable image IDs"
+    config_id="$(jq -r --arg service "$service" '.imageConfigIDs[$service] // .images[$service]' "$RELEASE_MANIFEST")"
+    if jq -e '.imageConfigIDs != null' "$RELEASE_MANIFEST" >/dev/null; then
+      # OCI manifest и JSON-конфигурация имеют разные digest. Проверяем оба по
+      # байтам архива, а не принимаем связь между ними из непроверенного отчёта.
+      descriptor="$(tar -xOf "$directory/images.tar" "blobs/sha256/${image#sha256:}")" || fail "Missing OCI manifest for $service"
+      actual="$(tar -xOf "$directory/images.tar" "blobs/sha256/${image#sha256:}" | openssl dgst -sha256 | awk '{print $NF}')"
+      [[ "sha256:$actual" == "$image" ]] || fail "OCI manifest digest mismatch for $service"
+      [[ "$(jq -r '.config.digest' <<<"$descriptor")" == "$config_id" ]] || fail "OCI configuration binding mismatch for $service"
+      actual="$(tar -xOf "$directory/images.tar" "blobs/sha256/${config_id#sha256:}" | openssl dgst -sha256 | awk '{print $NF}')"
+      [[ "sha256:$actual" == "$config_id" ]] || fail "OCI configuration digest mismatch for $service"
+    fi
     scan="$directory/$service.scan.json"
     sbom="$directory/$service.sbom.json"
     [[ -f "$scan" && -f "$sbom" ]] || fail "Archive security evidence missing for $service"
@@ -72,13 +87,21 @@ verify_archive_security() {
     [[ "$(file_sha256 "$scan")" == "$expected" ]] || fail "Scan checksum mismatch for $service"
     expected="$(jq -er --arg service "$service" '.securityEvidence[$service].sbomSHA256' "$RELEASE_MANIFEST")" || fail "SBOM checksum missing"
     [[ "$(file_sha256 "$sbom")" == "$expected" ]] || fail "SBOM checksum mismatch for $service"
-    jq -e --arg image "$image" --arg architecture "$architecture" '
+    jq -e --arg image "$config_id" --arg architecture "$architecture" '
       has("SchemaVersion") and (.Results | type == "array")
       and .Metadata.ImageID == $image and .Metadata.ImageConfig.architecture == $architecture
       and ([.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0)
     ' "$scan" >/dev/null || fail "Archive security gate failed for $service"
     jq -e '.bomFormat == "CycloneDX"' "$sbom" >/dev/null || fail "Invalid archive SBOM for $service"
   done
+  if jq -e '.deploymentSHA256 != null' "$RELEASE_MANIFEST" >/dev/null; then
+    expected="$(jq -er '.deploymentSHA256' "$RELEASE_MANIFEST")"
+    [[ "$(file_sha256 "$directory/DEPLOYMENT_SHA256SUMS")" == "$expected" ]] || fail "Deployment tooling checksum mismatch"
+    while read -r expected actual; do
+      [[ "$actual" == deployment/* && "$actual" != *..* && "$expected" =~ ^[a-f0-9]{64}$ ]] || fail "Invalid deployment file checksum"
+      [[ "$(file_sha256 "$directory/$actual")" == "$expected" ]] || fail "Deployment file mismatch: $actual"
+    done < "$directory/DEPLOYMENT_SHA256SUMS"
+  fi
 }
 
 # verify_loaded_images связывает уже загруженные приложения с source snapshot.

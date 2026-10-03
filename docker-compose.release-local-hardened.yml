@@ -1,0 +1,7 @@
+# Локальная репетиция hardened-образов использует свой TLS, не Apache хоста.
+services:
+  proxy:
+    volumes: !override ["./dockers/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro", "./dockers/production/routes.conf:/etc/nginx/snippets/recorder-routes.conf:ro", "${TLS_CERT_DIR:?set local TLS certificate directory}:/run/certs:ro"]
+  coturn:
+    network_mode: !reset null
+    networks: [private]

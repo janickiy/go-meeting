@@ -749,6 +749,10 @@ func validateSourceOffer(raw string, maxPeers int, publications []media.Publicat
 	if len(description.MediaDescriptions) == 0 || len(description.MediaDescriptions) > slotLimit {
 		return nil, media.ErrLimit
 	}
+	bundled, err := bundleOnlySections(&description)
+	if err != nil {
+		return nil, err
+	}
 	// Проверяем встроенные кандидаты до передачи недоверенного SDP в Pion
 	// (иначе Pion может лишь предупредить и проигнорировать неверные значения). Полные
 	// SDP-предложения включают избыточные кандидаты component-2 даже при rtcp-mux;
@@ -795,7 +799,7 @@ func validateSourceOffer(raw string, maxPeers int, publications []media.Publicat
 		if kind != "audio" && kind != "video" {
 			return nil, media.ErrInvalid
 		}
-		if section.MediaName.Port.Value == 0 {
+		if section.MediaName.Port.Value == 0 && !bundled[section] {
 			continue
 		}
 		direction := "sendrecv"
@@ -865,9 +869,13 @@ func answeredSSRCs(raw string) (map[uint32]bool, error) {
 	if err := description.UnmarshalString(raw); err != nil {
 		return nil, media.ErrNegotiation
 	}
+	bundled, err := bundleOnlySections(&description)
+	if err != nil {
+		return nil, media.ErrNegotiation
+	}
 	result := map[uint32]bool{}
 	for _, section := range description.MediaDescriptions {
-		if section.MediaName.Port.Value == 0 || (section.MediaName.Media != "audio" && section.MediaName.Media != "video") {
+		if (section.MediaName.Port.Value == 0 && !bundled[section]) || (section.MediaName.Media != "audio" && section.MediaName.Media != "video") {
 			continue
 		}
 		direction := "sendrecv"

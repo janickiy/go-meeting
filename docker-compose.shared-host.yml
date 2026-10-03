@@ -35,10 +35,15 @@ services:
     mem_limit: 96m
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+    # TURN на публичном интерфейсе избегает hairpin DNAT/SNAT между контейнерами.
+    # Запрет частных peer IP сохраняется, исключения для Docker subnet не нужны.
+    network_mode: host
+    networks: !reset []
+    ports: !reset []
+    environment:
+      TURN_BIND_PUBLIC: "true"
   prometheus:
     mem_limit: 160m
-  grafana:
-    mem_limit: 256m
 networks:
   private:
     ipam:

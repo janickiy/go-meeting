@@ -224,13 +224,22 @@ func (p *probe) conference(out *result) (resultErr error) {
 	if strings.HasPrefix(p.base, "http://") {
 		wsURL.Scheme = "ws"
 	}
-	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, TLSClientConfig: p.tls}
-	connection, response, err := dialer.DialContext(p.ctx, wsURL.String(), http.Header{"Authorization": []string{"Bearer " + p.token}})
+	// Используем тот же явный сетевой proxy, что и HTTP-клиент проверки.
+	// Это не меняет TLS-проверку и не обходит серверную авторизацию.
+	websocketTLS := p.tls.Clone()
+	websocketTLS.NextProtos = []string{"http/1.1"}
+	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, TLSClientConfig: websocketTLS, Subprotocols: []string{"go-recorder.v1"}, Proxy: http.ProxyFromEnvironment}
+	connection, response, err := dialer.DialContext(p.ctx, wsURL.String(), http.Header{"Authorization": []string{"Bearer " + p.token}, "Origin": []string{p.base}})
 	if response != nil && response.Body != nil {
 		defer response.Body.Close()
 	}
 	if err != nil {
-		return errors.New("WebSocket authentication or upgrade failed")
+		if response != nil {
+			return fmt.Errorf("WebSocket authentication or upgrade failed: HTTP %d", response.StatusCode)
+		}
+		// Здесь URL не содержит билета или иных secrets; исключаем токен
+		// также из диагностической строки на случай ошибки стороннего клиента.
+		return fmt.Errorf("WebSocket connection failed: %s", strings.ReplaceAll(err.Error(), p.token, "[REDACTED]"))
 	}
 	defer connection.Close()
 	connection.SetReadLimit(1 << 20)

@@ -2,12 +2,13 @@
 # Собирает приложение один раз; публикация и развёртывание используют эти же образы.
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
-version= registry= commit= output= allow_dirty=false layout=classic platform=
+version= registry= commit= output= allow_dirty=false layout=classic platform= provenance=
 while (($#)); do
   case "$1" in
     --version) version="$2"; shift 2;; --registry) registry="$2"; shift 2;;
     --commit) commit="$2"; shift 2;; --output) output="$2"; shift 2;;
     --layout) layout="$2"; shift 2;; --platform) platform="$2"; shift 2;;
+    --snapshot-provenance) provenance="$2"; shift 2;;
     --allow-dirty-local) allow_dirty=true; shift;; *) fail "Unknown build argument: $1";;
   esac
 done
@@ -30,6 +31,14 @@ command -v rg >/dev/null || fail "ripgrep is required to fingerprint source file
 # Контрольная сумма включает имена и содержимое исходников, в том числе незакоммиченные файлы локальной репетиции.
 source_digest="$(cd "$RELEASE_ROOT"; rg --files --hidden --no-require-git -g '!.git/**' -g '!release-artifacts/**' -g '!.env' -g '!.env.local' -g '!.env.production' -g '!.env.staging' -g '!secrets/**' -g '!dockers/https/certs/**' | LC_ALL=C sort | while IFS= read -r file; do printf '%s\n' "$file"; file_sha256 "$file"; done | file_sha256 /dev/stdin)"
 metadata="$(jq -n --arg version "$version" --arg commit "$commit" --arg builtAt "$time" --arg registry "$registry" --arg sourceSHA256 "$source_digest" --arg layout "$layout" --arg platform "$platform" --argjson dirty "$dirty" '{schemaVersion:1,version:$version,commit:$commit,builtAt:$builtAt,registry:$registry,sourceDirty:$dirty,sourceSHA256:$sourceSHA256,deploymentLayout:$layout,platform:$platform,images:{}}')"
+if [[ -n "$provenance" ]]; then
+  [[ "$provenance" == /* && -f "$provenance" ]] || fail "Absolute snapshot provenance file required"
+  jq -e --arg commit "$commit" '.schemaVersion == 1 and .mode == "working-tree-snapshot" and .snapshotCommit == $commit and .originalRepositoryModified == false' "$provenance" >/dev/null || fail "Source snapshot provenance mismatch"
+  metadata="$(jq --slurpfile provenance "$provenance" '.sourceSnapshot=$provenance[0]' <<<"$metadata")"
+fi
+if [[ "$layout" == hardened-shared-host ]]; then
+  metadata="$(jq '.objectStorageProvider="seaweedfs" | .omittedComponents=[{name:"grafana",reason:"upstream bundled plugins have unresolved HIGH findings; Prometheus remains enabled"}]' <<<"$metadata")"
+fi
 build_services=(api media-worker worker product-worker live-worker frontend minio)
 if [[ "$layout" == hardened-shared-host ]]; then build_services+=(coturn proxy postgres redis); fi
 platform_options=()

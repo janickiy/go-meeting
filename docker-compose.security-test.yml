@@ -1,7 +1,7 @@
 # Отдельные данные и loopback-порты для регрессии новых инфраструктурных образов.
 services:
   postgres:
-    image: meetrix-hardened/postgres:20261003.2
+    image: meetrix-hardened/postgres:20261003.3
     env_file: ${SECURITY_ENV_FILE:?set isolated configuration file}
     ports: ["127.0.0.1:25434:5432"]
     volumes: ["postgres:/var/lib/postgresql/data"]
@@ -35,7 +35,7 @@ services:
       timeout: 3s
       retries: 30
   object-storage:
-    image: meetrix-hardened/object-storage:20261003.2
+    image: meetrix-hardened/object-storage:20261003.3
     environment:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?set isolated S3 access key}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?set isolated S3 secret key}

@@ -10,11 +10,12 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 
 test.skip(
-  process.env.MEET_FRONTEND_LIVE_SMOKE !== "true",
-  "Требуется явное разрешение локальной приёмки",
+  process.env.MEET_FRONTEND_LIVE_SMOKE !== "true" && process.env.MEET_REMOTE_SMOKE !== "true",
+  "Требуется явное разрешение приёмки",
 );
-const origin = "https://localhost:25482";
-const apiOrigin = "http://127.0.0.1:28085";
+const remote = process.env.MEET_REMOTE_SMOKE === "true";
+const origin = remote ? "https://meeting.janickiy.com" : "https://localhost:25482";
+const apiOrigin = remote ? origin : "http://127.0.0.1:28085";
 type Actor = { token: string; id: string; name: string };
 
 /** Отправляет запрос только известному локальному стенду, не выводя учётные данные.
@@ -120,10 +121,14 @@ async function connectMedia(page: Page) {
   });
   await expect(start).toBeEnabled({ timeout: 15_000 });
   await start.click();
-  await expect(page.getByTestId("media-status")).toHaveText(
-    "Медиасвязь подключена",
-    { timeout: 30_000 },
-  );
+  try {
+    await expect(page.getByTestId("media-status")).toHaveText(
+      "Медиасвязь подключена", { timeout: 30_000 },
+    );
+  } catch (error) {
+    console.log("Media UI errors:", await page.getByRole("alert").allTextContents());
+    throw error;
+  }
   await expect(page.getByTestId("remote-media")).toHaveCount(1, {
     timeout: 30_000,
   });
@@ -134,8 +139,10 @@ test("новая сборка с настоящими SFU, чатом, прив�
   request,
 }, info) => {
   const dist = resolve(process.env.MEET_FRONTEND_DIST || "");
-  expect(process.env.MEET_FRONTEND_DIST).toBeTruthy();
-  await readFile(resolve(dist, "index.html"));
+  if (!remote) {
+    expect(process.env.MEET_FRONTEND_DIST).toBeTruthy();
+    await readFile(resolve(dist, "index.html"));
+  }
   const namespace = `frontend-smoke-${randomUUID()}`;
   const password = `Local-${randomUUID()}`;
   const actors: Actor[] = [];
@@ -144,6 +151,7 @@ test("новая сборка с настоящими SFU, чатом, прив�
   let recordingId = "";
   const checks: string[] = [];
   const networkErrors: string[] = [];
+  const relayEvidence: unknown[] = [];
   const startedAt = Date.now();
   try {
     for (const [index, name] of [
@@ -197,14 +205,35 @@ test("новая сборка с настоящими SFU, чатом, прив�
     const pages: Page[] = [];
     for (const actor of actors) {
       const context = await browser.newContext({
-        ignoreHTTPSErrors: true,
-        permissions: ["camera", "microphone"],
+        ignoreHTTPSErrors: !remote,
+        permissions: info.project.name === "firefox" ? [] : ["camera", "microphone"],
         viewport: { width: 1440, height: 1000 },
       });
       contexts.push(context);
       // Static overlay не наследует локальную сетевую зону исходного HTML: разрешение действует только для тестового origin.
-      await context.grantPermissions(["local-network-access"], { origin });
-      await staticOverlay(context, dist, actor);
+      if (!remote) {
+        await context.grantPermissions(["local-network-access"], { origin });
+        await staticOverlay(context, dist, actor);
+      } else {
+        await context.addInitScript(token => sessionStorage.setItem("meet.session.v1", JSON.stringify({ token, expiresAt: Date.now()+1_800_000 })), actor.token);
+        const transport = process.env.MEET_REMOTE_TURN || "";
+        await context.addInitScript(mode => {
+          const Native = window.RTCPeerConnection;
+          const peers: RTCPeerConnection[] = [];
+          (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers = peers;
+          window.RTCPeerConnection = class extends Native {
+            constructor(config?: RTCConfiguration) {
+              const servers = mode ? (config?.iceServers || []).flatMap(server => {
+                const urls = (Array.isArray(server.urls) ? server.urls : [server.urls]).filter(url =>
+                  mode === "tls" ? url.startsWith("turns:") : url.startsWith("turn:") && url.includes(`transport=${mode}`));
+                return urls.length ? [{...server, urls}] : [];
+              }) : config?.iceServers;
+              super(mode ? {...config, iceServers:servers, iceTransportPolicy:"relay"} : config);
+              peers.push(this);
+            }
+          };
+        }, transport);
+      }
       const page = await context.newPage();
       page.on("websocket", (socket) => {
         socket.on("socketerror", (message) => {
@@ -229,6 +258,21 @@ test("новая сборка с настоящими SFU, чатом, прив�
       ).toBeVisible();
     }
     const [owner, member] = pages;
+    if (remote) for (const page of pages) page.on("websocket", socket => socket.on("framereceived", frame => {
+      try {
+        const event = JSON.parse(String(frame.payload));
+        if (/error|fail/.test(event.type || "")) networkErrors.push(`${event.type}:${event.data?.code || ""}:${event.data?.reason || ""}`);
+      } catch { /* Двоичные медиаданные не включаются в диагностический отчёт. */ }
+    }));
+    if (remote && info.project.name === "firefox") for (const page of pages) page.on("websocket", socket => socket.on("framesent", frame => {
+      try {
+        const event = JSON.parse(String(frame.payload));
+        if (event.type === "media.offer") console.log("Firefox SDP structure:", {
+          sections:String(event.data.sdp).split(/\r?\n/).filter(line=> /^(m=|a=mid:|a=bundle-only|a=group:BUNDLE|a=sendrecv|a=sendonly|a=recvonly|a=inactive)/.test(line)),
+          publications:(event.data.publications || []).map((p:{mid:string;source:string})=>({mid:p.mid,source:p.source})),
+        });
+      } catch { /* Полный SDP, ключи ICE и токены никогда не журналируются. */ }
+    }));
     await Promise.all(pages.map(connectMedia));
     for (const page of pages)
       await expect
@@ -245,6 +289,56 @@ test("новая сборка с настоящими SFU, чатом, прив�
         )
         .toBeGreaterThan(5);
     checks.push("two-participant-sfu-video");
+    if (remote) {
+      for (const page of pages) {
+        // Подтверждаем входящий звук по RTP, а не только появление плитки участника.
+        await expect.poll(() => page.evaluate(async () => {
+          const peers = (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers;
+          for (const peer of peers) {
+            const stats = await peer.getStats();
+            if ([...stats.values()].some(s => s.type === "inbound-rtp" &&
+              (s.kind || s.mediaType) === "audio" && s.packetsReceived > 10 && s.bytesReceived > 0)) return true;
+          }
+          return false;
+        }), {timeout:15_000}).toBe(true);
+        await expect.poll(() => page.getByTestId("remote-media").evaluate(element => {
+          const media = element.querySelector<HTMLMediaElement>("video, audio");
+          return !!media && !media.muted && !media.paused && media.volume > 0 &&
+            (media.srcObject as MediaStream | null)?.getAudioTracks().some(track => track.readyState === "live");
+        }), {timeout:15_000}).toBe(true);
+      }
+      checks.push("two-participant-sfu-audio-rtp-and-playback");
+    }
+    if (remote && process.env.MEET_REMOTE_TURN) {
+      for (const page of pages) {
+        let evidence: Awaited<ReturnType<typeof readRelayEvidence>> = [];
+        async function readRelayEvidence() { return page.evaluate(async () => {
+          const peers = (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers;
+          const results = [];
+          for (const peer of peers) {
+            const stats = await peer.getStats();
+            const pairs = [...stats.values()].filter(s => s.type === "candidate-pair" && s.state === "succeeded" && s.nominated).map(pair => ({
+              localType:stats.get(pair.localCandidateId)?.candidateType,
+              remoteType:stats.get(pair.remoteCandidateId)?.candidateType,
+              localRelayProtocol:stats.get(pair.localCandidateId)?.relayProtocol,
+              localURL:stats.get(pair.localCandidateId)?.url,
+              localAddress:stats.get(pair.localCandidateId)?.address,
+              localPort:stats.get(pair.localCandidateId)?.port,
+              relayCandidates:[...stats.values()].filter(s=>s.type === "local-candidate" && s.candidateType === "relay").map(s=>({address:s.address,port:s.port,relayProtocol:s.relayProtocol,url:s.url})),
+              bytesReceived:pair.bytesReceived, bytesSent:pair.bytesSent,
+            }));
+            results.push({policy:peer.getConfiguration().iceTransportPolicy, state:peer.connectionState, pairs});
+          }
+          return results;
+        }); }
+        await expect.poll(async () => {
+          evidence = await readRelayEvidence();
+          return evidence.some(peer => peer.policy === "relay" && peer.pairs.some(pair => pair.localType === "relay" && pair.bytesReceived > 0));
+        },{timeout:20_000,intervals:[500,1000]}).toBe(true);
+        relayEvidence.push(evidence);
+      }
+      checks.push(`selected-turn-${process.env.MEET_REMOTE_TURN}`);
+    }
     await owner
       .getByLabel("Сообщение", { exact: true })
       .fill("Проверка настоящего чата");
@@ -275,13 +369,13 @@ test("новая сборка с настоящими SFU, чатом, прив�
       .getByRole("link", { name: "Скачать файл", exact: true })
       .getAttribute("href");
     expect(fileURL).toBeTruthy();
-    const signed = await request.get(fileURL!, { ignoreHTTPSErrors: true });
+    const signed = await request.get(fileURL!, { ignoreHTTPSErrors: !remote });
     expect(signed.status()).toBe(200);
     const anonymousURL = new URL(fileURL!);
     anonymousURL.search = "";
     expect(
       (
-        await request.get(anonymousURL.toString(), { ignoreHTTPSErrors: true })
+        await request.get(anonymousURL.toString(), { ignoreHTTPSErrors: !remote })
       ).status(),
     ).toBe(403);
     checks.push("private-pdf-upload-download");
@@ -394,9 +488,10 @@ test("новая сборка с настоящими SFU, чатом, прив�
           recordingId,
           checks,
           networkErrors,
+          relayEvidence,
           durationMs: Date.now() - startedAt,
-          staticOverlay: true,
-          deployment: false,
+          staticOverlay: !remote,
+          deployment: remote,
           fixturesRetained: true,
         },
         null,
