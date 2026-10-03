@@ -4,7 +4,7 @@ import { meetingShortcut } from "./conferenceShortcuts";
 function dispatch(target: EventTarget, init: KeyboardEventInit) {
   let result: string | null = null;
   const listener = (event: Event) => {
-    result = meetingShortcut(event as KeyboardEvent, ["m", "v", "h", "c"]);
+    result = meetingShortcut(event as KeyboardEvent, ["m", "v", "c"]);
   };
   target.addEventListener("keydown", listener, { once: true });
   target.dispatchEvent(
@@ -17,11 +17,12 @@ it("accepts plain meeting keys and ignores modifiers, repeats and composition", 
   expect(dispatch(window, { key: "M" })).toBe("m");
   expect(dispatch(window, { key: "m", ctrlKey: true })).toBeNull();
   expect(dispatch(window, { key: "v", metaKey: true })).toBeNull();
-  expect(dispatch(window, { key: "h", altKey: true })).toBeNull();
+  expect(dispatch(window, { key: "m", altKey: true })).toBeNull();
   expect(dispatch(window, { key: "c", shiftKey: true })).toBeNull();
   expect(dispatch(window, { key: "m", repeat: true })).toBeNull();
   expect(dispatch(window, { key: "m", isComposing: true })).toBeNull();
   expect(dispatch(window, { key: "x" })).toBeNull();
+  expect(dispatch(window, { key: "h" })).toBeNull();
 });
 
 it("never runs in editors, selectors or modal dialogs", () => {
@@ -44,6 +45,6 @@ it("never runs in editors, selectors or modal dialogs", () => {
   const button = document.createElement("button");
   dialog.append(button);
   document.body.append(dialog);
-  expect(dispatch(button, { key: "h" })).toBeNull();
+  expect(dispatch(button, { key: "c" })).toBeNull();
   dialog.remove();
 });

@@ -13,7 +13,7 @@ import (
 	usecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 )
 
-// Limiter задаёт контракт зависимого компонента Limiter в поднятых руках и временных реакциях участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
+// Limiter задаёт контракт зависимого компонента Limiter во временных реакциях участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 // @params:
 //   - Allow: операция Allow с контрактом, описанным у метода.
 type Limiter interface {
@@ -41,7 +41,7 @@ type Handler struct {
 	namespace string
 }
 
-// NewHandler создаёт и связывает зависимости компонента Handler, используемого в поднятых руках и временных реакциях участников.
+// NewHandler создаёт и связывает зависимости компонента Handler, используемого во временных реакциях участников.
 //
 // @args
 //   - service (*usecase.Engagement): значение service типа *usecase.Engagement, используемое согласно назначению этой операции.
@@ -110,70 +110,6 @@ func (h *Handler) limit(c *gin.Context, conferenceID, kind string, n int, window
 		}
 	}
 	return true
-}
-
-// List возвращает ограниченный список поднятых рук и реакций комнаты с принятыми в данном слое фильтрами.
-//
-// @args
-//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
-func (h *Handler) List(c *gin.Context) {
-	conf, ok := id(c)
-	if !ok {
-		return
-	}
-	if h.limiter != nil {
-		result, err := h.limiter.Allow(c.Request.Context(), h.namespace+":engagement:hands-read:user:"+httpmiddleware.UserID(c), 120, time.Minute)
-		if err != nil {
-			httpresponse.Fail(c, err)
-			return
-		}
-		if !result.Allowed {
-			c.Header("Retry-After", "60")
-			c.AbortWithStatusJSON(429, gin.H{"error": "too many hand state requests"})
-			return
-		}
-	}
-	items, err := h.service.List(c.Request.Context(), conf, httpmiddleware.UserID(c))
-	if err != nil {
-		httpresponse.Fail(c, err)
-		return
-	}
-	c.JSON(200, gin.H{"items": items})
-}
-
-// Hand меняет состояние руки с проверкой прав участника или модератора.
-//
-// @args
-//   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
-func (h *Handler) Hand(c *gin.Context) {
-	conf, ok := id(c)
-	if !ok {
-		return
-	}
-	participant, err := uuid.Parse(c.Param("participantId"))
-	if err != nil || participant == uuid.Nil {
-		httpresponse.Fail(c, apperrors.ErrInvalidInput)
-		return
-	}
-	var request struct {
-		Raised *bool `json:"raised"`
-	}
-	if !httpresponse.BindJSON(c, &request, false) {
-		return
-	}
-	if request.Raised == nil {
-		httpresponse.Fail(c, apperrors.ErrInvalidInput)
-		return
-	}
-	if !h.limit(c, conf, "hands", 10, time.Minute) {
-		return
-	}
-	item, err := h.service.Hand(c.Request.Context(), conf, httpmiddleware.UserID(c), participant.String(), *request.Raised)
-	if err != nil {
-		httpresponse.Fail(c, err)
-		return
-	}
-	c.JSON(200, gin.H{"item": item})
 }
 
 // Reaction публикует разрешённую временную реакцию допущенного участника.

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Clock3, Hand, MessageCircle, Users } from "lucide-react";
+import { Clock3, MessageCircle, Users } from "lucide-react";
 import { api } from "../api";
 import { recordingTime } from "../intelligence";
 import { useCapabilities } from "../useCapabilities";
@@ -86,14 +86,6 @@ export function AnalyticsPanel({
                   (total, person) => total + person.messageCount,
                   0,
                 )}
-              </dd>
-            </div>
-            <div>
-              <dt>
-                <Hand size={18} aria-hidden="true" /> Поднятий руки
-              </dt>
-              <dd>
-                {people.reduce((total, person) => total + person.handRaises, 0)}
               </dd>
             </div>
           </dl>
@@ -194,7 +186,6 @@ export function AnalyticsPanel({
                   <th scope="col">Наблюдалось аудио</th>
                   <th scope="col">Экран</th>
                   <th scope="col">Сообщения</th>
-                  <th scope="col">Руки</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,7 +197,6 @@ export function AnalyticsPanel({
                     <td>{recordingTime(person.observedAudioMs)}</td>
                     <td>{recordingTime(person.screenMs)}</td>
                     <td>{person.messageCount}</td>
-                    <td>{person.handRaises}</td>
                   </tr>
                 ))}
               </tbody>

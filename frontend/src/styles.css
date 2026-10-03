@@ -115,7 +115,7 @@
 }
 .waiting-room,
 .waiting-room-management,
-.hand-reactions,
+.reactions-panel,
 .chat-panel,
 .history-summary {
   margin: 24px 0;
@@ -169,24 +169,6 @@
 }
 .reaction-buttons button:disabled {
   opacity: 0.45;
-}
-.raised-hands {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 18px 0 0;
-}
-.raised-hands li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 9px 12px;
-  background: #fff8e4;
-  border-radius: 10px;
-  font-size: 13px;
 }
 .reaction-bubbles {
   display: flex;

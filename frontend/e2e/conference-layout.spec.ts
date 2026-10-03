@@ -98,7 +98,7 @@ async function fixture(page: Page) {
       return respond({ status: "success", item: people[0] });
     if (path.endsWith("/participants"))
       return respond({ status: "success", items: people });
-    if (path.endsWith("/recordings") || path.endsWith("/hands"))
+    if (path.endsWith("/recordings"))
       return respond({ status: "success", items: [] });
     if (path.endsWith("/messages"))
       return respond({ status: "success", items: [], nextCursor: null });
@@ -132,7 +132,6 @@ async function fixture(page: Page) {
             participantId: people[0].id,
             status: "active",
             participants: people,
-            hands: [],
           },
         }),
       );
@@ -144,8 +143,25 @@ test("тёмная комната: настоящие пустые плитки,
   page,
 }, info) => {
   await fixture(page);
+  const removedRequests: string[] = [];
+  page.on("request", (request) => {
+    if (
+      /\/hands$|\/participants\/[^/]+\/hand$/.test(
+        new URL(request.url()).pathname,
+      )
+    )
+      removedRequests.push(request.url());
+  });
   await page.goto(`/conferences/${room.id}`);
   await expect(page.getByRole("heading", { name: room.title })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Поднять руку" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("region", { name: "Реакции", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("h");
+  expect(removedRequests).toEqual([]);
   await expect(page.getByTestId("participant-placeholder")).toHaveCount(4);
   await expect(
     page.getByRole("navigation", { name: "Основная навигация" }),

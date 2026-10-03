@@ -199,7 +199,6 @@ async function visualFixture(page: Page) {
               observedAudioMs: 5020000,
               screenMs: 760000,
               messageCount: 12,
-              handRaises: 0,
             },
             {
               participantId: "2",
@@ -209,7 +208,6 @@ async function visualFixture(page: Page) {
               observedAudioMs: 4300000,
               screenMs: 340000,
               messageCount: 8,
-              handRaises: 2,
             },
             {
               participantId: "3",
@@ -219,7 +217,6 @@ async function visualFixture(page: Page) {
               observedAudioMs: 3600000,
               screenMs: 0,
               messageCount: 6,
-              handRaises: 1,
             },
           ],
         },

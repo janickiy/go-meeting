@@ -595,7 +595,7 @@
   padding: 6px 8px;
   min-height: 32px;
 }
-.conference-room-page .hand-reactions {
+.conference-room-page .reactions-panel {
   background: transparent;
   border: 0;
   border-top: 1px solid var(--room-border);
@@ -603,12 +603,8 @@
   padding: 12px 0;
   margin: 12px 0 0;
 }
-.conference-room-page .hand-reactions .collaboration-toolbar {
+.conference-room-page .reactions-panel .collaboration-toolbar {
   gap: 10px;
-}
-.conference-room-page .hand-reactions .button {
-  min-height: 44px;
-  font-size: 12px;
 }
 .conference-room-page .reaction-buttons button {
   background: var(--room-surface);
@@ -618,10 +614,6 @@
 }
 .conference-room-page .reaction-bubble {
   background: var(--room-surface-raised);
-  color: var(--room-text);
-}
-.conference-room-page .raised-hands li {
-  background: var(--room-surface);
   color: var(--room-text);
 }
 .conference-feature-note {
@@ -762,7 +754,7 @@
     padding: 7px 5px;
     min-height: 58px;
   }
-  .conference-room-page .hand-reactions .collaboration-toolbar {
+  .conference-room-page .reactions-panel .collaboration-toolbar {
     align-items: flex-start;
   }
   .conference-shortcuts-hint {

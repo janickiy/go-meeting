@@ -236,14 +236,12 @@ export interface PresenceParticipant extends Participant {
  *   - participantId — идентификатор членства целевого участника.
  *   - status — HTTP-статус либо состояние встречи.
  *   - participants — разрешённый состав участников.
- *   - hands — снимок поднятых рук.
  */
 export interface RealtimeState {
   connectionId: string;
   participantId: string;
   status: ConferenceStatus;
   participants: PresenceParticipant[];
-  hands?: RaisedHand[];
 }
 /**
  * RealtimeEvent описывает версионный конверт доверенного серверного события.
@@ -431,17 +429,6 @@ export interface ChatPage extends CursorItems<ChatMessage> {
 export interface ChatReadState {
   lastReadMessageId: string | null;
   unreadCount: number;
-}
-/**
- * RaisedHand описывает участника и время поднятия его временной руки.
- *
- * @params:
- *   - participantId — идентификатор членства целевого участника.
- *   - raisedAt — время исходного поднятия руки.
- */
-export interface RaisedHand {
-  participantId: string;
-  raisedAt: string;
 }
 /**
  * ReactionEmoji ограничивает допустимые временные реакции четырьмя разрешёнными эмодзи.
@@ -650,7 +637,6 @@ export interface MeetingAnalytics {
     observedAudioMs: number;
     screenMs: number;
     messageCount: number;
-    handRaises: number;
   }[];
 }
 

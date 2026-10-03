@@ -621,20 +621,8 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     expect(unauthorizedFile.status()).toBe(403);
     summary.privateAttachmentBytes = fileBody.length;
     phase = "engagement";
-    await bob
-      .getByRole("button", { name: "Поднять руку", exact: true })
-      .click();
-    await expect(
-      owner.getByRole("list", { name: "Поднятые руки" }),
-    ).toContainText("Stage5 Bob");
     await bob.getByRole("button", { name: "Реакция 👍", exact: true }).click();
     await expect(owner.locator(".reaction-bubble")).toContainText("Stage5 Bob");
-    await owner
-      .getByRole("button", { name: "Опустить руку: Stage5 Bob" })
-      .click();
-    await expect(
-      bob.getByRole("button", { name: "Поднять руку", exact: true }),
-    ).toBeVisible();
     await owner.screenshot({
       path: info.outputPath("stage5-room-chat.png"),
       fullPage: true,

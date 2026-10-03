@@ -24,7 +24,6 @@ type Participant struct {
 	ObservedAudioMS int64  `json:"observedAudioMs"`
 	ScreenMS        int64  `json:"screenMs"`
 	MessageCount    int64  `json:"messageCount"`
-	HandRaises      int64  `json:"handRaises"`
 }
 
 // Conference возвращает агрегаты с явным указанием приближённости речевой активности.

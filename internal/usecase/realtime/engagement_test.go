@@ -3,39 +3,24 @@ package realtime
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/janickiy/go-recorder/internal/domain/conferences"
 	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
 )
-
-// TestOutOfOrderHandEventsUseCurrentState проверяет использование текущего состояния при нарушении порядка событий поднятия руки.
-//
-// @args
-//   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
-func TestOutOfOrderHandEventsUseCurrentState(t *testing.T) {
-	allowed := map[string]bool{"member": true}
-	oldRaise := domain.Event("hand.raised", "conference", domain.Hand{ParticipantID: "member", RaisedAt: time.Now()})
-	if got := currentHandEvent(oldRaise, nil, allowed); got.Type != "hand.lowered" {
-		t.Fatal("stale raise resurrected a lowered hand")
-	}
-	latest := domain.Hand{ParticipantID: "member", RaisedAt: time.Now().Add(time.Second)}
-	oldLower := domain.Event("hand.lowered", "conference", map[string]string{"participantId": "member"})
-	got := currentHandEvent(oldLower, []domain.Hand{latest}, allowed)
-	var hand domain.Hand
-	if got.Type != "hand.raised" || json.Unmarshal(got.Data, &hand) != nil || !hand.RaisedAt.Equal(latest.RaisedAt) {
-		t.Fatal("stale lower erased latest raise")
-	}
-	if currentHandEvent(oldRaise, []domain.Hand{latest}, map[string]bool{}).Type != "hand.lowered" {
-		t.Fatal("ineligible hand leaked")
-	}
-}
 
 // TestStateVisibilityIsPerRecipient проверяет индивидуальную видимость состояния для каждого получателя.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestStateVisibilityIsPerRecipient(t *testing.T) {
+	payload, err := json.Marshal(domain.State{})
+	var fields map[string]json.RawMessage
+	if err != nil || json.Unmarshal(payload, &fields) != nil {
+		t.Fatal("invalid state JSON", err)
+	}
+	if _, exists := fields["hands"]; exists {
+		t.Fatal("removed feature leaked into state")
+	}
 	state := domain.State{Participants: []domain.Presence{
 		{ParticipantView: conferences.ParticipantView{ID: "owner", Role: conferences.Owner, Status: conferences.Joined, AdmissionState: conferences.AdmissionAdmitted}},
 		{ParticipantView: conferences.ParticipantView{ID: "member", Role: conferences.ParticipantRole, Status: conferences.Joined, AdmissionState: conferences.AdmissionAdmitted}},

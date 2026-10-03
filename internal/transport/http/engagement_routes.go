@@ -12,7 +12,7 @@ import (
 //   - handler (*engagementapp.Handler): обработчик вызываемой команды или маршрута.
 //   - auth (gin.HandlerFunc): значение auth типа gin.HandlerFunc, используемое согласно назначению этой операции.
 func RegisterEngagementRoutes(router gin.IRouter, handler *engagementapp.Handler, auth gin.HandlerFunc) {
-	group := router.Group(APIV1Prefix+"/conferences/:id", auth, /* Вложенный обработчик выполняет выделенный шаг обработки в поднятых руках и временных реакциях участников, используя состояние окружающей функции.
+	group := router.Group(APIV1Prefix+"/conferences/:id", auth, /* Вложенный обработчик выполняет выделенный шаг обработки во временных реакциях участников, используя состояние окружающей функции.
 
 		@args
 		  - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
@@ -21,7 +21,5 @@ func RegisterEngagementRoutes(router gin.IRouter, handler *engagementapp.Handler
 			c.Header("X-Content-Type-Options", "nosniff")
 			c.Next()
 		})
-	group.GET("/hands", handler.List)
-	group.PUT("/participants/:participantId/hand", handler.Hand)
 	group.POST("/reactions", handler.Reaction)
 }

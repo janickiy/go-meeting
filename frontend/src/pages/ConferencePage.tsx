@@ -31,7 +31,7 @@ import { isAdmitted } from "../collaboration";
 import { useRealtime } from "../realtime";
 import { WaitingRoomPanel } from "../components/WaitingRoomPanel";
 import { ChatPanel } from "../components/ChatPanel";
-import { HandReactionsPanel } from "../components/HandReactionsPanel";
+import { ReactionsPanel } from "../components/ReactionsPanel";
 import { useCapabilities } from "../useCapabilities";
 import { meetingShortcut } from "../conferenceShortcuts";
 import { PRODUCT_NAME } from "../brand";
@@ -116,7 +116,6 @@ export function ConferencePage() {
   const [stagePanel, setStagePanel] = useState<
     "chat" | "participants" | "captions"
   >("chat");
-  const [handShortcutToken, setHandShortcutToken] = useState(0);
   const [panelOpen, setPanelOpen] = useState(
     () => typeof window === "undefined" || window.innerWidth > 900,
   );
@@ -127,12 +126,6 @@ export function ConferencePage() {
     queryFn: ({ signal }) => api.recordings(id, signal),
     enabled: activeMeeting,
     refetchInterval: activeMeeting ? 3000 : false,
-  });
-  const hands = useQuery({
-    queryKey: ["hands", id],
-    queryFn: ({ signal }) => api.hands(id, signal),
-    enabled: activeMeeting,
-    refetchInterval: activeMeeting ? 15000 : false,
   });
   useEffect(() => {
     if (!captionsEnabled && stagePanel === "captions") setStagePanel("chat");
@@ -148,11 +141,8 @@ export function ConferencePage() {
         panelTrigger.current?.focus();
         return;
       }
-      const key = meetingShortcut(event, ["h", "c"]);
-      if (key === "h" && live.state) {
-        event.preventDefault();
-        setHandShortcutToken((value) => value + 1);
-      } else if (key === "c") {
+      const key = meetingShortcut(event, ["c"]);
+      if (key === "c") {
         event.preventDefault();
         setStagePanel("chat");
         setPanelOpen(true);
@@ -163,7 +153,7 @@ export function ConferencePage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeMeeting, id, live.state]);
+  }, [activeMeeting, id]);
   const history = useQuery({
     queryKey: ["history", user?.id, id],
     /**
@@ -355,9 +345,6 @@ export function ConferencePage() {
               membership={membership}
               live={live}
               participants={people}
-              raisedHands={(hands.data?.items || live.state?.hands || []).map(
-                (hand) => hand.participantId,
-              )}
               controls={
                 <>
                   <Button
@@ -397,12 +384,10 @@ export function ConferencePage() {
                 </>
               }
             />
-            <HandReactionsPanel
+            <ReactionsPanel
               conferenceId={id}
-              membership={membership}
               participants={people}
               live={live}
-              handShortcutToken={handShortcutToken}
             />
           </div>
           <aside
@@ -553,8 +538,8 @@ export function ConferencePage() {
           </aside>
         </section>
         <p className="conference-shortcuts-hint">
-          Клавиши: M — микрофон, V — камера, H — рука, C — чат. В полях ввода и
-          диалогах они не действуют.
+          Клавиши: M — микрофон, V — камера, C — чат. В полях ввода и диалогах
+          они не действуют.
         </p>
         {utility && (
           <Modal

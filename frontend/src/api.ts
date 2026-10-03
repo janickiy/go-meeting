@@ -18,7 +18,6 @@ import type {
   ChatMessage,
   ChatReadState,
   ChatAttachment,
-  RaisedHand,
   ReactionEmoji,
   NotificationsPage,
   Notification,
@@ -885,34 +884,6 @@ export const api = {
   attachmentDownload: (id: string, attachmentId: string) =>
     request<{ url: string; expiresAt: string }>(
       `/conferences/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}/download`,
-    ),
-  /**
-   * hands читает актуальный снимок поднятых рук комнаты.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  hands: (id: string, signal?: AbortSignal) =>
-    request<Items<RaisedHand>>(`/conferences/${encodeURIComponent(id)}/hands`, {
-      signal,
-    }),
-  /**
-   * hand изменяет состояние собственной руки либо опускает разрешённую чужую руку.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - participantId (string) — идентификатор членства целевого участника.
-   *   - raised (boolean) — true поднимает руку, false опускает её.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  hand: (id: string, participantId: string, raised: boolean) =>
-    request(
-      `/conferences/${encodeURIComponent(id)}/participants/${encodeURIComponent(participantId)}/hand`,
-      { method: "PUT", body: { raised } },
     ),
   /**
    * reaction отправляет одну временную реакцию из разрешённого набора.

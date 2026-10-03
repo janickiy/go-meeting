@@ -92,19 +92,17 @@ type Presence struct {
 	ConnectionIDs []string `json:"connectionIds"`
 }
 
-// State собирает начальный снимок комнаты: конференцию, видимых участников и поднятые руки.
+// State собирает начальный снимок комнаты: конференцию и видимых участников.
 // @params:
 //   - ConnectionID: идентификатор физического медиа-соединения.
 //   - ParticipantID: идентификатор членства участника внутри конференции.
 //   - Status: состояние ресурса, ответа или фильтра выборки.
 //   - Participants: набор значений Participants для последовательной или пакетной обработки.
-//   - Hands: временное хранилище поднятых рук в Redis.
 type State struct {
 	ConnectionID  string             `json:"connectionId"`
 	ParticipantID string             `json:"participantId"`
 	Status        conferences.Status `json:"status"`
 	Participants  []Presence         `json:"participants"`
-	Hands         []Hand             `json:"hands"`
 }
 
 // Signal содержит ограниченную нагрузку сигнализации; доверенная идентичность назначается сервером.

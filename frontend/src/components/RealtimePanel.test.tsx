@@ -152,12 +152,11 @@ it("показывает настоящих участников без пото
       membership={view.membership}
       live={view.live}
       participants={[view.membership, colleague]}
-      raisedHands={[colleague.id]}
     />,
   );
   expect(screen.getByText("Борис Волков")).toBeInTheDocument();
   expect(screen.getByText("Б")).toBeInTheDocument();
-  expect(screen.getByLabelText("Рука поднята")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Рука поднята")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Организатор")).toBeInTheDocument();
   expect(screen.getAllByTestId("participant-placeholder")).toHaveLength(2);
   expect(screen.queryByTestId("remote-media")).toBeNull();

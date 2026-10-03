@@ -252,9 +252,6 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
                 void queryClient.invalidateQueries({
                   queryKey: ["chat-read", conferenceId],
                 });
-                void queryClient.invalidateQueries({
-                  queryKey: ["hands", conferenceId],
-                });
               }
             };
           ws.onmessage =

@@ -137,12 +137,7 @@ func RunAPI() error {
 	}
 	defer hub.Shutdown()
 	ops.ConfigureDrain(nil, hub.LocalCount)
-	hands := redisinfra.NewHands(redisClient, realtimeConfig.Namespace)
-	hub.SetHands(hands)
-	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hands, hub)
-	if cfg.StageEight.AnalyticsEnabled {
-		engagementService.SetHandObserver(postgresinfra.NewAnalyticsRepository(db).RecordHand)
-	}
+	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hub)
 	notificationBus := redisinfra.NewNotificationBus(redisClient, realtimeConfig.Namespace)
 	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db).DisableLegacyReminders(), notificationBus)
 	chatService, err := chatusecase.NewService(context.Background(), postgresinfra.NewChatRepository(db), s3Client, hub)

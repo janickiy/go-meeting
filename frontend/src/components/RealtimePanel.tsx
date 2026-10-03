@@ -2,7 +2,6 @@ import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Mic,
   MicOff,
-  Hand,
   Settings,
   ShieldCheck,
   MonitorUp,
@@ -46,7 +45,6 @@ const MediaTile = memo(function MediaTile({
   sinkId = "",
   microphoneEnabled = false,
   role,
-  handRaised = false,
   reconnecting = false,
 }: {
   stream?: MediaStream;
@@ -57,7 +55,6 @@ const MediaTile = memo(function MediaTile({
   sinkId?: string;
   microphoneEnabled?: boolean;
   role?: Participant["role"];
-  handRaised?: boolean;
   reconnecting?: boolean;
 }) {
   const element = useRef<HTMLMediaElement | null>(null);
@@ -198,7 +195,6 @@ const MediaTile = memo(function MediaTile({
                 aria-label={role === "owner" ? "Организатор" : "Соорганизатор"}
               />
             )}
-            {handRaised && <Hand size={15} aria-label="Рука поднята" />}
             {!microphoneEnabled && (
               <MicOff size={15} aria-label="Микрофон выключен" />
             )}
@@ -249,7 +245,6 @@ export function RealtimePanel({
   live,
   shortcutsEnabled = true,
   participants = [],
-  raisedHands = [],
   controls,
 }: {
   conferenceId: string;
@@ -257,7 +252,6 @@ export function RealtimePanel({
   live: ReturnType<typeof useRealtime>;
   shortcutsEnabled?: boolean;
   participants?: Participant[];
-  raisedHands?: string[];
   controls?: ReactNode;
 }) {
   const { user } = useAuth();
@@ -896,7 +890,6 @@ export function RealtimePanel({
                 name={membership.displayName || "Вы"}
                 microphoneEnabled={media.view.microphoneEnabled}
                 role={membership.role}
-                handRaised={raisedHands.includes(membership.id)}
                 reconnecting={connectionProblem}
               />
             )}
@@ -923,7 +916,6 @@ export function RealtimePanel({
                     roster.find((person) => person.id === remote.participantId)
                       ?.role
                   }
-                  handRaised={raisedHands.includes(remote.participantId)}
                   reconnecting={connectionProblem}
                   name={
                     (remote.screen ? "Экран · " : "") +
@@ -960,7 +952,6 @@ export function RealtimePanel({
                       : person.microphoneEnabled
                   }
                   role={person.role}
-                  handRaised={raisedHands.includes(person.id)}
                   reconnecting={
                     connectionProblem ||
                     live.state?.participants.find(

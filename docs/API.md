@@ -14,7 +14,7 @@
 | Присутствие, WS tickets, конверт событий и reconnect | [realtime.md](realtime.md) | [WebSocket transport](../internal/transport/websocket), [realtime config](../internal/config/realtime.go) |
 | SFU, `media.*`, ICE/TURN, внутреннее управление | [media-sfu.md](media-sfu.md) | [mediaworker transport](../internal/transport/mediaworker), [TURN config](../internal/config/turn.go) |
 | Запись, модерация, экран, recorder egress | [conference-recording.md](conference-recording.md) | [recording routes](../internal/transport/http/conference_recording_routes.go), [record models](../internal/domain/records/models.go) |
-| Зал ожидания, расписание, чат, вложения, руки, история, уведомления | [collaboration.md](collaboration.md) | [HTTP routes](../internal/transport/http), [chat routes и лимиты](../internal/transport/http/chat_routes.go) |
+| Зал ожидания, расписание, чат, вложения, реакции, история, уведомления | [collaboration.md](collaboration.md) | [HTTP routes](../internal/transport/http), [chat routes и лимиты](../internal/transport/http/chat_routes.go) |
 | Email/push/calendar, STT, ИИ, поиск | [content-integrations.md](content-integrations.md) | [integration routes](../internal/transport/http/integration_routes.go), [content routes](../internal/transport/http/content_routes.go) |
 | Live captions, аналитика, переиндексация | Этот индекс и прикладные типы | [captions routes](../internal/transport/http/captions_routes.go), [captions types](../internal/domain/captions/captions.go), [intelligence config](../internal/config/meeting_intelligence.go) |
 | Возможности клиента и admin | [frontend.md](frontend.md), [admin.md](operations/admin.md) | [platform status routes](../internal/transport/http/platform_status_routes.go) |

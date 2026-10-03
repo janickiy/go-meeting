@@ -8,7 +8,6 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	caption "github.com/janickiy/go-recorder/internal/domain/captions"
 	content "github.com/janickiy/go-recorder/internal/domain/content"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
 	"github.com/janickiy/go-recorder/internal/infrastructure/contentproviders"
 	pg "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
 	analytics "github.com/janickiy/go-recorder/internal/usecase/analytics"
@@ -90,14 +89,11 @@ func TestStageEightCaptionsReconciliationAnalytics(t *testing.T) {
 	}
 	must(repo.Observe(ctx, lease, pid, 1000, 2000))
 	ar := pg.NewAnalyticsRepository(f.db)
-	hand := realtime.Hand{ParticipantID: pid, RaisedAt: time.Now()}
-	must(ar.RecordHand(ctx, cid, hand))
-	must(ar.RecordHand(ctx, cid, hand))
 	must(ar.Tick(ctx))
 	must((&analytics.Service{Repo: ar, Enabled: true}).Handle(ctx, contentClaim(t, f, "analytics.aggregate")))
 	snapshot, err := ar.Read(ctx, f.member.ID, cid)
 	must(err)
-	if !snapshot.Enabled || len(snapshot.Participants) != 1 || snapshot.Participants[0].ParticipationMS != 8000 || snapshot.Participants[0].SpeakingMS != 1000 || snapshot.Participants[0].HandRaises != 1 || !snapshot.TranscriptAvailable {
+	if !snapshot.Enabled || len(snapshot.Participants) != 1 || snapshot.Participants[0].ParticipationMS != 8000 || snapshot.Participants[0].SpeakingMS != 1000 || !snapshot.TranscriptAvailable {
 		t.Fatalf("invalid aggregates %+v", snapshot)
 	}
 	if _, err = ar.Read(ctx, f.outsider.ID, cid); !errors.Is(err, apperrors.ErrForbidden) {

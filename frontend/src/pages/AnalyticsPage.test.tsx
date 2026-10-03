@@ -46,7 +46,6 @@ const analytics: MeetingAnalytics = {
       observedAudioMs: 700000,
       screenMs: 100000,
       messageCount: 3,
-      handRaises: 1,
     },
     {
       participantId: "1",
@@ -56,7 +55,6 @@ const analytics: MeetingAnalytics = {
       observedAudioMs: 850000,
       screenMs: 200000,
       messageCount: 2,
-      handRaises: 0,
     },
   ],
 };

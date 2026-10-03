@@ -6,7 +6,6 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/analytics"
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/jobs"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
 	"gorm.io/gorm"
 	"time"
 )
@@ -38,7 +37,7 @@ func (r *AnalyticsRepository) Source(ctx context.Context, job jobs.Job) (time.Ti
 	return bounds.Start, bounds.End, rows, err
 }
 
-// Save сохраняет snapshot присутствия, не перезаписывая одновременно накопленную речь/демонстрацию/руки.
+// Save сохраняет snapshot присутствия, не перезаписывая одновременно накопленную речь и демонстрацию экрана.
 // @args ctx — срок выполнения; job — актуальная аренда; value — рассчитанные агрегаты.
 // @return ошибка commit.
 func (r *AnalyticsRepository) Save(ctx context.Context, job jobs.Job, value domain.Conference) error {
@@ -95,7 +94,7 @@ func (r *AnalyticsRepository) Read(ctx context.Context, user, cid string) (domai
 		result.Timeline = []domain.Point{}
 	}
 	err = r.db.WithContext(ctx).Raw(`SELECT a.participant_id,p.display_name,a.participation_ms,LEAST(a.speaking_ms,a.participation_ms) AS speaking_ms,a.observed_audio_ms,
- a.screen_ms+CASE WHEN a.screen_started_at IS NULL THEN 0 ELSE GREATEST(0,(EXTRACT(EPOCH FROM(LEAST(COALESCE(c.finished_at,clock_timestamp()),clock_timestamp(),COALESCE(l.lease_until,l.updated_at,a.updated_at))-a.screen_started_at))*1000)::bigint) END AS screen_ms,a.message_count,a.hand_raises
+ a.screen_ms+CASE WHEN a.screen_started_at IS NULL THEN 0 ELSE GREATEST(0,(EXTRACT(EPOCH FROM(LEAST(COALESCE(c.finished_at,clock_timestamp()),clock_timestamp(),COALESCE(l.lease_until,l.updated_at,a.updated_at))-a.screen_started_at))*1000)::bigint) END AS screen_ms,a.message_count
  FROM participant_analytics a JOIN conference_participants p ON p.id=a.participant_id JOIN conferences c ON c.id=a.conference_id LEFT JOIN live_transcription_sessions l ON l.conference_id=a.conference_id WHERE a.conference_id=? AND `+scope+` ORDER BY p.display_name,a.participant_id LIMIT 500`, cid, cid, user).Scan(&result.Participants).Error
 	return result, err
 }
@@ -108,13 +107,4 @@ func (r *AnalyticsRepository) Tick(ctx context.Context) error {
  SELECT 'analytics.aggregate',id,id,1,'analytics:'||id::text||':'||floor(extract(epoch FROM clock_timestamp())/30)::text,3
  FROM conferences WHERE status='active' OR finished_at>clock_timestamp()-interval '2 minutes' ORDER BY created_at DESC LIMIT 100
  ON CONFLICT(dedup_key) DO NOTHING`).Error
-}
-
-// RecordHand считает подтверждённое изменение Redis, не повторяя одинаковый RaisedAt.
-// @args ctx — короткий срок выполнения; cid — встреча; hand — факт успешного вызова Raise.
-// @return ошибка наблюдения; ошибка не отменяет поднятую руку.
-func (r *AnalyticsRepository) RecordHand(ctx context.Context, cid string, hand realtime.Hand) error {
-	return r.db.WithContext(ctx).Exec(`INSERT INTO participant_analytics(participant_id,conference_id,hand_raises,last_hand_at)
- VALUES(?,?,1,?) ON CONFLICT(participant_id) DO UPDATE SET hand_raises=participant_analytics.hand_raises+1,last_hand_at=EXCLUDED.last_hand_at,updated_at=clock_timestamp()
- WHERE participant_analytics.last_hand_at IS DISTINCT FROM EXCLUDED.last_hand_at`, hand.ParticipantID, cid, hand.RaisedAt).Error
 }

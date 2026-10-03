@@ -2,7 +2,6 @@ package realtime
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"sort"
@@ -239,7 +238,6 @@ type localSocket struct {
 //   - sockets: значение sockets типа sync.WaitGroup, используемое согласно назначению этой операции.
 //   - workers: значение workers типа sync.WaitGroup, используемое согласно назначению этой операции.
 //   - disconnectObserver: значение disconnectObserver типа DisconnectObserver, используемое согласно назначению этой операции.
-//   - hands: временное хранилище поднятых рук в Redis.
 //   - lowEvents: канал «low события» для передачи данных или завершения ожидания.
 type Hub struct {
 	repo               Repository
@@ -255,7 +253,6 @@ type Hub struct {
 	sockets            sync.WaitGroup
 	workers            sync.WaitGroup
 	disconnectObserver DisconnectObserver
-	hands              HandStore
 	lowEvents          chan domain.Bus
 	shutdownOnce       sync.Once // завершение запускается один раз при повторных вызовах
 	shutdownDone       chan struct{}
@@ -317,13 +314,6 @@ func (h *Hub) SetDisconnectObserver(observer DisconnectObserver) {
 	h.disconnectObserver = observer
 	h.mu.Unlock()
 }
-
-// SetHands подключает хранилище поднятых рук для начальных снимков и восстановления состояния.
-// Синхронизирует доступ к разделяемому состоянию блокировкой.
-//
-// @args
-//   - store (HandStore): значение store типа HandStore, используемое согласно назначению этой операции.
-func (h *Hub) SetHands(store HandStore) { h.mu.Lock(); h.hands = store; h.mu.Unlock() }
 
 // ValidateSession связывает медиа-команду с действующей разрешённой физической WebSocket-сессией.
 //
@@ -574,8 +564,7 @@ func (h *Hub) ConferenceChanged(ctx context.Context, conferenceID string) {
 	}
 }
 
-// state собирает канонический снимок конференции, участников и поднятых рук.
-// Синхронизирует доступ к разделяемому состоянию блокировкой.
+// state собирает канонический снимок конференции и участников.
 //
 // @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
@@ -597,10 +586,8 @@ func (h *Hub) state(ctx context.Context, session domain.Session) (domain.State, 
 	for _, s := range active {
 		byParticipant[s.ParticipantID] = append(byParticipant[s.ParticipantID], s.ConnectionID)
 	}
-	state := domain.State{ConnectionID: session.ConnectionID, ParticipantID: session.ParticipantID, Status: status, Participants: make([]domain.Presence, 0, len(roster)), Hands: []domain.Hand{}}
-	eligible := map[string]bool{}
+	state := domain.State{ConnectionID: session.ConnectionID, ParticipantID: session.ParticipantID, Status: status, Participants: make([]domain.Presence, 0, len(roster))}
 	for _, p := range roster {
-		eligible[p.ID] = p.CanParticipate()
 		ids := byParticipant[p.ID]
 		if !p.CanParticipate() {
 			ids = nil
@@ -610,20 +597,6 @@ func (h *Hub) state(ctx context.Context, session domain.Session) (domain.State, 
 		}
 		sort.Strings(ids)
 		state.Participants = append(state.Participants, domain.Presence{ParticipantView: p.View(), Online: len(ids) > 0, Connections: len(ids), ConnectionIDs: ids})
-	}
-	h.mu.Lock()
-	hands := h.hands
-	h.mu.Unlock()
-	if hands != nil && status == conferences.Active {
-		items, err := hands.List(ctx, session.ConferenceID)
-		if err != nil {
-			return domain.State{}, err
-		}
-		for _, hand := range items {
-			if eligible[hand.ParticipantID] {
-				state.Hands = append(state.Hands, hand)
-			}
-		}
 	}
 	return state, nil
 }
@@ -700,7 +673,7 @@ func (h *Hub) receive() {
 	}
 }
 
-// receiveLowPriority доставляет события чата, рук и реакций через отдельную ограниченную очередь.
+// receiveLowPriority доставляет события чата и реакций через отдельную ограниченную очередь.
 func (h *Hub) receiveLowPriority() {
 	defer h.workers.Done()
 	for {
@@ -758,7 +731,7 @@ func (h *Hub) deliver(bus domain.Bus) {
 		// Заново проверяем получателей по текущему сохранённому членству, а не кешу сокета.
 		// Удаление участника или завершение может зафиксироваться до доставки события изменения.
 		kind := bus.Event.Type
-		restricted := strings.HasPrefix(kind, "caption.") || strings.HasPrefix(kind, "chat.") || strings.HasPrefix(kind, "recording.") || strings.HasPrefix(kind, "hand.") || strings.HasPrefix(kind, "reaction.") || strings.HasPrefix(kind, "participant.")
+		restricted := strings.HasPrefix(kind, "caption.") || strings.HasPrefix(kind, "chat.") || strings.HasPrefix(kind, "recording.") || strings.HasPrefix(kind, "reaction.") || strings.HasPrefix(kind, "participant.")
 		allowed := map[string]bool{}
 		if restricted {
 			status, roster, err := h.repo.Roster(ctx, bus.ConferenceID)
@@ -774,19 +747,6 @@ func (h *Hub) deliver(bus domain.Bus) {
 					ok = ok && p.CanAdmit()
 				}
 				allowed[p.ID] = ok
-			}
-		}
-		if kind == "hand.raised" || kind == "hand.lowered" {
-			h.mu.Lock()
-			hands := h.hands
-			h.mu.Unlock()
-			if hands != nil {
-				current, err := hands.List(ctx, bus.ConferenceID)
-				if err != nil {
-					return
-				}
-				event := currentHandEvent(*bus.Event, current, allowed)
-				bus.Event = &event
 			}
 		}
 		for _, entry := range entries {
@@ -832,36 +792,6 @@ func (h *Hub) deliver(bus domain.Bus) {
 			entry.socket.Stop("slow_client")
 		}
 	}
-}
-
-// currentHandEvent сверяет событие руки с текущим Redis-состоянием, чтобы запоздалое событие не отменило новое действие.
-//
-// @args
-//   - event (domain.Envelope): конверт входящего или публикуемого события.
-//   - hands ([]domain.Hand): временное хранилище поднятых рук в Redis.
-//   - allowed (map[string]bool): индекс значений allowed для поиска и согласования состояния.
-//
-// @return:
-//   - результат 1 (domain.Envelope): значение, подготовленное операцией для вызывающей стороны.
-func currentHandEvent(event domain.Envelope, hands []domain.Hand, allowed map[string]bool) domain.Envelope {
-	var target struct {
-		ParticipantID string `json:"participantId"`
-	}
-	if json.Unmarshal(event.Data, &target) != nil {
-		return event
-	}
-	event.Type = "hand.lowered"
-	event.Data, _ = json.Marshal(target)
-	if allowed[target.ParticipantID] {
-		for _, hand := range hands {
-			if hand.ParticipantID == target.ParticipantID {
-				event.Type = "hand.raised"
-				event.Data, _ = json.Marshal(hand)
-				break
-			}
-		}
-	}
-	return event
 }
 
 // janitor периодически очищает истёкшие присутствия и закрывает утратившие авторизацию сокеты.

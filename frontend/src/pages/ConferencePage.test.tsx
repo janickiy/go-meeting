@@ -74,12 +74,8 @@ vi.mock("../useCapabilities", () => ({
 vi.mock("../components/RealtimePanel", () => ({
   RealtimePanel: () => <div data-testid="realtime-panel">Медиа</div>,
 }));
-vi.mock("../components/HandReactionsPanel", () => ({
-  HandReactionsPanel: ({
-    handShortcutToken,
-  }: {
-    handShortcutToken: number;
-  }) => <output data-testid="hand-shortcut">{handShortcutToken}</output>,
+vi.mock("../components/ReactionsPanel", () => ({
+  ReactionsPanel: () => <div data-testid="reactions-panel">Реакции</div>,
 }));
 vi.mock("../components/ChatPanel", () => ({
   ChatPanel: ({ conferenceId }: { conferenceId: string }) => (
@@ -130,10 +126,10 @@ it("puts media first and supports roving tab keys and safe H/C shortcuts", async
   fireEvent.keyDown(captions, { key: "Home" });
   expect(chat).toHaveFocus();
   fireEvent.keyDown(window, { key: "h" });
-  expect(screen.getByTestId("hand-shortcut")).toHaveTextContent("1");
+  expect(screen.queryByRole("button", { name: "Поднять руку" })).toBeNull();
   const composer = screen.getByRole("textbox", { name: "Сообщение" });
   fireEvent.keyDown(composer, { key: "h" });
-  expect(screen.getByTestId("hand-shortcut")).toHaveTextContent("1");
+  expect(screen.queryByRole("button", { name: "Поднять руку" })).toBeNull();
   fireEvent.keyDown(window, { key: "c" });
   await waitFor(() => expect(composer).toHaveFocus());
   view.client.clear();
@@ -153,7 +149,7 @@ it("hides optional panels behind server flags and never mounts media while waiti
   fixture.membership.admissionState = "waiting";
   const waiting = page();
   expect(screen.queryByTestId("realtime-panel")).toBeNull();
-  expect(screen.queryByTestId("hand-shortcut")).toBeNull();
+  expect(screen.queryByTestId("reactions-panel")).toBeNull();
   waiting.client.clear();
   view.client.clear();
 });

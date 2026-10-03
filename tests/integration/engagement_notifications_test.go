@@ -31,44 +31,19 @@ import (
 	realtimecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 )
 
-// TestStageFiveHandsReactionsAndReconnect проверяет поднятие рук, реакции и переподключение.
+// TestReactionsAndReconnect проверяет реакции, их лимиты и доставку после переподключения.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
-func TestStageFiveHandsReactionsAndReconnect(t *testing.T) {
+func TestReactionsAndReconnect(t *testing.T) {
 	f := stageTwo(t)
 	ctx := context.Background()
-	hands := redisinfra.NewHands(f.redis, f.config.Namespace)
-	for _, hub := range f.hubs {
-		hub.SetHands(hands)
-	}
-	service := realtimecase.NewEngagement(pg.NewSessionRepository(f.db), hands, f.hubs[0])
+	service := realtimecase.NewEngagement(pg.NewSessionRepository(f.db), f.hubs[0])
 	owner := f.connect(t, 0, f.ownerToken, f.conference.ID)
 	member := f.connect(t, 1, f.memberToken, f.conference.ID)
-	raised, err := service.Hand(ctx, f.conference.ID, f.member.ID, member.state.ParticipantID, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	again, err := service.Hand(ctx, f.conference.ID, f.member.ID, member.state.ParticipantID, true)
-	if err != nil || !again.RaisedAt.Equal(raised.RaisedAt) {
-		t.Fatal("duplicate raise changed order", err)
-	}
-	owner.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
-
-		@args
-		  - e (domain.Envelope): значение e типа domain.Envelope, используемое согласно назначению этой операции.
-
-		@return:
-		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return e.Type == "hand.raised" })
 	another := f.connect(t, 0, f.memberToken, f.conference.ID)
-	if len(another.state.Hands) != 1 || another.state.Hands[0].ParticipantID != member.state.ParticipantID {
-		t.Fatal("reconnect lost hands")
-	}
-	if _, err := service.Hand(ctx, f.conference.ID, f.member.ID, owner.state.ParticipantID, false); !errors.Is(err, apperrors.ErrForbidden) {
-		t.Fatal("member lowered owner", err)
-	}
-	if _, err := service.Hand(ctx, f.conference.ID, f.owner.ID, member.state.ParticipantID, false); err != nil {
-		t.Fatal(err)
+	if another.state.ParticipantID != member.state.ParticipantID {
+		t.Fatal("reconnect changed membership")
 	}
 	if err := service.Reaction(ctx, f.conference.ID, f.member.ID, "💥"); !errors.Is(err, apperrors.ErrInvalidInput) {
 		t.Fatal("emoji not checked")
@@ -80,6 +55,9 @@ func TestStageFiveHandsReactionsAndReconnect(t *testing.T) {
 		api.expect(t, "POST", "/conferences/"+f.conference.ID+"/reactions", f.memberToken, map[string]string{"emoji": "👍"}, 200, nil)
 	}
 	api.expect(t, "POST", "/conferences/"+f.conference.ID+"/reactions", f.memberToken, map[string]string{"emoji": "👍"}, 429, nil)
+	for _, socket := range []*testSocket{owner, another} {
+		socket.wait(t, func(e domain.Envelope) bool { return e.Type == "reaction.created" })
+	}
 	signalID := owner.signal(t, "webrtc.offer", member.state.ConnectionID, map[string]any{"sdp": "v=0\r\n"})
 	member.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
@@ -312,7 +290,7 @@ func TestStageFiveEngagementAdmissionPrecedesSharedLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 	limiter := redisinfra.NewRateLimiter(f.redis)
-	service := realtimecase.NewEngagement(pg.NewSessionRepository(f.db), redisinfra.NewHands(f.redis, f.config.Namespace), f.hubs[0])
+	service := realtimecase.NewEngagement(pg.NewSessionRepository(f.db), f.hubs[0])
 	router := gin.New()
 	httptransport.RegisterEngagementRoutes(router, engagementapp.NewHandler(service, limiter, f.config.Namespace), httpmiddleware.Authenticate(f.tokens))
 	api := stageOneAPI{router: router}
@@ -321,12 +299,12 @@ func TestStageFiveEngagementAdmissionPrecedesSharedLimit(t *testing.T) {
 	if err != nil || count != 0 {
 		t.Fatal("nonmember spent conference rate budget", err, count)
 	}
-	for i := 0; i < 120; i++ {
-		if _, err := limiter.Allow(ctx, f.config.Namespace+":engagement:hands-read:user:"+f.owner.ID, 120, time.Minute); err != nil {
+	for i := 0; i < 5; i++ {
+		if _, err := limiter.Allow(ctx, f.config.Namespace+":engagement:reactions:user:"+f.owner.ID, 5, 10*time.Second); err != nil {
 			t.Fatal(err)
 		}
 	}
-	response := api.expect(t, "GET", "/conferences/"+f.conference.ID+"/hands", f.ownerToken, nil, 429, nil)
+	response := api.expect(t, "POST", "/conferences/"+f.conference.ID+"/reactions", f.ownerToken, map[string]string{"emoji": "👍"}, 429, nil)
 	if response.Header().Get("Cache-Control") != "private, no-store" {
 		t.Fatal("missing private cache policy")
 	}

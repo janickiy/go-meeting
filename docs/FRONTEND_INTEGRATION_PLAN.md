@@ -18,7 +18,7 @@ ConferenceMediaClient/useMedia для Pion SFU, локальные настро�
 Button/PasswordInput/Modal/CopyButton/StatusBadge/Loading/ErrorNotice, Layout,
 CreateConference/JoinByLink/ScheduleFields, DeviceSettings/PreJoin,
 RealtimePanel, WaitingRoomPanel, ChatPanel/AttachmentUploader, CaptionsPanel,
-HandReactionsPanel, RecordingPanel/RecordingInsights, AnalyticsPanel,
+ReactionsPanel, RecordingPanel/RecordingInsights, AnalyticsPanel,
 NotificationBell/IntegrationsSettings. Существующие reducers, permission checks,
 подписки, безопасные URL и cleanup сохраняются.
 
@@ -46,8 +46,8 @@ NotificationBell/IntegrationsSettings. Существующие reducers, permis
 Дополнительно сохраняются `/i/:code`, `/search`, `/app/search`, `/notifications`,
 `/admin`, calendar callback. Search modes зависят от capabilities; admin — только
 isAdmin и серверного ACL. Captions partial/final заменяют сегмент по ID/revision,
-а не дублируют его. Hands/reactions используют существующие REST-команды и WS
-hand.raised/lowered/reaction.created. Notifications SSE остаётся один на session.
+а не дублируют его. Реакции используют REST-команду POST /reactions и WS-событие
+reaction.created. Notifications SSE остаётся один на session.
 
 ## 8. Реальные gaps
 
