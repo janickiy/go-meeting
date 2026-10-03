@@ -13,9 +13,10 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// Аренды присутствия используют Redis TIME вместо часов API. Ключ маршрутизации с TTL
-// является источником истины; отсортированный индекс истечения сохраняет метаданные для
-// сообщения о сбое после исчезновения ключа. Удаление и изменение счётчиков атомарны.
+// Граница аренды вычисляется от приёма pong сервером API и ограничивается
+// Redis TIME+TTL; часы API и Redis должны быть синхронизированы. Ключ маршрута
+// с абсолютным сроком истечения — источник истины. Индекс сохраняет метаданные
+// для сообщения о сбое после исчезновения ключа. Все изменения атомарны.
 var presenceScript = goredis.NewScript(`
 local prefix = ARGV[1]
 local op = ARGV[2]
@@ -42,12 +43,14 @@ local id = ARGV[3]
 if op == 'join' then
     local raw = ARGV[4]
     local ttl = tonumber(ARGV[5])
+    local deadline = math.min(tonumber(ARGV[6]), now+ttl)
+    if deadline <= now then return 0 end
     local s = cjson.decode(raw)
     if redis.call('HEXISTS', meta, id) == 1 then return 0 end
     redis.call('HSET', meta, id, raw)
-    redis.call('ZADD', expiry, now+ttl, id)
-    redis.call('ZADD', prefix .. ':conference:' .. s.conferenceId, now+ttl, id)
-    redis.call('SET', prefix .. ':route:' .. id, raw, 'PX', ttl)
+    redis.call('ZADD', expiry, deadline, id)
+    redis.call('ZADD', prefix .. ':conference:' .. s.conferenceId, deadline, id)
+    redis.call('SET', prefix .. ':route:' .. id, raw, 'PXAT', deadline)
     redis.call('PUBLISH', channel, cjson.encode({kind='connected', conferenceId=s.conferenceId, session=s}))
     return 1
 elseif op == 'leave' then
@@ -56,14 +59,16 @@ elseif op == 'leave' then
 elseif op == 'touch' then
     local raw = redis.call('GET', prefix .. ':route:' .. id)
     if not raw then return 0 end
+    local ttl = tonumber(ARGV[5])
+    local deadline = math.min(tonumber(ARGV[6]), now+ttl)
+    if deadline <= now then return 0 end
     local s = cjson.decode(raw)
     s.lastSeenAt = ARGV[4]
     raw = cjson.encode(s)
-    local ttl = tonumber(ARGV[5])
-    redis.call('SET', prefix .. ':route:' .. id, raw, 'PX', ttl)
+    redis.call('SET', prefix .. ':route:' .. id, raw, 'PXAT', deadline)
     redis.call('HSET', meta, id, raw)
-    redis.call('ZADD', expiry, now+ttl, id)
-    redis.call('ZADD', prefix .. ':conference:' .. s.conferenceId, now+ttl, id)
+    redis.call('ZADD', expiry, deadline, id)
+    redis.call('ZADD', prefix .. ':conference:' .. s.conferenceId, deadline, id)
     return 1
 elseif op == 'active' then
     local result = {}
@@ -105,11 +110,12 @@ func NewRealtimeStore(client *goredis.Client, prefix string) *RealtimeStore {
 //   - id (string): идентификатор обрабатываемого ресурса.
 //   - raw (string): исходные байты JSON, пакета или сериализованного значения.
 //   - ttl (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
+//   - deadline (time.Time): абсолютная граница аренды; не используется операциями без продления.
 //
 // @return:
 //   - результат 1 (*goredis.Cmd): значение, подготовленное операцией для вызывающей стороны.
-func (s *RealtimeStore) action(ctx context.Context, op, id, raw string, ttl time.Duration) *goredis.Cmd {
-	return presenceScript.Run(ctx, s.client, []string{s.prefix + ":metadata", s.prefix + ":expiry"}, s.prefix, op, id, raw, ttl.Milliseconds())
+func (s *RealtimeStore) action(ctx context.Context, op, id, raw string, ttl time.Duration, deadline time.Time) *goredis.Cmd {
+	return presenceScript.Run(ctx, s.client, []string{s.prefix + ":metadata", s.prefix + ":expiry"}, s.prefix, op, id, raw, ttl.Milliseconds(), deadline.UnixMilli())
 }
 
 // Register регистрирует физическое соединение и его ограниченное по времени присутствие.
@@ -122,11 +128,14 @@ func (s *RealtimeStore) action(ctx context.Context, op, id, raw string, ttl time
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *RealtimeStore) Register(ctx context.Context, session realtime.Session, ttl time.Duration) error {
+	if session.LastSeenAt.IsZero() || ttl < time.Millisecond {
+		return apperrors.ErrConflict
+	}
 	raw, err := json.Marshal(session)
 	if err != nil {
 		return err
 	}
-	n, err := s.action(ctx, "join", session.ConnectionID, string(raw), ttl).Int()
+	n, err := s.action(ctx, "join", session.ConnectionID, string(raw), ttl, session.LastSeenAt.Add(ttl)).Int()
 	if err == nil && n != 1 {
 		return apperrors.ErrConflict
 	}
@@ -142,20 +151,27 @@ func (s *RealtimeStore) Register(ctx context.Context, session realtime.Session, 
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *RealtimeStore) Unregister(ctx context.Context, id string) error {
-	return s.action(ctx, "leave", id, "", 0).Err()
+	return s.action(ctx, "leave", id, "", 0, time.Time{}).Err()
 }
 
-// Touch продлевает срок активности зарегистрированной физической сессии.
+// Touch продлевает присутствие до подтверждённого pong плюс ttl. Абсолютный
+// дедлайн исключает продление на задержку сети или обработки в Redis; старое
+// подтверждение не может воскресить уже истёкшее соединение. Время API и Redis
+// должно быть синхронизировано; при сдвиге часов срок не превышает now Redis+ttl.
 //
 // @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 //   - id (string): идентификатор обрабатываемого ресурса.
-//   - ttl (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
+//   - confirmedAt (time.Time): момент получения подтверждённого pong сервером.
+//   - ttl (time.Duration): срок присутствия после подтверждённого pong.
 //
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
-func (s *RealtimeStore) Touch(ctx context.Context, id string, ttl time.Duration) error {
-	n, err := s.action(ctx, "touch", id, time.Now().UTC().Format(time.RFC3339Nano), ttl).Int()
+func (s *RealtimeStore) Touch(ctx context.Context, id string, confirmedAt time.Time, ttl time.Duration) error {
+	if confirmedAt.IsZero() || ttl < time.Millisecond {
+		return apperrors.ErrNotFound
+	}
+	n, err := s.action(ctx, "touch", id, confirmedAt.UTC().Format(time.RFC3339Nano), ttl, confirmedAt.Add(ttl)).Int()
 	if err == nil && n != 1 {
 		return apperrors.ErrNotFound
 	}
@@ -193,7 +209,7 @@ func (s *RealtimeStore) Get(ctx context.Context, id string) (realtime.Session, e
 //   - результат 1 ([]realtime.Session): собранные элементы результата; состав ограничивается параметрами операции.
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *RealtimeStore) Active(ctx context.Context, conferenceID string) ([]realtime.Session, error) {
-	raw, err := s.action(ctx, "active", conferenceID, "", 0).StringSlice()
+	raw, err := s.action(ctx, "active", conferenceID, "", 0, time.Time{}).StringSlice()
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +232,7 @@ func (s *RealtimeStore) Active(ctx context.Context, conferenceID string) ([]real
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *RealtimeStore) Prune(ctx context.Context) error {
-	return s.action(ctx, "prune", "", "", 0).Err()
+	return s.action(ctx, "prune", "", "", 0, time.Time{}).Err()
 }
 
 // Publish сериализует доверенное событие и публикует его в изолированном Redis-канале.

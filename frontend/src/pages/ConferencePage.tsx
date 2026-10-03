@@ -28,6 +28,7 @@ import type { ModerationAction } from "../types";
 import { useAuth } from "../auth";
 import { useConference, useParticipants, useMembership } from "../queries";
 import { isAdmitted } from "../collaboration";
+import { onlineParticipants } from "../presence";
 import { useRealtime } from "../realtime";
 import { WaitingRoomPanel } from "../components/WaitingRoomPanel";
 import { ChatPanel } from "../components/ChatPanel";
@@ -102,6 +103,8 @@ export function ConferencePage() {
     id,
     admitted && membership?.status === "joined" && !closed,
   );
+  const onlinePeople = onlineParticipants(people, live.state?.participants);
+  const displayedPeople = closed ? people : onlinePeople;
   const capabilities = useCapabilities();
   const features =
     capabilities.isSuccess && !capabilities.isError
@@ -357,7 +360,7 @@ export function ConferencePage() {
                     }}
                   >
                     <Users size={18} />
-                    Участники ({people.length})
+                    Участники ({onlinePeople.length})
                   </Button>
                   <Button
                     variant="secondary"
@@ -398,7 +401,7 @@ export function ConferencePage() {
             <div className="room-panel-header">
               <strong>
                 {stagePanel === "chat"
-                  ? "Общение во встрече"
+                  ? "Чат встречи"
                   : stagePanel === "participants"
                     ? "Участники встречи"
                     : "Субтитры"}
@@ -447,7 +450,7 @@ export function ConferencePage() {
                   {panel === "chat"
                     ? "Чат"
                     : panel === "participants"
-                      ? `Участники (${people.length})`
+                      ? `Участники (${onlinePeople.length})`
                       : "Субтитры"}
                 </button>
               ))}
@@ -456,7 +459,7 @@ export function ConferencePage() {
               id="meeting-panel-chat"
               role="tabpanel"
               aria-labelledby="meeting-tab-chat"
-              className="conference-stage-panel"
+              className="conference-stage-panel conference-stage-panel-chat"
               hidden={stagePanel !== "chat"}
             >
               <ChatPanel
@@ -933,8 +936,8 @@ export function ConferencePage() {
               <Users size={20} />
               Участники{" "}
               <span className="count-badge">
-                {people.length}
-                {participants.hasNextPage ? "+" : ""}
+                {displayedPeople.length}
+                {closed && participants.hasNextPage ? "+" : ""}
               </span>
             </h2>
             <span className="muted small">Обновляется автоматически</span>
@@ -944,7 +947,7 @@ export function ConferencePage() {
             <Loading />
           ) : (
             <div className="participant-list">
-              {people.map(
+              {displayedPeople.map(
                 /**
                  * Обработчик people.map преобразует один элемент набора в представление или данные следующего шага.
                  *
@@ -1134,7 +1137,9 @@ export function ConferencePage() {
             </Button>
           )}
           <p className="field-hint">
-            Статус отражает join/leave, а не подключение к видеосвязи.
+            {closed
+              ? "Сохранён состав участников завершённой встречи."
+              : "Показаны только участники онлайн. После 5 секунд без связи участник исчезает из списка."}
           </p>
         </section>
       )}

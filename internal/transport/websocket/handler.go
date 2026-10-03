@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -461,15 +462,15 @@ func (c *client) Stop(reason string) {
 
 // run выполняет основной цикл компонента до завершения работы или отмены контекста.
 func (c *client) run() {
-	defer /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
-
-	 */func() { c.handler.hub.Unregister(c.session) }()
 	written := make(chan struct{})
 	go /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
 
 	 */func() { defer close(written); c.write() }()
 	c.read()
 	c.Stop("client_closed")
+	// Закрывающий кадр может ждать сетевого write timeout. Не удерживаем из-за
+	// него присутствие и медиа уже потерянного физического соединения.
+	c.handler.hub.Unregister(c.session)
 	<-written
 }
 
@@ -496,7 +497,7 @@ func (c *client) write() {
 		select {
 		case <-c.done:
 			code := ws.CloseNormalClosure
-			if c.reason == "server_shutdown" {
+			if c.reason == "server_shutdown" || c.reason == "presence_timeout" {
 				code = ws.CloseGoingAway
 			} else if c.reason != "client_closed" {
 				code = ws.ClosePolicyViolation
@@ -568,7 +569,11 @@ func (b *bucket) allow() bool {
 func (c *client) read() {
 	cfg := c.handler.cfg
 	c.conn.SetReadLimit(cfg.MessageBytes)
-	_ = c.conn.SetReadDeadline(time.Now().Add(cfg.PingInterval + cfg.PongTimeout))
+	initialSeen := c.session.LastSeenAt
+	if initialSeen.IsZero() {
+		initialSeen = time.Now()
+	}
+	_ = c.conn.SetReadDeadline(initialSeen.Add(cfg.PingInterval + cfg.PongTimeout))
 	rate := bucket{tokens: float64(cfg.Burst), updated: time.Now(), rate: float64(cfg.MessagesPerSecond), burst: float64(cfg.Burst)}
 	lastPong := time.Time{}
 	c.conn.SetPongHandler( /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
@@ -589,13 +594,18 @@ func (c *client) read() {
 				return nil
 			}
 			lastPong = time.Now()
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			c.session.LastSeenAt = lastPong.UTC()
+			deadline := lastPong.Add(cfg.PingInterval + cfg.PongTimeout)
+			// Отсчёт идёт от приёма pong, а не от завершения обращения к хранилищу.
+			if err := c.conn.SetReadDeadline(deadline); err != nil {
+				return err
+			}
+			ctx, cancel := context.WithDeadline(context.Background(), deadline)
 			defer cancel()
 			if err := c.handler.hub.Touch(ctx, c.session); err != nil {
 				return errors.New("presence lease lost")
 			}
-			c.session.LastSeenAt = lastPong.UTC()
-			return c.conn.SetReadDeadline(time.Now().Add(cfg.PingInterval + cfg.PongTimeout))
+			return nil
 		})
 	c.conn.SetPingHandler( /* Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
 
@@ -625,6 +635,10 @@ func (c *client) read() {
 	for {
 		kind, raw, err := c.conn.ReadMessage()
 		if err != nil {
+			var networkError net.Error
+			if errors.As(err, &networkError) && networkError.Timeout() {
+				c.Stop("presence_timeout")
+			}
 			return
 		}
 		if !c.expiresAt.After(time.Now()) {

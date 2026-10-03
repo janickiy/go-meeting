@@ -50,3 +50,48 @@ func TestRealtimeConfigValidation(t *testing.T) {
 		t.Fatal("non-ICE URL accepted")
 	}
 }
+
+// TestRealtimePresenceTimeout проверяет пятисекундный предел, согласованность
+// сроков присутствия и отказ запуска со старой медленной проверкой связи.
+//
+// @args
+//   - t: контекст проверки конфигурации без сетевых зависимостей.
+func TestRealtimePresenceTimeout(t *testing.T) {
+	for _, name := range []string{"WS_PING_INTERVAL", "WS_PONG_TIMEOUT", "WS_SESSION_TTL"} {
+		t.Setenv(name, "")
+	}
+	c, err := LoadRealtime()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.PingInterval != time.Second || c.PongTimeout != 4*time.Second || c.SessionTTL != PresenceTimeout {
+		t.Fatalf("unexpected presence defaults: ping=%s pong=%s ttl=%s", c.PingInterval, c.PongTimeout, c.SessionTTL)
+	}
+	for _, change := range []struct {
+		name string
+		edit func(*RealtimeConfig)
+	}{
+		{"old ping", func(c *RealtimeConfig) { c.PingInterval = 25 * time.Second }},
+		{"old pong", func(c *RealtimeConfig) { c.PongTimeout = 10 * time.Second }},
+		{"old lease", func(c *RealtimeConfig) { c.SessionTTL = 75 * time.Second }},
+		{"deadline above five seconds", func(c *RealtimeConfig) { c.PongTimeout += time.Millisecond }},
+		{"lease before socket deadline", func(c *RealtimeConfig) { c.SessionTTL -= time.Millisecond }},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			invalid := c
+			change.edit(&invalid)
+			if invalid.Validate() == nil {
+				t.Fatal("configuration may retain stale presence")
+			}
+		})
+	}
+	c.PongTimeout = time.Second
+	c.SessionTTL = 2 * time.Second
+	if err := c.Validate(); err != nil {
+		t.Fatalf("faster valid heartbeat rejected: %v", err)
+	}
+	t.Setenv("WS_PING_INTERVAL", "25s")
+	if _, err := LoadRealtime(); err == nil {
+		t.Fatal("old deployment environment accepted")
+	}
+}

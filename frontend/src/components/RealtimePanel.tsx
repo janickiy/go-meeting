@@ -1,4 +1,11 @@
-import { memo, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  memo,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   Mic,
   MicOff,
@@ -27,16 +34,24 @@ import {
 } from "../mediaDiagnostics";
 import { useCapabilities } from "../useCapabilities";
 import { initials } from "../utils";
+import { useSpeakingParticipants } from "../useSpeakingParticipants";
+import { onlineParticipants } from "../presence";
 
 /**
- * MediaTile привязывает MediaStream к аудио- или видеоэлементу и освобождает привязку при смене потока.
- *
- * @args
- *   - объект параметров: stream — свойство текущего компонента; name — отображаемое имя пользователя для инициалов; local — свойство текущего компонента; video — свойство текущего компонента; screen — свойство текущего компонента.
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
+ * MediaTile воспроизводит существующий поток и показывает состояние участника.
+ * Уровень звука синхронно меняет яркость рамки и заполнение значка микрофона.
+ * Экран, выключенный микрофон и восстанавливаемое соединение не получают
+ * подсветку. Смена потока снимает
+ * только DOM-привязку, не останавливая общие дорожки WebRTC.
+ * @args stream — поток; name — подпись и инициалы; local — собственная плитка
+ * без воспроизведения звука; video — показывать видео вместо инициалов;
+ * screen — демонстрация экрана; sinkId — устройство воспроизведения;
+ * microphoneEnabled — состояние микрофона; audioLevel — уровень звука от 0 до 1;
+ * role — роль участника; reconnecting — восстанавливается ли медиасвязь;
+ * covered — скрыть плитку на время показа экрана, сохранив воспроизведение звука.
+ * @return видеоплитка или аудиоплитка с подписью и индикаторами состояния.
  */
-const MediaTile = memo(function MediaTile({
+export const MediaTile = memo(function MediaTile({
   stream,
   name,
   local = false,
@@ -44,8 +59,10 @@ const MediaTile = memo(function MediaTile({
   screen = false,
   sinkId = "",
   microphoneEnabled = false,
+  audioLevel = 0,
   role,
   reconnecting = false,
+  covered = false,
 }: {
   stream?: MediaStream;
   name: string;
@@ -54,12 +71,19 @@ const MediaTile = memo(function MediaTile({
   screen?: boolean;
   sinkId?: string;
   microphoneEnabled?: boolean;
+  audioLevel?: number;
   role?: Participant["role"];
   reconnecting?: boolean;
+  covered?: boolean;
 }) {
   const element = useRef<HTMLMediaElement | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [sinkError, setSinkError] = useState(false);
+  const level =
+    microphoneEnabled && !screen && !reconnecting && Number.isFinite(audioLevel)
+      ? Math.max(0, Math.min(1, audioLevel))
+      : 0;
+  const speakingNow = level > 0;
   /**
    * play запускает воспроизведение потока, учитывая ограничения браузера.
    *
@@ -127,106 +151,145 @@ const MediaTile = memo(function MediaTile({
     };
   }, [local, sinkId, stream, video]);
   return (
-    <div
-      className={`media-tile ${local ? "media-tile-local" : ""} ${screen ? "media-tile-screen" : ""}`}
-      data-testid={
-        stream
-          ? local
-            ? "local-media"
-            : "remote-media"
-          : "participant-placeholder"
-      }
-    >
-      {video && stream ? (
-        <video
-          ref={
-            /**
-             * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
-             *
-             * @args
-             *   - node — DOM-элемент, к которому привязывается медиапоток.
-             *
-             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-             */ (node) => {
-              element.current = node;
-            }
-          }
-          autoPlay
-          playsInline
-          muted={local}
-          aria-label={name}
-        />
-      ) : (
-        <>
-          <div className="media-audio-symbol" aria-label="Камера выключена">
-            <span className="participant-tile-initials">{initials(name)}</span>
-          </div>
-          {stream && (
-            <audio
-              ref={
-                /**
-                 * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
-                 *
-                 * @args
-                 *   - node — DOM-элемент, к которому привязывается медиапоток.
-                 *
-                 * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-                 */ (node) => {
-                  element.current = node;
-                }
+    <>
+      <div
+        className={`media-tile ${local ? "media-tile-local" : ""} ${screen ? "media-tile-screen" : ""} ${speakingNow ? "media-tile-speaking" : ""}`}
+        hidden={covered}
+        data-speaking={speakingNow}
+        data-audio-level={level}
+        style={{ "--audio-level": level } as CSSProperties}
+        data-testid={
+          stream
+            ? local
+              ? "local-media"
+              : "remote-media"
+            : "participant-placeholder"
+        }
+      >
+        {video && stream ? (
+          <video
+            ref={
+              /**
+               * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
+               *
+               * @args
+               *   - node — DOM-элемент, к которому привязывается медиапоток.
+               *
+               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+               */ (node) => {
+                element.current = node;
               }
-              autoPlay
-              muted={local}
-              aria-label={name}
-            />
-          )}
-        </>
-      )}
-      <div className="media-tile-label">
-        <span>
-          {name}
-          {local ? " · вы" : ""}
-        </span>
-        {!screen && (
-          <span className="media-tile-badges">
-            {(role === "owner" || role === "co_host") && (
-              <ShieldCheck
-                size={15}
-                aria-label={role === "owner" ? "Организатор" : "Соорганизатор"}
+            }
+            autoPlay
+            playsInline
+            muted={local}
+            aria-label={name}
+          />
+        ) : (
+          <>
+            <div className="media-audio-symbol" aria-label="Камера выключена">
+              <span className="participant-tile-initials">
+                {initials(name)}
+              </span>
+            </div>
+            {stream && (
+              <audio
+                ref={
+                  /**
+                   * ref сохраняет DOM-ссылку для медиа или отслеживания видимости.
+                   *
+                   * @args
+                   *   - node — DOM-элемент, к которому привязывается медиапоток.
+                   *
+                   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
+                   */ (node) => {
+                    element.current = node;
+                  }
+                }
+                autoPlay
+                muted={local}
+                aria-label={name}
               />
             )}
-            {!microphoneEnabled && (
-              <MicOff size={15} aria-label="Микрофон выключен" />
-            )}
+          </>
+        )}
+        <div className="media-tile-label">
+          <span>
+            {name}
+            {local ? " · вы" : ""}
+          </span>
+          {!screen && (
+            <span className="media-tile-badges">
+              {(role === "owner" || role === "co_host") && (
+                <ShieldCheck
+                  size={15}
+                  aria-label={
+                    role === "owner" ? "Организатор" : "Соорганизатор"
+                  }
+                />
+              )}
+              <span
+                className={`media-tile-microphone ${speakingNow ? "media-microphone-speaking" : ""}`}
+                aria-label={
+                  speakingNow
+                    ? `Говорит: ${name}`
+                    : microphoneEnabled
+                      ? "Микрофон включён"
+                      : "Микрофон выключен"
+                }
+                title={
+                  speakingNow
+                    ? "Говорит"
+                    : microphoneEnabled
+                      ? "Микрофон включён"
+                      : "Микрофон выключен"
+                }
+              >
+                {microphoneEnabled ? (
+                  <Mic size={15} aria-hidden="true" />
+                ) : (
+                  <MicOff size={15} aria-hidden="true" />
+                )}
+              </span>
+            </span>
+          )}
+        </div>
+        {reconnecting && (
+          <span className="media-tile-reconnecting" role="status">
+            Восстанавливаем связь
           </span>
         )}
+        {blocked && !covered && (
+          <Button
+            variant="secondary"
+            onClick={
+              /**
+               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+               *
+               *
+               * @returns вычисленное значение: void play().
+               */ () => void play()
+            }
+          >
+            Включить воспроизведение
+          </Button>
+        )}
+        {sinkError && (
+          <p className="field-hint" role="status">
+            Выбранный динамик недоступен. Используется системный.
+          </p>
+        )}
       </div>
-      {reconnecting && (
-        <span className="media-tile-reconnecting" role="status">
-          Восстанавливаем связь
-        </span>
-      )}
-      {blocked && (
+      {covered && blocked && !local && (
         <Button
           variant="secondary"
-          onClick={
-            /**
-             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-             *
-             *
-             * @returns вычисленное значение: void play().
-             */ () => void play()
-          }
+          className="media-audio-unlock"
+          onClick={() => void play()}
         >
-          Включить воспроизведение
+          Включить звук: {name}
         </Button>
       )}
-      {sinkError && (
-        <p className="field-hint" role="status">
-          Выбранный динамик недоступен. Используется системный.
-        </p>
-      )}
-    </div>
+    </>
   );
 });
 
@@ -349,21 +412,59 @@ export function RealtimePanel({
     ["failed", "disconnected"].includes(media.view.iceState);
   const busy =
     media.view.controlBusy || !media.view.mediaPeerId || connectionProblem;
-  const roster = (
-    participants.length ? participants : live.state?.participants || []
-  ).filter(
-    (person) =>
-      person.status === "joined" &&
-      (!person.admissionState || person.admissionState === "admitted"),
+  const roster = onlineParticipants(participants, live.state?.participants);
+  const onlineIds = new Set(roster.map((person) => person.id));
+  const localStream = onlineIds.has(membership.id)
+    ? media.view.localStream
+    : null;
+  const localScreen = onlineIds.has(membership.id)
+    ? media.view.localScreen
+    : null;
+  const visibleRemoteStreams = media.view.remoteStreams.filter((remote) =>
+    onlineIds.has(remote.participantId),
   );
-  const present = roster.some((person) => person.id === membership.id)
-    ? roster
-    : [...roster, membership];
+  const present = roster;
   const remoteParticipants = new Set(
-    media.view.remoteStreams
+    visibleRemoteStreams
       .filter((remote) => !remote.screen)
       .map((remote) => remote.participantId),
   );
+  const showingScreen = Boolean(
+    localScreen || visibleRemoteStreams.some((remote) => remote.screen),
+  );
+  const speaking = useSpeakingParticipants(
+    [
+      {
+        id: "local",
+        participantId: membership.id,
+        stream: localStream,
+        enabled: media.view.microphoneEnabled && !membership.microphoneBlocked,
+      },
+      ...visibleRemoteStreams
+        .filter((remote) => !remote.screen)
+        .map((remote) => {
+          const person = roster.find(
+            (person) => person.id === remote.participantId,
+          );
+          return {
+            id: remote.id,
+            participantId: remote.participantId,
+            stream: remote.stream,
+            enabled:
+              !person?.microphoneBlocked &&
+              (person?.microphoneEnabled ?? remote.kinds.includes("audio")),
+          };
+        }),
+    ],
+    media.running && !connectionProblem,
+  );
+  const localAudioLevel =
+    media.view.microphoneEnabled &&
+    !membership.microphoneBlocked &&
+    !connectionProblem &&
+    onlineIds.has(membership.id)
+      ? (speaking.get(membership.id) ?? 0)
+      : 0;
   useEffect(() => {
     if (!diagnosticsOpen || !media.running || !live.state) {
       setDiagnostics(null);
@@ -475,41 +576,40 @@ export function RealtimePanel({
       )}
       {live.state && (
         <details className="conference-presence-details">
-          <summary>
-            В сети:{" "}
-            {live.state.participants.filter((person) => person.online).length}
-          </summary>
+          <summary>В сети: {roster.length}</summary>
           <p className="field-hint">
             Подключение этой вкладки:{" "}
             <code data-testid="connection-id">{live.state.connectionId}</code>
           </p>
           <div className="realtime-people">
-            {live.state.participants.map(
-              /**
-               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
-               *
-               * @args
-               *   - p — сведения об участнике конференции.
-               *
-               * @returns преобразованное значение текущего элемента для результирующего набора.
-               */ (p) => (
-                <div
-                  key={p.id}
-                  className="realtime-person"
-                  data-testid={`presence-${p.userId}`}
-                >
-                  <span
-                    className={`presence-dot ${p.online ? "online-dot" : ""}`}
-                  />
-                  <strong>{p.displayName}</strong>
-                  <span>
-                    {p.online
-                      ? `Онлайн · подключений: ${p.connections}`
-                      : "Не в сети"}
-                  </span>
-                </div>
-              ),
-            )}
+            {live.state.participants
+              .filter((person) => onlineIds.has(person.id))
+              .map(
+                /**
+                 * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
+                 *
+                 * @args
+                 *   - p — сведения об участнике конференции.
+                 *
+                 * @returns преобразованное значение текущего элемента для результирующего набора.
+                 */ (p) => (
+                  <div
+                    key={p.id}
+                    className="realtime-person"
+                    data-testid={`presence-${p.userId}`}
+                  >
+                    <span
+                      className={`presence-dot ${p.online ? "online-dot" : ""}`}
+                    />
+                    <strong>{p.displayName}</strong>
+                    <span>
+                      {p.online
+                        ? `Онлайн · подключений: ${p.connections}`
+                        : "Не в сети"}
+                    </span>
+                  </div>
+                ),
+              )}
           </div>
         </details>
       )}
@@ -590,11 +690,18 @@ export function RealtimePanel({
                    */ () => void media.microphone(!media.view.microphoneEnabled)
                 }
               >
-                {media.view.microphoneEnabled ? (
-                  <Mic size={17} />
-                ) : (
-                  <MicOff size={17} />
-                )}
+                <span
+                  className={`media-tile-microphone media-control-microphone ${localAudioLevel > 0 ? "media-microphone-speaking" : ""}`}
+                  style={{ "--audio-level": localAudioLevel } as CSSProperties}
+                  data-audio-level={localAudioLevel}
+                  aria-hidden="true"
+                >
+                  {media.view.microphoneEnabled ? (
+                    <Mic size={17} />
+                  ) : (
+                    <MicOff size={17} />
+                  )}
+                </span>
                 Микрофон
               </Button>
               <Button
@@ -839,9 +946,9 @@ export function RealtimePanel({
               )}
           </div>
         )}
-        {!media.view.localStream &&
-          !media.view.localScreen &&
-          media.view.remoteStreams.length === 0 &&
+        {!localStream &&
+          !localScreen &&
+          visibleRemoteStreams.length === 0 &&
           present.length === 0 && (
             <div className="media-empty" data-testid="media-empty">
               <VideoOff size={36} aria-hidden="true" />
@@ -853,47 +960,30 @@ export function RealtimePanel({
               </span>
             </div>
           )}
-        {(media.view.localStream ||
-          media.view.localScreen ||
-          media.view.remoteStreams.length > 0 ||
+        {(localStream ||
+          localScreen ||
+          visibleRemoteStreams.length > 0 ||
           present.length > 0) && (
           <div
-            className={`media-grid ${
-              media.view.localScreen ||
-              media.view.remoteStreams.some(
-                /**
-                 * Обработчик some проверяет, соответствует ли текущий элемент условию выборки или поиска.
-                 *
-                 * @args
-                 *   - stream — поток браузерных медиа-дорожек.
-                 *
-                 * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
-                 */ (stream) => stream.screen,
-              )
-                ? "media-grid-sharing"
-                : ""
-            }`}
+            className={`media-grid ${showingScreen ? "media-grid-sharing" : ""}`}
           >
-            {media.view.localScreen && (
-              <MediaTile
-                local
-                screen
-                stream={media.view.localScreen}
-                name="Ваш экран"
-              />
+            {localScreen && (
+              <MediaTile local screen stream={localScreen} name="Ваш экран" />
             )}
-            {media.view.localStream && (
+            {localStream && (
               <MediaTile
                 local
-                stream={media.view.localStream}
+                stream={localStream}
                 video={media.view.cameraEnabled}
                 name={membership.displayName || "Вы"}
                 microphoneEnabled={media.view.microphoneEnabled}
+                audioLevel={localAudioLevel}
                 role={membership.role}
                 reconnecting={connectionProblem}
+                covered={showingScreen}
               />
             )}
-            {media.view.remoteStreams.map(
+            {visibleRemoteStreams.map(
               /**
                * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
                *
@@ -905,7 +995,9 @@ export function RealtimePanel({
                 <MediaTile
                   key={remote.id}
                   screen={remote.screen}
+                  covered={showingScreen && !remote.screen}
                   stream={remote.stream}
+                  audioLevel={speaking.get(remote.participantId) ?? 0}
                   video={remote.kinds.includes("video")}
                   sinkId={preferences.audioOutputId}
                   microphoneEnabled={
@@ -937,7 +1029,7 @@ export function RealtimePanel({
             {present
               .filter((person) =>
                 person.id === membership.id
-                  ? !media.view.localStream
+                  ? !localStream
                   : !remoteParticipants.has(person.id),
               )
               .map((person) => (
@@ -946,18 +1038,14 @@ export function RealtimePanel({
                   name={person.displayName || "Участник"}
                   local={person.id === membership.id}
                   video={false}
+                  covered={showingScreen}
                   microphoneEnabled={
                     person.id === membership.id
                       ? media.view.microphoneEnabled
                       : person.microphoneEnabled
                   }
                   role={person.role}
-                  reconnecting={
-                    connectionProblem ||
-                    live.state?.participants.find(
-                      (item) => item.id === person.id,
-                    )?.online === false
-                  }
+                  reconnecting={connectionProblem}
                 />
               ))}
           </div>

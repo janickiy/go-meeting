@@ -11,6 +11,10 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
+// PresenceTimeout ограничивает время отсутствия подтверждённой связи: после пяти
+// секунд без pong физическое соединение больше не считается действующим.
+const PresenceTimeout = 5 * time.Second
+
 // RealtimeConfig задаёт лимиты, сроки жизни, допустимые источники и параметры WebSocket-подключений.
 //   - PingInterval: значение PingInterval типа time.Duration, используемое согласно назначению этой операции.
 //   - PongTimeout: значение PongTimeout типа time.Duration, используемое согласно назначению этой операции.
@@ -54,10 +58,10 @@ type RealtimeConfig struct {
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func LoadRealtime() (RealtimeConfig, error) {
 	c := RealtimeConfig{
-		PingInterval:      envDuration("WS_PING_INTERVAL", 25*time.Second),
-		PongTimeout:       envDuration("WS_PONG_TIMEOUT", 10*time.Second),
+		PingInterval:      envDuration("WS_PING_INTERVAL", time.Second),
+		PongTimeout:       envDuration("WS_PONG_TIMEOUT", 4*time.Second),
 		WriteTimeout:      envDuration("WS_WRITE_TIMEOUT", 5*time.Second),
-		SessionTTL:        envDuration("WS_SESSION_TTL", 75*time.Second),
+		SessionTTL:        envDuration("WS_SESSION_TTL", PresenceTimeout),
 		TicketTTL:         envDuration("WS_TICKET_TTL", 45*time.Second),
 		QueueSize:         envInt("WS_QUEUE_SIZE", 64),
 		MessageBytes:      int64(envInt("WS_MAX_MESSAGE_BYTES", 65536)),
@@ -95,13 +99,14 @@ func (c RealtimeConfig) Validate() error {
 	if c.PingInterval < 100*time.Millisecond || c.PingInterval > time.Minute ||
 		c.PongTimeout < 10*time.Millisecond || c.PongTimeout > 30*time.Second ||
 		c.WriteTimeout < 10*time.Millisecond || c.WriteTimeout > 30*time.Second ||
-		c.SessionTTL < 2*(c.PingInterval+c.PongTimeout) || c.SessionTTL > 10*time.Minute ||
+		c.PingInterval+c.PongTimeout > PresenceTimeout ||
+		c.SessionTTL < c.PingInterval+c.PongTimeout || c.SessionTTL > PresenceTimeout ||
 		c.TicketTTL < 30*time.Second || c.TicketTTL > 60*time.Second ||
 		c.QueueSize < 1 || c.QueueSize > 4096 || c.MessageBytes < 1024 || c.MessageBytes > 1048576 ||
 		int64(c.OutboundBytes) < c.MessageBytes+1024 || c.OutboundBytes > 1048576 ||
 		c.SDPBytes < 1 || int64(c.SDPBytes) > c.MessageBytes || c.ICEBytes < 1 || int64(c.ICEBytes) > c.MessageBytes ||
 		c.MessagesPerSecond < 1 || c.MessagesPerSecond > 10000 || c.Burst < 1 || c.Burst > 10000 || len(c.Namespace) == 0 || len(c.Namespace) > 128 {
-		return fmt.Errorf("invalid WebSocket limits/intervals; ticket TTL must be 30–60s and session TTL >= 2*(ping+pong)")
+		return fmt.Errorf("invalid WebSocket limits/intervals; ticket TTL must be 30–60s, ping+pong <= 5s and ping+pong <= session TTL <= 5s")
 	}
 	for _, origin := range c.AllowedOrigins {
 		u, err := url.Parse(origin)

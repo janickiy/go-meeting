@@ -107,16 +107,18 @@ type Store interface {
 	// @return:
 	//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Unregister(context.Context, string) error
-	// Touch продлевает срок активности зарегистрированной физической сессии.
+	// Touch продлевает присутствие от момента подтверждённого pong, а не от
+	// момента обработки запроса хранилищем.
 	//
 	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
 	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
-	//   - аргумент 3 (time.Duration): срок жизни сохраняемого значения или выданного разрешения.
+	//   - аргумент 3 (time.Time): время получения подтверждённого pong транспортом.
+	//   - аргумент 4 (time.Duration): срок присутствия после подтверждённого pong.
 	//
 	// @return:
 	//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
-	Touch(context.Context, string, time.Duration) error
+	Touch(context.Context, string, time.Time, time.Duration) error
 	// Get читает состояние физических сессий и событий комнаты для дальнейшей обработки или ответа.
 	//
 	// @args
@@ -471,7 +473,13 @@ func (h *Hub) Touch(ctx context.Context, session domain.Session) error {
 	if _, err := h.repo.Authorize(ctx, session.ConferenceID, session.UserID); err != nil {
 		return err
 	}
-	return h.store.Touch(ctx, session.ConnectionID, h.ttl)
+	// Проверка членства не должна добавлять своё время к пятисекундному окну.
+	// Источник LastSeenAt — только принятый транспортом подтверждённый pong.
+	remaining := h.ttl - time.Since(session.LastSeenAt)
+	if session.LastSeenAt.IsZero() || remaining <= 0 || remaining > h.ttl {
+		return apperrors.ErrNotFound
+	}
+	return h.store.Touch(ctx, session.ConnectionID, session.LastSeenAt, h.ttl)
 }
 
 // GetActiveSessions возвращает действующие физические сессии для проверки медиа-команд.
@@ -798,8 +806,8 @@ func (h *Hub) deliver(bus domain.Bus) {
 func (h *Hub) janitor() {
 	defer h.workers.Done()
 	interval := h.ttl / 4
-	if interval > 5*time.Second {
-		interval = 5 * time.Second
+	if interval > 250*time.Millisecond {
+		interval = 250 * time.Millisecond
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

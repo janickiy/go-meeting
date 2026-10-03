@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import type { Participant } from "../types";
+import type { Participant, PresenceParticipant } from "../types";
 import { ParticipantsPanel } from "./ParticipantsPanel";
 
 const owner = {
@@ -23,6 +23,15 @@ it("передаёт модерацию серверу и не меняет ра
   render(
     <ParticipantsPanel
       participants={[owner, colleague]}
+      presence={[owner, colleague].map(
+        (person) =>
+          ({
+            ...person,
+            online: true,
+            connections: 1,
+            connectionIds: [person.id],
+          }) as PresenceParticipant,
+      )}
       membership={owner}
       loading={false}
       busy={false}
@@ -48,6 +57,15 @@ it("не предлагает соорганизатору чужую роль �
   render(
     <ParticipantsPanel
       participants={[cohost, colleague]}
+      presence={[cohost, colleague].map(
+        (person) =>
+          ({
+            ...person,
+            online: true,
+            connections: 1,
+            connectionIds: [person.id],
+          }) as PresenceParticipant,
+      )}
       membership={cohost}
       loading={false}
       busy={false}

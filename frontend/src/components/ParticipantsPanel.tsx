@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import { isAdmitted } from "../collaboration";
 import { initials } from "../utils";
+import { onlineParticipants } from "../presence";
 import { Button, ErrorNotice, Loading } from "./ui";
 
 const roles = {
@@ -53,7 +54,7 @@ export function ParticipantsPanel({
   onModerate: (participantId: string, action: ModerationAction) => void;
 }) {
   const [search, setSearch] = useState("");
-  const visible = participants.filter((person) =>
+  const visible = onlineParticipants(participants, presence).filter((person) =>
     person.displayName
       .toLocaleLowerCase("ru")
       .includes(search.toLocaleLowerCase("ru")),
@@ -84,9 +85,6 @@ export function ParticipantsPanel({
               (membership.role === "owner" ||
                 (membership.role === "co_host" &&
                   person.role === "participant"));
-            const online = presence?.find(
-              (item) => item.id === person.id,
-            )?.online;
             return (
               <li key={person.id} className="room-participant-row">
                 <div className="room-participant-identity">
@@ -100,9 +98,6 @@ export function ParticipantsPanel({
                     </strong>
                     <span>
                       {roles[person.role]} · {statuses[person.status]}
-                      {person.status === "joined" && online === false
-                        ? " · Не в сети"
-                        : ""}
                     </span>
                   </div>
                   <span className="room-participant-media">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -8,6 +8,7 @@ import {
 import {
   Download,
   MessageCircle,
+  Paperclip,
   Pencil,
   Reply,
   Send,
@@ -17,18 +18,23 @@ import {
 import { api, errorMessage } from "../api";
 import { useAuth } from "../auth";
 import { mergeChatPages, formatBytes } from "../collaboration";
-import { formatDate } from "../utils";
+import {
+  chatDayKey,
+  chatDayLabel,
+  chatTime,
+  insertChatEmoji,
+} from "../chatPresentation";
+import { formatDate, initials } from "../utils";
 import type { ChatAttachment, ChatMessage, Participant } from "../types";
 import { AttachmentUploader } from "./AttachmentUploader";
+import { EmojiPicker } from "./EmojiPicker";
 import { Button, ErrorNotice, Loading, Modal } from "./ui";
 
 /**
- * ChatPanel управляет постоянной историей чата, ответами, изменениями, вложениями, повтором отправки и отложенным прочтением.
- *
- * @args
- *   - объект параметров: conferenceId — идентификатор конференции и области данных; membership — свойство текущего компонента; readOnly — свойство текущего компонента; readOnlyReason — свойство текущего компонента.
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
+ * Показывает историю чата и управляет отправкой, ответами, вложениями и правами на изменение сообщений.
+ * @args conferenceId — идентификатор встречи; membership — роль текущего участника;
+ * readOnly — запрет изменений; readOnlyReason — пояснение режима чтения.
+ * @return Панель сообщений с редактором и диалогами изменения и удаления.
  */
 export function ChatPanel({
   conferenceId,
@@ -52,6 +58,8 @@ export function ChatPanel({
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [composerGeneration, setComposerGeneration] = useState(0);
+  const [uploadDetailsTarget, setUploadDetailsTarget] =
+    useState<HTMLDivElement | null>(null);
   const [validation, setValidation] = useState("");
   const [downloadError, setDownloadError] = useState("");
   const [download, setDownload] = useState<{
@@ -59,34 +67,9 @@ export function ChatPanel({
     url: string;
     expiresAt: string;
   } | null>(null);
-  useEffect(
-    /**
-     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
-     *
-     *
-     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
-     */ () => {
-      if (!download) return;
-      const timer = setTimeout(
-        /**
-         * Обработчик setTimeout выполняет отложенную либо периодическую часть операции.
-         *
-         *
-         * @returns следующее состояние, рассчитанное из предыдущего значения.
-         */
-        () => setDownload(null),
-        Math.max(0, Date.parse(download.expiresAt) - Date.now() - 5000),
-      );
-      /**
-       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
-       *
-       *
-       * @returns вычисленное значение: clearTimeout(timer).
-       */
-      return () => clearTimeout(timer);
-    },
-    [download],
-  );
+  const composer = useRef<HTMLTextAreaElement>(null);
+  const selection = useRef({ start: 0, end: 0 });
+  const pendingCaret = useRef<number | null>(null);
   const retryRequest = useRef<{ signature: string; id: string } | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const lastMarker = useRef<HTMLSpanElement>(null);
@@ -95,78 +78,47 @@ export function ChatPanel({
   const newestVisible = useRef(false);
   const [readCandidate, setReadCandidate] = useState<string | null>(null);
   const lastRead = useRef<string | null>(null);
+
+  // Ссылка на приватный файл перестаёт отображаться немного раньше её серверного срока действия.
+  useEffect(() => {
+    if (!download) return;
+    const timer = setTimeout(
+      () => setDownload(null),
+      Math.max(0, Date.parse(download.expiresAt) - Date.now() - 5000),
+    );
+    return () => clearTimeout(timer);
+  }, [download]);
+
   const query = useInfiniteQuery({
     queryKey: ["chat", conferenceId, user?.id],
     initialPageParam: undefined as string | undefined,
-    /**
-     * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
-     *
-     * @args
-     *   - объект параметров: pageParam — свойство текущего компонента; signal — сигнал отмены запроса или потока.
-     *
-     * @returns вычисленное значение: api.messages(conferenceId, pageParam, signal).
-     */
     queryFn: ({ pageParam, signal }) =>
       api.messages(conferenceId, pageParam, signal),
-    /**
-     * getNextPageParam извлекает курсор продолжения серверной страницы.
-     *
-     * @args
-     *   - last — последняя загруженная страница, по которой определяется продолжение.
-     *
-     * @returns вычисленное значение: last.nextCursor || undefined.
-     */
     getNextPageParam: (last) => last.nextCursor || undefined,
     refetchInterval: 15000,
   });
   const read = useQuery({
     queryKey: ["chat-read", conferenceId, user?.id],
-    /**
-     * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
-     *
-     * @args
-     *   - объект параметров: signal — сигнал отмены запроса или потока.
-     *
-     * @returns вычисленное значение: api.chatRead(conferenceId, signal).
-     */
     queryFn: ({ signal }) => api.chatRead(conferenceId, signal),
     refetchInterval: 15000,
   });
   const messages = mergeChatPages(query.data?.pages || []);
   const latest = messages.at(-1)?.id;
-  /**
-   * invalidate обновляет связанные кеши после сохранённого изменения или события.
-   *
-   *
-   * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-   */
+
+  /** Обновляет историю и счётчик непрочитанных сообщений после изменения на сервере. */
   const invalidate = () => {
     void client.invalidateQueries({ queryKey: ["chat", conferenceId] });
     void client.invalidateQueries({ queryKey: ["chat-read", conferenceId] });
   };
   const send = useMutation({
-    /**
-     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
-     *
-     *
-     * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
-     */
     mutationFn: () => {
       const body = {
         text: text.trim(),
         replyTo: reply?.id,
-        attachmentIds: attachments.map(
-          /**
-           * Обработчик attachments.map преобразует один элемент набора в представление или данные следующего шага.
-           *
-           * @args
-           *   - file — выбранный пользователем файл для проверки или передачи.
-           *
-           * @returns преобразованное значение текущего элемента для результирующего набора.
-           */ (file) => file.id,
-        ),
+        attachmentIds: attachments.map((file) => file.id),
       };
       const signature = JSON.stringify(body);
+      // Неизменённое сообщение при повторе получает прежний ключ, поэтому сбой сети не создаёт дубль.
       if (retryRequest.current?.signature !== signature)
         retryRequest.current = { signature, id: crypto.randomUUID() };
       return api.sendMessage(conferenceId, {
@@ -174,45 +126,19 @@ export function ChatPanel({
         clientRequestId: retryRequest.current.id,
       });
     },
-    /**
-     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-     *
-     *
-     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-     */
     onSuccess: () => {
       setText("");
       setReply(null);
       setAttachments([]);
-      setComposerGeneration(
-        /**
-         * Обработчик setComposerGeneration вычисляет следующее React-состояние из предыдущего значения.
-         *
-         * @args
-         *   - value — значение для проверки, преобразования или отображения.
-         *
-         * @returns следующее состояние, рассчитанное из предыдущего значения.
-         */ (value) => value + 1,
-      );
+      setComposerGeneration((value) => value + 1);
+      selection.current = { start: 0, end: 0 };
       retryRequest.current = null;
       invalidate();
     },
   });
   const edit = useMutation({
-    /**
-     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
-     *
-     *
-     * @returns вычисленное значение: api.editMessage(conferenceId, editing!.id, editText.trim()).
-     */
     mutationFn: () =>
       api.editMessage(conferenceId, editing!.id, editText.trim()),
-    /**
-     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-     *
-     *
-     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-     */
     onSuccess: () => {
       setEditing(null);
       invalidate();
@@ -220,191 +146,206 @@ export function ChatPanel({
     onError: invalidate,
   });
   const remove = useMutation({
-    /**
-     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
-     *
-     *
-     * @returns вычисленное значение: api.deleteMessage(conferenceId, deleting!.id).
-     */
     mutationFn: () => api.deleteMessage(conferenceId, deleting!.id),
-    /**
-     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-     *
-     *
-     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-     */
     onSuccess: () => {
       setDeleting(null);
       invalidate();
     },
     onError: invalidate,
   });
-  useEffect(
-    /**
-     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
-     *
-     *
-     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
-     */ () => {
-      if (readOnly) {
-        setReply(null);
-        setEditing(null);
-        setDeleting(null);
-      }
-    },
-    [readOnly],
-  );
-  useEffect(
-    /**
-     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
-     *
-     *
-     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
-     */ () => {
-      if (!open || !latest) return;
-      const element = viewport.current;
-      if (!element) return;
-      /**
-       * observe отслеживает видимость последних сообщений для отложенной отметки прочтения.
-       *
-       *
-       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-       */
-      const observe = () => {
-        newestVisible.current =
-          element.scrollHeight - element.scrollTop - element.clientHeight < 40;
-        setReadCandidate(
-          document.visibilityState === "visible" &&
-            newestVisible.current &&
-            markerVisible.current
-            ? latest
-            : null,
-        );
-      };
-      if (!initialScroll.current || newestVisible.current)
-        element.scrollTop = element.scrollHeight;
-      initialScroll.current = true;
-      const observer =
-        typeof IntersectionObserver === "undefined"
-          ? undefined
-          : new IntersectionObserver(
-              /**
-               * Вложенный обработчик выполняет шаг «Вложенный обработчик» в чате, файлах и совместной работе.
-               *
-               * @args
-               *   - entries — список изменений видимости наблюдаемых элементов.
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */
-              (entries) => {
-                markerVisible.current = entries.some(
-                  /**
-                   * Обработчик entries.some проверяет условие поиска элемента или соответствия элементов набора.
-                   *
-                   * @args
-                   *   - entry — состояние видимости одного наблюдаемого элемента.
-                   *
-                   * @returns логический признак соответствия элемента условию.
-                   */
-                  (entry) => entry.isIntersecting,
-                );
-                observe();
-              },
-              { threshold: 1 },
-            );
-      if (lastMarker.current) observer?.observe(lastMarker.current);
-      observe();
-      element.addEventListener("scroll", observe);
-      document.addEventListener("visibilitychange", observe);
-      /**
-       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
-       *
-       *
-       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-       */
-      return () => {
-        element.removeEventListener("scroll", observe);
-        document.removeEventListener("visibilitychange", observe);
-        observer?.disconnect();
-      };
-    },
-    [open, latest, messages.length],
-  );
-  useEffect(
-    /**
-     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
-     *
-     *
-     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
-     */ () => {
+
+  useEffect(() => {
+    if (readOnly) {
+      setReply(null);
+      setEditing(null);
+      setDeleting(null);
+      pendingCaret.current = null;
+    }
+  }, [readOnly]);
+
+  // Изменение размера поля не двигает список сообщений; курсор возвращается после выбора смайлика.
+  useEffect(() => {
+    const element = composer.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.max(24, Math.min(120, element.scrollHeight))}px`;
+    if (pendingCaret.current !== null) {
+      element.focus();
+      element.setSelectionRange(pendingCaret.current, pendingCaret.current);
+      pendingCaret.current = null;
+    }
+  }, [text, open, readOnly]);
+
+  useEffect(() => {
+    if (!open || !latest) return;
+    const element = viewport.current;
+    if (!element) return;
+    /** Проверяет, читает ли пользователь конец видимого списка, не прокручивая старую историю принудительно. */
+    const observe = () => {
+      newestVisible.current =
+        element.scrollHeight - element.scrollTop - element.clientHeight < 40;
+      setReadCandidate(
+        document.visibilityState === "visible" &&
+          newestVisible.current &&
+          markerVisible.current
+          ? latest
+          : null,
+      );
+    };
+    if (!initialScroll.current || newestVisible.current)
+      element.scrollTop = element.scrollHeight;
+    initialScroll.current = true;
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? undefined
+        : new IntersectionObserver(
+            (entries) => {
+              markerVisible.current = entries.some(
+                (entry) => entry.isIntersecting,
+              );
+              observe();
+            },
+            { threshold: 1 },
+          );
+    if (lastMarker.current) observer?.observe(lastMarker.current);
+    observe();
+    element.addEventListener("scroll", observe);
+    document.addEventListener("visibilitychange", observe);
+    return () => {
+      element.removeEventListener("scroll", observe);
+      document.removeEventListener("visibilitychange", observe);
+      observer?.disconnect();
+    };
+  }, [open, latest, messages.length]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      !readCandidate ||
+      readCandidate === lastRead.current ||
+      readCandidate === read.data?.item.lastReadMessageId
+    )
+      return;
+    const timer = setTimeout(() => {
+      const marker = lastMarker.current;
+      const list = viewport.current;
       if (
-        !open ||
-        !readCandidate ||
-        readCandidate === lastRead.current ||
-        readCandidate === read.data?.item.lastReadMessageId
+        document.visibilityState !== "visible" ||
+        !newestVisible.current ||
+        !markerVisible.current ||
+        !marker ||
+        !list ||
+        !marker.getClientRects().length
       )
         return;
-      const timer = setTimeout(
-        /**
-         * Обработчик setTimeout выполняет отложенную либо периодическую часть операции.
-         *
-         *
-         * @returns следующее состояние, рассчитанное из предыдущего значения.
-         */ () => {
-          if (
-            document.visibilityState !== "visible" ||
-            !newestVisible.current ||
-            !markerVisible.current
-          )
-            return;
-          void api
-            .markChatRead(conferenceId, readCandidate)
-            .then(
-              /**
-               * Обработчик then выполняет переданный шаг вызова then в чате, файлах и совместной работе.
-               *
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */ () => {
-                lastRead.current = readCandidate;
-                void client.invalidateQueries({
-                  queryKey: ["chat-read", conferenceId],
-                });
-              },
-            )
-            .catch(
-              /**
-               * Обработчик catch выполняет переданный шаг вызова catch в чате, файлах и совместной работе.
-               *
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */ () => {},
-            );
-        },
-        2500,
-      );
-      /**
-       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
-       *
-       *
-       * @returns вычисленное значение: clearTimeout(timer).
-       */
-      return () => clearTimeout(timer);
-    },
-    [
-      open,
-      readCandidate,
-      read.data?.item.lastReadMessageId,
-      conferenceId,
-      client,
-    ],
-  );
+      // Учитываем скрытие боковой панели и прокрутку, даже если observer ещё не успел обновить refs.
+      const markerRect = marker.getBoundingClientRect();
+      const listRect = list.getBoundingClientRect();
+      if (
+        markerRect.top < Math.max(0, listRect.top) ||
+        markerRect.bottom > Math.min(window.innerHeight, listRect.bottom) ||
+        markerRect.left < Math.max(0, listRect.left) ||
+        markerRect.right > Math.min(window.innerWidth, listRect.right) ||
+        list.scrollHeight - list.scrollTop - list.clientHeight >= 40
+      )
+        return;
+      void api
+        .markChatRead(conferenceId, readCandidate)
+        .then(() => {
+          lastRead.current = readCandidate;
+          void client.invalidateQueries({
+            queryKey: ["chat-read", conferenceId],
+          });
+        })
+        .catch(() => {});
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [
+    open,
+    readCandidate,
+    read.data?.item.lastReadMessageId,
+    conferenceId,
+    client,
+  ]);
+
+  /** Сохраняет выделение до перевода фокуса с редактора на кнопку палитры. */
+  const rememberSelection = () => {
+    const element = composer.current;
+    if (element)
+      selection.current = {
+        start: element.selectionStart,
+        end: element.selectionEnd,
+      };
+  };
+
+  /**
+   * Заменяет выделенный текст смайликом, соблюдая серверный лимит, и возвращает курсор в редактор.
+   * @args emoji — выбранная последовательность Unicode, включая составные смайлики.
+   */
+  const addEmoji = (emoji: string) => {
+    if (readOnly || send.isPending) return;
+    const result = insertChatEmoji(
+      text,
+      emoji,
+      selection.current.start,
+      selection.current.end,
+    );
+    if (!result) {
+      setValidation("Сообщение не должно превышать 4000 символов.");
+      return;
+    }
+    setValidation("");
+    selection.current = { start: result.caret, end: result.caret };
+    if (result.text === text) {
+      composer.current?.focus();
+      composer.current?.setSelectionRange(result.caret, result.caret);
+    } else {
+      pendingCaret.current = result.caret;
+      setText(result.text);
+    }
+  };
+
+  /** Проверяет черновик перед отправкой; вложения разрешены и без текстовой части. */
+  const sendDraft = () => {
+    if (readOnly || send.isPending || uploadBusy) return;
+    setValidation("");
+    if (
+      (!text.trim() && !attachments.length) ||
+      Array.from(text.trim()).length > 4000
+    ) {
+      setValidation("Добавьте текст (до 4000 символов) или файл.");
+      return;
+    }
+    send.mutate();
+  };
+
+  /**
+   * Получает временную ссылку на приватное вложение и проверяет допустимую схему адреса.
+   * @args file — вложение сообщения, доступ к которому проверит сервер.
+   */
+  const prepareDownload = async (file: ChatAttachment) => {
+    setDownloadError("");
+    try {
+      const result = await api.attachmentDownload(conferenceId, file.id);
+      const url = new URL(result.url, window.location.origin);
+      if (!["http:", "https:"].includes(url.protocol))
+        throw new Error("invalid_download_url");
+      setDownload({
+        id: file.id,
+        url: url.toString(),
+        expiresAt: result.expiresAt,
+      });
+    } catch (error) {
+      setDownloadError(errorMessage(error));
+    }
+  };
+
   const unread =
     read.data?.item.unreadCount ?? query.data?.pages[0]?.unreadCount ?? 0;
   const mayModerate = ["owner", "co_host"].includes(membership.role);
   return (
     <section className="content-card chat-panel" aria-label="Чат конференции">
-      <div className="section-heading">
+      <div className="section-heading chat-panel-heading">
         <h2>
           <MessageCircle size={20} />
           Чат{" "}
@@ -416,49 +357,22 @@ export function ChatPanel({
         </h2>
         <Button
           variant="outline"
-          onClick={
-            /**
-             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-             *
-             *
-             * @returns вычисленное значение: setOpen( (value) => !value, ).
-             */ () =>
-              setOpen(
-                /**
-                 * Обработчик setOpen вычисляет следующее React-состояние из предыдущего значения.
-                 *
-                 * @args
-                 *   - value — значение для проверки, преобразования или отображения.
-                 *
-                 * @returns следующее состояние, рассчитанное из предыдущего значения.
-                 */ (value) => !value,
-              )
-          }
+          onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
         >
           {open ? "Свернуть чат" : "Открыть чат"}
         </Button>
       </div>
-      <div hidden={!open}>
+      <div className="chat-panel-body" hidden={!open}>
         {readOnly && (
-          <p className="field-hint">
+          <p className="field-hint chat-readonly-note">
             {readOnlyReason ||
               "Встреча завершена. Чат сохранён и доступен только для чтения."}
           </p>
         )}
         <ErrorNotice error={query.error} />
         {query.isError && (
-          <Button
-            variant="outline"
-            onClick={
-              /**
-               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               *
-               * @returns вычисленное значение: void query.refetch().
-               */ () => void query.refetch()
-            }
-          >
+          <Button variant="outline" onClick={() => void query.refetch()}>
             Повторить загрузку чата
           </Button>
         )}
@@ -476,14 +390,7 @@ export function ChatPanel({
               <Button
                 variant="outline"
                 busy={query.isFetchingNextPage}
-                onClick={
-                  /**
-                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   *
-                   * @returns вычисленное значение: void query.fetchNextPage().
-                   */ () => void query.fetchNextPage()
-                }
+                onClick={() => void query.fetchNextPage()}
               >
                 Предыдущие сообщения
               </Button>
@@ -493,194 +400,147 @@ export function ChatPanel({
                 Здесь пока тихо. Напишите первое сообщение.
               </p>
             )}
-            {messages.map(
-              /**
-               * Обработчик messages.map преобразует один элемент набора в представление или данные следующего шага.
-               *
-               * @args
-               *   - message — текущий объект сообщения чата.
-               *
-               * @returns преобразованное значение текущего элемента для результирующего набора.
-               */ (message) => (
-                <article
-                  key={message.id}
-                  className={`chat-message ${message.senderId === user?.id ? "chat-message-own" : ""}`}
-                  data-testid={`chat-message-${message.id}`}
-                >
-                  <header>
-                    <strong>{message.senderName}</strong>
-                    <time dateTime={message.createdAt}>
-                      {formatDate(message.createdAt)}
-                    </time>
-                    {message.version > 1 && !message.deletedAt && (
-                      <small>изменено</small>
+            {messages.map((message, index) => {
+              const own = message.senderId === user?.id;
+              const day = chatDayKey(message.createdAt);
+              return (
+                <Fragment key={message.id}>
+                  {day &&
+                    (!index ||
+                      day !== chatDayKey(messages[index - 1].createdAt)) && (
+                      <div className="chat-day-label">
+                        {chatDayLabel(message.createdAt)}
+                      </div>
                     )}
-                  </header>
-                  {message.replyPreview && (
-                    <blockquote>
-                      <strong>{message.replyPreview.senderName}</strong>
-                      <span>
-                        {message.replyPreview.deleted
-                          ? "Сообщение удалено"
-                          : message.replyPreview.text || "Вложение"}
+                  <article
+                    className={`chat-message ${own ? "chat-message-own" : ""}`}
+                    data-testid={`chat-message-${message.id}`}
+                  >
+                    {!own && (
+                      <span className="chat-message-avatar" aria-hidden="true">
+                        {initials(message.senderName)}
                       </span>
-                    </blockquote>
-                  )}
-                  <p className={message.deletedAt ? "muted" : "chat-text"}>
-                    {message.deletedAt ? "Сообщение удалено" : message.text}
-                  </p>
-                  {!message.deletedAt &&
-                    message.attachments.map(
-                      /**
-                       * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
-                       *
-                       * @args
-                       *   - file — выбранный пользователем файл для проверки или передачи.
-                       *
-                       * @returns преобразованное значение текущего элемента для результирующего набора.
-                       */ (file) => (
-                        <div className="chat-attachment" key={file.id}>
-                          <span>
-                            <PaperclipLabel />
-                            {file.filename}{" "}
-                            <small>{formatBytes(file.size)}</small>
-                          </span>
-                          {download?.id === file.id ? (
-                            <a
-                              className="text-link"
-                              href={download.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                            >
-                              Скачать файл
-                            </a>
-                          ) : (
+                    )}
+                    <div className="chat-message-content">
+                      {!own && (
+                        <header>
+                          <strong>{message.senderName}</strong>
+                        </header>
+                      )}
+                      <div className="chat-message-bubble">
+                        {message.replyPreview && (
+                          <blockquote>
+                            <strong>{message.replyPreview.senderName}</strong>
+                            <span>
+                              {message.replyPreview.deleted
+                                ? "Сообщение удалено"
+                                : message.replyPreview.text || "Вложение"}
+                            </span>
+                          </blockquote>
+                        )}
+                        {(message.deletedAt || message.text) && (
+                          <p
+                            className={
+                              message.deletedAt
+                                ? "chat-text muted"
+                                : "chat-text"
+                            }
+                          >
+                            {message.deletedAt
+                              ? "Сообщение удалено"
+                              : message.text}
+                          </p>
+                        )}
+                        {!message.deletedAt &&
+                          message.attachments.map((file) => (
+                            <div className="chat-attachment" key={file.id}>
+                              <span>
+                                <Paperclip size={15} aria-hidden="true" />
+                                {file.filename}
+                                <small>{formatBytes(file.size)}</small>
+                              </span>
+                              {download?.id === file.id ? (
+                                <a
+                                  className="text-link"
+                                  href={download.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download
+                                >
+                                  Скачать файл
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="text-link"
+                                  onClick={() => void prepareDownload(file)}
+                                >
+                                  <Download size={14} />
+                                  Получить ссылку
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        <footer className="chat-message-meta">
+                          {message.version > 1 && !message.deletedAt && (
+                            <span title="Сообщение изменено">
+                              <Pencil size={11} aria-hidden="true" />
+                              <span className="sr-only">изменено</span>
+                            </span>
+                          )}
+                          <time
+                            dateTime={message.createdAt}
+                            title={formatDate(message.createdAt)}
+                          >
+                            {chatTime(message.createdAt)}
+                          </time>
+                        </footer>
+                      </div>
+                      {!readOnly && !message.deletedAt && (
+                        <div className="chat-message-actions">
+                          <button
+                            type="button"
+                            disabled={send.isPending}
+                            onClick={() => {
+                              setReply(message);
+                              composer.current?.focus();
+                            }}
+                          >
+                            <Reply size={13} />
+                            Ответить
+                          </button>
+                          {own && (
                             <button
                               type="button"
-                              className="text-link"
-                              onClick={
-                                /**
-                                 * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                                 *
-                                 *
-                                 * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-                                 */ () => {
-                                  setDownloadError("");
-                                  void api
-                                    .attachmentDownload(conferenceId, file.id)
-                                    .then(
-                                      /**
-                                       * Обработчик then выполняет переданный шаг вызова then в чате, файлах и совместной работе.
-                                       *
-                                       * @args
-                                       *   - result — результат завершённой операции.
-                                       *
-                                       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-                                       */ (result) => {
-                                        const url = new URL(
-                                          result.url,
-                                          window.location.origin,
-                                        );
-                                        if (
-                                          !["http:", "https:"].includes(
-                                            url.protocol,
-                                          )
-                                        )
-                                          throw new Error(
-                                            "invalid_download_url",
-                                          );
-                                        setDownload({
-                                          id: file.id,
-                                          url: url.toString(),
-                                          expiresAt: result.expiresAt,
-                                        });
-                                      },
-                                    )
-                                    .catch(
-                                      /**
-                                       * Обработчик catch выполняет переданный шаг вызова catch в чате, файлах и совместной работе.
-                                       *
-                                       * @args
-                                       *   - error — пойманная ошибка API или сети.
-                                       *
-                                       * @returns вычисленное значение: setDownloadError(errorMessage(error)).
-                                       */ (error) =>
-                                        setDownloadError(errorMessage(error)),
-                                    );
-                                }
-                              }
+                              onClick={() => {
+                                setEditing(message);
+                                setEditText(message.text);
+                                edit.reset();
+                              }}
                             >
-                              <Download size={15} />
-                              Получить ссылку
+                              <Pencil size={13} />
+                              Изменить
+                            </button>
+                          )}
+                          {(own || mayModerate) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleting(message);
+                                remove.reset();
+                              }}
+                            >
+                              <Trash2 size={13} />
+                              Удалить
                             </button>
                           )}
                         </div>
-                      ),
-                    )}
-                  {!readOnly && !message.deletedAt && (
-                    <div className="chat-message-actions">
-                      <button
-                        type="button"
-                        className="text-link"
-                        onClick={
-                          /**
-                           * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                           *
-                           *
-                           * @returns вычисленное значение: setReply(message).
-                           */ () => setReply(message)
-                        }
-                      >
-                        <Reply size={14} />
-                        Ответить
-                      </button>
-                      {message.senderId === user?.id && (
-                        <button
-                          type="button"
-                          className="text-link"
-                          onClick={
-                            /**
-                             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                             *
-                             *
-                             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-                             */ () => {
-                              setEditing(message);
-                              setEditText(message.text);
-                              edit.reset();
-                            }
-                          }
-                        >
-                          <Pencil size={14} />
-                          Изменить
-                        </button>
-                      )}
-                      {(message.senderId === user?.id || mayModerate) && (
-                        <button
-                          type="button"
-                          className="text-link"
-                          onClick={
-                            /**
-                             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                             *
-                             *
-                             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-                             */ () => {
-                              setDeleting(message);
-                              remove.reset();
-                            }
-                          }
-                        >
-                          <Trash2 size={14} />
-                          Удалить
-                        </button>
                       )}
                     </div>
-                  )}
-                </article>
-              ),
-            )}
+                  </article>
+                </Fragment>
+              );
+            })}
             <span
               ref={lastMarker}
               className="chat-read-marker"
@@ -688,97 +548,100 @@ export function ChatPanel({
             />
           </div>
         )}
-        <ErrorNotice>{downloadError || null}</ErrorNotice>
+        <ErrorNotice error={downloadError || null} />
         {!readOnly && (
           <form
             className="chat-composer"
-            onSubmit={
-              /**
-               * onSubmit обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               * @args
-               *   - event — проверенный конверт события комнаты.
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */ (event) => {
-                event.preventDefault();
-                setValidation("");
-                if (
-                  (!text.trim() && !attachments.length) ||
-                  Array.from(text.trim()).length > 4000
-                ) {
-                  setValidation(
-                    "Напишите сообщение до 4000 символов или прикрепите файл.",
-                  );
-                  return;
-                }
-                if (!uploadBusy) send.mutate();
-              }
-            }
+            onSubmit={(event) => {
+              event.preventDefault();
+              sendDraft();
+            }}
           >
-            {reply && (
-              <div className="chat-reply">
-                <div>
-                  <strong>Ответ: {reply.senderName}</strong>
-                  <p>{reply.text || "Вложение"}</p>
+            <div className="chat-composer-details">
+              {reply && (
+                <div className="chat-reply">
+                  <div>
+                    <strong>Ответ: {reply.senderName}</strong>
+                    <p>{reply.text || "Вложение"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Отменить ответ"
+                    disabled={send.isPending}
+                    onClick={() => setReply(null)}
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Отменить ответ"
-                  onClick={
-                    /**
-                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                     *
-                     *
-                     * @returns вычисленное значение: setReply(null).
-                     */ () => setReply(null)
-                  }
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-            <label className="field" htmlFor={`chat-text-${conferenceId}`}>
-              Сообщение
-              <textarea
-                id={`chat-text-${conferenceId}`}
-                value={text}
-                onChange={
-                  /**
-                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   * @args
-                   *   - event — проверенный конверт события комнаты.
-                   *
-                   * @returns вычисленное значение: setText(event.target.value).
-                   */ (event) => setText(event.target.value)
-                }
-                rows={3}
-                placeholder="Напишите участникам встречи…"
-                disabled={send.isPending}
+              )}
+              <div
+                className="chat-upload-details"
+                ref={setUploadDetailsTarget}
               />
-            </label>
-            <AttachmentUploader
-              key={composerGeneration}
-              conferenceId={conferenceId}
-              value={attachments}
-              onChange={setAttachments}
-              onBusy={setUploadBusy}
-              disabled={send.isPending}
-            />
-            <ErrorNotice error={send.error}>{validation || null}</ErrorNotice>
-            <Button
-              type="submit"
-              busy={send.isPending}
-              disabled={uploadBusy || (!text.trim() && !attachments.length)}
-            >
-              <Send size={17} />
-              {send.isError ? "Повторить отправку" : "Отправить"}
-            </Button>
-            <p className="field-hint">
-              Если связь прервётся, повторная отправка не создаст копию
-              сообщения.
+              <ErrorNotice error={send.error}>{validation || null}</ErrorNotice>
+            </div>
+            <div className="chat-compose-row">
+              <AttachmentUploader
+                key={composerGeneration}
+                conferenceId={conferenceId}
+                value={attachments}
+                onChange={setAttachments}
+                onBusy={setUploadBusy}
+                disabled={send.isPending}
+                compact
+                detailsTarget={uploadDetailsTarget}
+              />
+              <label
+                className="chat-compose-field"
+                htmlFor={`chat-text-${conferenceId}`}
+              >
+                <span className="sr-only">Сообщение</span>
+                <textarea
+                  ref={composer}
+                  aria-label="Сообщение"
+                  id={`chat-text-${conferenceId}`}
+                  value={text}
+                  rows={1}
+                  placeholder="Напишите сообщение…"
+                  disabled={send.isPending}
+                  onSelect={rememberSelection}
+                  onBlur={rememberSelection}
+                  onChange={(event) => {
+                    setText(event.target.value);
+                    selection.current = {
+                      start: event.target.selectionStart,
+                      end: event.target.selectionEnd,
+                    };
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !event.shiftKey &&
+                      !event.nativeEvent.isComposing &&
+                      event.keyCode !== 229
+                    ) {
+                      event.preventDefault();
+                      sendDraft();
+                    }
+                  }}
+                />
+              </label>
+              <EmojiPicker onSelect={addEmoji} disabled={send.isPending} />
+              <Button
+                type="submit"
+                className="chat-send-button"
+                busy={send.isPending}
+                disabled={uploadBusy || (!text.trim() && !attachments.length)}
+                aria-label={send.isError ? "Повторить отправку" : "Отправить"}
+                title={send.isError ? "Повторить отправку" : "Отправить"}
+              >
+                {!send.isPending && <Send size={21} />}
+              </Button>
+            </div>
+            <p className="sr-only">
+              Enter — отправить, Shift + Enter — новая строка. Если связь
+              прервётся, повторная отправка не создаст копию сообщения.
             </p>
           </form>
         )}
@@ -786,35 +649,21 @@ export function ChatPanel({
       {editing && (
         <Modal
           title="Изменить сообщение"
-          onClose={
-            /**
-             * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-             *
-             *
-             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-             */ () => {
-              if (!edit.isPending) setEditing(null);
-            }
-          }
+          onClose={() => {
+            if (!edit.isPending) setEditing(null);
+          }}
         >
           <form
-            onSubmit={
-              /**
-               * onSubmit обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               * @args
-               *   - event — проверенный конверт события комнаты.
-               *
-               * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-               */ (event) => {
-                event.preventDefault();
-                if (
-                  (editText.trim() || editing.attachments.length) &&
-                  Array.from(editText.trim()).length <= 4000
-                )
-                  edit.mutate();
-              }
-            }
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (
+                !edit.isPending &&
+                !readOnly &&
+                (editText.trim() || editing.attachments.length) &&
+                Array.from(editText.trim()).length <= 4000
+              )
+                edit.mutate();
+            }}
           >
             <label className="field" htmlFor="edit-message">
               Текст
@@ -822,17 +671,9 @@ export function ChatPanel({
                 id="edit-message"
                 data-autofocus
                 value={editText}
-                onChange={
-                  /**
-                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   * @args
-                   *   - event — проверенный конверт события комнаты.
-                   *
-                   * @returns вычисленное значение: setEditText(event.target.value).
-                   */ (event) => setEditText(event.target.value)
-                }
+                onChange={(event) => setEditText(event.target.value)}
                 rows={4}
+                disabled={edit.isPending}
               />
             </label>
             <ErrorNotice error={edit.error} />
@@ -852,16 +693,9 @@ export function ChatPanel({
       {deleting && (
         <Modal
           title="Удалить сообщение?"
-          onClose={
-            /**
-             * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-             *
-             *
-             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-             */ () => {
-              if (!remove.isPending) setDeleting(null);
-            }
-          }
+          onClose={() => {
+            if (!remove.isPending) setDeleting(null);
+          }}
         >
           <p className="modal-description">
             Текст и вложения станут недоступны другим участникам. В чате
@@ -871,14 +705,9 @@ export function ChatPanel({
           <Button
             variant="danger"
             busy={remove.isPending}
-            onClick={
-              /**
-               * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               *
-               * @returns вычисленное значение: remove.mutate().
-               */ () => remove.mutate()
-            }
+            onClick={() => {
+              if (!readOnly) remove.mutate();
+            }}
           >
             Да, удалить сообщение
           </Button>
@@ -886,13 +715,4 @@ export function ChatPanel({
       )}
     </section>
   );
-}
-/**
- * PaperclipLabel показывает подпись действия прикрепления файла в чате.
- *
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
- */
-function PaperclipLabel() {
-  return <span aria-hidden="true">↳ </span>;
 }

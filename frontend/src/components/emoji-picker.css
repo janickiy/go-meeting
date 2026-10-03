@@ -1,0 +1,126 @@
+.emoji-picker {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.emoji-picker-trigger,
+.emoji-picker-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.emoji-picker-trigger {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #929b9b;
+}
+
+.emoji-picker-trigger svg {
+  width: 25px;
+  height: 25px;
+  stroke-width: 1.8;
+}
+
+.emoji-picker-trigger:hover:not(:disabled),
+.emoji-picker-trigger[aria-expanded="true"] {
+  background: #e1f4f4;
+  color: #239b9e;
+}
+
+.emoji-picker-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.emoji-picker-popover {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  bottom: calc(100% + 12px);
+  width: min(296px, calc(100vw - 40px));
+  padding: 12px;
+  border: 1px solid #dce7e7;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 36px #173b4026;
+  color: #344344;
+  text-align: left;
+}
+
+.emoji-picker-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-left: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.emoji-picker-count {
+  color: #778585;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.emoji-picker-close {
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  border-radius: 50%;
+  color: #778585;
+}
+
+.emoji-picker-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.emoji-picker-close:hover {
+  background: #f0f5f5;
+}
+
+.emoji-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  max-height: min(264px, calc(100dvh - 180px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 3px;
+}
+
+.emoji-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-family:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.emoji-picker-option:hover {
+  background: #e1f4f4;
+}
+
+.emoji-picker-trigger:focus-visible,
+.emoji-picker-close:focus-visible,
+.emoji-picker-option:focus-visible {
+  outline: 2px solid #229fa3;
+  outline-offset: 2px;
+}

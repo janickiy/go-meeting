@@ -10,11 +10,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 
 test.skip(
-  process.env.MEET_FRONTEND_LIVE_SMOKE !== "true" && process.env.MEET_REMOTE_SMOKE !== "true",
+  process.env.MEET_FRONTEND_LIVE_SMOKE !== "true" &&
+    process.env.MEET_REMOTE_SMOKE !== "true",
   "Требуется явное разрешение приёмки",
 );
 const remote = process.env.MEET_REMOTE_SMOKE === "true";
-const origin = remote ? "https://meeting.janickiy.com" : "https://localhost:25482";
+const origin = remote
+  ? "https://meeting.janickiy.com"
+  : "https://localhost:25482";
 const apiOrigin = remote ? origin : "http://127.0.0.1:28085";
 type Actor = { token: string; id: string; name: string };
 
@@ -123,10 +126,14 @@ async function connectMedia(page: Page) {
   await start.click();
   try {
     await expect(page.getByTestId("media-status")).toHaveText(
-      "Медиасвязь подключена", { timeout: 30_000 },
+      "Медиасвязь подключена",
+      { timeout: 30_000 },
     );
   } catch (error) {
-    console.log("Media UI errors:", await page.getByRole("alert").allTextContents());
+    console.log(
+      "Media UI errors:",
+      await page.getByRole("alert").allTextContents(),
+    );
     throw error;
   }
   await expect(page.getByTestId("remote-media")).toHaveCount(1, {
@@ -206,7 +213,8 @@ test("новая сборка с настоящими SFU, чатом, прив�
     for (const actor of actors) {
       const context = await browser.newContext({
         ignoreHTTPSErrors: !remote,
-        permissions: info.project.name === "firefox" ? [] : ["camera", "microphone"],
+        permissions:
+          info.project.name === "firefox" ? [] : ["camera", "microphone"],
         viewport: { width: 1440, height: 1000 },
       });
       contexts.push(context);
@@ -215,20 +223,45 @@ test("новая сборка с настоящими SFU, чатом, прив�
         await context.grantPermissions(["local-network-access"], { origin });
         await staticOverlay(context, dist, actor);
       } else {
-        await context.addInitScript(token => sessionStorage.setItem("meet.session.v1", JSON.stringify({ token, expiresAt: Date.now()+1_800_000 })), actor.token);
+        await context.addInitScript(
+          (token) =>
+            sessionStorage.setItem(
+              "meet.session.v1",
+              JSON.stringify({ token, expiresAt: Date.now() + 1_800_000 }),
+            ),
+          actor.token,
+        );
         const transport = process.env.MEET_REMOTE_TURN || "";
-        await context.addInitScript(mode => {
+        await context.addInitScript((mode) => {
           const Native = window.RTCPeerConnection;
           const peers: RTCPeerConnection[] = [];
-          (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers = peers;
+          (
+            window as unknown as { __smokePeers: RTCPeerConnection[] }
+          ).__smokePeers = peers;
           window.RTCPeerConnection = class extends Native {
             constructor(config?: RTCConfiguration) {
-              const servers = mode ? (config?.iceServers || []).flatMap(server => {
-                const urls = (Array.isArray(server.urls) ? server.urls : [server.urls]).filter(url =>
-                  mode === "tls" ? url.startsWith("turns:") : url.startsWith("turn:") && url.includes(`transport=${mode}`));
-                return urls.length ? [{...server, urls}] : [];
-              }) : config?.iceServers;
-              super(mode ? {...config, iceServers:servers, iceTransportPolicy:"relay"} : config);
+              const servers = mode
+                ? (config?.iceServers || []).flatMap((server) => {
+                    const urls = (
+                      Array.isArray(server.urls) ? server.urls : [server.urls]
+                    ).filter((url) =>
+                      mode === "tls"
+                        ? url.startsWith("turns:")
+                        : url.startsWith("turn:") &&
+                          url.includes(`transport=${mode}`),
+                    );
+                    return urls.length ? [{ ...server, urls }] : [];
+                  })
+                : config?.iceServers;
+              super(
+                mode
+                  ? {
+                      ...config,
+                      iceServers: servers,
+                      iceTransportPolicy: "relay",
+                    }
+                  : config,
+              );
               peers.push(this);
             }
           };
@@ -236,18 +269,25 @@ test("новая сборка с настоящими SFU, чатом, прив�
       }
       const page = await context.newPage();
       page.on("websocket", (socket) => {
-        const messages = new Map<string,string>();
-        socket.on("framesent", frame => {
+        const messages = new Map<string, string>();
+        socket.on("framesent", (frame) => {
           try {
             const event = JSON.parse(String(frame.payload));
-            if (event.id) messages.set(event.id,event.type);
-          } catch { /* Не журналируем бинарные сообщения или токены. */ }
+            if (event.id) messages.set(event.id, event.type);
+          } catch {
+            /* Не журналируем бинарные сообщения или токены. */
+          }
         });
-        socket.on("framereceived", frame => {
+        socket.on("framereceived", (frame) => {
           try {
             const event = JSON.parse(String(frame.payload));
-            if (event.type === "error") networkErrors.push(`error:${event.data?.code || ""}:${messages.get(event.replyTo) || "unknown"}`);
-          } catch { /* Полные SDP, ICE-пароли и токены не выводятся. */ }
+            if (event.type === "error")
+              networkErrors.push(
+                `error:${event.data?.code || ""}:${messages.get(event.replyTo) || "unknown"}`,
+              );
+          } catch {
+            /* Полные SDP, ICE-пароли и токены не выводятся. */
+          }
         });
         socket.on("socketerror", (message) => {
           networkErrors.push(
@@ -271,42 +311,100 @@ test("новая сборка с настоящими SFU, чатом, прив�
       ).toBeVisible();
     }
     const [owner, member] = pages;
-    if (remote) for (const page of pages) page.on("websocket", socket => socket.on("framereceived", frame => {
-      try {
-        const event = JSON.parse(String(frame.payload));
-        if (/error|fail/.test(event.type || "")) networkErrors.push(`${event.type}:${event.data?.code || ""}:${event.data?.reason || ""}`);
-      } catch { /* Двоичные медиаданные не включаются в диагностический отчёт. */ }
-    }));
-    if (remote && info.project.name === "firefox") for (const page of pages) page.on("websocket", socket => socket.on("framesent", frame => {
-      try {
-        const event = JSON.parse(String(frame.payload));
-        if (event.type === "media.offer") console.log("Firefox SDP structure:", {
-          sections:String(event.data.sdp).split(/\r?\n/).filter(line=> /^(m=|a=mid:|a=bundle-only|a=group:BUNDLE|a=sendrecv|a=sendonly|a=recvonly|a=inactive)/.test(line)),
-          publications:(event.data.publications || []).map((p:{mid:string;source:string})=>({mid:p.mid,source:p.source})),
-        });
-      } catch { /* Полный SDP, ключи ICE и токены никогда не журналируются. */ }
-    }));
+    if (remote)
+      for (const page of pages)
+        page.on("websocket", (socket) =>
+          socket.on("framereceived", (frame) => {
+            try {
+              const event = JSON.parse(String(frame.payload));
+              if (/error|fail/.test(event.type || ""))
+                networkErrors.push(
+                  `${event.type}:${event.data?.code || ""}:${event.data?.reason || ""}`,
+                );
+            } catch {
+              /* Двоичные медиаданные не включаются в диагностический отчёт. */
+            }
+          }),
+        );
+    if (remote && info.project.name === "firefox")
+      for (const page of pages)
+        page.on("websocket", (socket) =>
+          socket.on("framesent", (frame) => {
+            try {
+              const event = JSON.parse(String(frame.payload));
+              if (event.type === "media.offer")
+                console.log("Firefox SDP structure:", {
+                  sections: String(event.data.sdp)
+                    .split(/\r?\n/)
+                    .filter((line) =>
+                      /^(m=|a=mid:|a=bundle-only|a=group:BUNDLE|a=sendrecv|a=sendonly|a=recvonly|a=inactive)/.test(
+                        line,
+                      ),
+                    ),
+                  publications: (event.data.publications || []).map(
+                    (p: { mid: string; source: string }) => ({
+                      mid: p.mid,
+                      source: p.source,
+                    }),
+                  ),
+                });
+            } catch {
+              /* Полный SDP, ключи ICE и токены никогда не журналируются. */
+            }
+          }),
+        );
     await Promise.all(pages.map(connectMedia));
     for (const page of pages) {
       // Firefox может требовать отдельный жест для воспроизведения удалённого звука.
-      const play = page.getByTestId("remote-media").getByRole("button", {name:"Включить воспроизведение",exact:true});
+      const play = page
+        .getByTestId("remote-media")
+        .getByRole("button", { name: "Включить воспроизведение", exact: true });
       if (await play.isVisible()) await play.click();
     }
     for (const page of pages) {
       if (remote) {
         // Firefox не учитывает WebRTC в totalVideoFrames. Проверяем декодирование
         // настоящего входящего RTP и запущенный DOM-плеер без замены медиаданных.
-        await expect.poll(() => page.evaluate(async () => {
-          const peers = (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers;
-          for (const peer of peers) {
-            const stats = await peer.getStats();
-            if ([...stats.values()].some(s=>s.type==="inbound-rtp" &&
-              (s.kind || s.mediaType)==="video" && s.framesDecoded > 5 && s.bytesReceived > 0)) return true;
-          }
-          return false;
-        }),{timeout:15_000}).toBe(true);
-        await expect.poll(() => page.getByTestId("remote-media").locator("video").evaluate((video:HTMLVideoElement)=>
-          !video.paused && video.videoWidth > 0 && video.currentTime > 0.2),{timeout:15_000}).toBe(true);
+        await expect
+          .poll(
+            () =>
+              page.evaluate(async () => {
+                const peers = (
+                  window as unknown as { __smokePeers: RTCPeerConnection[] }
+                ).__smokePeers;
+                for (const peer of peers) {
+                  const stats = await peer.getStats();
+                  if (
+                    [...stats.values()].some(
+                      (s) =>
+                        s.type === "inbound-rtp" &&
+                        (s.kind || s.mediaType) === "video" &&
+                        s.framesDecoded > 5 &&
+                        s.bytesReceived > 0,
+                    )
+                  )
+                    return true;
+                }
+                return false;
+              }),
+            { timeout: 15_000 },
+          )
+          .toBe(true);
+        await expect
+          .poll(
+            () =>
+              page
+                .getByTestId("remote-media")
+                .locator("video")
+                .evaluate(
+                  (video: HTMLVideoElement) =>
+                    !video.paused &&
+                    video.videoWidth > 0 &&
+                    video.currentTime > 0.2,
+                ),
+            { timeout: 15_000 },
+          )
+          .toBe(true);
         continue;
       }
       await expect
@@ -327,49 +425,119 @@ test("новая сборка с настоящими SFU, чатом, прив�
     if (remote) {
       for (const page of pages) {
         // Подтверждаем входящий звук по RTP, а не только появление плитки участника.
-        await expect.poll(() => page.evaluate(async () => {
-          const peers = (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers;
-          for (const peer of peers) {
-            const stats = await peer.getStats();
-            if ([...stats.values()].some(s => s.type === "inbound-rtp" &&
-              (s.kind || s.mediaType) === "audio" && s.packetsReceived > 10 && s.bytesReceived > 0)) return true;
-          }
-          return false;
-        }), {timeout:15_000}).toBe(true);
-        await expect.poll(() => page.getByTestId("remote-media").evaluate(element => {
-          const media = element.querySelector<HTMLMediaElement>("video, audio");
-          return !!media && !media.muted && !media.paused && media.volume > 0 &&
-            (media.srcObject as MediaStream | null)?.getAudioTracks().some(track => track.readyState === "live");
-        }), {timeout:15_000}).toBe(true);
+        await expect
+          .poll(
+            () =>
+              page.evaluate(async () => {
+                const peers = (
+                  window as unknown as { __smokePeers: RTCPeerConnection[] }
+                ).__smokePeers;
+                for (const peer of peers) {
+                  const stats = await peer.getStats();
+                  if (
+                    [...stats.values()].some(
+                      (s) =>
+                        s.type === "inbound-rtp" &&
+                        (s.kind || s.mediaType) === "audio" &&
+                        s.packetsReceived > 10 &&
+                        s.bytesReceived > 0,
+                    )
+                  )
+                    return true;
+                }
+                return false;
+              }),
+            { timeout: 15_000 },
+          )
+          .toBe(true);
+        await expect
+          .poll(
+            () =>
+              page.getByTestId("remote-media").evaluate((element) => {
+                const media =
+                  element.querySelector<HTMLMediaElement>("video, audio");
+                return (
+                  !!media &&
+                  !media.muted &&
+                  !media.paused &&
+                  media.volume > 0 &&
+                  (media.srcObject as MediaStream | null)
+                    ?.getAudioTracks()
+                    .some((track) => track.readyState === "live")
+                );
+              }),
+            { timeout: 15_000 },
+          )
+          .toBe(true);
       }
       checks.push("two-participant-sfu-audio-rtp-and-playback");
     }
     if (remote && process.env.MEET_REMOTE_TURN) {
       for (const page of pages) {
         let evidence: Awaited<ReturnType<typeof readRelayEvidence>> = [];
-        async function readRelayEvidence() { return page.evaluate(async () => {
-          const peers = (window as unknown as { __smokePeers: RTCPeerConnection[] }).__smokePeers;
-          const results = [];
-          for (const peer of peers) {
-            const stats = await peer.getStats();
-            const pairs = [...stats.values()].filter(s => s.type === "candidate-pair" && s.state === "succeeded" && s.nominated).map(pair => ({
-              localType:stats.get(pair.localCandidateId)?.candidateType,
-              remoteType:stats.get(pair.remoteCandidateId)?.candidateType,
-              localRelayProtocol:stats.get(pair.localCandidateId)?.relayProtocol,
-              localURL:stats.get(pair.localCandidateId)?.url,
-              localAddress:stats.get(pair.localCandidateId)?.address,
-              localPort:stats.get(pair.localCandidateId)?.port,
-              relayCandidates:[...stats.values()].filter(s=>s.type === "local-candidate" && s.candidateType === "relay").map(s=>({address:s.address,port:s.port,relayProtocol:s.relayProtocol,url:s.url})),
-              bytesReceived:pair.bytesReceived, bytesSent:pair.bytesSent,
-            }));
-            results.push({policy:peer.getConfiguration().iceTransportPolicy, state:peer.connectionState, pairs});
-          }
-          return results;
-        }); }
-        await expect.poll(async () => {
-          evidence = await readRelayEvidence();
-          return evidence.some(peer => peer.policy === "relay" && peer.pairs.some(pair => pair.localType === "relay" && pair.bytesReceived > 0));
-        },{timeout:20_000,intervals:[500,1000]}).toBe(true);
+        async function readRelayEvidence() {
+          return page.evaluate(async () => {
+            const peers = (
+              window as unknown as { __smokePeers: RTCPeerConnection[] }
+            ).__smokePeers;
+            const results = [];
+            for (const peer of peers) {
+              const stats = await peer.getStats();
+              const pairs = [...stats.values()]
+                .filter(
+                  (s) =>
+                    s.type === "candidate-pair" &&
+                    s.state === "succeeded" &&
+                    s.nominated,
+                )
+                .map((pair) => ({
+                  localType: stats.get(pair.localCandidateId)?.candidateType,
+                  remoteType: stats.get(pair.remoteCandidateId)?.candidateType,
+                  localRelayProtocol: stats.get(pair.localCandidateId)
+                    ?.relayProtocol,
+                  localURL: stats.get(pair.localCandidateId)?.url,
+                  localAddress: stats.get(pair.localCandidateId)?.address,
+                  localPort: stats.get(pair.localCandidateId)?.port,
+                  relayCandidates: [...stats.values()]
+                    .filter(
+                      (s) =>
+                        s.type === "local-candidate" &&
+                        s.candidateType === "relay",
+                    )
+                    .map((s) => ({
+                      address: s.address,
+                      port: s.port,
+                      relayProtocol: s.relayProtocol,
+                      url: s.url,
+                    })),
+                  bytesReceived: pair.bytesReceived,
+                  bytesSent: pair.bytesSent,
+                }));
+              results.push({
+                policy: peer.getConfiguration().iceTransportPolicy,
+                state: peer.connectionState,
+                pairs,
+              });
+            }
+            return results;
+          });
+        }
+        await expect
+          .poll(
+            async () => {
+              evidence = await readRelayEvidence();
+              return evidence.some(
+                (peer) =>
+                  peer.policy === "relay" &&
+                  peer.pairs.some(
+                    (pair) =>
+                      pair.localType === "relay" && pair.bytesReceived > 0,
+                  ),
+              );
+            },
+            { timeout: 20_000, intervals: [500, 1000] },
+          )
+          .toBe(true);
         relayEvidence.push(evidence);
       }
       checks.push(`selected-turn-${process.env.MEET_REMOTE_TURN}`);
@@ -377,11 +545,24 @@ test("новая сборка с настоящими SFU, чатом, прив�
     await owner
       .getByLabel("Сообщение", { exact: true })
       .fill("Проверка настоящего чата");
+    await owner.getByRole("button", { name: "Добавить смайлик" }).click();
+    const emojiPicker = owner.getByRole("dialog", { name: "Смайлики" });
+    await expect(
+      emojiPicker
+        .getByRole("group", { name: "Выберите смайлик" })
+        .getByRole("button"),
+    ).toHaveCount(64);
+    await emojiPicker
+      .getByRole("button", { name: "Огонь", exact: true })
+      .click();
+    await expect(owner.getByLabel("Сообщение", { exact: true })).toHaveValue(
+      "Проверка настоящего чата🔥",
+    );
     await owner.getByRole("button", { name: "Отправить", exact: true }).click();
     await expect(member.getByRole("log")).toContainText(
-      "Проверка настоящего чата",
+      "Проверка настоящего чата🔥",
     );
-    checks.push("persistent-chat-realtime");
+    checks.push("persistent-chat-realtime-64-emoji");
     await owner.getByLabel("Выбрать файлы для сообщения").setInputFiles({
       name: "frontend-verification.pdf",
       mimeType: "application/pdf",
@@ -410,7 +591,9 @@ test("новая сборка с настоящими SFU, чатом, прив�
     anonymousURL.search = "";
     expect(
       (
-        await request.get(anonymousURL.toString(), { ignoreHTTPSErrors: !remote })
+        await request.get(anonymousURL.toString(), {
+          ignoreHTTPSErrors: !remote,
+        })
       ).status(),
     ).toBe(403);
     checks.push("private-pdf-upload-download");
@@ -494,19 +677,45 @@ test("новая сборка с настоящими SFU, чатом, прив�
       fullPage: true,
     });
   } finally {
-    for (const context of contexts) for (const page of context.pages()) {
-      try {
-        console.log("Final media counters:", JSON.stringify(await page.evaluate(async () => {
-          const peers = (window as unknown as { __smokePeers?: RTCPeerConnection[] }).__smokePeers || [];
-          const results = [];
-          for (const peer of peers) {
-            const stats = await peer.getStats();
-            results.push({state:peer.connectionState,rtp:[...stats.values()].filter(s=>s.type==="inbound-rtp" || s.type==="outbound-rtp").map(s=>({type:s.type,kind:s.kind || s.mediaType,packetsReceived:s.packetsReceived,bytesReceived:s.bytesReceived,framesDecoded:s.framesDecoded,packetsSent:s.packetsSent,framesEncoded:s.framesEncoded}))});
-          }
-          return results;
-        })));
-      } catch { /* Закрытая страница не заменяет первоначальный результат проверки. */ }
-    }
+    for (const context of contexts)
+      for (const page of context.pages()) {
+        try {
+          console.log(
+            "Final media counters:",
+            JSON.stringify(
+              await page.evaluate(async () => {
+                const peers =
+                  (window as unknown as { __smokePeers?: RTCPeerConnection[] })
+                    .__smokePeers || [];
+                const results = [];
+                for (const peer of peers) {
+                  const stats = await peer.getStats();
+                  results.push({
+                    state: peer.connectionState,
+                    rtp: [...stats.values()]
+                      .filter(
+                        (s) =>
+                          s.type === "inbound-rtp" || s.type === "outbound-rtp",
+                      )
+                      .map((s) => ({
+                        type: s.type,
+                        kind: s.kind || s.mediaType,
+                        packetsReceived: s.packetsReceived,
+                        bytesReceived: s.bytesReceived,
+                        framesDecoded: s.framesDecoded,
+                        packetsSent: s.packetsSent,
+                        framesEncoded: s.framesEncoded,
+                      })),
+                  });
+                }
+                return results;
+              }),
+            ),
+          );
+        } catch {
+          /* Закрытая страница не заменяет первоначальный результат проверки. */
+        }
+      }
     if (conferenceId && actors[0]) {
       try {
         const current = await api<{ item: { status: string } }>(
