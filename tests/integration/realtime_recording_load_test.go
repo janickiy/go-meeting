@@ -12,7 +12,7 @@ import (
 )
 
 // TestStageSixWSReconnectBurst измеряет 100 физических WS и одновременный
-// повторный вход после разрыва. t управляет отдельной БД и Redis namespace.
+// повторный вход после разрыва. t управляет отдельной БД и пространством имён Redis.
 func TestStageSixWSReconnectBurst(t *testing.T) {
 	if os.Getenv("RECORDER_WS_LOAD") != "true" {
 		t.Skip("manual WebSocket load")
@@ -69,7 +69,7 @@ func TestStageSixWSReconnectBurst(t *testing.T) {
 
 // TestStageSixConcurrentRecordings запускает два независимых полных конвейера
 // SFU→FFmpeg→MinIO. t включает их только при RECORDER_RECORDING_LOAD=true;
-// данные каждой записи изолированы отдельной БД, Redis namespace и каталогом.
+// данные каждой записи изолированы отдельной БД, пространством имён Redis и каталогом.
 func TestStageSixConcurrentRecordings(t *testing.T) {
 	if os.Getenv("RECORDER_RECORDING_LOAD") != "true" {
 		t.Skip("manual concurrent recording load")

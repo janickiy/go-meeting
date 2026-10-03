@@ -152,7 +152,7 @@ func (h *Handler) Read(c *gin.Context) {
 // @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Events(c *gin.Context) {
-	// Header authentication only: credentials never appear in URLs/access logs.
+	// Авторизация только через заголовок: учётные данные не попадают в URL и журналы доступа.
 	fields := strings.Fields(c.GetHeader("Authorization"))
 	if len(fields) != 2 || len(c.Request.URL.RawQuery) > 0 {
 		httpresponse.Fail(c, apperrors.ErrUnauthorized)
@@ -211,8 +211,8 @@ func (h *Handler) Events(c *gin.Context) {
 	// @return
 	//   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 	write := func(value string) bool {
-		// Gin's writer does not expose deadlines on every server. The bounded
-		// SSE queue still prevents a slow reader from blocking room signaling.
+		// Обёртка Gin не всегда поддерживает сроки записи. Ограниченная очередь SSE
+		// не позволяет медленному читателю блокировать сигнализацию комнаты.
 		if err := controller.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil && err != http.ErrNotSupported {
 			return false
 		}

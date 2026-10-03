@@ -1,4 +1,4 @@
-# Optional UDP-only SFU override. Requires Docker Compose with !override support.
+# Необязательная конфигурация SFU только с UDP. Требуется поддержка !override в Docker Compose.
 services:
   media-worker:
     environment:

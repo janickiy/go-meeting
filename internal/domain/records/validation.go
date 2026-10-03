@@ -63,7 +63,7 @@ func ValidateConferenceIDs(conferenceIDs []string) string {
 	return ""
 }
 
-// ValidateRecordStatusFilter проверяет optional status-фильтр списка/агрегаций.
+// ValidateRecordStatusFilter проверяет необязательный фильтр состояния для списка и агрегатов.
 // @args
 // - status: статус записи из query-параметра.
 // @return текст ошибки для failed response или пустую строку.

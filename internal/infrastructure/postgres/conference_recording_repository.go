@@ -48,7 +48,7 @@ func (r *ConferenceRecordingRepository) Start(ctx context.Context, userID, confe
 }
 
 // StartMode создаёт запись выбранной стратегии, сериализуя её с модерацией и завершением встречи.
-// @args ctx — deadline; userID/conferenceID — актор и встреча; segmentDuration — секунды фрагмента; mode — серверная стратегия.
+// @args ctx — срок выполнения; userID/conferenceID — актор и встреча; segmentDuration — секунды фрагмента; mode — серверная стратегия.
 // @return запись, признак создания и ошибка прав/состояния.
 func (r *ConferenceRecordingRepository) StartMode(ctx context.Context, userID, conferenceID string, segmentDuration int, mode string) (records.Record, bool, error) {
 	if !records.ValidConferenceMode(mode) {

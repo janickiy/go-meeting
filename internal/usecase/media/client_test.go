@@ -14,7 +14,7 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/media"
 )
 
-// TestHTTPMediaClientIdentityCorrelationAndSafeErrors проверяет сценарий «HTTP медиа клиент Identity Correlation и безопасный ошибки», фиксируя ошибки поведения как регрессию.
+// TestHTTPMediaClientIdentityCorrelationAndSafeErrors проверяет связь ответов с доверенной идентичностью и безопасные ошибки.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -43,7 +43,7 @@ func TestHTTPMediaClientIdentityCorrelationAndSafeErrors(t *testing.T) {
 	}
 }
 
-// TestHTTPMediaClientRedirectTimeoutAndBoundedResponse проверяет сценарий «HTTP медиа клиент Redirect Timeout и ограниченный Response», фиксируя ошибки поведения как регрессию.
+// TestHTTPMediaClientRedirectTimeoutAndBoundedResponse проверяет перенаправления, таймаут и ограничение ответа.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

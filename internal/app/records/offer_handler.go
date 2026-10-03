@@ -7,9 +7,9 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/records"
 )
 
-// Offer проксирует SDP offer браузера во внутренний worker.
+// Offer передаёт SDP-предложение браузера внутреннему воркеру.
 // @args
-// - c: Gin context HTTP-запроса.
+// - c: контекст HTTP-запроса Gin.
 // @return SDP answer worker-а.
 func (h *Handler) Offer(c *gin.Context) {
 	var request records.WebRTCOfferRequest

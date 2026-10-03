@@ -1,4 +1,4 @@
-/** A meeting shortcut is only active outside text entry and modal controls. */
+/** Горячая клавиша встречи действует только вне полей ввода и элементов модального окна. */
 export function meetingShortcut(
   event: KeyboardEvent,
   allowed: readonly string[],

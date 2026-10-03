@@ -67,7 +67,7 @@ func TestWebsocketGatewayProtocol(t *testing.T) {
 	}
 }
 
-// TestGatewayOutageCancellation проверяет bounded отключение молчащего/сломавшегося внешнего сервиса.
+// TestGatewayOutageCancellation проверяет ограниченное по времени отключение молчащего или сломавшегося внешнего сервиса.
 // @args t — исполнитель проверки очистки ресурсов.
 func TestGatewayOutageCancellation(t *testing.T) {
 	p := Provider{Mode: "mock", Timeout: time.Second}

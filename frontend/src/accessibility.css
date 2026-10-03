@@ -1,4 +1,4 @@
-/* Shared keyboard affordances and safe areas for the authenticated workspace. */
+/* Общие средства клавиатурного управления и безопасные отступы рабочего пространства. */
 .skip-link {
   position: fixed;
   z-index: 200;

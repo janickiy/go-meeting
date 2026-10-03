@@ -21,12 +21,12 @@ import (
 // apiRepository задаёт контракт зависимого компонента apiRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 // @params
 //   - Create: операция создание с контрактом, описанным у метода.
-//   - FindByUUID: операция поиск By UUID с контрактом, описанным у метода.
-//   - MarkStopping: операция Mark Stopping с контрактом, описанным у метода.
-//   - MarkFailed: операция Mark Failed с контрактом, описанным у метода.
+//   - FindByUUID: поиск записи по UUID с контрактом, описанным у метода.
+//   - MarkStopping: перевод записи в состояние остановки с контрактом, описанным у метода.
+//   - MarkFailed: перевод записи в состояние ошибки с контрактом, описанным у метода.
 //   - ListDetails: операция список Details с контрактом, описанным у метода.
-//   - ListSummaryDetailsByConferenceIDs: операция список Summary Details By конференция I Ds с контрактом, описанным у метода.
-//   - FindDetailsByUUID: операция поиск Details By UUID с контрактом, описанным у метода.
+//   - ListSummaryDetailsByConferenceIDs: получение кратких сведений о записях по идентификаторам конференций с контрактом, описанным у метода.
+//   - FindDetailsByUUID: получение подробных сведений о записи по UUID с контрактом, описанным у метода.
 type apiRepository interface {
 	// Create создаёт новое состояние задач записи и связанных артефактов по переданным параметрам.
 	//
@@ -158,8 +158,8 @@ type conferenceLocker interface {
 
 // workerRepository задаёт контракт зависимого компонента workerRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 //   - ingestFailureRepository: встроенный тип, добавляющий свой контракт или данные.
-//   - MarkFinalizing: операция Mark Finalizing с контрактом, описанным у метода.
-//   - MarkUploading: операция Mark Uploading с контрактом, описанным у метода.
+//   - MarkFinalizing: перевод записи в состояние завершения обработки с контрактом, описанным у метода.
+//   - MarkUploading: перевод записи в состояние загрузки с контрактом, описанным у метода.
 //   - SaveFinalArtifacts: операция сохранение итоговый артефакты с контрактом, описанным у метода.
 type workerRepository interface {
 	ingestFailureRepository
@@ -198,7 +198,7 @@ type workerRepository interface {
 // mediaIngest задаёт контракт зависимого компонента mediaIngest в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 //   - Prepare: операция Prepare с контрактом, описанным у метода.
 //   - Stop: операция остановка с контрактом, описанным у метода.
-//   - HandleOffer: операция Handle SDP-предложение с контрактом, описанным у метода.
+//   - HandleOffer: обработка SDP-предложения с контрактом, описанным у метода.
 type mediaIngest interface {
 	// Prepare подготавливает состояние WebRTC-приёма конкретной записи до обмена SDP.
 	//
@@ -292,7 +292,7 @@ func (s *WorkerService) ValidateLegacyRecord(ctx context.Context, id string) err
 	return nil
 }
 
-// recordCommandLock задаёт согласованное представление данных «запись Command Lock» для управлении задачами записи и её артефактами.
+// recordCommandLock представляет блокировку команды записи для управления задачами и артефактами.
 // @params:
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - refs: значение refs типа int, используемое согласно назначению этой операции.
@@ -301,12 +301,12 @@ type recordCommandLock struct {
 	refs int
 }
 
-// NewService создает API use-case.
+// NewService создаёт прикладной сервис API.
 // @args
 // - repository: repository записей.
-// - workerCommander: транспорт команд recorder-worker, сейчас RabbitMQ publisher.
+// - workerCommander: транспорт команд recorder-worker; используется издатель RabbitMQ.
 // - s3: MinIO/S3-клиент для генерации ссылок на артефакты.
-// - conferenceLocker: Redis lock для запрета параллельной записи одной конференции.
+// - conferenceLocker: блокировка Redis, запрещающая параллельную запись одной конференции.
 // @return Service.
 func NewService(repository apiRepository, workerCommander workerCommander, s3 *s3storage.Client, conferenceLocker conferenceLocker) *Service {
 	return &Service{
@@ -317,12 +317,12 @@ func NewService(repository apiRepository, workerCommander workerCommander, s3 *s
 	}
 }
 
-// NewWorkerService создает worker use-case.
+// NewWorkerService создаёт прикладной сервис записывающего воркера.
 // @args
 // - repository: repository записей.
-// - postProcessor: FFmpeg post-processor.
+// - postProcessor: компонент постобработки FFmpeg.
 // - s3: MinIO/S3-клиент.
-// - storagePath: локальный storage volume.
+// - storagePath: локальный том хранения.
 // - workerID: идентификатор worker-а.
 // @return WorkerService.
 func NewWorkerService(repository workerRepository, postProcessor *ffmpeg.PostProcessor, ingest mediaIngest, s3 *s3storage.Client, storagePath string, workerID string, locker conferenceReleaser) *WorkerService {
@@ -337,7 +337,7 @@ func NewWorkerService(repository workerRepository, postProcessor *ffmpeg.PostPro
 	}
 }
 
-// Start создает запись и публикует команду подготовки WebRTC ingest в RabbitMQ.
+// Start создаёт запись и публикует команду подготовки приёма WebRTC в RabbitMQ.
 // @args
 // - ctx: контекст HTTP-запроса.
 // - request: параметры записи.
@@ -432,8 +432,8 @@ func (s *Service) Stop(ctx context.Context, request records.EndRequest) error {
 			return err
 		}
 	}
-	// A retry in stopping must republish after a previous publish failure.
-	// Only the worker knows when media has actually stopped and can release the lock.
+	// Повтор в состоянии stopping заново публикует команду после прежнего сбоя публикации.
+	// Только воркер знает, когда медиа действительно остановлены и можно освободить блокировку.
 	return s.workerCommander.StopRecord(ctx, request.RecordID, request.Reason)
 }
 
@@ -531,7 +531,7 @@ func (s *Service) Read(ctx context.Context, uuid string) (records.RecordCard, er
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID создаваемой записи.
-// @return true, если lock получен.
+// @return true, если блокировка получена.
 func (s *Service) acquireConferenceLock(ctx context.Context, conferenceID string, recordID string) (bool, error) {
 	if s.conferenceLocker == nil {
 		return true, nil
@@ -560,8 +560,8 @@ func (s *Service) releaseConferenceLock(ctx context.Context, conferenceID string
 // - command: record.start или record.stop.
 // @return ошибку обработки команды.
 func (s *WorkerService) HandleCommand(ctx context.Context, command records.Command) error {
-	// Commands can arrive directly at the worker as well as through RabbitMQ.
-	// Validate before using recordId in any filesystem path.
+	// Команды поступают к воркеру как напрямую, так и через RabbitMQ.
+	// Проверяем recordId до его использования в любом пути файловой системы.
 	id, err := uuid.Parse(command.RecordID)
 	if err != nil {
 		return fmt.Errorf("recordId must be valid UUID: %w", err)
@@ -588,7 +588,7 @@ func (s *WorkerService) HandleCommand(ctx context.Context, command records.Comma
 		return fmt.Errorf("unknown command type %q", command.Type)
 	}
 	if errors.Is(commandErr, records.ErrRecordStateChanged) {
-		return nil // A newer lifecycle transition has already superseded this command.
+		return nil // Более новый переход жизненного цикла уже отменил актуальность этой команды.
 	}
 	return commandErr
 }
@@ -693,7 +693,7 @@ func (s *WorkerService) handleStop(ctx context.Context, command records.Command)
 		return err
 	}
 	if records.IsTerminalStatus(record.Status) {
-		// Acknowledge duplicate deliveries without touching artifacts or terminal status.
+		// Подтверждаем повторную доставку без изменения артефактов и окончательного состояния.
 		return releaseRecordLock(ctx, s.conferenceLocker, record)
 	}
 	if s.ingest != nil {
@@ -828,7 +828,7 @@ func (s *Service) recordCard(ctx context.Context, details records.RecordDetails)
 	return card, nil
 }
 
-// conferenceRecordItem собирает краткую карточку записи для endpoint-а count-by-conference.
+// conferenceRecordItem формирует краткую карточку записи для маршрута count-by-conference.
 // @args
 // - details: запись с итоговым файлом и превью, без событий и сегментов.
 // @return recordId, ссылки на final/preview и временные поля записи.
@@ -947,11 +947,11 @@ func (s *WorkerService) cleanupEmptyLocalStorageAfterFailure(ctx context.Context
 	}
 }
 
-// HandleOffer передает browser SDP offer в WebRTC ingest manager.
+// HandleOffer передаёт SDP-предложение браузера в менеджер приёма WebRTC.
 // @args
-// - ctx: HTTP context worker-а.
+// - ctx: контекст HTTP-запроса воркера.
 // - recordID: UUID записи.
-// - request: SDP offer.
+// - request: SDP-предложение.
 // @return SDP answer или ошибку signaling.
 func (s *WorkerService) HandleOffer(ctx context.Context, recordID string, request records.WebRTCOfferRequest) (records.WebRTCAnswerResponse, error) {
 	record, err := s.repository.FindByUUID(ctx, recordID)

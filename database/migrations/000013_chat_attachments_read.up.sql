@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     UNIQUE (conference_id, sender_user_id, client_request_id),
     CHECK (char_length(text) <= 4000)
 );
--- Sequence allocation is global, but uniqueness/index access is conference-
--- scoped. A standalone sequence index tempted the planner to scan unrelated
--- newer conferences for LIMIT queries instead of the scoped cursor index.
+-- Последовательность выделяет номера глобально, но уникальность и индекс ограничены конференцией.
+-- Отдельный индекс последовательности побуждал планировщик сканировать новые сообщения чужих
+-- конференций для запросов с LIMIT вместо использования индекса курсора текущей конференции.
 ALTER TABLE chat_messages DROP CONSTRAINT IF EXISTS chat_messages_sequence_key;
 DROP INDEX IF EXISTS chat_messages_cursor;
 CREATE UNIQUE INDEX IF NOT EXISTS chat_messages_conference_sequence ON chat_messages(conference_id, sequence DESC);

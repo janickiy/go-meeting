@@ -10,7 +10,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
 
-// TestStartReturnsConflictWhenConferenceLockExists проверяет сценарий «запуск Returns Conflict когда конференция Lock Exists», фиксируя ошибки поведения как регрессию.
+// TestStartReturnsConflictWhenConferenceLockExists проверяет конфликт запуска при существующей блокировке конференции.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -79,7 +79,7 @@ func TestStartKeepsConferenceLockAfterWorkerPrepare(t *testing.T) {
 	}
 }
 
-// TestStartReleasesConferenceLockWhenWorkerPrepareFails проверяет сценарий «запуск Releases конференция Lock когда воркер Prepare Fails», фиксируя ошибки поведения как регрессию.
+// TestStartReleasesConferenceLockWhenWorkerPrepareFails проверяет освобождение блокировки при сбое подготовки воркера.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -106,7 +106,7 @@ func TestStartReleasesConferenceLockWhenWorkerPrepareFails(t *testing.T) {
 	}
 }
 
-// TestStopKeepsConferenceLockUntilWorkerStopsMedia проверяет сценарий «остановка Keeps конференция Lock Until воркер Stops медиа», фиксируя ошибки поведения как регрессию.
+// TestStopKeepsConferenceLockUntilWorkerStopsMedia проверяет сохранение блокировки до фактической остановки медиа.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -141,7 +141,7 @@ func TestStopKeepsConferenceLockUntilWorkerStopsMedia(t *testing.T) {
 	}
 }
 
-// TestStopDoesNotReopenCompletedOrFinalizingRecord проверяет сценарий «остановка выполняет не Reopen Completed Or Finalizing запись», фиксируя ошибки поведения как регрессию.
+// TestStopDoesNotReopenCompletedOrFinalizingRecord проверяет запрет повторного открытия завершённой или финализируемой записи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -208,7 +208,7 @@ func TestStopIgnoresStaleState(t *testing.T) {
 	}
 }
 
-// TestCountByConferenceReturnsRecordsWithTimeFields проверяет сценарий «количество By конференция Returns Records с время Fields», фиксируя ошибки поведения как регрессию.
+// TestCountByConferenceReturnsRecordsWithTimeFields проверяет временные поля записей в счётчике конференции.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

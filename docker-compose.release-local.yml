@@ -1,0 +1,27 @@
+# Только локальная репетиция; scripts/release/common.sh ограничивает имя проекта.
+services:
+  proxy:
+    ports: !override ["127.0.0.1:25482:443"]
+  media-worker:
+    ports: !override ["127.0.0.1:50220:50220/udp", "127.0.0.1:50220:50220/tcp", "127.0.0.1:28091:8091"]
+    environment: {MEDIA_NAT_IPS: "127.0.0.1", MEDIA_UDP_PORT: "50220", MEDIA_TCP_PORT: "50220"}
+  api:
+    ports: ["127.0.0.1:28085:8085"]
+  worker:
+    ports: ["127.0.0.1:28090:8090"]
+  postgres:
+    ports: ["127.0.0.1:25433:5432"]
+  redis:
+    ports: ["127.0.0.1:26380:6379"]
+  rabbitmq:
+    ports: ["127.0.0.1:25682:5672"]
+  minio:
+    ports: ["127.0.0.1:29000:9000"]
+  prometheus:
+    ports: !override ["127.0.0.1:29090:9090"]
+  grafana:
+    ports: !override ["127.0.0.1:23001:3000"]
+  coturn:
+    entrypoint: [/bin/sh, -c]
+    command: ['exec turnserver -n --no-tls --fingerprint --use-auth-secret --static-auth-secret="$$TURN_SHARED_SECRET" --realm=release.local --listening-port=3478 --min-port=50300 --max-port=50340 --allow-loopback-peers --no-multicast-peers --log-file=stdout']
+    ports: !override ["127.0.0.1:23478:3478/udp", "127.0.0.1:23478:3478/tcp", "127.0.0.1:50300-50340:50300-50340/udp"]

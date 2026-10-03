@@ -23,6 +23,7 @@ import (
 	platformapp "github.com/janickiy/go-recorder/internal/app/platform"
 	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
+	telemetryapp "github.com/janickiy/go-recorder/internal/app/telemetry"
 	"github.com/janickiy/go-recorder/internal/config"
 	healthinfra "github.com/janickiy/go-recorder/internal/infrastructure/health"
 	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
@@ -53,7 +54,7 @@ func RunAPI() error {
 	if err != nil {
 		return err
 	}
-	// Validate only in API bootstrap: recorder-worker/migrate do not issue JWTs.
+	// Проверяем только при запуске API: recorder-worker и команда миграций не выпускают JWT.
 	tokens, err := security.NewTokenService(cfg.JWTSecret)
 	if err != nil {
 		return err
@@ -77,7 +78,7 @@ func RunAPI() error {
 		return err
 	}
 	defer sqlDB.Close()
-	if err := postgresinfra.RunMigrations(db, "database/migrations"); err != nil {
+	if err := postgresinfra.RunStartupMigrations(db, "database/migrations"); err != nil {
 		return err
 	}
 	s3Client, err := s3storage.NewClient(context.Background(), cfg.MinIOEndpoint, cfg.MinIOAccessKey, cfg.MinIOSecretKey, cfg.MinIOBucket, cfg.MinIOUseSSL)
@@ -118,6 +119,7 @@ func RunAPI() error {
 	handler := recordsapp.NewHandlerWithSignaler(service, workerSignaler)
 	router := httptransport.NewRouter(handler, cfg.IsLocal(), s3Client, ops.Middleware(), httpmiddleware.RateLimit(rateLimiter, rateLimitConfig(cfg)))
 	ops.RegisterGin(router)
+	httptransport.RegisterClientErrorRoutes(router, telemetryapp.NewHandler(os.Getenv("CLIENT_TELEMETRY_ENABLED") == "true", slog.Default(), ops.Registry), rateLimiter)
 	if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		return fmt.Errorf("HTTP_TRUSTED_PROXIES: %w", err)
 	}
@@ -134,6 +136,7 @@ func RunAPI() error {
 		return err
 	}
 	defer hub.Shutdown()
+	ops.ConfigureDrain(nil, hub.LocalCount)
 	hands := redisinfra.NewHands(redisClient, realtimeConfig.Namespace)
 	hub.SetHands(hands)
 	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hands, hub)
@@ -210,7 +213,7 @@ func RunAPI() error {
 		}
 	case <-ctx.Done():
 	}
-	// Hijacked WebSockets are not closed by http.Server.Shutdown.
+	// Переданные приложению соединения WebSocket не закрываются вызовом http.Server.Shutdown.
 	ops.Drain()
 	_ = listener.Close()
 	shutdown, cancel := context.WithTimeout(context.Background(), cfg.Operations.ShutdownTimeout)

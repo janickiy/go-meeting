@@ -98,3 +98,24 @@ stage6-load:
 	RECORDER_MEDIA_LOAD=true go test -v ./internal/infrastructure/sfu -run '^TestStageSixMediaLoad$$' -timeout 5m
 stage6-soak:
 	RECORDER_SOAK_DURATION=30m go test -v ./internal/infrastructure/sfu -run '^TestStageSixSoak$$' -timeout 35m
+
+# RELEASE_ARGS содержит явные --environment, --env-file, --manifest и --project.
+.PHONY: release-validate release-pull release-migrate release-drain release-resume release-deploy release-rollback release-build release-package
+release-validate:
+	bash scripts/release/release.sh validate $(RELEASE_ARGS)
+release-pull:
+	bash scripts/release/release.sh pull $(RELEASE_ARGS)
+release-migrate:
+	bash scripts/release/release.sh migrate $(RELEASE_ARGS)
+release-drain:
+	bash scripts/release/release.sh drain $(RELEASE_ARGS)
+release-resume:
+	bash scripts/release/release.sh resume $(RELEASE_ARGS)
+release-deploy:
+	bash scripts/release/release.sh deploy $(RELEASE_ARGS)
+release-rollback:
+	bash scripts/release/release.sh rollback $(RELEASE_ARGS)
+release-build:
+	bash scripts/release/build.sh $(BUILD_ARGS)
+release-package:
+	bash scripts/release/package.sh $(PACKAGE_ARGS)

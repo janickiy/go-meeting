@@ -2,12 +2,17 @@ FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY index.html tsconfig.json vite.config.ts ./
+COPY index.html tsconfig.json vite.config.ts build-metadata.ts ./
 COPY src ./src
 COPY public ./public
+ARG BUILD_VERSION=dev
+ARG BUILD_COMMIT=unknown
+ARG BUILD_TIME=unknown
+ARG CLIENT_TELEMETRY_ENABLED=false
+ENV VITE_BUILD_VERSION=$BUILD_VERSION VITE_BUILD_COMMIT=$BUILD_COMMIT VITE_BUILD_TIME=$BUILD_TIME VITE_CLIENT_TELEMETRY_ENABLED=$CLIENT_TELEMETRY_ENABLED
 RUN npm run build
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.30.5-alpine AS runtime
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY 15-csp-origins.envsh /docker-entrypoint.d/15-csp-origins.envsh
 RUN chmod +x /docker-entrypoint.d/15-csp-origins.envsh

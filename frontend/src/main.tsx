@@ -15,6 +15,11 @@ import "./accessibility.css";
 import { ApiError } from "./api";
 import { AuthProvider } from "./auth";
 import { App } from "./App";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
+import { installClientTelemetry } from "./clientTelemetry";
+
+const stopTelemetry = installClientTelemetry();
+if (import.meta.hot) import.meta.hot.dispose(stopTelemetry);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,12 +46,14 @@ const queryClient = new QueryClient({
 });
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </QueryClientProvider>
+      </BrowserRouter>
+    </AppErrorBoundary>
   </StrictMode>,
 );

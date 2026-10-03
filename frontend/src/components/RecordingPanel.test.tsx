@@ -70,13 +70,13 @@ afterEach(
   },
 );
 describe("conference recording controls", /**
- * Проверка: conference recording controls выполняет тестовый сценарий «conference recording controls» и проверяет ожидаемые результаты.
+ * Проверяет управление записью конференции.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("shows active recording to participants but exposes no recording command", /**
-   * Проверка: shows active recording to participants but exposes no recording command выполняет тестовый сценарий «shows active recording to participants but exposes no recording command» и проверяет ожидаемые результаты.
+   * Проверяет показ активной записи участникам без доступа к командам записи.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -89,7 +89,7 @@ describe("conference recording controls", /**
     client.clear();
   });
   it("allows owner stop and does not duplicate start while recording", /**
-   * Проверка: allows owner stop and does not duplicate start while recording выполняет тестовый сценарий «allows owner stop and does not duplicate start while recording» и проверяет ожидаемые результаты.
+   * Проверяет остановку владельцем и отсутствие повторного запуска во время записи.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -102,7 +102,7 @@ describe("conference recording controls", /**
     client.clear();
   });
   it("keeps cohost recording permission owner-only", /**
-   * Проверка: keeps cohost recording permission owner-only выполняет тестовый сценарий «keeps cohost recording permission owner-only» и проверяет ожидаемые результаты.
+   * Проверяет, что соведущий не получает права владельца на запись.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

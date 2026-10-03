@@ -23,7 +23,7 @@ type UserRepository struct{ db *gorm.DB }
 // @return:
 //   - результат 1 (*UserRepository): созданный компонент с переданными зависимостями.
 func NewUserRepository(db *gorm.DB) *UserRepository {
-	// An INSERT failure must never cause GORM to log password_hash parameters.
+	// Ошибка INSERT не должна приводить к выводу параметров password_hash через GORM.
 	return &UserRepository{db: db.Session(&gorm.Session{Logger: logger.Discard})}
 }
 
@@ -75,7 +75,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (users.Us
 	return user, mapNotFound(err)
 }
 
-// UpdateDisplayName меняет только имя учётной записи из проверенного JWT subject.
+// UpdateDisplayName меняет только имя учётной записи из проверенного субъекта JWT.
 func (r *UserRepository) UpdateDisplayName(ctx context.Context, userID, name string) (users.User, error) {
 	result := r.db.WithContext(ctx).Model(&users.User{}).Where("id = ?", userID).Update("display_name", name)
 	if result.Error != nil {

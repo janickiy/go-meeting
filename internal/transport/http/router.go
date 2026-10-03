@@ -13,12 +13,12 @@ import (
 // APIV1Prefix задает основной префикс версионированного REST API.
 const APIV1Prefix = "/api/v1"
 
-// NewRouter создает Gin router API.
+// NewRouter создаёт маршрутизатор API на основе Gin.
 // @args
 // - recordsHandler: handler записей.
-// - debug: включить local debug pages.
-// - completedRecords: источник завершенных записей для debug pages.
-// - middleware: дополнительные Gin middleware.
+// - debug: включить локальные страницы отладки.
+// - completedRecords: источник завершённых записей для страниц отладки.
+// - middleware: дополнительные промежуточные обработчики Gin.
 // @return готовый *gin.Engine.
 func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords CompletedRecordsLister, middleware ...gin.HandlerFunc) *gin.Engine {
 	router := gin.New()
@@ -43,7 +43,7 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 		*/func(c *gin.Context) {
 			start := time.Now()
 			c.Next()
-			// Never log query strings: one-time WS tickets are credentials too.
+			// Строки запросов не журналируются: одноразовые билеты WS также являются учётными данными.
 			slog.Info("http request", "method", c.Request.Method, "route", c.FullPath(), "status", c.Writer.Status(), "duration_ms", time.Since(start).Milliseconds(), "request_id", operations.ID(c.Request.Context()))
 		})
 	if len(middleware) > 0 {
@@ -64,18 +64,18 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 	return router
 }
 
-// RegisterRecordRoutes регистрирует HTTP routes записей.
+// RegisterRecordRoutes регистрирует HTTP-маршруты записей.
 // @args
-// - router: Gin router group.
+// - router: группа маршрутов Gin.
 // - recordsHandler: handler записей.
 // @return ничего.
 func RegisterRecordRoutes(router gin.IRouter, recordsHandler *recordsapp.Handler) {
 	registerRecordRoutes(router.Group(APIV1Prefix), recordsHandler)
 }
 
-// registerRecordRoutes регистрирует endpoints records внутри переданного API-префикса.
+// registerRecordRoutes регистрирует маршруты записей внутри заданного префикса API.
 // @args
-// - router: Gin group, например /api/v1.
+// - router: группа маршрутов Gin, например /api/v1.
 // - recordsHandler: handler записей.
 // @return ничего.
 func registerRecordRoutes(router gin.IRouter, recordsHandler *recordsapp.Handler) {

@@ -15,7 +15,7 @@ import (
 var webrtcSmokeHTML string
 
 // CompletedRecordsLister задаёт контракт зависимого компонента CompletedRecordsLister в регистрации и обработке HTTP-маршрутов; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-// - ListCompletedRecords: операция список Completed Records с контрактом, описанным у метода.
+// - ListCompletedRecords: получение списка завершённых записей с контрактом, описанным у метода.
 type CompletedRecordsLister interface {
 	// ListCompletedRecords возвращает записи, у которых в MinIO есть preview.jpg и final.mp4.
 	// @args
@@ -25,9 +25,9 @@ type CompletedRecordsLister interface {
 	ListCompletedRecords(ctx context.Context, limit int) ([]s3storage.CompletedRecord, error)
 }
 
-// RegisterDebugRoutes регистрирует local-only debug страницы.
+// RegisterDebugRoutes регистрирует страницы отладки только для локального режима.
 // @args
-// - router: Gin router.
+// - router: маршрутизатор Gin.
 // - completedRecords: источник завершенных записей из MinIO.
 // @return ничего.
 func RegisterDebugRoutes(router gin.IRouter, completedRecords CompletedRecordsLister) {
@@ -64,9 +64,9 @@ func RegisterDebugRoutes(router gin.IRouter, completedRecords CompletedRecordsLi
 		})
 }
 
-// noStore отключает browser cache для debug endpoint-ов.
+// noStore отключает кеш браузера для маршрутов отладки.
 // @args
-// - c: Gin context.
+// - c: контекст HTTP-запроса Gin.
 // @return ничего.
 func noStore(c *gin.Context) {
 	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
@@ -74,9 +74,9 @@ func noStore(c *gin.Context) {
 	c.Header("Expires", "0")
 }
 
-// debugLimit читает query-параметр limit для debug endpoint-ов.
+// debugLimit читает параметр limit строки запроса для маршрутов отладки.
 // @args
-// - c: Gin context.
+// - c: контекст HTTP-запроса Gin.
 // - fallback: значение по умолчанию.
 // @return корректный limit в диапазоне 1..100.
 func debugLimit(c *gin.Context, fallback int) int {

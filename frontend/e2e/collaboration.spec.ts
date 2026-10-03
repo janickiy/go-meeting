@@ -80,8 +80,8 @@ async function request<T>(
     data,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
-  // Consecutive acceptance suites share the real 5/min registration limit.
-  // Retry only an explicitly rejected setup request, without changing budgets.
+  // Последовательные приёмочные наборы используют общий реальный лимит регистрации: 5 запросов в минуту.
+  // Повторяем только явно отклонённый запрос подготовки, не меняя лимиты.
   if (
     result.status() === 429 &&
     ["/auth/register", "/auth/login"].includes(path)
@@ -161,7 +161,7 @@ async function send(page: Page, text: string) {
 }
 
 test("scheduled waiting room, durable chat/files, engagement, recording and history in real Docker", /**
- * Проверка: scheduled waiting room, durable chat/files, engagement, recording and history in real Docker выполняет тестовый сценарий «scheduled waiting room, durable chat/files, engagement, recording and history in real Docker» и проверяет ожидаемые результаты.
+ * Проверяет запланированную встречу, зал ожидания, постоянные чат и файлы, взаимодействия, запись и историю в реальном Docker.
  *
  * @args
  *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами; request — параметры сообщения или другого API-действия.

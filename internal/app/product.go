@@ -88,7 +88,7 @@ func newProductServices(cfg config.Config, db *gorm.DB, storage *s3.Client) (pro
 }
 
 // RunProductWorker запускает независимый процесс медленных внешних операций с постоянными очередями.
-// Отмена останавливает новые захваты, прерывает provider requests и ограничивает финальную запись.
+// Отмена останавливает новые захваты, прерывает запросы к провайдеру и ограничивает финальную запись.
 // @return ошибка конфигурации/старта либо nil после корректного завершения.
 func RunProductWorker() error {
 	cfg, err := config.Load()
@@ -107,7 +107,7 @@ func RunProductWorker() error {
 	sqlDB.SetMaxOpenConns(cfg.Operations.DBMaxOpen)
 	sqlDB.SetMaxIdleConns(cfg.Operations.DBMaxIdle)
 	sqlDB.SetConnMaxLifetime(cfg.Operations.DBLifetime)
-	if err := pg.RunMigrations(db, "database/migrations"); err != nil {
+	if err := pg.RunStartupMigrations(db, "database/migrations"); err != nil {
 		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -160,6 +160,7 @@ func RunProductWorker() error {
 		return err
 	}
 	workerDone := make(chan struct{})
+	ops.ConfigureDrain(runner.BeginDrain, runner.Active)
 	go func() { defer close(workerDone); runner.Run(ctx) }()
 	tickDone := make(chan struct{})
 	go func() {
@@ -200,8 +201,8 @@ func RunProductWorker() error {
 	return errors.Join(serveErr, serverErr)
 }
 
-// runProductTicks создаёт due-reminders и снимает размер очереди одним общим таймером.
-// @args ctx — время жизни; service — scheduler интеграций; repo — очередь; interval — период опроса.
+// runProductTicks создаёт наступившие напоминания и измеряет размер очереди одним общим таймером.
+// @args ctx — время жизни; service — планировщик интеграций; repo — очередь; interval — период опроса.
 func runProductTicks(ctx context.Context, service *integrations.Service, repo *pg.JobRepository, interval time.Duration, extra func(context.Context)) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

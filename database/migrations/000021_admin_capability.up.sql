@@ -1,8 +1,8 @@
--- Global operations access is explicit and deny-by-default. Conference owner/co-host
--- roles never grant access to application-wide operational data.
+-- Глобальный доступ к операциям предоставляется явно и запрещён по умолчанию. Роли владельца
+-- и соведущего конференции не дают доступа к операционным данным всего приложения.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
 
--- The admin summary reads recent terminal failures; avoid a full queue scan.
+-- Сводка администратора читает недавние окончательные сбои без полного сканирования очереди.
 CREATE INDEX IF NOT EXISTS idx_background_jobs_failed_recent
     ON background_jobs(updated_at DESC) WHERE state = 'failed';
 CREATE INDEX IF NOT EXISTS idx_record_failed_recent

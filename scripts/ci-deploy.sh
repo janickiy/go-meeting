@@ -6,8 +6,8 @@ DEPLOY_USER="${DEPLOY_USER:-}"
 DEPLOY_PORT="${DEPLOY_PORT:-22}"
 DEPLOY_PATH="${DEPLOY_PATH:-}"
 
-# CI deploys a source archive without .git, so carry its immutable revision into
-# the Docker build explicitly. Never place env contents or credentials in this arg.
+# CI развёртывает архив исходников без .git, поэтому неизменный идентификатор версии явно
+# передаётся сборке Docker. В этот аргумент запрещено помещать содержимое env и учётные данные.
 BUILD_VERSION="${BUILD_VERSION:-}"
 if [[ -z "${BUILD_VERSION}" && -n "${CI_COMMIT_SHA:-}" ]]; then
   BUILD_VERSION="${CI_COMMIT_SHA:0:12}"
@@ -64,6 +64,10 @@ rsync -az --delete \
   --exclude '.git/' \
   --exclude '.idea/' \
   --exclude '.env' \
+  --include '.env*.example' \
+  --exclude '.env.*' \
+  --exclude 'secrets/' \
+  --exclude 'release-artifacts/' \
   --exclude '.DS_Store' \
   --exclude 'dockers/https/certs/' \
   --exclude 'dockers/postgres/data/' \
@@ -88,6 +92,6 @@ fi
 
 "${ssh_command[@]}" "${remote}" "cd '${DEPLOY_PATH}' && \
   if [ ! -f .env ]; then cp .env.example .env; fi && \
-  BUILD_VERSION='${BUILD_VERSION}' docker compose build api worker media-worker frontend minio && \
+  BUILD_VERSION='${BUILD_VERSION}' docker compose build api worker media-worker product-worker live-worker frontend minio && \
   docker compose up -d --remove-orphans && \
   docker compose ps"

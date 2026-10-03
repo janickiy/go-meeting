@@ -78,7 +78,7 @@ func TestAuthRegistrationValidationAndNoSecrets(t *testing.T) {
 	}
 }
 
-// TestAuthLoginMeAndStatelessLogout проверяет сценарий «авторизация Login Me и Stateless Logout», фиксируя ошибки поведения как регрессию.
+// TestAuthLoginMeAndStatelessLogout проверяет вход, чтение профиля и выход без серверного состояния.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -189,7 +189,7 @@ func TestAuthProfileUpdateValidationAndPublicResponse(t *testing.T) {
 	}
 }
 
-// TestAuthPasswordCharacterPolicy проверяет сценарий «авторизация Password Character политика», фиксируя ошибки поведения как регрессию.
+// TestAuthPasswordCharacterPolicy проверяет требования к паролю по числу символов.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -230,18 +230,18 @@ func TestAuthPasswordCharacterPolicy(t *testing.T) {
 	}
 }
 
-// TestAuthExistingShortUnicodePasswordStillWorks проверяет сценарий «авторизация Existing Short Unicode Password Still Works», фиксируя ошибки поведения как регрессию.
+// TestAuthExistingShortUnicodePasswordStillWorks проверяет работу существующего короткого пароля Unicode.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestAuthExistingShortUnicodePasswordStillWorks(t *testing.T) {
 	router, repo := authRouter(t, nil)
-	// Six Cyrillic characters met the old 12-byte registration minimum.
+	// Шесть кириллических символов удовлетворяли прежнему минимуму регистрации в 12 байтов.
 	repo.user = users.User{ID: uuid.NewString(), Email: "legacy@example.com", PasswordHash: "test-hash:пароль"}
 	assertStatus(t, performJSON(router, "POST", "/api/v1/auth/login", `{"email":"legacy@example.com","password":"пароль"}`).Code, 200)
 }
 
-// TestPlatformRoutesRequireBearerAuthentication проверяет сценарий «Platform Routes Require Bearer Authentication», фиксируя ошибки поведения как регрессию.
+// TestPlatformRoutesRequireBearerAuthentication проверяет требование Bearer-авторизации маршрутов платформы.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -265,7 +265,7 @@ func TestPlatformRoutesRequireBearerAuthentication(t *testing.T) {
 	}
 }
 
-// TestLoginRateLimitCannotBeBypassedWithForwardedIP проверяет сценарий «Login Rate лимит Cannot Be Bypassed с Forwarded IP», фиксируя ошибки поведения как регрессию.
+// TestLoginRateLimitCannotBeBypassedWithForwardedIP проверяет защиту лимита входа от подмены IP прокси-заголовком.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -297,7 +297,7 @@ func TestLoginRateLimitCannotBeBypassedWithForwardedIP(t *testing.T) {
 func assertNoCredentials(t *testing.T, raw string) {
 	t.Helper()
 	if strings.Contains(raw, "password") || strings.Contains(raw, "Password") || strings.Contains(raw, "StrongPassword123") || strings.Contains(raw, "$argon2") {
-		// The intentional generic login error is checked separately.
+		// Общее сообщение об ошибке входа проверяется отдельно.
 		t.Fatalf("response exposed credential fields: %s", raw)
 	}
 }
@@ -390,7 +390,7 @@ func (authPasswords) Verify(password, hash string) (bool, error) {
 	return hash == "test-hash:"+password, nil
 }
 
-// loginLimiter хранит изолированное состояние тестового компонента «login Limiter».
+// loginLimiter хранит изолированное состояние ограничителя входа.
 // @params:
 //   - keys: индекс значений keys для поиска и согласования состояния.
 type loginLimiter struct{ keys map[string]int }

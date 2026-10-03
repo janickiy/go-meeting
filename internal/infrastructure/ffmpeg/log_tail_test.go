@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestLogTailRetainsNewestDiagnostics проверяет сценарий «Log Tail Retains Newest Diagnostics», фиксируя ошибки поведения как регрессию.
+// TestLogTailRetainsNewestDiagnostics проверяет сохранение последней диагностики в хвосте журнала.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -22,7 +22,7 @@ func TestLogTailRetainsNewestDiagnostics(t *testing.T) {
 	}
 }
 
-// TestLogTailConcurrentReadsAndWrites проверяет сценарий «Log Tail одновременный Reads и Writes», фиксируя ошибки поведения как регрессию.
+// TestLogTailConcurrentReadsAndWrites проверяет одновременные чтение и запись хвоста журнала.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

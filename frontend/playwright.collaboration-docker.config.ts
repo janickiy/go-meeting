@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Opt in only against the already running local Compose stack; no user profile.
+// Явный запуск только для уже работающего локального стенда Compose, без профиля пользователя.
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "collaboration.spec.ts",

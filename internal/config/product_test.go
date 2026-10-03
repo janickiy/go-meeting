@@ -21,7 +21,7 @@ func TestStageSevenPrivacyDefaults(t *testing.T) {
 	}
 }
 
-// TestStageSevenRejectsUnsafeConfiguration исключает mock production, неверные числа и неполный OAuth.
+// TestStageSevenRejectsUnsafeConfiguration отклоняет подставных провайдеров в рабочей среде, неверные числа и неполный OAuth.
 // @args t — контекст негативных сценариев.
 func TestStageSevenRejectsUnsafeConfiguration(t *testing.T) {
 	for _, tc := range []struct {
@@ -50,7 +50,7 @@ func TestStageSevenRejectsUnsafeConfiguration(t *testing.T) {
 	}
 }
 
-// TestStageSevenRejectsReusedJWTKey исключает копирование JWT секрета в base64 AES key.
+// TestStageSevenRejectsReusedJWTKey запрещает повторное использование секрета JWT как ключа AES в base64.
 // @args t — контекст проверки независимости ключей разных назначений.
 func TestStageSevenRejectsReusedJWTKey(t *testing.T) {
 	key := strings.Repeat("j", 32)

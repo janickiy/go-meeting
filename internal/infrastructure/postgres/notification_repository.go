@@ -17,7 +17,7 @@ type NotificationRepository struct {
 	legacyRemindersDisabled bool
 }
 
-// DisableLegacyReminders передаёт планирование напоминаний общему durable scheduler интеграций без второго fixed-15m источника.
+// DisableLegacyReminders передаёт планирование общему постоянному исполнителю интеграций без второго источника напоминаний за 15 минут.
 // @return: тот же репозиторий для DI; флаг меняется только до запуска goroutines.
 func (r *NotificationRepository) DisableLegacyReminders() *NotificationRepository {
 	r.legacyRemindersDisabled = true
@@ -102,7 +102,7 @@ func (r *NotificationRepository) Read(ctx context.Context, userID, id string) (d
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *NotificationRepository) Generate(ctx context.Context) error {
-	// Timezone-independent epoch-microseconds are part of the soon dedup key.
+	// Микросекунды от начала эпохи, независимые от часового пояса, входят в ключ дедупликации ближайших встреч.
 	soon := `WITH candidates AS (
             SELECT p.user_id, 'soon:' || c.id::text || ':' || (extract(epoch from c.scheduled_at)*1000000)::bigint::text AS dedup_key,
               jsonb_build_object('conferenceId',c.id,'scheduledAt',c.scheduled_at) AS payload
@@ -144,7 +144,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 			if err := tx.Raw(`SELECT id,kind,conference_id,recording_id,cursor_participant_id,created_at FROM notification_jobs WHERE processed_at IS NULL ORDER BY available_at,id LIMIT 100 FOR UPDATE SKIP LOCKED`).Scan(&jobs).Error; err != nil {
 				return err
 			}
-			budget := 1000 // Also bound fanout, not only the number of source events.
+			budget := 1000 // Ограничиваем и число получателей, а не только число исходных событий.
 			for _, item := range jobs {
 				if budget == 0 {
 					break
@@ -173,8 +173,8 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 						return err
 					}
 					if len(ids) > 0 {
-						// Recheck live authorization in the insertion statement, including
-						// deletion/kick racing the preceding bounded candidate lookup.
+						// Повторно проверяем действующий доступ в запросе вставки, включая удаление встречи
+						// или участника одновременно с предыдущей ограниченной выборкой кандидатов.
 						if err := tx.Exec(`INSERT INTO notifications(id,user_id,type,payload,dedup_key,created_at)
                         SELECT gen_random_uuid(),p.user_id,j.kind,jsonb_build_object('conferenceId',j.conference_id,'recordingId',j.recording_id),
                           'recording:' || j.recording_id::text,j.created_at

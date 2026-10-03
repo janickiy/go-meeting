@@ -124,8 +124,8 @@ func LoadMedia() (MediaConfig, error) {
 		ICEKeepaliveInterval:   envDuration("MEDIA_ICE_KEEPALIVE_INTERVAL", 2*time.Second),
 		NegotiationTimeout:     envDuration("MEDIA_NEGOTIATION_TIMEOUT", 15*time.Second),
 	}
-	// Preserve existing local Compose without sharing raw access-token keys.
-	// Production must provide independent secrets; derivation is local-only.
+	// Сохраняем совместимость с локальным Compose без повторного использования исходных ключей токенов доступа.
+	// В рабочей среде нужны независимые секреты; производные ключи разрешены только локально.
 	local := Config{AppEnv: env("APP_ENV", "local")}.IsLocal()
 	base := os.Getenv("JWT_SECRET")
 	if local && len(base) >= 32 {

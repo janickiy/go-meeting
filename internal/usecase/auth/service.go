@@ -14,8 +14,8 @@ import (
 // userRepository задаёт контракт зависимого компонента userRepository в авторизации и учётных записях пользователей; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 // @params
 //   - Create: операция создание с контрактом, описанным у метода.
-//   - GetByID: операция получение By ID с контрактом, описанным у метода.
-//   - GetByEmail: операция получение By Email с контрактом, описанным у метода.
+//   - GetByID: получение объекта по идентификатору с контрактом, описанным у метода.
+//   - GetByEmail: получение пользователя по адресу электронной почты с контрактом, описанным у метода.
 type userRepository interface {
 	// Create создаёт новое состояние ресурсов компонента по переданным параметрам.
 	//
@@ -162,7 +162,7 @@ func (s *Service) Register(ctx context.Context, request users.RegisterRequest) (
 func (s *Service) Login(ctx context.Context, request users.LoginRequest) (users.LoginResponse, error) {
 	request.Email = users.NormalizeEmail(request.Email)
 	// Старые учётные записи могут иметь менее восьми символов из-за прежней проверки длины в байтах.
-	// Apply the new minimum only at registration; never reject a valid existing password.
+	// Новый минимум применяется только при регистрации; действующий прежний пароль не отклоняется.
 	if users.ValidateEmail(request.Email) != nil || request.Password == "" || !utf8.ValidString(request.Password) || utf8.RuneCountInString(request.Password) > users.MaxPasswordCharacters {
 		return users.LoginResponse{}, invalidCredentials()
 	}

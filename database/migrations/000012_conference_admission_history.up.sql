@@ -29,10 +29,10 @@ ALTER TABLE conference_participants ADD CONSTRAINT conference_participants_admis
     (status <> 'rejected' OR admission_state = 'rejected') AND
     (status <> 'kicked' OR admission_state = 'kicked')
 );
--- Historical membership must not silently vanish if a conference is deleted.
+-- История членства не должна бесследно исчезать при удалении конференции.
 ALTER TABLE conference_participants DROP CONSTRAINT IF EXISTS conference_participants_conference_id_fkey;
 ALTER TABLE conference_participants ADD CONSTRAINT conference_participants_conference_id_fkey FOREIGN KEY(conference_id) REFERENCES conferences(id) ON DELETE RESTRICT;
--- Chronological keyset browsing and soon-meeting discovery use these orders.
+-- Этот порядок используется для хронологической пагинации по курсору и поиска ближайших встреч.
 CREATE INDEX IF NOT EXISTS idx_conferences_timeline ON conferences ((COALESCE(finished_at, scheduled_at, created_at)) DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_conferences_scheduled ON conferences (scheduled_at, id) WHERE status = 'scheduled';
 CREATE INDEX IF NOT EXISTS idx_participants_user_admission ON conference_participants (user_id, admission_state, conference_id);

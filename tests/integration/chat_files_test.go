@@ -382,7 +382,7 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 			if _, _, _, err := storage.StatAttachment(ctx, orphan.ObjectKey); err == nil {
 				t.Fatal("expired orphan object still present")
 			}
-			// Cleanup of an attached row retains exactly its immutable winning object.
+			// Очистка привязанной записи сохраняет именно тот неизменный объект, который выиграл гонку.
 			if err := f.db.Model(&chat.Attachment{}).Where("id=?", attachment.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error; err != nil {
 				t.Fatal(err)
 			}
@@ -468,7 +468,7 @@ func TestStageFiveChatFilesRead(t *testing.T) {
 			if !strings.Contains(strings.Join(plan, " "), "chat_messages_conference_sequence") || strings.Contains(strings.Join(plan, " "), "Rows Removed by Filter") {
 				t.Fatal("cursor query did not use the conference-scoped index")
 			}
-			// Mark-read uses its own key; exhausting it must not block message send.
+			// Отметка прочтения использует отдельный ключ лимита; его исчерпание не блокирует отправку сообщений.
 			var latest chat.Message
 			if err := f.db.Where("conference_id=?", f.conference.ID).Order("sequence DESC").First(&latest).Error; err != nil {
 				t.Fatal(err)

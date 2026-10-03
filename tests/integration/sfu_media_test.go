@@ -567,7 +567,7 @@ func waitMediaStats(t *testing.T, engine *sfu.Manager, predicate func(sfu.Stats)
 	}
 }
 
-// TestStageThreeAuthenticatedSFUMedia проверяет сценарий «этап три Authenticated SFU медиа», фиксируя ошибки поведения как регрессию.
+// TestStageThreeAuthenticatedSFUMedia проверяет авторизованный обмен медиа через SFU.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -597,7 +597,7 @@ func TestStageThreeAuthenticatedSFUMedia(t *testing.T) {
 
 		@return:
 		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(s sfu.Stats) bool { return s.Peers == 3 && s.Tracks == 6 && s.Subscriptions == 12 })
-	// SDP removeTrack must clean publisher and every subscriber, not only UI.
+	// SDP removeTrack очищает публикацию и все подписки, а не только состояние интерфейса.
 	a.actions <- /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
 	 */func() { pErr := a.pc.RemoveTrack(a.senders[1]); a.report(pErr) }
@@ -636,8 +636,8 @@ func TestStageThreeAuthenticatedSFUMedia(t *testing.T) {
 	b2.assertReceived(t, a.id(), c.id())
 	a.assertReceived(t, b2.id())
 	c.assertReceived(t, b2.id())
-	// Invalid signed admission and mismatched conference binding are rejected by
-	// the real protected HTTP boundary, not a fake signaling transport.
+	// Неверно подписанный допуск и несоответствие конференции отклоняются
+	// реальным защищённым обработчиком HTTP, а не подставной сигнализацией.
 	session, err := f.store.Get(context.Background(), b2.socket.state.ConnectionID)
 	if err != nil {
 		t.Fatal(err)

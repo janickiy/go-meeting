@@ -19,7 +19,7 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media/ivfreader"
 )
 
-// TestSyntheticWebRTCRecording проверяет сценарий «Synthetic Web RTC запись», фиксируя ошибки поведения как регрессию.
+// TestSyntheticWebRTCRecording проверяет запись синтетического потока WebRTC.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

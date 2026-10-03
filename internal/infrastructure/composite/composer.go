@@ -178,10 +178,10 @@ func (c *Composer) Arguments(dir string, chunk Chunk, output string) ([]string, 
 		if filepath.Base(source.File) != source.File || source.File == "." {
 			return nil, fmt.Errorf("invalid source file")
 		}
-		// Browsers adapt VP8 dimensions mid-stream. Reinitializing the whole
-		// filter graph resets its timestamps/overlay state (notably in FFmpeg 6)
-		// and can make a healthy camera disappear. Scale accepts changed input
-		// dimensions while maintaining the fixed-size compositor output.
+		// Браузеры меняют размеры VP8 в ходе передачи. Повторная инициализация всего графа
+		// фильтров сбрасывает временные отметки и состояние наложения, особенно в FFmpeg 6,
+		// из-за чего исправная камера может исчезнуть. Фильтр scale принимает новые размеры
+		// входа и сохраняет фиксированные размеры выходного изображения композиции.
 		args = append(args, "-threads", "1", "-reinit_filter", "0", "-i", filepath.Join(dir, "sources", source.File))
 		tracks = append(tracks, source.Track)
 		index[source.Track.ID] = i
@@ -197,9 +197,9 @@ func (c *Composer) Arguments(dir string, chunk Chunk, output string) ([]string, 
 		i := index[tile.TrackID]
 		source := chunk.Sources[i]
 		graph = append(graph, fmt.Sprintf("[%d:v]setpts=PTS-STARTPTS+%.6f/TB,scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=0x101827,setsar=1[v%d]", i, source.Offset, tile.Width, tile.Height, tile.Width, tile.Height, n))
-		// Variable-frame-rate and static browser sources keep their final frame
-		// visible while live. Source.End is bounded by an explicit track.end,
-		// so repeating a frame cannot resurrect an ended camera or screen.
+		// Источники с переменной частотой кадров и статичные источники браузера сохраняют
+		// последний кадр видимым, пока активны. Source.End ограничен явным событием track.end,
+		// поэтому повтор кадра не может восстановить завершённую камеру или экран.
 		graph = append(graph, fmt.Sprintf("[%s][v%d]overlay=%d:%d:eof_action=repeat:repeatlast=1:enable='between(t,%.6f,%.6f)'[mix%d]", previous, n, tile.X, tile.Y, source.Offset, source.End, n))
 		previous = fmt.Sprintf("mix%d", n)
 	}

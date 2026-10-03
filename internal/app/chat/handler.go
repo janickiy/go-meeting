@@ -217,8 +217,8 @@ func (h *Handler) Upload(c *gin.Context) {
 	if !ok {
 		return
 	}
-	// Bound slow clients as well as bytes. Uploads never share a signaling or
-	// moderation queue, and the service limits concurrent in-memory payloads.
+	// Ограничиваем медленных клиентов и объём данных. Загрузки отделены от очередей сигнализации
+	// и модерации; сервис ограничивает число одновременных загрузок в памяти.
 	controller := http.NewResponseController(c.Writer)
 	_ = controller.SetReadDeadline(time.Now().Add(60 * time.Second))
 	defer controller.SetReadDeadline(time.Time{})

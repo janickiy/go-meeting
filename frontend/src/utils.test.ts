@@ -10,13 +10,13 @@ import {
 } from "./utils";
 
 describe("session storage", /**
- * Проверка: session storage выполняет тестовый сценарий «session storage» и проверяет ожидаемые результаты.
+ * Проверяет хранение сессии.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("restores only an unexpired, bounded session", /**
-   * Проверка: restores only an unexpired, bounded session выполняет тестовый сценарий «restores only an unexpired, bounded session» и проверяет ожидаемые результаты.
+   * Проверяет восстановление только неистёкшей сессии в установленных пределах.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -48,7 +48,7 @@ describe("session storage", /**
     },
   );
   it("does not fail if browser storage is blocked", /**
-   * Проверка: does not fail if browser storage is blocked выполняет тестовый сценарий «does not fail if browser storage is blocked» и проверяет ожидаемые результаты.
+   * Проверяет работу при заблокированном хранилище браузера.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -74,7 +74,7 @@ describe("session storage", /**
   });
 });
 describe("navigation and invitations", /**
- * Проверка: navigation and invitations выполняет тестовый сценарий «navigation and invitations» и проверяет ожидаемые результаты.
+ * Проверяет навигацию и приглашения.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -100,7 +100,7 @@ describe("navigation and invitations", /**
     },
   );
   it("preserves a local invitation through authorization", /**
-   * Проверка: preserves a local invitation through authorization выполняет тестовый сценарий «preserves a local invitation through authorization» и проверяет ожидаемые результаты.
+   * Проверяет сохранность локального приглашения при авторизации.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -109,7 +109,7 @@ describe("navigation and invitations", /**
     expect(safeNext("/conferences/test?x=1")).toBe("/conferences/test?x=1");
   });
   it("accepts only codes and invitation URLs from the current origin", /**
-   * Проверка: accepts only codes and invitation URLs from the current origin выполняет тестовый сценарий «accepts only codes and invitation URLs from the current origin» и проверяет ожидаемые результаты.
+   * Проверяет приём только кодов и ссылок приглашения с текущего источника.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -121,7 +121,7 @@ describe("navigation and invitations", /**
     expect(inviteCode("invalid")).toBeNull();
   });
   it("counts password characters consistently with Go unicode runes", /**
-   * Проверка: counts password characters consistently with Go unicode runes выполняет тестовый сценарий «counts password characters consistently with Go unicode runes» и проверяет ожидаемые результаты.
+   * Проверяет подсчёт символов пароля в соответствии с рунами Unicode в Go.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -133,7 +133,7 @@ describe("navigation and invitations", /**
     expect(passwordLength(" abcd e ")).toBe(8);
   });
   it("still counts UTF-8 bytes for the email limit", /**
-   * Проверка: still counts UTF-8 bytes for the email limit выполняет тестовый сценарий «still counts UTF-8 bytes for the email limit» и проверяет ожидаемые результаты.
+   * Проверяет сохранение подсчёта байтов UTF-8 для ограничения email.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

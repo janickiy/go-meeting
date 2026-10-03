@@ -15,7 +15,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/jobs"
 )
 
-// TestIntegrationProviderModes проверяет отключение, детерминированный mock и idempotent calendar identifiers.
+// TestIntegrationProviderModes проверяет отключение, детерминированный подставной режим и идемпотентные ID календаря.
 // @args t — контекст теста.
 func TestIntegrationProviderModes(t *testing.T) {
 	p, err := NewIntegrations(IntegrationConfig{})
@@ -46,7 +46,7 @@ func TestIntegrationProviderModes(t *testing.T) {
 	}
 }
 
-// TestIntegrationHTTPClassification проверяет bounded safe errors, rate limit и provider dedup key.
+// TestIntegrationHTTPClassification проверяет безопасные ограниченные ошибки, лимит запросов и ключ дедупликации провайдера.
 // @args t — контекст теста.
 func TestIntegrationHTTPClassification(t *testing.T) {
 	status := http.StatusTooManyRequests
@@ -79,7 +79,7 @@ func TestIntegrationHTTPClassification(t *testing.T) {
 	}
 }
 
-// TestOAuthPKCERefreshAndRevoke проверяет серверный S256 flow, точный redirect URI и отсутствие redirect-following с секретом.
+// TestOAuthPKCERefreshAndRevoke проверяет серверный обмен S256, точный URI возврата и запрет перенаправления с секретом.
 // @args t — контекст теста.
 func TestOAuthPKCERefreshAndRevoke(t *testing.T) {
 	calls := map[string]int{}
@@ -125,7 +125,7 @@ func TestOAuthPKCERefreshAndRevoke(t *testing.T) {
 	}
 }
 
-// TestProviderRedirectIsNotFollowed гарантирует, что credentials не пересылаются произвольному redirect destination.
+// TestProviderRedirectIsNotFollowed проверяет запрет пересылки учётных данных на произвольный адрес перенаправления.
 // @args t — контекст теста.
 func TestProviderRedirectIsNotFollowed(t *testing.T) {
 	calls := 0

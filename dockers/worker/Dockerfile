@@ -6,7 +6,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/go-recorder-worker ./cmd/worker
+ARG BUILD_VERSION=dev
+ARG BUILD_COMMIT=unknown
+ARG BUILD_TIME=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
+    -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$BUILD_TIME" \
+    -o /bin/go-recorder-worker ./cmd/worker
 
 FROM alpine:3.22 AS runtime
 

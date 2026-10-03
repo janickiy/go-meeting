@@ -1,8 +1,9 @@
-// Package platform assembles read-only product capabilities and operations data.
+// Пакет platform собирает доступные только для чтения возможности продукта и операционные данные.
 package platform
 
 import (
 	"context"
+	"github.com/janickiy/go-recorder/internal/buildinfo"
 	"runtime/debug"
 
 	"github.com/janickiy/go-recorder/internal/config"
@@ -10,7 +11,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/records"
 )
 
-// ReleaseVersion is set by the release build through -ldflags; it contains no secrets.
+// ReleaseVersion задаётся при сборке релиза через -ldflags и не содержит секретов.
 var ReleaseVersion string
 
 type Repository interface {
@@ -25,7 +26,7 @@ type ReadyProbe interface {
 	Ready(context.Context) bool
 }
 
-// Service keeps credentials and internal addresses out of public responses.
+// Service исключает учётные данные и внутренние адреса из публичных ответов.
 type Service struct {
 	Repo               Repository
 	Vector             VectorAvailability
@@ -36,7 +37,7 @@ type Service struct {
 	StageEight         config.StageEightConfig
 }
 
-// Capabilities returns effective operator-enabled flags; vector search also needs pgvector.
+// Capabilities возвращает фактически включённые оператором функции; векторный поиск также требует pgvector.
 func (s *Service) Capabilities(ctx context.Context) domain.Capabilities {
 	semantic := false
 	if s.StageEight.EmbeddingsEnabled && s.Vector != nil {
@@ -53,7 +54,7 @@ func (s *Service) Capabilities(ctx context.Context) domain.Capabilities {
 	}
 }
 
-// Summary enriches the database snapshot with bounded health signals.
+// Summary дополняет снимок БД ограниченным набором признаков работоспособности.
 func (s *Service) Summary(ctx context.Context) (domain.Summary, error) {
 	value, err := s.Repo.Summary(ctx)
 	if err != nil {
@@ -74,10 +75,13 @@ func (s *Service) Summary(ctx context.Context) (domain.Summary, error) {
 	return value, nil
 }
 
-// BuildVersion returns only a version or short commit hash, never build paths or flags.
+// BuildVersion возвращает только версию или короткий хеш коммита, без путей и флагов сборки.
 func BuildVersion() string {
 	if safeBuildVersion(ReleaseVersion) {
 		return ReleaseVersion
+	}
+	if buildinfo.ValidVersion(buildinfo.Version) {
+		return buildinfo.Version
 	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -94,7 +98,7 @@ func BuildVersion() string {
 	return "dev"
 }
 
-// safeBuildVersion limits public build metadata to one short opaque token.
+// safeBuildVersion ограничивает публичные сведения о сборке одним коротким непрозрачным идентификатором.
 func safeBuildVersion(value string) bool {
 	if len(value) < 1 || len(value) > 64 {
 		return false

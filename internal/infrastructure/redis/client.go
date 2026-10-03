@@ -11,9 +11,9 @@ import (
 // NewClient создает Redis-клиент и проверяет соединение.
 // @args
 // - ctx: контекст подключения.
-// - addr: host:port Redis.
+// - addr: адрес Redis в формате хост:порт.
 // - password: пароль Redis, если задан.
-// - db: номер Redis database.
+// - db: номер базы Redis.
 // @return Redis client или ошибку подключения.
 func NewClient(ctx context.Context, addr string, password string, db int) (*goredis.Client, error) {
 	client := goredis.NewClient(&goredis.Options{

@@ -1,4 +1,4 @@
-// Package operations объединяет безопасные проверки готовности и метрики процесса.
+// Пакет operations объединяет безопасные проверки готовности и метрики процесса.
 package operations
 
 import (
@@ -16,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/janickiy/go-recorder/internal/buildinfo"
 	"github.com/janickiy/go-recorder/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -26,10 +27,13 @@ import (
 // nil означает готовность; текст ошибки никогда не включается в health-ответ.
 type Check func(context.Context) error
 
-// Runtime хранит состояние draining, кеш readiness и изолированный реестр метрик.
+// Runtime хранит состояние завершения работы, кеш готовности и изолированный реестр метрик.
 // Checks выполняются по таймеру, а не каждым HTTP-запросом; Secret нужен только
 // для закрытого /metrics. Счётчики имеют лишь ограниченные технические labels.
 type Runtime struct {
+	beginDrain      func()
+	activeWork      func() int
+	inflight        atomic.Int64
 	Config          config.OperationsConfig
 	Checks          map[string]Check
 	Registry        *prometheus.Registry
@@ -66,6 +70,10 @@ type correlationKey struct{}
 func New(service, instance string, cfg config.OperationsConfig, checks map[string]Check) *Runtime {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", service, "instance_id", instance))
 	r := &Runtime{Config: cfg, Checks: checks, Registry: prometheus.NewRegistry(), customNames: map[string]struct{}{}, dependencyState: map[string]bool{}}
+	build := buildinfo.Current()
+	buildMetric := prometheus.NewGauge(prometheus.GaugeOpts{Name: "recorder_build_info", Help: "Immutable public release metadata.", ConstLabels: prometheus.Labels{"version": build.Version, "commit": build.Commit}})
+	buildMetric.Set(1)
+	r.Registry.MustRegister(buildMetric)
 	r.dependency = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "recorder_dependency_up", Help: "Last bounded dependency probe: 1 healthy, 0 unavailable."}, []string{"dependency"})
 	r.requests = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "recorder_http_requests_total", Help: "Completed HTTP requests by route template, method and status."}, []string{"route", "method", "status"})
 	r.duration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "recorder_http_duration_seconds", Help: "HTTP handler duration; SSE includes stream lifetime, WS counts handshake only.", Buckets: []float64{.005, .025, .1, .25, .5, 1, 2, 5, 10}}, []string{"route", "method"})
@@ -142,7 +150,7 @@ func (r *Runtime) Drain() { r.draining.Store(true); r.ready.Store(false) }
 // Ready сообщает готовность без обращения к зависимостям и без блокировок.
 func (r *Runtime) Ready() bool { return r.ready.Load() && !r.draining.Load() }
 
-// DependencyStatuses returns only fixed service names and cached readiness bits.
+// DependencyStatuses возвращает только фиксированные имена сервисов и кешированные признаки готовности.
 func (r *Runtime) DependencyStatuses() map[string]bool {
 	r.dependencyMu.RLock()
 	defer r.dependencyMu.RUnlock()
@@ -194,6 +202,9 @@ func (r *Runtime) Metrics(w http.ResponseWriter, req *http.Request) {
 // Register добавляет health и закрытые метрики к mux внутренней службы.
 // mux — маршрутизатор процесса; публичное проксирование /metrics не требуется.
 func (r *Runtime) Register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /version", buildinfo.Handler)
+	mux.HandleFunc("GET /operations/drain", r.DrainStatus)
+	mux.HandleFunc("POST /operations/drain", r.DrainStatus)
 	mux.HandleFunc("GET /health/live", r.Live)
 	mux.HandleFunc("GET /health/ready", r.Readiness)
 	mux.HandleFunc("GET /metrics", r.Metrics)
@@ -202,14 +213,17 @@ func (r *Runtime) Register(mux *http.ServeMux) {
 // RegisterGin добавляет такие же эксплуатационные маршруты в API Gin.
 // router — уже собранный API-маршрутизатор.
 func (r *Runtime) RegisterGin(router *gin.Engine) {
+	router.GET("/version", gin.WrapF(buildinfo.Handler))
+	router.GET("/operations/drain", gin.WrapF(r.DrainStatus))
+	router.POST("/operations/drain", gin.WrapF(r.DrainStatus))
 	router.GET("/health/live", gin.WrapF(r.Live))
 	router.GET("/health/ready", gin.WrapF(r.Readiness))
 	router.GET("/metrics", gin.WrapF(r.Metrics))
 }
 
-// Middleware назначает безопасный request ID, ограничивает JSON и снимает HTTP
+// Middleware назначает безопасный ID запроса, ограничивает JSON и собирает HTTP
 // метрики по шаблону маршрута. Upload имеет отдельный серверный лимит, поэтому
-// не ограничивается размером JSON. Health остаётся доступным при draining.
+// не ограничивается размером JSON. Проверка работоспособности остаётся доступной при завершении работы.
 func (r *Runtime) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -223,6 +237,10 @@ func (r *Runtime) Middleware() gin.HandlerFunc {
 		if route == "" {
 			route = "unmatched"
 		}
+		if route != "/operations/drain" && route != "/metrics" && route != "/version" && route != "/health/live" && route != "/health/ready" {
+			r.inflight.Add(1)
+			defer r.inflight.Add(-1)
+		}
 		defer func() {
 			method := c.Request.Method
 			switch method {
@@ -233,7 +251,7 @@ func (r *Runtime) Middleware() gin.HandlerFunc {
 			r.requests.WithLabelValues(route, method, strconv.Itoa(c.Writer.Status())).Inc()
 			r.duration.WithLabelValues(route, method).Observe(time.Since(start).Seconds())
 		}()
-		if r.draining.Load() && route != "/health/live" && route != "/health/ready" && route != "/metrics" {
+		if r.draining.Load() && route != "/health/live" && route != "/health/ready" && route != "/metrics" && route != "/version" && route != "/operations/drain" {
 			c.AbortWithStatus(503)
 			return
 		}
@@ -254,7 +272,7 @@ func stringsHasUploadSuffix(route string) bool {
 	return route == "/api/v1/conferences/:id/attachments/:attachmentId/content"
 }
 
-// WithID переносит correlation ID в контекст. id принимается только как UUID;
+// WithID переносит ID корреляции в контекст. id принимается только как UUID;
 // ctx сохраняет отмену и дедлайн исходного запроса. Возвращает новый контекст.
 func WithID(ctx context.Context, id string) context.Context {
 	if _, err := uuid.Parse(id); err != nil {
@@ -263,7 +281,7 @@ func WithID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, correlationKey{}, id)
 }
 
-// ID читает correlation ID из ctx; пустая строка означает отсутствие исходного запроса.
+// ID читает идентификатор корреляции из ctx; пустая строка означает отсутствие исходного запроса.
 func ID(ctx context.Context) string { id, _ := ctx.Value(correlationKey{}).(string); return id }
 
 // State обновляет снимок фиксированного технического ресурса без ID сущностей.
@@ -293,7 +311,7 @@ func WSActive(delta float64) {
 	}
 }
 
-// Event считает только фиксированный набор событий name, исключая entity IDs.
+// Event считает только фиксированный набор событий name, исключая идентификаторы сущностей.
 func Event(name string) {
 	switch name {
 	case "ffmpeg_failed", "recording_failed", "recording_ready", "rabbitmq_dead_letter", "rabbitmq_reconnect", "dependency_failed", "disk_low", "live_reconnect", "live_capacity", "live_audio_dropped", "live_provider_failed", "live_decoder_failed", "live_invalid_event", "live_caption_limit", "live_persist_failed", "live_delivery_failed", "analytics_failed", "caption_partial", "caption_final", "recording_mode_composite", "recording_mode_audio_only", "recording_mode_individual_tracks", "recording_mode_screen_focus":
@@ -361,7 +379,7 @@ func (r *Runtime) Profiling(ctx context.Context) error {
 }
 
 // boundedProfile ограничивает параметр seconds любой диагностической операции
-// диапазоном (0, 60]. next — стандартный pprof mux. Ошибочный параметр получает
+// диапазоном (0, 60]. next — стандартный маршрутизатор pprof. Ошибочный параметр получает
 // 400 до запуска профиля, чтобы локальная диагностика не удерживала процесс часами.
 func boundedProfile(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

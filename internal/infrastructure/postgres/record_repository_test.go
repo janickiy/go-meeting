@@ -75,7 +75,7 @@ func createTestRecord(t *testing.T, repo *RecordRepository, status string) recor
 	return record
 }
 
-// TestTerminalRecordCannotBeOverwritten проверяет сценарий «Terminal запись Cannot Be Overwritten», фиксируя ошибки поведения как регрессию.
+// TestTerminalRecordCannotBeOverwritten проверяет защиту записи с окончательным состоянием от перезаписи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -136,7 +136,7 @@ func TestTerminalRecordCannotBeOverwritten(t *testing.T) {
 	}
 }
 
-// TestStopMetadataSurvivesLateStartAndDuplicateStop проверяет сценарий «остановка Metadata Survives Late запуск и повторный остановка», фиксируя ошибки поведения как регрессию.
+// TestStopMetadataSurvivesLateStartAndDuplicateStop проверяет сохранность метаданных остановки при позднем запуске и повторной остановке.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -179,7 +179,7 @@ func TestStopMetadataSurvivesLateStartAndDuplicateStop(t *testing.T) {
 	}
 }
 
-// TestSummaryLoadsOnlyFinalFilesWithTwoQueries проверяет сценарий «Summary Loads только итоговый файлы с два Queries», фиксируя ошибки поведения как регрессию.
+// TestSummaryLoadsOnlyFinalFilesWithTwoQueries проверяет загрузку только итоговых файлов двумя запросами.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -226,7 +226,7 @@ func TestSummaryLoadsOnlyFinalFilesWithTwoQueries(t *testing.T) {
 	}
 }
 
-// queryCounter хранит изолированное состояние тестового компонента «query Counter».
+// queryCounter хранит счётчик запросов тестового репозитория.
 // @params:
 //   - logger.Interface: встроенный тип, добавляющий свой контракт или данные.
 //   - queries: значение queries типа atomic.Int32, используемое согласно назначению этой операции.

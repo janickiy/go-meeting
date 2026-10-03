@@ -54,7 +54,7 @@ func TestDeterministicGridAndScreenLayout(t *testing.T) {
 	}
 }
 
-// TestCompositionGraphMixesSourcesAndPreservesOffsets проверяет сценарий «Composition Graph Mixes источники и Preserves Offsets», фиксируя ошибки поведения как регрессию.
+// TestCompositionGraphMixesSourcesAndPreservesOffsets проверяет смешивание источников и сохранение смещений в графе композиции.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -77,7 +77,7 @@ func TestCompositionGraphMixesSourcesAndPreservesOffsets(t *testing.T) {
 	}
 }
 
-// TestVP8CaptureWaitsForKeyframeAndOrdersRTP проверяет сценарий «VP8Capture Waits для Keyframe и Orders RTP», фиксируя ошибки поведения как регрессию.
+// TestVP8CaptureWaitsForKeyframeAndOrdersRTP проверяет ожидание ключевого кадра VP8 и упорядочивание RTP.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -131,7 +131,7 @@ func TestCaptureRejectsMissingHelloAndInvalidCodec(t *testing.T) {
 	}
 }
 
-// cancelAtEOF хранит изолированное состояние тестового компонента «cancel At EOF».
+// cancelAtEOF хранит состояние отмены тестового чтения при EOF.
 //   - reader: источник содержимого либо читатель карточек записи согласно типу.
 //   - cancel: отмена контекста, завершающая принадлежащие ресурсу операции.
 type cancelAtEOF struct {
@@ -155,7 +155,7 @@ func (r cancelAtEOF) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// TestCapturePersistsShortFinalChunk проверяет сценарий «захват Persists Short итоговый Chunk», фиксируя ошибки поведения как регрессию.
+// TestCapturePersistsShortFinalChunk проверяет сохранение короткого последнего сегмента захвата.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -191,8 +191,8 @@ func TestCapturePersistsShortFinalChunk(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dir := t.TempDir()
-	// The fake frame intentionally cannot be decoded. This assertion concerns
-	// crash-durable capture before composition, including its final partial chunk.
+	// Подставной кадр намеренно не декодируется. Проверяем сохранность захваченных данных
+	// при сбое до композиции, включая последний неполный сегмент.
 	_ = NewComposer("/usr/bin/false", 640, 360, 25, 1).Capture(ctx, context.Background(), cancelAtEOF{&input, cancel}, dir, CaptureOptions{SegmentDuration: 2 * time.Second})
 	data, err := os.ReadFile(filepath.Join(dir, "chunk_000000.json"))
 	if err != nil {
@@ -207,7 +207,7 @@ func TestCapturePersistsShortFinalChunk(t *testing.T) {
 	}
 }
 
-// TestSegmentBoundaryReusesVP8GOPAndOpusPreroll проверяет сценарий «Segment Boundary Reuses VP8GOP и Opus Preroll», фиксируя ошибки поведения как регрессию.
+// TestSegmentBoundaryReusesVP8GOPAndOpusPreroll проверяет переиспользование группы кадров VP8 и начальных данных Opus на границе сегмента.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -287,7 +287,7 @@ func TestSegmentBoundaryReusesVP8GOPAndOpusPreroll(t *testing.T) {
 	}
 }
 
-// TestCaptureBoundsEndedTrackBuffersDuringRapidReplacement проверяет сценарий «захват Bounds Ended дорожка Buffers During Rapid Replacement», фиксируя ошибки поведения как регрессию.
+// TestCaptureBoundsEndedTrackBuffersDuringRapidReplacement проверяет ограничение буферов завершённых дорожек при быстрой смене устройств.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -326,7 +326,7 @@ func TestCaptureBoundsEndedTrackBuffersDuringRapidReplacement(t *testing.T) {
 	}
 }
 
-// TestCaptureFailsPromptlyWhenCompositorExits проверяет сценарий «захват Fails Promptly когда Compositor Exits», фиксируя ошибки поведения как регрессию.
+// TestCaptureFailsPromptlyWhenCompositorExits проверяет быстрый отказ захвата при завершении процесса композиции.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -366,8 +366,8 @@ func TestCaptureFailsPromptlyWhenCompositorExits(t *testing.T) {
 		if !send(media.EgressFrame{Type: "hello"}) {
 			return
 		}
-		// No published media is necessary to test a compositor process failure:
-		// a real no-camera interval still has a black/silent composite chunk.
+		// Для проверки сбоя процесса композиции публикация медиа не требуется:
+		// реальный интервал без камеры также создаёт чёрный сегмент с тишиной.
 		at += int64(time.Second)
 		if !send(media.EgressFrame{Type: "ping"}) {
 			return
@@ -401,7 +401,7 @@ func TestCaptureFailsPromptlyWhenCompositorExits(t *testing.T) {
 	<-written
 }
 
-// TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd проверяет сценарий «Sparse видео Holds Across Quiet Chunks Until Explicit End», фиксируя ошибки поведения как регрессию.
+// TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd проверяет сохранение редких видеокадров в тихих сегментах до явного завершения.
 // Внешняя команда или запрос использует контекст операции.
 //
 // @args
@@ -465,8 +465,8 @@ func TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd(t *testing.T) {
 		}
 		write(100*time.Millisecond, media.EgressFrame{Type: "rtp", TrackID: id, RTP: raw})
 	}
-	// One encoded frame must remain visible through a completely quiet second
-	// chunk, and then disappear at track.end halfway through the third chunk.
+	// Закодированный кадр остаётся видимым на протяжении второго сегмента без новых пакетов
+	// и исчезает по track.end в середине третьего сегмента.
 	write(time.Second, media.EgressFrame{Type: "ping"})
 	write(2*time.Second, media.EgressFrame{Type: "ping"})
 	write(2500*time.Millisecond, media.EgressFrame{Type: "track.end", TrackID: id})
@@ -500,7 +500,7 @@ func TestSparseVideoHoldsAcrossQuietChunksUntilExplicitEnd(t *testing.T) {
 	}
 }
 
-// TestCompositeHandlesCameraResolutionChanges проверяет сценарий «общая запись Handles Camera Resolution Changes», фиксируя ошибки поведения как регрессию.
+// TestCompositeHandlesCameraResolutionChanges проверяет обработку изменения разрешения камеры в композиции.
 // Внешняя команда или запрос использует контекст операции.
 //
 // @args
@@ -566,8 +566,8 @@ func TestCompositeHandlesCameraResolutionChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	command := exec.CommandContext(ctx, ffmpegPath, args...)
-	// Run the very same regression against the production FFmpeg version;
-	// host FFmpeg 9 does not reproduce FFmpeg 6's graph-reinitialization bug.
+	// Повторяем ту же регрессию на рабочей версии FFmpeg;
+	// локальный FFmpeg 9 не воспроизводит ошибку повторной инициализации графа в FFmpeg 6.
 	if dockerImage := os.Getenv("RECORDER_TEST_FFMPEG_DOCKER"); dockerImage != "" {
 		dockerArgs := []string{"run", "--rm", "--entrypoint", "ffmpeg", "-v", dir + ":" + dir, dockerImage}
 		command = exec.CommandContext(ctx, "docker", append(dockerArgs, args...)...)

@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// TestStageEightCaptionsReconciliationAnalytics проверяет права, fencing, durable cursor и основной transcript.
+// TestStageEightCaptionsReconciliationAnalytics проверяет права, защиту аренды, постоянный курсор и каноническую расшифровку.
 // @args t — исполнитель; создаётся и удаляется только отдельная тестовая БД.
 func TestStageEightCaptionsReconciliationAnalytics(t *testing.T) {
 	f := stageSevenContent(t)

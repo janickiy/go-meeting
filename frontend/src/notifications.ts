@@ -172,7 +172,7 @@ export function useNotificationStream(userId?: string) {
             reader.releaseLock();
           }
         } catch {
-          /* List polling remains available while the stream reconnects. */
+          /* Опрос списка остаётся доступным во время переподключения потока. */
         }
         if (!controller.signal.aborted)
           timer = setTimeout(

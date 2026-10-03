@@ -19,7 +19,7 @@ import (
 	pg "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
 )
 
-// TestStageFiveWaitingAdmissionAndProtectedResources проверяет сценарий «этап пять ожидание допуск и Protected Resources», фиксируя ошибки поведения как регрессию.
+// TestStageFiveWaitingAdmissionAndProtectedResources проверяет зал ожидания, допуск и защищённые ресурсы.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -103,7 +103,7 @@ func TestStageFiveWaitingAdmissionAndProtectedResources(t *testing.T) {
 	}
 }
 
-// TestStageFiveAdmissionRacesRejectAndCoHost проверяет сценарий «этап пять допуск гонки отказ и Co Host», фиксируя ошибки поведения как регрессию.
+// TestStageFiveAdmissionRacesRejectAndCoHost проверяет гонки допуска, отклонение и полномочия соведущего.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -255,8 +255,8 @@ func TestStageFiveScheduledHistoryAndCursor(t *testing.T) {
 	}
 	api.expect(t, "GET", "/me/conferences?view=upcoming&cursor=bad", f.ownerToken, nil, 422, nil)
 	api.expect(t, "GET", "/me/conferences?from=2026-10-01", f.ownerToken, nil, 422, nil)
-	// Bulk seed exercises the indexed chronological query, bounded pagination,
-	// deterministic equal-date ties and no per-conference membership lookups.
+	// Массовые данные проверяют индексированный хронологический запрос, ограниченную пагинацию,
+	// стабильный порядок равных дат и отсутствие отдельных запросов членства для каждой встречи.
 	cs := make([]conferences.Conference, 1200)
 	ps := make([]conferences.Participant, len(cs))
 	ownerID := f.owner.ID
@@ -272,8 +272,8 @@ func TestStageFiveScheduledHistoryAndCursor(t *testing.T) {
 	if err = f.db.CreateInBatches(ps, 100).Error; err != nil {
 		t.Fatal(err)
 	}
-	// The isolated database has no autovacuum statistics yet. Analyze bulk
-	// fixtures before evaluating a plan, as production autovacuum would do.
+	// В изолированной базе ещё нет статистики autovacuum. Анализируем массовые тестовые
+	// данные перед оценкой плана, как это делает autovacuum в рабочей среде.
 	if err = f.db.Exec("ANALYZE conferences").Error; err != nil {
 		t.Fatal(err)
 	}

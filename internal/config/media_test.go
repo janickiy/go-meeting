@@ -41,7 +41,7 @@ func TestMediaConfigDefaultsAndLocalKeySeparation(t *testing.T) {
 	}
 }
 
-// TestMediaProductionRequiresIndependentSecrets проверяет сценарий «медиа Production Requires Independent Secrets», фиксируя ошибки поведения как регрессию.
+// TestMediaProductionRequiresIndependentSecrets проверяет требование независимых секретов в рабочей среде.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -62,7 +62,7 @@ func TestMediaProductionRequiresIndependentSecrets(t *testing.T) {
 	}
 }
 
-// TestMediaConfigRejectsUnsafeLimitsAndEndpoints проверяет сценарий «медиа конфигурация Rejects Unsafe ограничения и Endpoints», фиксируя ошибки поведения как регрессию.
+// TestMediaConfigRejectsUnsafeLimitsAndEndpoints проверяет отказ для небезопасных лимитов и адресов.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -177,7 +177,7 @@ func TestMediaICEFromEnvironment(t *testing.T) {
 	}
 }
 
-// TestMediaICEOverrideSeparatesSFUFromRecorderConfiguration проверяет сценарий «медиа ICE Override Separates SFU из Recorder Configuration», фиксируя ошибки поведения как регрессию.
+// TestMediaICEOverrideSeparatesSFUFromRecorderConfiguration проверяет раздельную настройку ICE для SFU и записи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

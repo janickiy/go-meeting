@@ -9,7 +9,7 @@ import (
 
 // RegisterIntegrationRoutes подключает preferences/devices/calendar только с общей Bearer авторизацией.
 // @args router — HTTP transport; handler — прикладные обработчики; auth — проверка пользовательского токена;
-// limiters — необязательный общий Redis limiter, отключаемый только в изолированных тестах.
+// limiters — необязательный общий ограничитель Redis, отключаемый только в изолированных тестах.
 func RegisterIntegrationRoutes(router gin.IRouter, handler *app.Handler, auth gin.HandlerFunc, limiters ...middleware.Limiter) {
 	var limiter middleware.Limiter
 	if len(limiters) > 0 {
@@ -22,7 +22,7 @@ func RegisterIntegrationRoutes(router gin.IRouter, handler *app.Handler, auth gi
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Next()
 	}
-	// Ключ использует только ранее проверенную Bearer identity, не пользовательский input.
+	// Ключ использует только проверенную идентичность Bearer, а не пользовательские данные.
 	// @args c — authenticated запрос.
 	// @return: идентификатор владельца rate limit bucket.
 	key := func(c *gin.Context) string { return middleware.UserID(c) }
@@ -55,6 +55,6 @@ func RegisterIntegrationRoutes(router gin.IRouter, handler *app.Handler, auth gi
 	integration.GET("/calendars/:provider/connect", handler.Connect)
 	integration.POST("/calendars/:provider/callback", handler.Callback)
 	integration.DELETE("/calendars/:provider", handler.Disconnect)
-	// Gin использует одно имя wildcard для provider connect/callback и UUID удаления; handler валидирует UUID отдельно.
+	// Gin использует одно имя шаблона маршрута для подключения и возврата провайдера и удаления по UUID; обработчик отдельно проверяет UUID.
 	router.GET(APIV1Prefix+"/conferences/:id/calendar", private, auth, handler.CalendarMappings)
 }

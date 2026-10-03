@@ -229,8 +229,8 @@ function videoCapture(value: unknown) {
   };
 }
 
-// One controller = one Stage 2 connection and one server-side MediaPeer.
-// No permission request or automatic capture occurs in the constructor.
+// Один контроллер соответствует одному соединению этапа 2 и одному серверному MediaPeer.
+// Конструктор не запрашивает разрешения и не начинает захват автоматически.
 /**
  * ConferenceMediaClient управляет физическим WebRTC-соединением, захватом устройств, экраном и последовательным согласованием SDP.
  *
@@ -264,7 +264,7 @@ function videoCapture(value: unknown) {
  *   - queue — поле или операция этого контракта.
  *   - timer — поле или операция этого контракта.
  *   - disconnectedTimer — поле или операция этого контракта.
- *   - constructor — function Object() { [native code] }.
+ *   - constructor — создаёт экземпляр класса с переданными параметрами.
  *   - snapshot — поле или операция этого контракта.
  *   - update — поле или операция этого контракта.
  *   - deadline — поле или операция этого контракта.
@@ -319,8 +319,8 @@ export class ConferenceMediaClient {
   private catalog: MediaTrack[] = [];
   private ownPublished = new Map<string, MediaTrack>();
   private catalogRevision = -1;
-  // A preallocated browser receiver may retain its own track ID. SDP msid's
-  // stream ID + kind binds it to the worker's canonical publication metadata.
+  // Заранее выделенный приёмник браузера может сохранить свой ID дорожки. ID потока из SDP msid
+  // и вид дорожки связывают её с каноническими метаданными публикации воркера.
   private received = new Map<
     string,
     { track: MediaStreamTrack; streamIds: string[] }
@@ -336,7 +336,7 @@ export class ConferenceMediaClient {
   private disconnectedTimer?: ReturnType<typeof setTimeout>;
 
   /**
-   * constructor function Object() { [native code] }.
+   * constructor связывает отправку команд с обработчиком изменения состояния медиа.
    *
    * @args
    *   - send (Send) — входное значение send текущего шага обработки.
@@ -366,7 +366,7 @@ export class ConferenceMediaClient {
     return this.view;
   }
 
-  /** Reads an allowlisted aggregate from the current peer without exposing raw stats. */
+  /** Читает только разрешённые агрегаты текущего соединения, не раскрывая исходную статистику. */
   async diagnostics() {
     const pc = this.pc;
     if (this.disposed || !pc || typeof pc.getStats !== "function") return null;
@@ -442,7 +442,7 @@ export class ConferenceMediaClient {
           this.view.mediaPeerId ? { mediaPeerId: this.view.mediaPeerId } : {},
         );
       } catch {
-        /* WS cleanup also closes the worker peer. */
+        /* Очистка WS также закрывает медиа-соединение на воркере. */
       }
     }
     this.pc?.close();
@@ -785,7 +785,7 @@ export class ConferenceMediaClient {
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
    */
   setPolicy(policy: MediaPolicy) {
-    // Delayed roster fetches must not undo a newer realtime restriction.
+    // Запоздалый ответ со списком участников не должен отменять более новое ограничение реального времени.
     if ((policy.version ?? 0) < (this.policy.version ?? 0)) return;
     this.policy = { ...policy };
     if (!this.pc || this.disposed) return;
@@ -1001,7 +1001,7 @@ export class ConferenceMediaClient {
     this.update({ controlBusy: true, error: null });
     let stream: MediaStream | null = null;
     try {
-      // Called directly by the button so transient user activation is retained.
+      // Прямой вызов из обработчика кнопки сохраняет кратковременную активацию пользователя.
       stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 15, max: 30 } },
         audio: !this.policy.microphoneBlocked,
@@ -1074,8 +1074,8 @@ export class ConferenceMediaClient {
                   ) || null,
             );
           } catch (error) {
-            // A second sender may reject after the first has accepted capture.
-            // Stop physical capture even if rollback itself encounters an error.
+            // Второй отправитель может отказать после того, как первый уже принял захват.
+            // Останавливаем физический захват, даже если сам откат завершился ошибкой.
             captured.getTracks().forEach(
               /**
                * Обработчик forEach выполняет переданный шаг вызова forEach в состоянии связи и WebRTC-медиа.
@@ -1240,8 +1240,8 @@ export class ConferenceMediaClient {
         event.replyTo === this.negotiation?.request &&
         this.pc
       ) {
-        // A policy can win a race with an offer already sent by this tab.
-        // Keep receiving the conference while discarding rejected capture.
+        // Обновление политики может опередить предложение, уже отправленное этой вкладкой.
+        // Продолжаем принимать медиа конференции, освобождая отклонённый источник захвата.
         await this.pc.setLocalDescription({ type: "rollback" });
         this.negotiation = null;
         for (const source of this.sources.keys())
@@ -1337,8 +1337,8 @@ export class ConferenceMediaClient {
           height: { ideal: capture.maxHeight, max: capture.maxHeight },
           frameRate: { ideal: capture.maxFrameRate, max: capture.maxFrameRate },
         });
-      // Applying browser constraints is async. A stop/reconnect while pending
-      // must not resurrect a PeerConnection or publish the captured stream.
+      // Ограничения браузера применяются асинхронно. Остановка или переподключение во время ожидания
+      // не должны восстанавливать PeerConnection или публиковать захваченный поток.
       if (this.disposed) return;
       if (
         data.iceTransportPolicy !== undefined &&
@@ -1374,8 +1374,8 @@ export class ConferenceMediaClient {
       for (const candidate of this.remoteICE.splice(0))
         await this.pc.addIceCandidate(candidate || undefined);
       if (this.disposed) return;
-      // RTP for a newly negotiated sender must not precede the browser applying
-      // its answer. WS command serialization places ready before the next offer.
+      // Передача RTP нового согласованного отправителя начинается только после применения
+      // ответа браузером. Последовательная обработка команд WS ставит ready перед следующим offer.
       if (this.readyRequests.size >= 32) throw new Error("ready_limit");
       const readyRequest = this.send("media.ready", {
         mediaPeerId: this.view.mediaPeerId,
@@ -1524,9 +1524,9 @@ export class ConferenceMediaClient {
     maxPeers: number,
     iceTransportPolicy: RTCIceTransportPolicy = "all",
   ) {
-    // SFU always negotiates BUNDLE. Share one ICE transport even before the
-    // first answer: gathering per receive slot can otherwise exceed the
-    // signaling rate limit as the room's preallocated transceiver count grows.
+    // SFU всегда согласует BUNDLE. Используем один ICE-транспорт уже до первого ответа:
+    // сбор кандидатов отдельно для каждого приёмного слота может превысить лимит сигнализации
+    // при увеличении числа заранее выделенных трансиверов комнаты.
     const pc = new RTCPeerConnection({
       iceServers,
       iceTransportPolicy,
@@ -1568,8 +1568,8 @@ export class ConferenceMediaClient {
       });
       if (track) this.watchTrack(source, track);
     }
-    // The browser owns every offer. Stable receive slots prevent worker-driven
-    // glare and make late publishers subscribable without server-side offers.
+    // Все предложения создаёт браузер. Постоянные приёмные слоты предотвращают одновременные
+    // встречные предложения и позволяют подписываться на поздние публикации без предложений от сервера.
     for (let i = 0; i < 2 * (maxPeers - 1); i++) {
       pc.addTransceiver("audio", { direction: "recvonly" });
       pc.addTransceiver("video", { direction: "recvonly" });

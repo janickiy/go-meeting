@@ -52,7 +52,7 @@ CSS учитывает узкие экраны, горизонтальную п�
 
 ## 13. Modified/New files
 
-Основные области: `frontend/src/App.tsx`, `pages/PreJoinPage.tsx`, `pages/ConferencePage.tsx`, `pages/HistoryDetailPage.tsx`, `pages/NotificationsPage.tsx`, `pages/AdminPage.tsx`, `pages/AccountPages.tsx`, `pages/SearchPage.tsx`; устройства и диагностика в `frontend/src/media.ts`, `useMedia.ts`, `prejoinDevices.ts`; backend в `internal/app/platform/`, `internal/usecase/platform/`, `internal/infrastructure/postgres/platform_repository.go`, `database/migrations/000021_admin_capability.up.sql`. Документация: `docs/frontend.md`, `docs/operations/admin.md`, `docs/operations/STAGE9_RELEASE_CHECKLIST.md`.
+Основные области: `frontend/src/App.tsx`, `pages/PreJoinPage.tsx`, `pages/ConferencePage.tsx`, `pages/HistoryDetailPage.tsx`, `pages/NotificationsPage.tsx`, `pages/AdminPage.tsx`, `pages/AccountPages.tsx`, `pages/SearchPage.tsx`; устройства и диагностика в `frontend/src/media.ts`, `useMedia.ts`, `prejoinDevices.ts`; backend в `internal/app/platform/`, `internal/usecase/platform/`, `internal/infrastructure/postgres/platform_repository.go`, `database/migrations/000021_admin_capability.up.sql`. Документация: `docs/frontend.md`, `docs/operations/admin.md`, `docs/operations/RELEASE_CHECKLIST.md`.
 
 ## 14. Backend changes (if any)
 
@@ -64,7 +64,7 @@ CSS учитывает узкие экраны, горизонтальную п�
 
 ## 16. Release checklist
 
-Операционный чеклист находится в [STAGE9_RELEASE_CHECKLIST.md](STAGE9_RELEASE_CHECKLIST.md): миграция/backup, секреты и флаги, TURN/TURNS, health/observability, два браузерных пользователя, keyboard/screen reader, откат и go/no-go. Каждый пункт фиксируется на конкретном image digest и окружении.
+Операционный чеклист находится в [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md): миграция/backup, секреты и флаги, TURN/TURNS, health/observability, два браузерных пользователя, keyboard/screen reader, откат и go/no-go. Каждый пункт фиксируется на конкретном image digest и окружении.
 
 ## 17. Known limitations
 

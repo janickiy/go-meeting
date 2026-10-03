@@ -90,7 +90,7 @@ func (h *Handler) limit(c *gin.Context, conferenceID, kind string, n int, window
 	for i, key := range keys {
 		count := n
 		if i == 1 {
-			// A nonmember must not spend the victim conference's shared budget.
+			// Посторонний пользователь не должен расходовать общий лимит чужой конференции.
 			if err := h.service.Authorize(c.Request.Context(), conferenceID, httpmiddleware.UserID(c)); err != nil {
 				httpresponse.Fail(c, err)
 				return false

@@ -4,6 +4,7 @@
 .env.local
 .env.*
 secrets/
+release-artifacts/
 **/*.key
 **/*.pem
 dockers/api/tmp

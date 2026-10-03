@@ -50,7 +50,7 @@ ALTER TABLE notifications ADD CONSTRAINT notifications_type_check CHECK(type IN 
  'conference.soon','admission.decided','recording.ready','conference.invited','conference.rescheduled',
  'conference.cancelled','transcript.ready','summary.ready','processing.failed'));
 
--- Durable external delivery is separate from the recorder/media Rabbit queue.
+-- Постоянная очередь внешней доставки отделена от RabbitMQ-очереди записи и медиа.
 CREATE OR REPLACE FUNCTION enqueue_external_notification() RETURNS TRIGGER AS $$
 BEGIN
  INSERT INTO background_jobs(kind,entity_id,conference_id,user_id,payload,dedup_key)
@@ -107,7 +107,7 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS trg_enrollment_integrations ON conference_participants;
 CREATE TRIGGER trg_enrollment_integrations AFTER INSERT ON conference_participants FOR EACH ROW EXECUTE FUNCTION enqueue_enrollment_integration();
 
--- Capture already scheduled meetings without replaying historical recording-ready emails.
+-- Учитываем уже запланированные встречи без повторной рассылки старых писем о готовности записи.
 INSERT INTO background_jobs(kind,entity_id,conference_id,version,payload,dedup_key)
 SELECT 'integrations.conference',id,id,integration_version,jsonb_build_object('event','conference.invited'),
 'conference:'||id::text||':'||integration_version::text FROM conferences WHERE status='scheduled'

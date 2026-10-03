@@ -15,7 +15,7 @@ import (
 )
 
 // TestICEAuthenticationTTLAndConnectionCap проверяет защищённую выдачу TURN,
-// no-store/TTL/secret redaction и освобождение reservation после отказа handshake.
+// запрет кеширования, TTL, сокрытие секретов и освобождение резерва после отказа согласования соединения.
 // t использует фиктивные secrets и не подключается к Redis, SFU или Coturn.
 func TestICEAuthenticationTTLAndConnectionCap(t *testing.T) {
 	gin.SetMode(gin.TestMode)

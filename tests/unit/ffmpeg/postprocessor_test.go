@@ -10,7 +10,7 @@ import (
 	ffmpeginfra "github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
 )
 
-// TestPostProcessorFinalizeIgnoresEmptySegmentsAndNonSegmentFiles проверяет сценарий «Post Processor Finalize Ignores пустой Segments и не Segment файлы», фиксируя ошибки поведения как регрессию.
+// TestPostProcessorFinalizeIgnoresEmptySegmentsAndNonSegmentFiles проверяет игнорирование пустых сегментов и посторонних файлов при финализации.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

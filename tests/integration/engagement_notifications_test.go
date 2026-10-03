@@ -31,7 +31,7 @@ import (
 	realtimecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 )
 
-// TestStageFiveHandsReactionsAndReconnect проверяет сценарий «этап пять Hands Reactions и переподключение», фиксируя ошибки поведения как регрессию.
+// TestStageFiveHandsReactionsAndReconnect проверяет поднятие рук, реакции и переподключение.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -212,7 +212,7 @@ func TestStageFiveNotificationDedupAuthorizationAndSSE(t *testing.T) {
 	}
 }
 
-// TestStageFiveRealtimeBurstPreservesSignaling проверяет сценарий «этап пять события реального времени Burst Preserves сигнализация», фиксируя ошибки поведения как регрессию.
+// TestStageFiveRealtimeBurstPreservesSignaling проверяет сохранность сигнализации при всплеске событий.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -264,7 +264,7 @@ func TestStageFiveRealtimeBurstPreservesSignaling(t *testing.T) {
 	}
 }
 
-// TestStageFiveNotificationStreamExpiresWithJWT проверяет сценарий «этап пять уведомление Stream Expires с JWT», фиксируя ошибки поведения как регрессию.
+// TestStageFiveNotificationStreamExpiresWithJWT проверяет завершение потока уведомлений при истечении JWT.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -301,7 +301,7 @@ func TestStageFiveNotificationStreamExpiresWithJWT(t *testing.T) {
 	}
 }
 
-// TestStageFiveEngagementAdmissionPrecedesSharedLimit проверяет сценарий «этап пять Engagement допуск Precedes Shared лимит», фиксируя ошибки поведения как регрессию.
+// TestStageFiveEngagementAdmissionPrecedesSharedLimit проверяет допуск до расходования общего лимита взаимодействий.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

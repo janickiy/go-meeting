@@ -162,8 +162,8 @@ func (s *Service) Timeline(ctx context.Context, userID string, query domain.Time
 		page.NextCursor = &cursor
 	}
 	for _, c := range rows {
-		// Invitations are not needed for list browsing. Keep pending membership
-		// private without adding a membership lookup for every conference.
+		// Приглашения не нужны для просмотра списка. Сохраняем приватность ожидающего членства
+		// без отдельного запроса членства для каждой конференции.
 		view := c.View()
 		view.InviteCode, view.InviteURL = "", ""
 		page.Items = append(page.Items, view)

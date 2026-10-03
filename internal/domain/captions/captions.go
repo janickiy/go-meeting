@@ -1,4 +1,4 @@
-// Package captions задаёт независимый от медиа и поставщика контракт живого распознавания.
+// Пакет captions задаёт независимый от медиа и поставщика контракт живого распознавания.
 package captions
 
 import (
@@ -10,7 +10,7 @@ import (
 var ErrUnavailable = errors.New("live_provider_unavailable")
 
 // SessionConfig описывает одну дорожку одного подключения без биометрической идентификации.
-// Audio — signed PCM16LE, mono, 16000 Hz; события отсчитываются от первого PCM sample.
+// Audio — знаковый PCM16LE, один канал, 16000 Гц; время событий отсчитывается от первого отсчёта PCM.
 type SessionConfig struct {
 	SessionID       string `json:"sessionId"`
 	TrackInstanceID string `json:"trackInstanceId"`
@@ -43,7 +43,7 @@ type LiveTranscriptionProvider interface {
 // Session владеет одним внешним соединением и ограниченным потоком ответов.
 type Session interface {
 	// WriteAudio отправляет ограниченную порцию PCM только вне SFU.
-	// @args ctx — deadline записи; pcm — 16-bit little-endian mono samples.
+	// @args ctx — срок выполнения записи; pcm — 16-битные монофонические отсчёты с порядком байтов от младшего к старшему.
 	// @return ошибка отправки или отмены.
 	WriteAudio(context.Context, []byte) error
 	// Events возвращает закрываемый канал partial/final событий.

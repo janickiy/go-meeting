@@ -1,4 +1,4 @@
-// Package jobs задаёт независимый от транспорта контракт постоянных фоновых заданий.
+// Пакет jobs задаёт независимый от транспорта контракт постоянных фоновых заданий.
 package jobs
 
 import (
@@ -43,7 +43,7 @@ type Count struct {
 
 // Repository атомарно выдаёт задания и принимает завершение только от владельца аренды.
 type Repository interface {
-	// Claim захватывает одно доступное задание kind на срок lease; bool показывает наличие работы.
+	// Claim захватывает одно доступное задание категории kind на срок lease; bool показывает наличие работы.
 	Claim(ctx context.Context, kind string, lease time.Duration) (Job, bool, error)
 	// Finish меняет состояние арендованного задания; retryAt повторно ставит его в очередь.
 	Finish(ctx context.Context, job Job, state, code string, retryAt *time.Time) error

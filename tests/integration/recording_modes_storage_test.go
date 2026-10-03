@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// TestStageEightRecordingStorage проверяет реальный worker/MinIO/fencing для каждой новой стратегии.
+// TestStageEightRecordingStorage проверяет реальный воркер, MinIO и актуальность аренды для каждой новой стратегии.
 // @args t — исполнитель на отдельном локальном стенде с синтетическими участниками.
 func TestStageEightRecordingStorage(t *testing.T) {
 	if os.Getenv("RECORDER_STAGE8_STORAGE_E2E") != "true" {

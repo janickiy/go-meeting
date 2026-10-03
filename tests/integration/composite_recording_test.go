@@ -406,8 +406,8 @@ func TestStageFourCompositeRecording(t *testing.T) {
 	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &usageAfter)
 	cpuMicros := usageAfter.Utime.Sec*1e6 + int64(usageAfter.Utime.Usec) + usageAfter.Stime.Sec*1e6 + int64(usageAfter.Stime.Usec) - (usageBefore.Utime.Sec*1e6 + int64(usageBefore.Utime.Usec) + usageBefore.Stime.Sec*1e6 + int64(usageBefore.Stime.Usec))
 	t.Logf("combined test process CPU=%s peakRSS(OS units)=%d peakFFmpegChildren=%d recordingDrops=%d", time.Duration(cpuMicros)*time.Microsecond, usageAfter.Maxrss, peakFFmpeg.Load(), engine.Snapshot().RecordingDrops)
-	// Simulate an expired recorder after a durable chunk and stop were already
-	// committed. Recovery is driven by DB state, without a duplicate capture.
+	// Имитируем истечение аренды записи после того, как сегмент и команда остановки уже
+	// сохранены. Восстановление опирается на состояние БД и не запускает повторный захват.
 	recoveryID := uuid.NewString()
 	recoveryDir := filepath.Join(dir, "records", recoveryID)
 	if err := os.MkdirAll(recoveryDir, 0o750); err != nil {
@@ -431,8 +431,8 @@ func TestStageFourCompositeRecording(t *testing.T) {
 		t.Fatal("recovery published old incarnation artifact")
 	}
 	t.Logf("expired recorder recovery finalized closed segment: recording=%s duration=%d", recoveryID, *recovered.DurationSec)
-	// A failed second recorder (unavailable egress) must leave the live SFU and
-	// the conference intact, and must never publish ready.
+	// Сбой второго записывающего воркера из-за недоступности потока должен сохранить работающие SFU
+	// и конференцию; публиковать состояние ready при этом запрещено.
 	deadline = time.Now().Add(3 * time.Second)
 	for engine.Snapshot().RecordingOutputs != 0 {
 		if time.Now().After(deadline) {
@@ -459,9 +459,9 @@ func TestStageFourCompositeRecording(t *testing.T) {
 		t.Fatal("recording failure ended conference")
 	}
 	blocked.Close()
-	// Finish commits stopping and an outbox command in the same transaction.
-	// The recorder must close its final partial chunk and upload without keeping
-	// browser peers or the room alive afterwards.
+	// Завершение фиксирует stopping и команду в журнале доставки в одной транзакции.
+	// Воркер закрывает последний неполный сегмент и загружает файлы, не сохраняя после этого
+	// активные соединения браузеров и комнату.
 	var finishRecord struct {
 		Item records.RecordCard `json:"item"`
 	}
@@ -493,8 +493,8 @@ func TestStageFourCompositeRecording(t *testing.T) {
 //   - path (string): путь к локальному файлу или каталогу операции.
 func assertCompositeContent(t *testing.T, ffmpegPath, path string) {
 	t.Helper()
-	// Synthetic fixtures are continuously colourful/voiced. Check decoded
-	// content across every segment boundary, not merely stream metadata.
+	// Синтетические источники непрерывно передают цветное изображение и звук. Проверяем
+	// декодированное содержимое на каждой границе сегмента, а не только метаданные потока.
 	pixels, err := exec.Command(ffmpegPath, "-hide_banner", "-loglevel", "error", "-i", path, "-an", "-vf", "fps=4,scale=32:18", "-pix_fmt", "rgb24", "-f", "rawvideo", "-").Output()
 	if err != nil {
 		t.Fatal(err)
@@ -509,8 +509,8 @@ func assertCompositeContent(t *testing.T, ffmpegPath, path string) {
 				coloured++
 			}
 		}
-		// During the bounded screen-stop layout transition, only small camera
-		// tiles in the side column remain; any fully blank frame is still a bug.
+		// Во время ограниченного перехода раскладки после остановки экрана остаются лишь небольшие
+		// плитки камер в боковой колонке; полностью пустой кадр по-прежнему считается ошибкой.
 		if coloured < 8 {
 			t.Fatalf("blank composite frame at %.2fs: colourful pixels=%d", float64(frame)/4, coloured)
 		}
@@ -671,7 +671,7 @@ func encodedFixture(t *testing.T, ffmpegPath string) recordingFixture {
 // encodedFixtureFrequency создаёт валидные VP8/Opus пакеты с независимым тоном.
 // t управляет временными файлами, ffmpegPath задаёт доверенный бинарник,
 // frequency — частоту синусоиды, чтобы смешивание не давало фазового погашения.
-// Возвращает повторяемый источник закодированных RTP payloads.
+// Возвращает повторяемый источник закодированной полезной нагрузки RTP.
 func encodedFixtureFrequency(t *testing.T, ffmpegPath string, frequency int) recordingFixture {
 	t.Helper()
 	dir := t.TempDir()

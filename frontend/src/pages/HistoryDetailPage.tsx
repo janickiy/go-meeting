@@ -10,7 +10,7 @@ import { RecordingPanel } from "../components/RecordingPanel";
 import { ErrorNotice, Loading } from "../components/ui";
 import { useMembership } from "../queries";
 import { formatDate } from "../utils";
-import "./stage9-pages.css";
+import "./history-notifications.css";
 
 const sections = [
   ["overview", "Обзор"],

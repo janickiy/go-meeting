@@ -30,7 +30,7 @@ type Actor = { id: string; token: string; email: string };
 
 /**
  * Выполняет запрос строго к изолированному API, не выводя токены и приватные ссылки.
- * @args client — тестовый HTTP клиент; path — маршрут; actor — identity; method/data — команда.
+ * @args client — тестовый HTTP-клиент; path — маршрут; actor — идентичность пользователя; method/data — команда.
  * @return Типизированный успешный JSON либо ошибка только с HTTP статусом.
  */
 async function call<T>(
@@ -55,8 +55,8 @@ async function call<T>(
 }
 
 /**
- * Восстанавливает только созданную сценарием сессию в отдельном browser context.
- * @args context — изолированный контекст; actor — тестовая identity.
+ * Восстанавливает только созданную сценарием сессию в отдельном контексте браузера.
+ * @args context — изолированный контекст; actor — тестовая идентичность пользователя.
  * @return Новая страница с сессией без записи пароля в артефакты теста.
  */
 async function actorPage(context: BrowserContext, actor: Actor): Promise<Page> {

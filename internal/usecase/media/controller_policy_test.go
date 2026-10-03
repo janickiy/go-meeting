@@ -32,7 +32,7 @@ func (p *testPolicyProvider) MediaPolicy(context.Context, string, string) (domai
 	return p.policy, nil
 }
 
-// TestControllerRefreshesPolicyAndCarriesTypedSources проверяет сценарий «Controller Refreshes политика и Carries Typed источники», фиксируя ошибки поведения как регрессию.
+// TestControllerRefreshesPolicyAndCarriesTypedSources проверяет обновление политики и передачу типизированных источников.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

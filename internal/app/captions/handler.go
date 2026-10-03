@@ -1,4 +1,4 @@
-// Package captionsapp связывает настройки живого распознавания с авторизованным HTTP.
+// Пакет captionsapp связывает настройки живого распознавания с авторизованным HTTP.
 package captionsapp
 
 import (
@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// Handler возвращает durable финальные реплики и настройки, не открывая провайдер в API.
+// Handler возвращает сохранённые финальные реплики и настройки, не открывая провайдер в API.
 type Handler struct {
 	Repo      live.Repository
 	Enabled   bool
@@ -64,7 +64,7 @@ func (h *Handler) Reindex(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "success"})
 }
 
-// id проверяет conference UUID до SQL.
+// id проверяет UUID конференции до выполнения SQL.
 // @args c — авторизованный HTTP запрос.
 // @return нормализованный UUID и признак успешной проверки.
 func id(c *gin.Context) (string, bool) {
@@ -76,7 +76,7 @@ func id(c *gin.Context) (string, bool) {
 	return v.String(), true
 }
 
-// Read показывает opt-in/status всем допущенным участникам и право изменения организатору.
+// Read показывает согласие и состояние всем допущенным участникам и право изменения организатору.
 // @args c — authenticated request.
 func (h *Handler) Read(c *gin.Context) {
 	cid, ok := id(c)
@@ -96,7 +96,7 @@ func (h *Handler) Read(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "item": s})
 }
 
-// Set принимает только enabled/language, исключая произвольные provider options и URI.
+// Set принимает только enabled/language, без произвольных параметров провайдера и URI.
 // @args c — запрос организатора с JSON.
 func (h *Handler) Set(c *gin.Context) {
 	cid, ok := id(c)
@@ -130,7 +130,7 @@ func (h *Handler) Set(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "item": s})
 }
 
-// Finals восстанавливает пропущенные WebSocket finals через курсорную пагинацию.
+// Finals восстанавливает пропущенные финальные события WebSocket через курсорную пагинацию.
 // @args c — authenticated request с afterCursor/limit.
 func (h *Handler) Finals(c *gin.Context) {
 	cid, ok := id(c)

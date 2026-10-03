@@ -17,7 +17,7 @@ type ProviderConfig struct {
 }
 
 // StageSevenConfig задаёт бюджет отдельного продуктового работника и внешние интеграции.
-// STT/AI выключены по умолчанию; MockAllowed запрещает фиктивные внешние результаты в production.
+// STT/AI выключены по умолчанию; MockAllowed запрещает фиктивные внешние результаты в рабочей среде.
 // Ключ шифрования независим от JWT и используется только для устройств и календарных токенов.
 type StageSevenConfig struct {
 	PublicURL, EncryptionKey, TempRoot                            string

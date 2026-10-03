@@ -13,7 +13,7 @@ import (
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 )
 
-// TestRateLimitDisabledSkipsLimiter проверяет сценарий «Rate лимит Disabled Skips Limiter», фиксируя ошибки поведения как регрессию.
+// TestRateLimitDisabledSkipsLimiter проверяет пропуск ограничителя при выключенном лимите.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -51,7 +51,7 @@ func TestRateLimitDisabledSkipsLimiter(t *testing.T) {
 	}
 }
 
-// TestRateLimitExceededReturnsFailedJSON проверяет сценарий «Rate лимит Exceeded Returns Failed JSON», фиксируя ошибки поведения как регрессию.
+// TestRateLimitExceededReturnsFailedJSON проверяет JSON-ошибку при превышении лимита.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -113,7 +113,7 @@ func TestRateLimitExceededReturnsFailedJSON(t *testing.T) {
 	}
 }
 
-// TestRateLimitJSONFieldRestoresBodyForHandler проверяет сценарий «Rate лимит JSON Field Restores Body для Handler», фиксируя ошибки поведения как регрессию.
+// TestRateLimitJSONFieldRestoresBodyForHandler проверяет восстановление тела JSON для обработчика.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -208,7 +208,7 @@ func TestRateLimitPathParamKey(t *testing.T) {
 	}
 }
 
-// fakeLimiter хранит изолированное состояние тестового компонента «fake Limiter».
+// fakeLimiter хранит изолированное состояние тестового ограничителя.
 // @params:
 //   - calls: значение calls типа int, используемое согласно назначению этой операции.
 //   - result: результат проверки или обработки, передаваемый следующему шагу.

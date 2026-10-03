@@ -4,13 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 import { Modal, PasswordInput } from "./ui";
 
 describe("accessible UI controls", /**
- * Проверка: accessible UI controls выполняет тестовый сценарий «accessible UI controls» и проверяет ожидаемые результаты.
+ * Проверяет доступность элементов управления интерфейса.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("shows and hides the password without submitting the form", /**
-   * Проверка: shows and hides the password without submitting the form выполняет тестовый сценарий «shows and hides the password without submitting the form» и проверяет ожидаемые результаты.
+   * Проверяет показ и скрытие пароля без отправки формы.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -29,7 +29,7 @@ describe("accessible UI controls", /**
     expect(screen.getByLabelText("Пароль")).toHaveAttribute("type", "password");
   });
   it("traps keyboard focus, handles escape, and restores scroll", /**
-   * Проверка: traps keyboard focus, handles escape, and restores scroll выполняет тестовый сценарий «traps keyboard focus, handles escape, and restores scroll» и проверяет ожидаемые результаты.
+   * Проверяет удержание клавиатурного фокуса, обработку Escape и восстановление прокрутки.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

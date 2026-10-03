@@ -20,18 +20,21 @@ import (
 	"github.com/janickiy/go-recorder/internal/operations"
 )
 
-// Worker запускает bounded конференции и дорожки в отдельном процессе от SFU/recorder.
+// Worker запускает ограниченное число конференций и дорожек в отдельном от SFU и рекордера процессе.
 type Worker struct {
-	Repo     Repository
-	Tap      AudioTap
-	Decoder  Decoder
-	Provider domain.LiveTranscriptionProvider
-	Events   Events
-	Config   config.StageEightConfig
-	slots    chan struct{}
-	statusMu sync.Mutex
-	statuses map[string]statusStamp
-	active   atomic.Int64
+	drainMu    sync.Mutex
+	draining   bool
+	workActive int
+	Repo       Repository
+	Tap        AudioTap
+	Decoder    Decoder
+	Provider   domain.LiveTranscriptionProvider
+	Events     Events
+	Config     config.StageEightConfig
+	slots      chan struct{}
+	statusMu   sync.Mutex
+	statuses   map[string]statusStamp
+	active     atomic.Int64
 }
 
 // statusStamp ограничивает повторную отправку одинакового состояния при массовом drop кадров.
@@ -39,6 +42,15 @@ type statusStamp struct {
 	value string
 	at    time.Time
 }
+
+// BeginDrain останавливает новые аренды конференций, не прерывая действующие.
+func (w *Worker) BeginDrain() { w.drainMu.Lock(); w.draining = true; w.drainMu.Unlock() }
+
+// Active возвращает число активных конференций и незавершённых захватов аренды.
+func (w *Worker) Active() int { w.drainMu.Lock(); defer w.drainMu.Unlock(); return w.workActive }
+
+// finishWork освобождает счётчик завершённой конференции или неудачного захвата.
+func (w *Worker) finishWork() { w.drainMu.Lock(); w.workActive--; w.drainMu.Unlock() }
 
 // Run захватывает короткие SQL-аренды, продлевает их и ожидает завершения всех своих обработчиков.
 // @args ctx — время жизни процесса.
@@ -55,14 +67,28 @@ func (w *Worker) Run(ctx context.Context) {
 	for ctx.Err() == nil {
 		select {
 		case conferences <- struct{}{}:
+			w.drainMu.Lock()
+			if w.draining {
+				w.drainMu.Unlock()
+				<-conferences
+				return
+			}
+			w.workActive++
+			w.drainMu.Unlock()
 			op, cancel := context.WithTimeout(ctx, 3*time.Second)
 			lease, err := w.Repo.Claim(op, w.Config.AnalyticsEnabled, w.Config.LiveConferences, w.Config.LiveAttempts)
 			cancel()
 			if err != nil {
+				w.finishWork()
 				<-conferences
 			} else {
 				work.Add(1)
-				go func() { defer work.Done(); defer func() { <-conferences }(); w.conference(ctx, lease) }()
+				go func() {
+					defer work.Done()
+					defer w.finishWork()
+					defer func() { <-conferences }()
+					w.conference(ctx, lease)
+				}()
 			}
 		default:
 		}
@@ -74,8 +100,8 @@ func (w *Worker) Run(ctx context.Context) {
 	}
 }
 
-// conference следит за fencing и максимальной длительностью, независимо от состояния аудио.
-// @args parent — процесс; lease — актуальная версия opt-in.
+// conference следит за актуальностью аренды и максимальной длительностью, независимо от состояния аудио.
+// @args parent — контекст процесса; lease — актуальная версия согласия пользователя.
 func (w *Worker) conference(parent context.Context, lease Lease) {
 	deadline := lease.EnabledAt.Add(w.Config.LiveMaxDuration)
 	if !lease.Enabled {
@@ -147,8 +173,8 @@ func (w *Worker) conference(parent context.Context, lease Lease) {
 	w.publish(op, lease.ConferenceID, "caption.status", map[string]any{"sessionId": lease.SessionID, "generation": lease.Generation, "status": outcome, "enabled": lease.Enabled})
 }
 
-// stream распределяет кадры по bounded очередям; переполнение затрагивает только субтитры.
-// @args ctx — аренда; lease — конференция; validUntil — локальный консервативный deadline fencing.
+// stream распределяет кадры по очередям ограниченного размера; переполнение затрагивает только субтитры.
+// @args ctx — аренда; lease — конференция; validUntil — локальный консервативный срок действительности аренды.
 // @return причина прекращения вспомогательного потока.
 func (w *Worker) stream(ctx context.Context, lease Lease, validUntil *atomic.Int64, meter *activityMeter) error {
 	child, cancel := context.WithCancel(ctx)
@@ -238,9 +264,9 @@ func (w *Worker) stream(ctx context.Context, lease Lease, validUntil *atomic.Int
 	return fmt.Errorf("audio tap closed")
 }
 
-// track декодирует одну incarnation; provider reconnect никогда не запускает второй decoder.
-// @args ctx — lifecycle; lease — fencing; track/speaker — проверенная идентичность;
-// packets — ограниченный канал; validUntil — текущий deadline аренды.
+// track декодирует один экземпляр дорожки; переподключение провайдера не запускает второй декодер.
+// @args ctx — жизненный цикл; lease — актуальная аренда; track/speaker — проверенная идентичность;
+// packets — ограниченный канал; validUntil — текущий срок действительности аренды.
 func (w *Worker) track(ctx context.Context, lease Lease, track media.EgressTrack, speaker string, packets <-chan media.EgressFrame, validUntil *atomic.Int64, meter *activityMeter) {
 	var first media.EgressFrame
 	var ok bool
@@ -375,8 +401,8 @@ func (w *Worker) track(ctx context.Context, lease Lease, track media.EgressTrack
 }
 
 // receive проверяет ревизии, временные границы и размер текста до сохранения/публикации.
-// @args ctx — lifecycle; lease/track/speaker — серверная идентичность; runID — incarnation провайдера;
-// origin — смещение PCM во времени конференции; events — bounded поток.
+// @args ctx — жизненный цикл; lease/track/speaker — серверная идентичность; runID — идентификатор запуска провайдера;
+// origin — смещение PCM во времени конференции; events — поток ограниченного размера.
 func (w *Worker) receive(ctx context.Context, lease Lease, track media.EgressTrack, speaker, runID string, origin int64, events <-chan domain.Event) {
 	latest := map[string]domain.Event{}
 	for event := range events {
@@ -435,8 +461,8 @@ func Newer(old, next domain.Event) bool {
 	return (!old.Final || next.Final) && (next.Revision > old.Revision || next.Revision == old.Revision && next.Final && !old.Final) && next.Sequence >= old.Sequence
 }
 
-// status сохраняет и публикует состояние с коротким deadline; исходные ошибки не логируются.
-// @args ctx — отмена; lease — fencing; status — ограниченное состояние.
+// status сохраняет и публикует состояние с коротким сроком выполнения; исходные ошибки не логируются.
+// @args ctx — отмена; lease — актуальная аренда; status — ограниченное состояние.
 func (w *Worker) status(ctx context.Context, lease Lease, status string) {
 	w.statusMu.Lock()
 	previous := w.statuses[lease.Token]
@@ -456,7 +482,7 @@ func (w *Worker) status(ctx context.Context, lease Lease, status string) {
 }
 
 // publish отправляет небольшое событие без критичного приоритета; final восстанавливается через HTTP.
-// @args ctx — deadline; cid,kind — серверная область/тип; payload — проверенные данные.
+// @args ctx — срок выполнения; cid,kind — серверная область/тип; payload — проверенные данные.
 func (w *Worker) publish(ctx context.Context, cid, kind string, payload any) {
 	if w.Events == nil {
 		return

@@ -1,5 +1,5 @@
 {
-  "uid": "recorder-stage6", "title": "Recorder operations", "schemaVersion": 39,
+  "uid": "recorder-stage6", "title": "Recorder release operations", "schemaVersion": 39,
   "version": 1, "refresh": "15s", "time": {"from": "now-1h", "to": "now"},
   "panels": [
     {"id":1,"title":"API requests / s","type":"timeseries","gridPos":{"x":0,"y":0,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"sum by(service,status) (rate(recorder_http_requests_total[5m]))","legendFormat":"{{service}} {{status}}"}]},
@@ -9,6 +9,12 @@
     {"id":5,"title":"Dependency readiness","type":"timeseries","gridPos":{"x":0,"y":16,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_dependency_up","legendFormat":"{{service}} {{dependency}}"}]},
     {"id":6,"title":"Memory / goroutines / FD","type":"timeseries","gridPos":{"x":12,"y":16,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"go_goroutines","legendFormat":"{{service}} goroutines"},{"refId":"B","expr":"process_open_fds","legendFormat":"{{service}} FD"}]},
     {"id":7,"title":"API p95 duration","type":"timeseries","gridPos":{"x":0,"y":24,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.95, sum by(le,service) (rate(recorder_http_duration_seconds_bucket{route!~\".*(events|ws).*\"}[5m])))","legendFormat":"{{service}}"}]},
-    {"id":8,"title":"RAM bytes","type":"timeseries","gridPos":{"x":12,"y":24,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"process_resident_memory_bytes","legendFormat":"{{service}}"}]}
+    {"id":8,"title":"RAM bytes","type":"timeseries","gridPos":{"x":12,"y":24,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"process_resident_memory_bytes","legendFormat":"{{service}}"}]},
+    {"id":9,"title":"Версии служб","type":"table","gridPos":{"x":0,"y":32,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_build_info","instant":true,"format":"table"}]},
+    {"id":10,"title":"Сбор метрик / готовность зависимостей","type":"timeseries","gridPos":{"x":12,"y":32,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"up{job=\"recorder\"}","legendFormat":"{{service}} scrape"},{"refId":"B","expr":"recorder_dependency_up","legendFormat":"{{service}} {{dependency}}"}]},
+    {"id":11,"title":"Очередь и ошибки фоновых заданий","type":"timeseries","gridPos":{"x":0,"y":40,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_product_queue","legendFormat":"{{service}} {{kind}} {{state}}"},{"refId":"B","expr":"sum by(kind,outcome) (rate(recorder_product_jobs_total[5m]))","legendFormat":"{{kind}} {{outcome}} / s"}]},
+    {"id":12,"title":"Субтитры / ошибки провайдеров","type":"timeseries","gridPos":{"x":12,"y":40,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"recorder_state{resource=~\"live_tracks|live_stt_active\"}","legendFormat":"{{resource}}"},{"refId":"B","expr":"sum by(event) (rate(recorder_events_total{event=~\"live_.*failed|live_audio_dropped\"}[5m]))","legendFormat":"{{event}} / s"}]},
+    {"id":13,"title":"Ошибки клиента (без содержимого)","type":"timeseries","gridPos":{"x":0,"y":48,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"sum by(code,browser) (rate(recorder_client_errors_total[5m]))","legendFormat":"{{browser}} {{code}}"}]},
+    {"id":14,"title":"ICE: первое выбранное соединение и сбои","type":"timeseries","gridPos":{"x":12,"y":48,"w":12,"h":8},"datasource":{"uid":"recorder-prometheus","type":"prometheus"},"targets":[{"refId":"A","expr":"increase(recorder_state{resource=~\"media_relay_total|media_direct_total|media_failures_total\"}[5m])","legendFormat":"{{resource}}"}]}
   ]
 }

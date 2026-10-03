@@ -35,7 +35,7 @@ type vectorAvailabilityStub struct {
 
 func (s vectorAvailabilityStub) Available(context.Context) (bool, error) { return s.available, s.err }
 
-// TestCapabilitiesReflectEffectiveAvailability guards against advertising unavailable paid features.
+// TestCapabilitiesReflectEffectiveAvailability предотвращает объявление недоступных платных функций.
 func TestCapabilitiesReflectEffectiveAvailability(t *testing.T) {
 	service := Service{StageSeven: config.StageSevenConfig{STTEnabled: true, AIEnabled: false},
 		StageEight: config.StageEightConfig{LiveEnabled: true, EmbeddingsEnabled: true, AnalyticsEnabled: true}}

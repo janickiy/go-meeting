@@ -14,8 +14,8 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// Worker liveness and owner claims share Redis time and atomic operations. A
-// lease ID fences an expired owner from renewing or deleting a new assignment.
+// Активность воркера и захват владения используют общие часы Redis и атомарные операции.
+// ID аренды не позволяет прежнему владельцу продлевать или удалять новое назначение.
 var mediaRegistryScript = goredis.NewScript(`
 local prefix,op,id = ARGV[1],ARGV[2],ARGV[3]
 local index=prefix..':workers'
@@ -44,7 +44,9 @@ elseif op=='workers' then
     local result={}
     for _,wid in ipairs(redis.call('ZRANGEBYSCORE',index,now+1,'+inf')) do
         local raw=redis.call('GET',prefix..':worker:'..wid)
-        if raw then table.insert(result,raw) else redis.call('ZREM',index,wid) end
+        if raw then
+            if not cjson.decode(raw).draining then table.insert(result,raw) end
+        else redis.call('ZREM',index,wid) end
     end
     return result
 elseif op=='remove' then
@@ -71,7 +73,7 @@ local wanted=cjson.decode(ARGV[4])
 if op=='claim' then
     if current then return raw end
     local w=worker(wanted.workerId)
-    if not w then return '' end
+    if not w or w.draining then return '' end
     wanted.endpoint=w.endpoint
     raw=cjson.encode(wanted)
     redis.call('SET',key,raw,'PX',tonumber(ARGV[5]))

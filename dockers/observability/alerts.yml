@@ -63,3 +63,13 @@ groups:
         expr: sum by(service,provider) (increase(recorder_product_provider_calls_total{outcome="rate_limited"}[5m])) > 0
         for: 2m
         labels: {severity: warning}
+      - alert: RecorderClientErrorBurst
+        expr: sum by(code) (increase(recorder_client_errors_total[10m])) > 20
+        for: 5m
+        labels: {severity: info}
+        annotations: {summary: "Повторяющиеся клиентские ошибки; сверить версию и сценарий в окне выпуска"}
+      - alert: RecorderLiveCaptionBacklog
+        expr: sum by(service) (increase(recorder_events_total{event="live_audio_dropped"}[10m])) > 10
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: "Проверить фактические потери аудио субтитров и лимиты провайдера"}

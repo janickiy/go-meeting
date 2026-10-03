@@ -29,8 +29,8 @@ type ChatRepository struct{ db *gorm.DB }
 // @return:
 //   - результат 1 (*ChatRepository): созданный компонент с переданными зависимостями.
 func NewChatRepository(db *gorm.DB) *ChatRepository {
-	// GORM's interpolated slow/error SQL may contain private message text or
-	// filenames. Application diagnostics deliberately log only event IDs.
+	// SQL, который GORM подставляет в журналы медленных запросов и ошибок, может содержать
+	// приватный текст сообщений или имена файлов. Диагностика приложения выводит только ID событий.
 	return &ChatRepository{db: db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)})}
 }
 

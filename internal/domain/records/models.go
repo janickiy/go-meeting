@@ -173,7 +173,7 @@ func (RecordSegment) TableName() string { return "record_segment" }
 //   - CreatedAt: время создания значения.
 //   - UpdatedAt: время последнего сохранённого изменения.
 type RecordFile struct {
-	// Related содержит дополнительные приватные артефакты для того же атомарного ready commit.
+	// Related содержит дополнительные приватные артефакты для той же атомарной фиксации готовности.
 	Related        []RecordFile   `gorm:"-" json:"-"`
 	ID             int64          `gorm:"primaryKey" json:"id"`
 	UUID           string         `gorm:"column:uuid;type:uuid;default:gen_random_uuid()" json:"uuid"`

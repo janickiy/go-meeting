@@ -25,8 +25,8 @@ export function useMedia(
   const mounted = useRef(true);
   const liveRef = useRef(live);
   const policyRef = useRef(policy);
-  // Never reset on media.stop/start: delayed HTTP requests from an earlier
-  // capture must not overwrite a newer snapshot on the same WS connection.
+  // Счётчик не сбрасывается при media.stop/start: запоздалые HTTP-запросы прежнего
+  // захвата не должны перезаписывать новый снимок в том же соединении WS.
   const mediaSequence = useRef(0);
   policyRef.current = policy;
   liveRef.current = live;

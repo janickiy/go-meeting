@@ -22,7 +22,7 @@ type CaptionsRepository struct{ db *gorm.DB }
 func NewCaptionsRepository(db *gorm.DB) *CaptionsRepository { return &CaptionsRepository{db} }
 
 // Read возвращает состояние после актуальной проверки допуска к истории встречи.
-// @args ctx — deadline; user,cid — актор и конференция.
+// @args ctx — срок выполнения; user,cid — актор и конференция.
 // @return состояние, включая право управления, либо ошибка доступа.
 func (r *CaptionsRepository) Read(ctx context.Context, user, cid string) (domain.State, error) {
 	db := r.db.WithContext(ctx)
@@ -40,8 +40,8 @@ func (r *CaptionsRepository) Read(ctx context.Context, user, cid string) (domain
 	return state, row.Error
 }
 
-// Set меняет opt-in только для участвующего организатора/соорганизатора и отсекает старую аренду.
-// @args ctx — deadline; user,cid — актор и встреча; enabled — отправка провайдеру; language — auto/ru/en.
+// Set меняет согласие только для участвующего организатора или соорганизатора и прекращает прежнюю аренду.
+// @args ctx — срок выполнения; user,cid — актор и встреча; enabled — отправка провайдеру; language — auto/ru/en.
 // @return новое состояние либо ошибка роли/состояния.
 func (r *CaptionsRepository) Set(ctx context.Context, user, cid string, enabled bool, language string) (domain.State, error) {
 	if language != "auto" && language != "ru" && language != "en" {
@@ -76,7 +76,7 @@ func (r *CaptionsRepository) Set(ctx context.Context, user, cid string, enabled 
 }
 
 // Finals выдаёт курсорную страницу, применяя права внутри запроса до выборки текста.
-// @args ctx — deadline; user,cid — область; after — durable cursor; limit — 1..200.
+// @args ctx — срок выполнения; user,cid — область доступа; after — постоянный курсор; limit — 1..200.
 // @return финальные реплики всех live-поколений, восстановимые после потери WS.
 func (r *CaptionsRepository) Finals(ctx context.Context, user, cid string, after int64, limit int) ([]domain.Caption, error) {
 	if after < 0 || limit < 1 || limit > 200 {
@@ -93,7 +93,7 @@ func (r *CaptionsRepository) Finals(ctx context.Context, user, cid string, after
 }
 
 // Claim атомарно получает одну конференцию с ограничением активных аренд во всём кластере.
-// @args ctx — deadline; analytics — автоматическое локальное наблюдение; maximum — число конференций; attempts — предел перезапусков.
+// @args ctx — срок выполнения; analytics — автоматическое локальное наблюдение; maximum — число конференций; attempts — предел перезапусков.
 // @return аренда либо gorm.ErrRecordNotFound при отсутствии доступной работы.
 func (r *CaptionsRepository) Claim(ctx context.Context, analytics bool, maximum, attempts int) (live.Lease, error) {
 	lease := live.Lease{}
@@ -134,7 +134,7 @@ func (r *CaptionsRepository) Claim(ctx context.Context, analytics bool, maximum,
 }
 
 // Renew продлевает только текущую аренду активной конференции и поколения.
-// @args ctx — deadline; lease — захваченная версия.
+// @args ctx — срок выполнения; lease — захваченная версия.
 // @return true пока обработка разрешена.
 func (r *CaptionsRepository) Renew(ctx context.Context, lease live.Lease) (bool, error) {
 	result := r.db.WithContext(ctx).Exec(`UPDATE live_transcription_sessions SET lease_until=clock_timestamp()+interval '15 seconds'
@@ -143,7 +143,7 @@ func (r *CaptionsRepository) Renew(ctx context.Context, lease live.Lease) (bool,
 }
 
 // Finish завершает текущую аренду; ошибки субтитров не изменяют конференцию или запись.
-// @args ctx — deadline; lease — fencing; status — completed/failed.
+// @args ctx — срок выполнения; lease — актуальная аренда; status — completed/failed.
 // @return ошибка SQL.
 func (r *CaptionsRepository) Finish(ctx context.Context, lease live.Lease, status string) error {
 	if status != "completed" && status != "failed" && status != "queued" {
@@ -153,7 +153,7 @@ func (r *CaptionsRepository) Finish(ctx context.Context, lease live.Lease, statu
 }
 
 // Status сохраняет видимую деградацию только при действующей аренде.
-// @args ctx — deadline; lease — fencing; status — active/degraded.
+// @args ctx — срок выполнения; lease — актуальная аренда; status — active/degraded.
 // @return ошибка SQL.
 func (r *CaptionsRepository) Status(ctx context.Context, lease live.Lease, status string) error {
 	if status != "active" && status != "degraded" {
@@ -163,7 +163,7 @@ func (r *CaptionsRepository) Status(ctx context.Context, lease live.Lease, statu
 }
 
 // SaveFinal фиксирует принятую финальную ревизию до публикации события.
-// @args ctx — deadline; lease — текущее поколение/аренда; caption — проверенная реплика; maximum — предел строк на конференцию.
+// @args ctx — срок выполнения; lease — текущее поколение/аренда; caption — проверенная реплика; maximum — предел строк на конференцию.
 // @return сохранённая реплика с курсором либо безопасный отказ.
 func (r *CaptionsRepository) SaveFinal(ctx context.Context, lease live.Lease, caption domain.Caption, maximum int) (domain.Caption, error) {
 	caption.SessionID = lease.SessionID
@@ -208,7 +208,7 @@ func (r *CaptionsRepository) SaveFinal(ctx context.Context, lease live.Lease, ca
 }
 
 // Speaker проверяет серверную принадлежность дорожки допущенному участнику.
-// @args ctx — deadline; cid,pid — конференция и участник.
+// @args ctx — срок выполнения; cid,pid — конференция и участник.
 // @return отображаемое имя либо ошибка доступа.
 func (r *CaptionsRepository) Speaker(ctx context.Context, cid, pid string) (string, error) {
 	var p conferences.Participant
@@ -220,7 +220,7 @@ func (r *CaptionsRepository) Speaker(ctx context.Context, cid, pid string) (stri
 }
 
 // Observe добавляет одну порцию агрегированной активности, проверяя аренду и принадлежность участника.
-// @args ctx — deadline; lease — fencing; pid — участник; speech,observed — приращения ms за небольшой интервал.
+// @args ctx — срок выполнения; lease — актуальная аренда; pid — участник; speech,observed — приращения в миллисекундах за небольшой интервал.
 // @return ошибка фиксации без влияния на звук.
 func (r *CaptionsRepository) Observe(ctx context.Context, lease live.Lease, pid string, speech, observed int64) error {
 	if speech < 0 || speech > 30000 || observed < 0 || observed > 30000 {

@@ -68,7 +68,7 @@ func (p *PostProcessor) ValidateOutput(ctx context.Context, path string, require
 }
 
 // validateOutput проверяет контейнер и дорожки согласно серверной стратегии.
-// @args ctx — deadline; path — локальный файл; requireAudio/requireVideo — обязательные дорожки.
+// @args ctx — срок выполнения; path — локальный файл; requireAudio/requireVideo — обязательные дорожки.
 // @return метаданные корректного MP4 или ошибка валидации.
 func (p *PostProcessor) validateOutput(ctx context.Context, path string, requireAudio, requireVideo bool) (OutputValidation, error) {
 	result := OutputValidation{}

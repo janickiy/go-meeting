@@ -26,7 +26,7 @@ type Service struct {
 	cfg   Config
 }
 
-// SetSearch подключает дополнительный поиск, сохраняя общую проверку параметров и FTS fallback.
+// SetSearch подключает дополнительный поиск с общей проверкой параметров и резервным полнотекстовым поиском.
 // @args search — сервис гибридного поиска с SQL authorization.
 func (s *Service) SetSearch(search interface {
 	Search(context.Context, string, domain.SearchQuery) (domain.SearchPage, error)
@@ -35,8 +35,8 @@ func (s *Service) SetSearch(search interface {
 }
 
 // NewService проверяет бюджеты и связывает заменяемые зависимости.
-// @args repo — durable данные; audio — приватное извлечение WAV;
-// stt/ai — адаптеры без SDK в usecase; cfg — enable flags и конечные лимиты.
+// @args repo — постоянное хранилище; audio — приватное извлечение WAV;
+// stt/ai — адаптеры без SDK в прикладном слое; cfg — флаги включения и конечные лимиты.
 // @return готовый сценарий либо ошибка неполной/опасной конфигурации.
 func NewService(repo Repository, audio AudioSource, stt domain.TranscriptionProvider, ai domain.AIProvider, cfg Config) (*Service, error) {
 	if repo == nil || stt == nil || ai == nil || (cfg.TranscriptionEnabled && audio == nil) {
@@ -48,8 +48,8 @@ func NewService(repo Repository, audio AudioSource, stt domain.TranscriptionProv
 	return &Service{repo: repo, audio: audio, stt: stt, ai: ai, cfg: cfg}, nil
 }
 
-// Transcript возвращает nullable metadata и серверные capability flags.
-// @args ctx — deadline; userID/cid/rid — актор и область чтения.
+// Transcript возвращает необязательные метаданные и серверные признаки доступных функций.
+// @args ctx — срок выполнения; userID/cid/rid — актор и область чтения.
 // @return ready/processing состояние или ошибку доступа.
 func (s *Service) Transcript(ctx context.Context, userID, cid, rid string) (domain.TranscriptState, error) {
 	t, manage, err := s.repo.Transcript(ctx, userID, cid, rid)
@@ -59,7 +59,7 @@ func (s *Service) Transcript(ctx context.Context, userID, cid, rid string) (doma
 }
 
 // Segments проверяет bounds перед серверной пагинацией timestamped текста.
-// @args ctx — deadline; userID/cid/rid — область чтения; limit/offset — страница.
+// @args ctx — срок выполнения; userID/cid/rid — область чтения; limit/offset — страница.
 // @return ограниченная страница и ошибка входа/доступа.
 func (s *Service) Segments(ctx context.Context, userID, cid, rid string, limit, offset int) (domain.SegmentPage, error) {
 	if limit < 1 || limit > 200 || offset < 0 || offset > 100000 {
@@ -68,8 +68,8 @@ func (s *Service) Segments(ctx context.Context, userID, cid, rid string, limit, 
 	return s.repo.Segments(ctx, userID, cid, rid, limit, offset)
 }
 
-// Summary возвращает только summary текущего transcript generation и реальные права.
-// @args ctx — deadline; userID/cid/rid — область чтения.
+// Summary возвращает сводку только текущего поколения расшифровки и действующие права.
+// @args ctx — срок выполнения; userID/cid/rid — область чтения.
 // @return nullable summary/enable/canRegenerate и ошибка.
 func (s *Service) Summary(ctx context.Context, userID, cid, rid string) (domain.SummaryState, error) {
 	summary, manage, err := s.repo.Summary(ctx, userID, cid, rid)
@@ -85,9 +85,9 @@ func (s *Service) Summary(ctx context.Context, userID, cid, rid string) (domain.
 	return domain.SummaryState{Item: summary, Enabled: enabled, CanRegenerate: can, ProviderMode: s.ai.Name()}, err
 }
 
-// RetryTranscript ставит только разрешённую дорогую обработку в persistent queue.
-// @args ctx — короткий HTTP deadline; userID/cid/rid — проверяемый актор/ресурс.
-// @return queued state; внешние вызовы здесь отсутствуют.
+// RetryTranscript ставит только разрешённую затратную обработку в постоянную очередь.
+// @args ctx — короткий срок выполнения HTTP-запроса; userID/cid/rid — проверяемые пользователь и ресурс.
+// @return состояние поставленного в очередь задания; внешние вызовы здесь отсутствуют.
 func (s *Service) RetryTranscript(ctx context.Context, userID, cid, rid string) (domain.TranscriptState, error) {
 	if !s.cfg.TranscriptionEnabled || s.stt.Name() == "noop" {
 		return domain.TranscriptState{}, apperrors.New(apperrors.ErrUnavailable, "transcription is disabled")
@@ -96,9 +96,9 @@ func (s *Service) RetryTranscript(ctx context.Context, userID, cid, rid string) 
 	return domain.TranscriptState{Item: t, Enabled: true, ProviderMode: s.stt.Name()}, err
 }
 
-// RegenerateSummary ставит новое поколение summary с authorization/cost budget в БД.
-// @args ctx — короткий HTTP deadline; userID/cid/rid — область доступа.
-// @return queued state; transcript/recording остаются пригодными к чтению.
+// RegenerateSummary создаёт новое поколение сводки с проверкой доступа и бюджета затрат в БД.
+// @args ctx — короткий срок выполнения HTTP-запроса; userID/cid/rid — область доступа.
+// @return состояние поставленного в очередь задания; расшифровка и запись остаются пригодными к чтению.
 func (s *Service) RegenerateSummary(ctx context.Context, userID, cid, rid string) (domain.SummaryState, error) {
 	if !s.cfg.AIEnabled || s.ai.Name() == "noop" {
 		return domain.SummaryState{}, apperrors.New(apperrors.ErrUnavailable, "AI summary is disabled")
@@ -107,8 +107,8 @@ func (s *Service) RegenerateSummary(ctx context.Context, userID, cid, rid string
 	return domain.SummaryState{Item: item, Enabled: true, ProviderMode: s.ai.Name()}, err
 }
 
-// Search ограничивает запрос и вызывает permission-filtered PostgreSQL FTS.
-// @args ctx — deadline; userID — текущий пользователь; query — фильтры/страница.
+// Search ограничивает запрос и вызывает полнотекстовый поиск PostgreSQL с проверкой прав.
+// @args ctx — срок выполнения; userID — текущий пользователь; query — фильтры/страница.
 // @return только разрешённые plain-text результаты и ошибку.
 func (s *Service) Search(ctx context.Context, userID string, query domain.SearchQuery) (domain.SearchPage, error) {
 	if query.Mode == "" {
@@ -153,8 +153,8 @@ func (s *Service) Search(ctx context.Context, userID string, query domain.Search
 	return s.repo.Search(ctx, userID, query)
 }
 
-// Handle обрабатывает одно leased задание, никогда не изменяя media recording lifecycle.
-// @args ctx — product-worker deadline; job — постоянный job с generation/lease.
+// Handle обрабатывает одно арендованное задание без изменения жизненного цикла записи медиа.
+// @args ctx — срок выполнения product-worker; job — постоянное задание с поколением и арендой.
 // @return классифицированную ошибку, ErrSkip либо успешный commit.
 func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 	switch job.Kind {
@@ -222,16 +222,16 @@ func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 	}
 }
 
-// FailJob фиксирует terminal content status до освобождения job lease общим runner.
-// @args ctx — свежий bounded deadline; job — актуальный job; code — техническая категория.
-// @return безопасную ошибку DB commit/fencing.
+// FailJob фиксирует окончательное состояние содержимого до освобождения аренды общим исполнителем.
+// @args ctx — новый ограниченный срок выполнения; job — актуальное задание; code — техническая категория.
+// @return безопасную ошибку фиксации транзакции БД или потери актуальности аренды.
 func (s *Service) FailJob(ctx context.Context, job jobs.Job, code string) error {
 	return s.repo.FailJob(ctx, job, code)
 }
 
-// providerError сохраняет классифицированные ошибки, скрывая vendor diagnostics.
+// providerError сохраняет классификацию ошибок, скрывая диагностику поставщика.
 // @args err — исходная ошибка; code — безопасная категория для прочих ошибок.
-// @return Error с конечным retry policy, без transcript/token в сообщении.
+// @return Error с конечной политикой повторов, без расшифровки и токена в сообщении.
 func providerError(err error, code string) error {
 	if errors.Is(err, jobs.ErrSkip) || errors.Is(err, jobs.ErrLeaseLost) {
 		return err
@@ -248,8 +248,8 @@ func providerError(err error, code string) error {
 }
 
 // ValidateTranscript проверяет размер, временную монотонность и confidence поставщика.
-// @args result — изменяемый STT output; duration — длина записи; maxSegments/maxBytes — бюджеты.
-// @return ошибку схемы; speaker identity очищается, потому что надёжного mapping нет.
+// @args result — изменяемый результат распознавания речи; duration — длина записи; maxSegments/maxBytes — бюджеты.
+// @return ошибку схемы; идентичность говорящего очищается, потому что надёжного соответствия участнику нет.
 func ValidateTranscript(result *domain.TranscriptionResult, duration, maxSegments int, maxBytes int64) error {
 	if result == nil || duration < 1 || len(result.Segments) > maxSegments {
 		return fmt.Errorf("invalid transcript size")

@@ -1,4 +1,4 @@
-// Package health probes trusted internal service readiness without returning addresses.
+// Пакет health проверяет готовность доверенных внутренних сервисов без раскрытия адресов.
 package health
 
 import (
@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// HTTPReady probes a configured internal health endpoint with no proxy or redirects.
+// HTTPReady обращается к заданному внутреннему маршруту готовности без прокси и перенаправлений.
 type HTTPReady struct {
 	url    string
 	client *http.Client

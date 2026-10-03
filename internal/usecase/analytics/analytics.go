@@ -1,4 +1,4 @@
-// Package analytics строит ограниченные агрегаты присутствия и очереди фонового пересчёта.
+// Пакет analytics строит ограниченные агрегаты присутствия и очередь фонового пересчёта.
 package analytics
 
 import (
@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Repository предоставляет интервалы и атомарную публикацию с job lease fencing.
+// Repository предоставляет интервалы и атомарную публикацию с проверкой действующей аренды задания.
 type Repository interface {
 	Source(context.Context, jobs.Job) (time.Time, time.Time, []domain.Interval, error)
 	Save(context.Context, jobs.Job, domain.Conference) error
@@ -25,7 +25,7 @@ type Service struct {
 }
 
 // Aggregate объединяет перекрывающиеся вкладки одного участника и ограничивает timeline 600 точками.
-// @args cid — встреча; start,end — её границы; intervals — bounded интервалы присутствия.
+// @args cid — встреча; start,end — её границы; intervals — ограниченный набор интервалов присутствия.
 // @return агрегаты с хронологией, без сортировки участников по времени речи.
 func Aggregate(cid string, start, end time.Time, intervals []domain.Interval) domain.Conference {
 	result := domain.Conference{ConferenceID: cid, Enabled: true, ApproximateSpeaking: true, Timeline: []domain.Point{}, Participants: []domain.Participant{}, DurationMS: max(int64(0), end.Sub(start).Milliseconds())}
@@ -90,9 +90,9 @@ func Aggregate(cid string, start, end time.Time, intervals []domain.Interval) do
 	return result
 }
 
-// Handle пересчитывает один conference aggregate в отдельном product-worker.
-// @args ctx — deadline; job — постоянное задание.
-// @return ошибка SQL/fencing или осознанный skip.
+// Handle пересчитывает агрегат одной конференции в отдельном product-worker.
+// @args ctx — срок выполнения; job — постоянное задание.
+// @return ошибка SQL, потеря актуальности аренды либо осознанный пропуск обработки.
 func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 	if !s.Enabled {
 		return jobs.ErrSkip

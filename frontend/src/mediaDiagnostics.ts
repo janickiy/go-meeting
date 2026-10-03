@@ -1,5 +1,5 @@
-/** Only these aggregate values may leave the WebRTC stats parser.
- * Loss is cumulative inbound RTP; bitrate needs two samples. No quality score is inferred.
+/** Только эти агрегированные значения могут покидать обработчик статистики WebRTC.
+ * Потери считаются накопительно для входящего RTP; битрейт требует двух измерений. Оценка качества не вычисляется.
  */
 export interface RtcDiagnostics {
   roundTripTimeMs?: number;
@@ -50,7 +50,7 @@ function bitrate(current?: number, previous?: number, seconds?: number) {
   return Math.round(((current - previous) * 8) / seconds / 1000);
 }
 
-/** Parse browser stats into an allowlisted snapshot; candidate addresses and raw IDs stay here. */
+/** Преобразует статистику браузера в разрешённый снимок; адреса кандидатов и исходные ID остаются внутри. */
 export function summarizeRtcStats(
   report: RTCStatsReport,
   previous: RtcCounters | null = null,
@@ -166,7 +166,7 @@ const iceStates = new Set([
   "closed",
 ]);
 
-/** Build a redacted report from explicitly listed fields, never by spreading browser data. */
+/** Формирует обезличенный отчёт из явно перечисленных полей без копирования всех данных браузера. */
 export function safeDiagnosticsReport(input: {
   buildVersion?: string;
   realtimeStatus: string;

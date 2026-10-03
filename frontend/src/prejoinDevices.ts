@@ -18,7 +18,7 @@ const key = (userId: string) => `meet.devices.v1:${userId}`;
 const safeId = (value: unknown) =>
   typeof value === "string" && value.length <= 512 ? value : "";
 
-/** Device IDs are only preferences. They are never used as participant identity. */
+/** ID устройств используются только как предпочтения и не определяют личность участника. */
 export function readDevicePreferences(userId: string): DevicePreferences {
   if (!userId) return { ...emptyPreferences };
   try {
@@ -56,11 +56,11 @@ export function saveDevicePreferences(
   try {
     localStorage.setItem(key(userId), JSON.stringify(preferences));
   } catch {
-    // Storage can be disabled; the meeting still works with default devices.
+    // Хранилище может быть отключено; встреча продолжает работать с устройствами по умолчанию.
   }
 }
 
-/** Keep an opaque preference until the browser exposes actual device IDs. */
+/** Сохраняет непрозрачное предпочтение, пока браузер не предоставит реальные ID устройств. */
 export function availableDeviceId(
   devices: MediaDeviceInfo[],
   kind: MediaDeviceKind,

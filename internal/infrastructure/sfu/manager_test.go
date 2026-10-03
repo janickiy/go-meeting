@@ -21,7 +21,7 @@ import (
 	pion "github.com/pion/webrtc/v4"
 )
 
-// pionHarness хранит изолированное состояние тестового компонента «pion Harness».
+// pionHarness хранит изолированный стенд Pion для проверки поведения медиа.
 //   - manager: значение manager типа *Manager, используемое согласно назначению этой операции.
 //   - mu: блокировка согласованного доступа к разделяемому состоянию.
 //   - peers: индекс значений peers для поиска и согласования состояния.
@@ -76,8 +76,8 @@ type testPeer struct {
 	wg                       sync.WaitGroup
 	closed                   bool
 	publishingPaused         atomic.Bool
-	sourceDeclarations       map[string]media.Source // guarded by neg; nil keeps legacy offers
-	declarationGeneration    string                  // test capture generation, guarded by neg
+	sourceDeclarations       map[string]media.Source // защищено neg; nil сохраняет поддержку прежних предложений
+	declarationGeneration    string                  // тестовое поколение захвата, защищено neg
 }
 
 // harness подготавливает или проверяет часть тестового сценария «harness».
@@ -205,7 +205,7 @@ func (h *pionHarness) join(t *testing.T, conference string, participant string) 
 	return h.joinSlots(t, conference, participant, h.manager.opts.MaxPeers-1)
 }
 
-// joinSlots подготавливает или проверяет часть тестового сценария «join Slots».
+// joinSlots подготавливает приёмные слоты при присоединении тестового участника.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -291,7 +291,7 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 		t.Fatal(err)
 	}
 	p.id = view.MediaPeerID
-	// Explicitly drain every publisher sender's RTCP, just as a browser does.
+	// Явно читаем RTCP каждого отправителя публикации, как это делает браузер.
 	for _, sender := range []*pion.RTPSender{p.audioSender, p.videoSender} {
 		p.wg.Add(1)
 		go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
@@ -541,9 +541,9 @@ func TestSFUMediaSmoke(t *testing.T) {
 					})
 				var during runtime.MemStats
 				runtime.ReadMemStats(&during)
-				// One sustained second after all routes are negotiated, not just a
-				// successful first packet. This is a synthetic baseline, not a codec
-				// decode or 720p bandwidth/capacity benchmark.
+				// Проверяем непрерывную секунду после согласования всех маршрутов, а не только первый
+				// успешный пакет. Это синтетический базовый замер, а не проверка декодирования кодека
+				// или пропускной способности и вместимости для видео 720p.
 				time.Sleep(time.Second)
 				stats = h.manager.Snapshot()
 				var duringCPU syscall.Rusage
@@ -559,7 +559,7 @@ func TestSFUMediaSmoke(t *testing.T) {
 					return r.Utime.Sec*1000000 + int64(r.Utime.Usec) + r.Stime.Sec*1000000 + int64(r.Stime.Usec)
 				}
 				t.Logf("participants=%d duration=%s cpu=%s goroutines=%d->%d heap=%d->%d packets=%d bytes=%d dropped=%d", n, time.Since(started).Round(time.Millisecond), time.Duration(cpuMicros(duringCPU)-cpuMicros(beforeCPU))*time.Microsecond, beforeG, runtime.NumGoroutine(), beforeMem.HeapAlloc, during.HeapAlloc, stats.Packets, stats.Bytes, stats.Dropped)
-				// Stopping an actual publishing m-section must remove its subscriptions.
+				// Остановка реальной передающей m-секции должна удалять её подписки.
 				first := peers[0]
 				first.neg.Lock()
 				err := first.pc.RemoveTrack(first.videoSender)
@@ -622,7 +622,7 @@ func TestSFUMediaSmoke(t *testing.T) {
 	}
 }
 
-// TestOfferValidationAndNegotiationSerialization проверяет сценарий «SDP-предложение проверка входных данных и Negotiation Serialization», фиксируя ошибки поведения как регрессию.
+// TestOfferValidationAndNegotiationSerialization проверяет валидацию предложения и последовательное согласование.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -672,8 +672,8 @@ func TestOfferValidationAndNegotiationSerialization(t *testing.T) {
 		t.Fatal(err)
 	default:
 	}
-	// No camera/audio decoding is needed to reject extra publishers or an
-	// unsupported-only video codec before Pion creates transport resources.
+	// Для отклонения лишних издателей или неподдерживаемого видеокодека декодирование
+	// камеры и звука не требуется: отказ происходит до создания транспортов Pion.
 	if _, err = validateOffer(strings.ReplaceAll(raw, "VP8/90000", "UNSUPPORTED/90000"), 3); !errors.Is(err, media.ErrInvalid) {
 		t.Fatalf("unsupported codec: %v", err)
 	}
@@ -735,7 +735,7 @@ func TestFailedTransportAndAdmissionTimeoutCleanup(t *testing.T) {
 
 		@return:
 		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return p.pc.ConnectionState() == pion.PeerConnectionStateConnected })
-	// Abrupt remote transport loss, not an explicit signaling Leave command.
+	// Внезапная потеря удалённого транспорта без явной команды Leave в сигнализации.
 	_ = p.pc.Close()
 	eventually(t, h, "failed peer transport cleaned", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
@@ -802,7 +802,7 @@ func TestManagerLimitsDuplicatesAndCleanup(t *testing.T) {
 	}
 }
 
-// TestSameParticipantEndpointsAreNotEchoed проверяет сценарий «Same участник Endpoints Are не Echoed», фиксируя ошибки поведения как регрессию.
+// TestSameParticipantEndpointsAreNotEchoed проверяет отсутствие эха между соединениями одного участника.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -823,7 +823,7 @@ func TestSameParticipantEndpointsAreNotEchoed(t *testing.T) {
 	b.close()
 }
 
-// TestRepeatedRoomCyclesAndExplicitUnpublish проверяет сценарий «Repeated Room Cycles и Explicit Unpublish», фиксируя ошибки поведения как регрессию.
+// TestRepeatedRoomCyclesAndExplicitUnpublish проверяет повторные циклы комнаты и явное прекращение публикации.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -867,7 +867,7 @@ func TestRepeatedRoomCyclesAndExplicitUnpublish(t *testing.T) {
 	}
 }
 
-// TestEarlyTrickleICEIsBoundedValidatedAndDrained проверяет сценарий «Early Trickle ICE является ограниченный Validated и Drained», фиксируя ошибки поведения как регрессию.
+// TestEarlyTrickleICEIsBoundedValidatedAndDrained проверяет ограничение, валидацию и обработку ранних ICE-кандидатов.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -928,7 +928,7 @@ func TestEarlyTrickleICEIsBoundedValidatedAndDrained(t *testing.T) {
 	}
 }
 
-// TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie проверяет сценарий «Publication Registration одновременный Leave выполняет не Retain Zombie», фиксируя ошибки поведения как регрессию.
+// TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie проверяет отсутствие оставшихся публикаций при одновременном выходе и регистрации.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -944,8 +944,8 @@ func TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie(t *testing.T)
 		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 2 })
 	for i := 0; i < 24; i++ {
 		publisher := h.join(t, conference, "")
-		// First RTP fires at 20ms; vary leave around the OnTrack/registration
-		// boundary while another member keeps the same room alive.
+		// Первый RTP поступает через 20 мс; варьируем выход около момента OnTrack и регистрации,
+		// пока другой участник сохраняет эту же комнату активной.
 		time.Sleep(time.Duration(17+i%7) * time.Millisecond)
 		publisher.close()
 		eventually(t, h, "publisher completely detached", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
@@ -975,7 +975,7 @@ func TestPublicationRegistrationConcurrentLeaveDoesNotRetainZombie(t *testing.T)
 	keeper.close()
 }
 
-// TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes проверяет сценарий «Batch закрытие Fences All Peers до Blocked Emit Completes», фиксируя ошибки поведения как регрессию.
+// TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes проверяет прекращение доступа ко всем соединениям до завершения заблокированного Emit.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -1091,7 +1091,7 @@ func TestBatchCloseFencesAllPeersBeforeBlockedEmitCompletes(t *testing.T) {
 	}
 }
 
-// TestAnswerAppliedBarrierAndLateSubscriptionSnapshot проверяет сценарий «SDP-ответ Applied Barrier и Late Subscription Snapshot», фиксируя ошибки поведения как регрессию.
+// TestAnswerAppliedBarrierAndLateSubscriptionSnapshot проверяет защиту применения ответа и снимок поздних подписок.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -1145,8 +1145,8 @@ func TestAnswerAppliedBarrierAndLateSubscriptionSnapshot(t *testing.T) {
 	if after != before {
 		t.Fatal("RTP continued while answer was withheld")
 	}
-	// C publishes only AFTER B's answer snapshot. Ready for that answer must
-	// activate A's streams, never C's unadvertised SSRCs.
+	// C публикует после снимка ответа B. Ready для этого ответа должен активировать
+	// потоки A, но не необъявленные SSRC участника C.
 	c := h.join(t, conf, "")
 	eventually(t, h, "late publisher registered", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
@@ -1208,7 +1208,7 @@ func TestAnswerAppliedBarrierAndLateSubscriptionSnapshot(t *testing.T) {
 	c.close()
 }
 
-// TestMissingReadyExpiresEvenConnectedPeer проверяет сценарий «отсутствующий готовность Expires Even Connected Peer», фиксируя ошибки поведения как регрессию.
+// TestMissingReadyExpiresEvenConnectedPeer проверяет истечение соединения без Ready даже при подключённом транспорте.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -1242,7 +1242,7 @@ func TestMissingReadyExpiresEvenConnectedPeer(t *testing.T) {
 	b.cancel()
 }
 
-// TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs проверяет сценарий «Undersized Receive SDP-предложение только Activates Declared SSR Cs», фиксируя ошибки поведения как регрессию.
+// TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs проверяет активацию только объявленных SSRC при недостаточном числе приёмных слотов.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -1256,8 +1256,8 @@ func TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs(t *testing.T) {
 
 		@return:
 		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 4 })
-	// Only two sendrecv publishing m-lines: there are no extra receive slots
-	// to declare all four A/C publications in B's first answer.
+	// Только две передающие m-секции sendrecv: дополнительные приёмные слоты отсутствуют,
+	// поэтому первый ответ B не может объявить все четыре публикации A/C.
 	b := h.joinSlots(t, conf, "", 0)
 	eventually(t, h, "all desired subscriptions registered", /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
@@ -1335,7 +1335,7 @@ func TestUndersizedReceiveOfferOnlyActivatesDeclaredSSRCs(t *testing.T) {
 	c.close()
 }
 
-// TestAnsweredSSRCsExcludesInactiveRejectedAndRepair проверяет сценарий «Answered SSR Cs Excludes Inactive отклонённый и Repair», фиксируя ошибки поведения как регрессию.
+// TestAnsweredSSRCsExcludesInactiveRejectedAndRepair проверяет исключение неактивных, отклонённых и восстановительных SSRC из ответа.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

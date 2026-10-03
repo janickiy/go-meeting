@@ -113,13 +113,13 @@ afterEach(
 );
 
 describe("waiting room", /**
- * Проверка: waiting room выполняет тестовый сценарий «waiting room» и проверяет ожидаемые результаты.
+ * Проверяет зал ожидания.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("allows only a joined moderator to decide and excludes withdrawn requests", /**
-   * Проверка: allows only a joined moderator to decide and excludes withdrawn requests выполняет тестовый сценарий «allows only a joined moderator to decide and excludes withdrawn requests» и проверяет ожидаемые результаты.
+   * Проверяет принятие решений только присоединившимся модератором и исключение отозванных заявок.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -151,7 +151,7 @@ describe("waiting room", /**
     );
   });
   it("has no private room controls and correctly explains a closed waiting request", /**
-   * Проверка: has no private room controls and correctly explains a closed waiting request выполняет тестовый сценарий «has no private room controls and correctly explains a closed waiting request» и проверяет ожидаемые результаты.
+   * Проверяет отсутствие приватных элементов комнаты и корректное пояснение закрытой заявки на допуск.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -171,13 +171,13 @@ describe("waiting room", /**
   });
 });
 describe("persistent chat", /**
- * Проверка: persistent chat выполняет тестовый сценарий «persistent chat» и проверяет ожидаемые результаты.
+ * Проверяет постоянный чат.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("keeps draft on network failure and retries with the same idempotency key", /**
-   * Проверка: keeps draft on network failure and retries with the same idempotency key выполняет тестовый сценарий «keeps draft on network failure and retries with the same idempotency key» и проверяет ожидаемые результаты.
+   * Проверяет сохранение черновика при сетевом сбое и повтор с тем же ключом идемпотентности.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -219,7 +219,7 @@ describe("persistent chat", /**
     );
   });
   it("supports reply/edit/delete with server-confirmed mutations", /**
-   * Проверка: supports reply/edit/delete with server-confirmed mutations выполняет тестовый сценарий «supports reply/edit/delete with server-confirmed mutations» и проверяет ожидаемые результаты.
+   * Проверяет ответы, редактирование и удаление с подтверждением изменений сервером.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -276,7 +276,7 @@ describe("persistent chat", /**
     );
   });
   it("renders finished history as plain text with no write or moderation controls", /**
-   * Проверка: renders finished history as plain text with no write or moderation controls выполняет тестовый сценарий «renders finished history as plain text with no write or moderation controls» и проверяет ожидаемые результаты.
+   * Проверяет показ завершённой истории обычным текстом без отправки сообщений и модерации.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -306,7 +306,7 @@ describe("notifications", /**
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("shows unread count and persists explicit acknowledgement", /**
-   * Проверка: shows unread count and persists explicit acknowledgement выполняет тестовый сценарий «shows unread count and persists explicit acknowledgement» и проверяет ожидаемые результаты.
+   * Проверяет счётчик непрочитанного и сохранение явного подтверждения прочтения.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

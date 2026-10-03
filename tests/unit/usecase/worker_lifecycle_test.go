@@ -15,7 +15,7 @@ import (
 
 const workerTestRecordID = "22222222-2222-4222-8222-222222222222"
 
-// TestWorkerIgnoresCommandsForTerminalRecords проверяет сценарий «воркер Ignores Commands для Terminal Records», фиксируя ошибки поведения как регрессию.
+// TestWorkerIgnoresCommandsForTerminalRecords проверяет игнорирование команд для записей с окончательным состоянием.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -50,7 +50,7 @@ func TestWorkerIgnoresCommandsForTerminalRecords(t *testing.T) {
 	}
 }
 
-// TestWorkerReleasesLockAfterMediaStopsBeforeFinalization проверяет сценарий «воркер Releases Lock после медиа Stops до Finalization», фиксируя ошибки поведения как регрессию.
+// TestWorkerReleasesLockAfterMediaStopsBeforeFinalization проверяет освобождение блокировки после остановки медиа до финализации.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -65,7 +65,7 @@ func TestWorkerReleasesLockAfterMediaStopsBeforeFinalization(t *testing.T) {
 			t.Error("finalization started before the closed media lock was released")
 		}
 	}
-	// An empty directory makes Finalize fail without launching FFmpeg.
+	// Пустой каталог вызывает ошибку Finalize без запуска FFmpeg.
 	service := recorder.NewWorkerService(repo, ffmpeg.NewPostProcessor("not-used"), ingest, nil, t.TempDir(), "worker", lock)
 	if err := service.HandleCommand(context.Background(), records.Command{Type: "record.stop", RecordID: workerTestRecordID}); err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestWorkerReleasesLockAfterMediaStopsBeforeFinalization(t *testing.T) {
 	}
 }
 
-// TestWorkerPrepareFailureReleasesLock проверяет сценарий «воркер Prepare сбой Releases Lock», фиксируя ошибки поведения как регрессию.
+// TestWorkerPrepareFailureReleasesLock проверяет освобождение блокировки при сбое подготовки воркера.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -92,7 +92,7 @@ func TestWorkerPrepareFailureReleasesLock(t *testing.T) {
 	}
 }
 
-// TestWorkerDoesNotAcknowledgeDatabaseFailure проверяет сценарий «воркер выполняет не Acknowledge Database сбой», фиксируя ошибки поведения как регрессию.
+// TestWorkerDoesNotAcknowledgeDatabaseFailure проверяет отсутствие подтверждения команды при сбое БД.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -110,7 +110,7 @@ func TestWorkerDoesNotAcknowledgeDatabaseFailure(t *testing.T) {
 	}
 }
 
-// TestWorkerRejectsUnsafeIDBeforeTouchingStorage проверяет сценарий «воркер Rejects Unsafe ID до Touching Storage», фиксируя ошибки поведения как регрессию.
+// TestWorkerRejectsUnsafeIDBeforeTouchingStorage проверяет отклонение небезопасного ID до обращения к хранилищу.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -249,7 +249,7 @@ func (r *fakeWorkerRepository) SaveFinalArtifacts(context.Context, string, recor
 	return nil
 }
 
-// fakeIngest хранит изолированное состояние тестового компонента «fake Ingest».
+// fakeIngest хранит изолированное состояние подставного компонента приёма медиа.
 // @params:
 //   - prepared: логический признак prepared, управляющий соответствующей веткой обработки.
 //   - stopped: логический признак stopped, управляющий соответствующей веткой обработки.

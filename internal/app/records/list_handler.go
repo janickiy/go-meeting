@@ -9,7 +9,7 @@ import (
 
 // List возвращает список записей.
 // @args
-// - c: Gin context HTTP-запроса.
+// - c: контекст HTTP-запроса Gin.
 // @return JSON response.
 func (h *Handler) List(c *gin.Context) {
 	limit := queryInt(c, "limit", 20)

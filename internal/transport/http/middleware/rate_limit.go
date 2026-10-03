@@ -63,9 +63,9 @@ type RateLimitConfig struct {
 	Rules   []Rule
 }
 
-// RateLimit создает Gin middleware для проверки rate limit.
+// RateLimit создаёт промежуточный обработчик Gin для проверки лимита запросов.
 // @args
-// - limiter: Redis-backed limiter.
+// - limiter: ограничитель запросов на основе Redis.
 // - cfg: флаг включения и правила.
 // @return Gin middleware.
 func RateLimit(limiter Limiter, cfg RateLimitConfig) gin.HandlerFunc {
@@ -128,15 +128,15 @@ func RateLimit(limiter Limiter, cfg RateLimitConfig) gin.HandlerFunc {
 	}
 }
 
-// ClientIPKey возвращает IP клиента из Gin context.
+// ClientIPKey возвращает IP клиента из контекста Gin.
 // @args
-// - c: Gin context HTTP-запроса.
+// - c: контекст HTTP-запроса Gin.
 // @return IP клиента.
 func ClientIPKey(c *gin.Context) string {
 	return c.ClientIP()
 }
 
-// PathParamKey возвращает значение path parameter.
+// PathParamKey возвращает значение параметра пути.
 // @args
 // - name: имя параметра route.
 // @return функцию построения key.
@@ -153,7 +153,7 @@ func PathParamKey(name string) KeyFunc {
 	}
 }
 
-// JSONFieldKey возвращает значение поля из JSON body и восстанавливает body для handler-а.
+// JSONFieldKey возвращает поле тела JSON и восстанавливает тело для последующего обработчика.
 // @args
 // - field: имя JSON-поля.
 // @return функцию построения key.

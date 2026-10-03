@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// TestTURNTemporaryCredentials проверяет REST HMAC, срок, случайный username и
-// отсутствие shared secret в браузерном JSON. t получает ошибки контракта.
+// TestTURNTemporaryCredentials проверяет REST HMAC, срок, случайное имя пользователя и
+// отсутствие общего секрета в браузерном JSON. t получает ошибки контракта.
 func TestTURNTemporaryCredentials(t *testing.T) {
 	c := TURNConfig{URLs: []string{"turn:relay.example:3478?transport=tcp"}, Secret: strings.Repeat("secret", 8), TTL: 5 * time.Minute, ForceRelay: true}
 	now := time.Unix(1000000, 0)
@@ -31,7 +31,7 @@ func TestTURNTemporaryCredentials(t *testing.T) {
 	}
 }
 
-// TestTURNRejectsMalformedConfiguration проверяет fail-fast URL/TTL/ключа.
+// TestTURNRejectsMalformedConfiguration проверяет немедленный отказ при неверных URL, TTL и ключе.
 // t изолирует env каждого варианта, не читая настоящий .env проекта.
 func TestTURNRejectsMalformedConfiguration(t *testing.T) {
 	for _, url := range []string{"http://relay", "turn:user:pass@relay", "turn:relay:99999", "turn:relay?transport=bad", "turn:relay?transport=tcp&x=y"} {

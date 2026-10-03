@@ -6,7 +6,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/app"
 )
 
-// main запускает отдельный recorder-worker binary.
+// main запускает отдельный исполняемый файл recorder-worker.
 func main() {
 	if err := app.RunWorker(); err != nil {
 		log.Fatalf("worker: %v", err)

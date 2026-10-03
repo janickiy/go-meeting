@@ -42,7 +42,9 @@ func RunMediaWorker() error {
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("service", "media-worker", "instance_id", cfg.WorkerID)
 	slog.SetDefault(logger)
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	signalCtx, stopSignals := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stopSignals()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	connect, stopConnect := context.WithTimeout(ctx, cfg.OperationTimeout)
 	client, err := redisinfra.NewClient(connect, base.RedisAddr, base.RedisPassword, base.RedisDB)
@@ -76,7 +78,7 @@ func RunMediaWorker() error {
 		stop()
 		if err != nil {
 			logger.Warn("media signaling delivery failed", "conference_id", binding.ConferenceID, "participant_id", binding.ParticipantID, "session_id", binding.SessionID, "event_type", kind)
-			// One bounded cleanup worker avoids waiting on this same peer event worker.
+			// Один ограниченный обработчик очистки позволяет не ожидать завершения вызывающего обработчика событий соединения.
 			select {
 			case failedPeers <- binding.ConnectionID:
 			default:
@@ -136,6 +138,7 @@ func RunMediaWorker() error {
 		}
 		return nil
 	}})
+	ops.ConfigureDrain(handler.BeginDrain, handler.ActiveRooms)
 	ops.Run(ctx)
 	go runProfiling(ctx, ops)
 	go sampleMedia(ctx, engine)
@@ -149,6 +152,7 @@ func RunMediaWorker() error {
 	 */func() { failed <- server.Serve(listener) }()
 	logger.Info("media worker ready", "worker_id", cfg.WorkerID, "internal_port", cfg.HTTPPort, "max_peers", cfg.MaxPeers, "udp_mux_port", cfg.UDPPort, "tcp_mux_port", cfg.TCPPort)
 	select {
+	case <-signalCtx.Done():
 	case <-ctx.Done():
 	case err := <-failed:
 		if !errors.Is(err, http.ErrServerClosed) {
@@ -158,12 +162,21 @@ func RunMediaWorker() error {
 		}
 	}
 	ops.Drain()
+	handler.BeginDrain()
+	grace, stopGrace := context.WithTimeout(context.Background(), base.Operations.ShutdownTimeout)
+	for handler.ActiveRooms() > 0 && grace.Err() == nil {
+		select {
+		case <-grace.Done():
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	stopGrace()
 	cancel()
 	<-done
 	shutdown, stop := context.WithTimeout(context.Background(), base.Operations.ShutdownTimeout)
 	defer stop()
-	// Long-lived recording egress must close before HTTP waits for active
-	// requests; otherwise shutdown always consumes its entire deadline.
+	// Длительный выходной поток записи закрывается до ожидания активных HTTP-запросов;
+	// иначе остановка сервера всегда исчерпывает весь отведённый срок.
 	mediaErr := handler.Stop(shutdown)
 	return errors.Join(mediaErr, server.Shutdown(shutdown))
 }

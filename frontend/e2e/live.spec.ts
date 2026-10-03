@@ -5,7 +5,7 @@ test.skip(
   "Use the opt-in Go integration harness, which creates an isolated PostgreSQL database.",
 );
 test("real Go API: register, create, invite, join, leave, rejoin and finish", /**
- * Проверка: real Go API: register, create, invite, join, leave, rejoin and finish выполняет тестовый сценарий «real Go API: register, create, invite, join, leave, rejoin and finish» и проверяет ожидаемые результаты.
+ * Проверяет регистрацию, создание встречи, приглашение, присоединение, выход, повторный вход и завершение через реальный Go API.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright; browser — браузер Playwright с отдельными тестовыми контекстами.

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 
 	"github.com/janickiy/go-recorder/internal/app"
+	"github.com/janickiy/go-recorder/internal/buildinfo"
 )
 
 func main() {
@@ -14,6 +16,8 @@ func main() {
 	}
 
 	switch command {
+	case "version":
+		_ = json.NewEncoder(os.Stdout).Encode(buildinfo.Current())
 	case "serve", "api":
 		if err := app.RunAPI(); err != nil {
 			log.Fatalf("api: %v", err)

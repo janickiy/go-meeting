@@ -22,7 +22,7 @@ type OAuthConfig struct {
 	AllowHTTP                                                                  bool
 }
 
-// OAuth реализует authorization-code + S256 PKCE, refresh и revoke без vendor SDK.
+// OAuth реализует обмен кода авторизации с S256 PKCE, обновление и отзыв без SDK поставщика.
 type OAuth struct {
 	cfg    OAuthConfig
 	client *http.Client
@@ -50,8 +50,8 @@ func NewOAuth(cfg OAuthConfig) (*OAuth, error) {
 	return &OAuth{cfg: cfg, client: &http.Client{Timeout: cfg.Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 
-// AuthorizeURL строит authorization запрос с одноразовым state и S256 PKCE challenge.
-// @args state — случайный непрозрачный state; challenge — SHA-256 verifier в base64url.
+// AuthorizeURL формирует запрос авторизации с одноразовым состоянием и проверочным значением S256 PKCE.
+// @args state — случайное непрозрачное состояние; challenge — хеш SHA-256 проверочного значения PKCE в кодировке base64url.
 // @return: URL redirect к настроенному серверу авторизации либо ошибка.
 func (o *OAuth) AuthorizeURL(state, challenge string) (string, error) {
 	u, err := url.Parse(o.cfg.AuthorizationURL)
@@ -79,8 +79,8 @@ type tokenResponse struct {
 	Scope        string `json:"scope"`
 }
 
-// request выполняет фиксированный OAuth endpoint и не включает response body в ошибки.
-// @args ctx — отмена; endpoint — доверенный URL; form — OAuth grant/revoke параметры; response — токены либо nil.
+// request вызывает фиксированный маршрут OAuth без включения тела ответа в ошибки.
+// @args ctx — отмена; endpoint — доверенный URL; form — параметры получения или отзыва разрешения OAuth; response — токены либо nil.
 // @return: классифицированная безопасная ошибка.
 func (o *OAuth) request(ctx context.Context, endpoint string, form url.Values, response *tokenResponse) error {
 	form.Set("client_id", o.cfg.ClientID)
@@ -115,9 +115,9 @@ func (o *OAuth) request(ctx context.Context, endpoint string, form url.Values, r
 	return nil
 }
 
-// credentials преобразует OAuth JSON в серверные credentials, не выдаваемые клиенту.
+// credentials преобразует JSON OAuth в серверные учётные данные, не выдаваемые клиенту.
 // @args r — валидированный OAuth response.
-// @return: tokens, scopes и однозначное UTC expiry.
+// @return: токены, области разрешений и однозначный срок истечения в UTC.
 func credentials(r tokenResponse) d.CalendarCredentials {
 	var at *time.Time
 	if r.ExpiresIn > 0 {
@@ -127,7 +127,7 @@ func credentials(r tokenResponse) d.CalendarCredentials {
 	return d.CalendarCredentials{AccessToken: r.AccessToken, RefreshToken: r.RefreshToken, ExpiresAt: at, Scopes: r.Scope}
 }
 
-// Exchange меняет одноразовый authorization code с PKCE verifier на серверные токены.
+// Exchange обменивает одноразовый код авторизации с проверочным значением PKCE на серверные токены.
 // @args ctx — отмена; code — authorization code; verifier — секрет S256 verifier.
 // @return: credentials либо безопасная ошибка.
 func (o *OAuth) Exchange(ctx context.Context, code, verifier string) (d.CalendarCredentials, error) {
@@ -136,7 +136,7 @@ func (o *OAuth) Exchange(ctx context.Context, code, verifier string) (d.Calendar
 	return credentials(r), err
 }
 
-// Refresh обновляет истёкший access token, сохраняя старый refresh token при отсутствии rotation.
+// Refresh обновляет истёкший токен доступа и сохраняет прежний токен обновления, если новый не выдан.
 // @args ctx — отмена; token — зашифрованный на диске refresh token после серверной расшифровки.
 // @return: новые credentials либо ошибка.
 func (o *OAuth) Refresh(ctx context.Context, token string) (d.CalendarCredentials, error) {
@@ -148,7 +148,7 @@ func (o *OAuth) Refresh(ctx context.Context, token string) (d.CalendarCredential
 	return credentials(r), err
 }
 
-// Revoke отзывает provider token; локальное отключение остаётся обязательным даже при сетевом сбое.
+// Revoke отзывает токен провайдера; локальное отключение обязательно и при сетевом сбое.
 // @args ctx — отмена; token — access/refresh token владельца подключения.
 // @return: безопасная ошибка внешнего отзыва.
 func (o *OAuth) Revoke(ctx context.Context, token string) error {

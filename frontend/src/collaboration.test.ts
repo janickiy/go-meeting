@@ -12,13 +12,13 @@ import { notificationLabel } from "./components/NotificationBell";
 import type { ChatMessage, Notification, Participant } from "./types";
 
 describe("stage five contracts", /**
- * Проверка: stage five contracts выполняет тестовый сценарий «stage five contracts» и проверяет ожидаемые результаты.
+ * Проверяет контракты совместной работы этапа 5.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("does not admit waiting/rejected/kicked or missing membership", /**
-   * Проверка: does not admit waiting/rejected/kicked or missing membership выполняет тестовый сценарий «does not admit waiting/rejected/kicked or missing membership» и проверяет ожидаемые результаты.
+   * Проверяет запрет доступа для ожидающего, отклонённого, удалённого участника и отсутствующего членства.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -34,7 +34,7 @@ describe("stage five contracts", /**
     expect(isAdmitted({ status: "waiting" } as Participant)).toBe(false);
   });
   it("merges overlapping chat pages by version and exact 64-bit sequence", /**
-   * Проверка: merges overlapping chat pages by version and exact 64-bit sequence выполняет тестовый сценарий «merges overlapping chat pages by version and exact 64-bit sequence» и проверяет ожидаемые результаты.
+   * Проверяет объединение пересекающихся страниц чата по версии и точному 64-битному номеру последовательности.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -58,7 +58,7 @@ describe("stage five contracts", /**
     ).toEqual([{ ...first, version: 2, text: "edited" }, second]);
   });
   it("serializes local schedules to UTC and rejects normalized invalid dates", /**
-   * Проверка: serializes local schedules to UTC and rejects normalized invalid dates выполняет тестовый сценарий «serializes local schedules to UTC and rejects normalized invalid dates» и проверяет ожидаемые результаты.
+   * Проверяет преобразование локального расписания в UTC и отказ для нормализованных недопустимых дат.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -78,7 +78,7 @@ describe("stage five contracts", /**
     expect(localDayEnd("2026-02-31")).toBeNull();
   });
   it("parses split authenticated SSE frames and ignores malformed/non-v1 data", /**
-   * Проверка: parses split authenticated SSE frames and ignores malformed/non-v1 data выполняет тестовый сценарий «parses split authenticated SSE frames and ignores malformed/non-v1 data» и проверяет ожидаемые результаты.
+   * Проверяет разбор разделённых авторизованных кадров SSE и игнорирование неверных данных или другой версии.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -99,7 +99,7 @@ describe("stage five contracts", /**
     ).toEqual([]);
   });
   it("rejects active/empty/oversized files before uploading", /**
-   * Проверка: rejects active/empty/oversized files before uploading выполняет тестовый сценарий «rejects active/empty/oversized files before uploading» и проверяет ожидаемые результаты.
+   * Проверяет отклонение активных, пустых и слишком больших файлов до загрузки.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -116,7 +116,7 @@ describe("stage five contracts", /**
     ).toMatch(/Размер/);
   });
   it("distinguishes admission rejection from later removal in notifications", /**
-   * Проверка: distinguishes admission rejection from later removal in notifications выполняет тестовый сценарий «distinguishes admission rejection from later removal in notifications» и проверяет ожидаемые результаты.
+   * Проверяет различие уведомлений об отказе в допуске и последующем удалении участника.
    *
    *
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

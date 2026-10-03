@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-// contentLease блокирует действующую аренду перед коротким product commit.
-// @args tx — транзакция; job — identity/token полученного задания.
+// contentLease блокирует действующую аренду перед короткой фиксацией продуктовых данных.
+// @args tx — транзакция; job — идентичность и токен полученного задания.
 // @return ErrLeaseLost для просроченного или заменённого владельца.
 func contentLease(tx *gorm.DB, job jobs.Job) error {
 	var id string
@@ -25,8 +25,8 @@ func contentLease(tx *gorm.DB, job jobs.Job) error {
 	if id == "" {
 		return jobs.ErrLeaseLost
 	}
-	// Порядок conference→content entities соответствует дорогим POST и FK.
-	// KEY SHARE позволяет параллельные worker commits, но не authorization revoke.
+	// Порядок конференция → сущности содержимого соответствует затратным POST и внешним ключам.
+	// KEY SHARE допускает параллельные фиксации воркеров, но блокирует отзыв доступа.
 	var cid string
 	if err := tx.Raw("SELECT id FROM conferences WHERE id=? FOR KEY SHARE", job.ConferenceID).Scan(&cid).Error; err != nil {
 		return err
@@ -37,8 +37,8 @@ func contentLease(tx *gorm.DB, job jobs.Job) error {
 	return nil
 }
 
-// workerSource читает strict-ready объект только в границах server job conference.
-// @args tx — транзакция; rid/cid — подтверждённые IDs из outbox.
+// workerSource читает строго готовый объект только в границах конференции серверного задания.
+// @args tx — транзакция; rid/cid — подтверждённые идентификаторы из исходящей очереди.
 // @return приватный объект или ErrSkip для удалённой/неготовой записи.
 func workerSource(tx *gorm.DB, rid, cid string) (domain.RecordingSource, error) {
 	var source domain.RecordingSource
@@ -50,8 +50,8 @@ func workerSource(tx *gorm.DB, rid, cid string) (domain.RecordingSource, error) 
 }
 
 // StartTranscript идемпотентно создаёт/захватывает нужное поколение без provider вызова в транзакции.
-// @args ctx — DB deadline; job — действующий product job.
-// @return processing metadata/source; ErrSkip для устаревшего или завершённого поколения.
+// @args ctx — срок выполнения операции БД; job — действующее продуктовое задание.
+// @return метаданные обрабатываемого задания и источник; ErrSkip для устаревшего или завершённого поколения.
 func (r *ContentRepository) StartTranscript(ctx context.Context, job jobs.Job) (domain.Transcript, domain.RecordingSource, error) {
 	var t domain.Transcript
 	var source domain.RecordingSource
@@ -80,8 +80,8 @@ func (r *ContentRepository) StartTranscript(ctx context.Context, job jobs.Job) (
 }
 
 // readyIntegration фиксирует ready событие вместе с результатом; приватный текст в payload не попадает.
-// @args tx — короткая commit-транзакция; event/entity/cid/rid/tid/sid — тип/IDs; version — generation.
-// @return ошибка сохранения outbox, откатывающая весь product result.
+// @args tx — короткая транзакция фиксации; event/entity/cid/rid/tid/sid — тип и идентификаторы; version — поколение.
+// @return ошибка сохранения исходящей очереди, откатывающая весь результат обработки.
 func readyIntegration(tx *gorm.DB, event, entity, cid, rid, tid, sid string, version int64, attempts int) error {
 	payload, _ := json.Marshal(map[string]string{"event": event, "recordingId": rid, "transcriptId": tid, "summaryId": sid})
 	return tx.Exec(`INSERT INTO background_jobs(kind,entity_id,conference_id,version,payload,dedup_key,max_attempts) VALUES ('integrations.event',?,?,?,?::jsonb,?,?) ON CONFLICT(dedup_key) DO NOTHING`, entity, cid, version, string(payload), "integrations:"+event+":"+entity+":"+formatGeneration(version), attempts).Error
@@ -92,10 +92,10 @@ func readyIntegration(tx *gorm.DB, event, entity, cid, rid, tid, sid string, ver
 // @return строковое представление без locale/timezone зависимости.
 func formatGeneration(generation int64) string { return strconv.FormatInt(generation, 10) }
 
-// SaveTranscript сохраняет проверенный текст и атомарно ставит AI/notification jobs.
-// @args ctx — commit deadline; job/t — аренда и поколение; result — проверенный STT;
-// provider — безопасное имя адаптера; ai — разрешение следующей стадии; attempts — retry budget.
-// @return ошибка или потеря аренды; recording state никогда не изменяется.
+// SaveTranscript сохраняет проверенный текст и атомарно ставит задания ИИ и уведомлений.
+// @args ctx — срок фиксации транзакции; job/t — аренда и поколение; result — проверенный результат распознавания;
+// provider — безопасное имя адаптера; ai — разрешение следующей стадии; attempts — бюджет повторов.
+// @return ошибка или потеря аренды; состояние записи никогда не изменяется.
 func (r *ContentRepository) SaveTranscript(ctx context.Context, job jobs.Job, t domain.Transcript, result domain.TranscriptionResult, provider string, ai bool, attempts int) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := contentLease(tx, job); err != nil {
@@ -151,9 +151,9 @@ func (r *ContentRepository) SaveTranscript(ctx context.Context, job jobs.Job, t 
 	})
 }
 
-// StartSummary читает согласованный current-generation текст после проверки аренды.
-// @args ctx — deadline; job — leased AI job с EntityID=transcript UUID.
-// @return summary metadata, сегменты и ErrSkip для stale/deleted/не-ready источника.
+// StartSummary читает согласованный текст текущего поколения после проверки аренды.
+// @args ctx — срок выполнения; job — арендованное задание ИИ с UUID расшифровки в EntityID.
+// @return метаданные резюме, сегменты и ErrSkip для устаревшего, удалённого или неготового источника.
 func (r *ContentRepository) StartSummary(ctx context.Context, job jobs.Job) (domain.Summary, []domain.Segment, error) {
 	var s domain.Summary
 	segments := []domain.Segment{}
@@ -189,9 +189,9 @@ func (r *ContentRepository) StartSummary(ctx context.Context, job jobs.Job) (dom
 	return s, segments, err
 }
 
-// SaveSummary атомарно сохраняет schema-validated JSON и готовое уведомление.
-// @args ctx — deadline; job/s — аренда/поколение; output — проверенный JSON;
-// provider/model/prompt/schema — воспроизводимая версия обработки; attempts — delivery budget.
+// SaveSummary атомарно сохраняет JSON, проверенный по схеме, и уведомление о готовности.
+// @args ctx — срок выполнения; job/s — аренда/поколение; output — проверенный JSON;
+// provider/model/prompt/schema задают воспроизводимую версию обработки; attempts — бюджет доставки.
 // @return ошибка commit; ни transcript, ни recording при отказе AI не меняются.
 func (r *ContentRepository) SaveSummary(ctx context.Context, job jobs.Job, s domain.Summary, output domain.SummaryOutput, provider, model, prompt, schema string, attempts int) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -226,8 +226,8 @@ func (r *ContentRepository) SaveSummary(ctx context.Context, job jobs.Job, s dom
 	})
 }
 
-// FailJob помечает только актуальное поколение после terminal failure, сохраняя recording/transcript.
-// @args ctx — свежий DB deadline; job — leased terminal job; code — безопасная техническая категория.
+// FailJob отмечает только текущее поколение при окончательном сбое, сохраняя запись и расшифровку.
+// @args ctx — новый срок выполнения операции БД; job — арендованное задание, окончательно завершившееся ошибкой; code — безопасная техническая категория.
 // @return ошибка фиксации либо ErrLeaseLost; причины поставщика/контент не логируются.
 func (r *ContentRepository) FailJob(ctx context.Context, job jobs.Job, code string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -271,10 +271,10 @@ func (r *ContentRepository) FailJob(ctx context.Context, job jobs.Job, code stri
 	})
 }
 
-// contentFailureEvent уведомляет только owner о terminal failure, без текста/error dump.
+// contentFailureEvent уведомляет только владельца об окончательном сбое без текста и подробного вывода ошибки.
 // @args tx — result transaction; event/entity/cid/rid/tid/sid — тип/IDs;
-// code — техническая safe категория; version/attempts — bounded idempotency/retry.
-// @return ошибка создания owner-only outbox; deleted recordings не уведомляются.
+// code — безопасная техническая категория; version/attempts — ограниченные идемпотентность и повторы.
+// @return ошибка создания исходящего уведомления только для владельца; об удалённых записях уведомления не отправляются.
 func contentFailureEvent(tx *gorm.DB, event, entity, cid, rid, tid, sid, code string, version int64, attempts int) error {
 	if attempts < 1 {
 		attempts = 5

@@ -9,7 +9,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/records"
 )
 
-// compositePrivacyRepo хранит изолированное состояние тестового компонента «общая запись Privacy Repo».
+// compositePrivacyRepo хранит изолированное состояние репозитория для проверки приватности общей записи.
 // @params:
 //   - apiRepository: встроенный тип, добавляющий свой контракт или данные.
 //   - record: задача записи с её сохранённым состоянием.
@@ -72,7 +72,7 @@ func (r compositePrivacyRepo) ListSummaryDetailsByConferenceIDs(context.Context,
 	return []records.RecordDetails{{Record: r.record}}, nil
 }
 
-// TestCompositeIsNotExposedByAnonymousLegacyService проверяет сценарий «общая запись является не Exposed By Anonymous Legacy сервис», фиксируя ошибки поведения как регрессию.
+// TestCompositeIsNotExposedByAnonymousLegacyService проверяет недоступность общей записи через анонимный прежний сервис.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

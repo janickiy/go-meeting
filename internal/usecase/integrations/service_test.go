@@ -11,7 +11,7 @@ import (
 	n "github.com/janickiy/go-recorder/internal/domain/notifications"
 )
 
-// TestEmailEscapesMeetingContent проверяет HTML escaping и отсутствие исполнения пользовательского содержимого.
+// TestEmailEscapesMeetingContent проверяет экранирование HTML и запрет исполнения пользовательского содержимого.
 // @args t — контекст теста.
 func TestEmailEscapesMeetingContent(t *testing.T) {
 	s, err := NewService(nil, d.Providers{}, nil, Options{PublicURL: "https://meet.example"})
@@ -30,13 +30,13 @@ func TestEmailEscapesMeetingContent(t *testing.T) {
 	}
 }
 
-// linkRepository изолирует live delivery projection для проверки frontend links без DB/media.
+// linkRepository изолирует представление актуальной доставки для проверки ссылок интерфейса без БД и медиа.
 type linkRepository struct {
 	Repository
 	kind string
 }
 
-// Delivery возвращает разрешённый transcript/summary-ready факт.
+// Delivery возвращает разрешённый факт готовности расшифровки или сводки.
 // @args ctx — тестовый контекст; job — fake job.
 // @return: минимальная безопасная delivery projection.
 func (r linkRepository) Delivery(ctx context.Context, job jobs.Job) (Delivery, error) {
@@ -70,7 +70,7 @@ func (e *capturedEmail) Send(ctx context.Context, message d.EmailMessage) error 
 	return nil
 }
 
-// TestDeliveryUsesExistingFrontendRoutes проверяет deep-link конкретной записи вместо несуществующего /app пути.
+// TestDeliveryUsesExistingFrontendRoutes проверяет прямую ссылку на конкретную запись вместо несуществующего пути /app.
 // @args t — контекст теста.
 func TestDeliveryUsesExistingFrontendRoutes(t *testing.T) {
 	for _, kind := range []string{"transcript.ready", "summary.ready"} {
@@ -92,10 +92,10 @@ func TestDeliveryUsesExistingFrontendRoutes(t *testing.T) {
 	}
 }
 
-// calendarLinkRepository задаёт минимальный state одной запланированной встречи.
+// calendarLinkRepository задаёт минимальное состояние одной запланированной встречи.
 type calendarLinkRepository struct{ Repository }
 
-// AcquireCalendar предоставляет isolated mutex substitute без обращения к PostgreSQL.
+// AcquireCalendar подставляет изолированную блокировку без обращения к PostgreSQL.
 // @args ctx — контекст; id — область конференции.
 // @return: тестовая release функция и nil.
 func (calendarLinkRepository) AcquireCalendar(ctx context.Context, id string) (func(), error) {
@@ -110,7 +110,7 @@ func (calendarLinkRepository) Conference(ctx context.Context, id string) (Confer
 	return ConferenceSnapshot{ID: "conference", OwnerID: "owner", InviteCode: "invite-code", IntegrationVersion: 3, ScheduledAt: &at, Status: "scheduled"}, nil
 }
 
-// Connections возвращает явно mock подключение без provider tokens.
+// Connections возвращает явно тестовое подключение без токенов провайдера.
 // @args ctx — контекст; userID — владелец.
 // @return: mock connection.
 func (calendarLinkRepository) Connections(ctx context.Context, userID string) ([]d.CalendarConnection, error) {
@@ -119,19 +119,19 @@ func (calendarLinkRepository) Connections(ctx context.Context, userID string) ([
 
 // MappingsForSync моделирует первоначальную внешнюю синхронизацию.
 // @args ctx — контекст; id — conference UUID.
-// @return: пустой mapping list и nil.
+// @return: пустой список соответствий и nil.
 func (calendarLinkRepository) MappingsForSync(ctx context.Context, id string) ([]d.CalendarMapping, error) {
 	return nil, nil
 }
 
-// SaveMapping фиксирует successful provider operation без DB в route-unit test.
+// SaveMapping фиксирует успешную операцию провайдера без БД в модульном тесте маршрута.
 // @args ctx — контекст; job — версия; mapping — результат.
 // @return: nil.
 func (calendarLinkRepository) SaveMapping(ctx context.Context, job jobs.Job, mapping d.CalendarMapping) error {
 	return nil
 }
 
-// capturedCalendar изолирует создание calendar event для проверки ссылки и fencing metadata.
+// capturedCalendar изолирует создание календарного события для проверки ссылки и метаданных защиты версии.
 type capturedCalendar struct {
 	d.CalendarProvider
 	event d.CalendarEvent
@@ -146,7 +146,7 @@ func (c *capturedCalendar) CreateEvent(ctx context.Context, credentials d.Calend
 	return event, nil
 }
 
-// TestCalendarInviteRouteAndSourceVersion проверяет /i invite route и внешнюю version metadata.
+// TestCalendarInviteRouteAndSourceVersion проверяет маршрут приглашения /i и внешние метаданные версии.
 // @args t — контекст теста.
 func TestCalendarInviteRouteAndSourceVersion(t *testing.T) {
 	calendar := &capturedCalendar{}
@@ -162,7 +162,7 @@ func TestCalendarInviteRouteAndSourceVersion(t *testing.T) {
 	}
 }
 
-// TestIntegrationConfiguration проверяет bounded offsets и backwards-compatible noop запуск без публичного URL.
+// TestIntegrationConfiguration проверяет ограниченные смещения и совместимый запуск без провайдеров и публичного URL.
 // @args t — контекст теста.
 func TestIntegrationConfiguration(t *testing.T) {
 	noop := d.Providers{Capabilities: d.Capabilities{Email: "noop", Push: "noop", Calendar: "noop"}}

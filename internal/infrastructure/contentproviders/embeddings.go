@@ -20,7 +20,7 @@ import (
 type embeddings struct{ *provider }
 
 // NewEmbeddingProvider создаёт noop/mock/http адаптер без вызова платного сервиса.
-// @args mode,endpoint,token — операторские настройки; timeout — конечный deadline.
+// @args mode,endpoint,token — операторские настройки; timeout — конечный срок выполнения.
 // @return интерфейс провайдера либо ошибка конфигурации.
 func NewEmbeddingProvider(mode, endpoint, token string, timeout time.Duration) (domain.EmbeddingProvider, error) {
 	p, e := newProvider(mode, endpoint, token, "", timeout)
@@ -28,7 +28,7 @@ func NewEmbeddingProvider(mode, endpoint, token string, timeout time.Duration) (
 }
 
 // Embed отправляет порцию текста и возвращает только числовые векторы; schema проверяется строго.
-// @args ctx — deadline; request — версия модели и bounded inputs.
+// @args ctx — срок выполнения; request — версия модели и ограниченные входные данные.
 // @return векторы либо безопасная ошибка.
 func (p *embeddings) Embed(ctx context.Context, request domain.EmbeddingRequest) ([][]float32, error) {
 	if p.mode == "noop" {
@@ -68,7 +68,7 @@ func (p *embeddings) Embed(ctx context.Context, request domain.EmbeddingRequest)
 	return result.Vectors, nil
 }
 
-// mockEmbedding даёт детерминированный тестовый вектор с маленьким словарём синонимов, не настоящий semantic model.
+// mockEmbedding создаёт детерминированный тестовый вектор с небольшим словарём синонимов, а не настоящую семантическую модель.
 // @args text — тестовый текст; dimensions — размерность фикстуры.
 // @return нормированный feature-hash вектор для воспроизводимых интеграционных тестов.
 func mockEmbedding(text string, dimensions int) []float32 {

@@ -1173,7 +1173,7 @@ def format_document(input_path: Path, output_path: Path) -> None:
             continue
         format_regular_paragraph(paragraph, index)
 
-    # Keep the "Тестирование" category heading with the section it introduces.
+    # Сохраняем заголовок категории «Тестирование» вместе с начинающимся разделом.
     paragraphs[4395].paragraph_format.page_break_before = True
 
     for group in code_groups:

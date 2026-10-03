@@ -13,7 +13,7 @@ import (
 	pion "github.com/pion/webrtc/v4"
 )
 
-// ownPublication подготавливает или проверяет часть тестового сценария «own Publication».
+// ownPublication подготавливает или проверяет собственную публикацию тестового участника.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -33,7 +33,7 @@ func ownPublication(p *peer, source media.Source) *publishedTrack {
 	return nil
 }
 
-// TestRepublishSameReceiverAndDeviceReplacement проверяет сценарий «Republish Same Receiver и Device Replacement», фиксируя ошибки поведения как регрессию.
+// TestRepublishSameReceiverAndDeviceReplacement проверяет повторную публикацию с прежним приёмником и замену устройства.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -83,8 +83,8 @@ func TestRepublishSameReceiverAndDeviceReplacement(t *testing.T) {
 	if republished == nil || republished.metadata.ID == old.metadata.ID || republished.remote != old.remote {
 		t.Fatal("republish did not replace publication while retaining receiver")
 	}
-	// Device replacement keeps the sender, source and receiver identity while
-	// the transport continues; no new subscription is needed for the same SSRC.
+	// При смене устройства сохраняются отправитель, источник и ID приёмника, пока транспорт
+	// работает; новая подписка для того же SSRC не требуется.
 	replacement, _ := pion.NewTrackLocalStaticRTP(pion.RTPCodecCapability{MimeType: pion.MimeTypeVP8, ClockRate: 90000}, "replacement-camera", "publisher")
 	if err := a.videoSender.ReplaceTrack(replacement); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestRepublishSameReceiverAndDeviceReplacement(t *testing.T) {
 	}
 }
 
-// TestScreenReservationAtomicAndPolicyCannotBeBypassed проверяет сценарий «экран Reservation Atomic и политика Cannot Be Bypassed», фиксируя ошибки поведения как регрессию.
+// TestScreenReservationAtomicAndPolicyCannotBeBypassed проверяет атомарный захват экрана и невозможность обхода политики.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -171,7 +171,7 @@ func TestScreenReservationAtomicAndPolicyCannotBeBypassed(t *testing.T) {
 	}
 }
 
-// TestScreenTypedPublicationAlongsideCamera проверяет сценарий «экран Typed Publication Alongside Camera», фиксируя ошибки поведения как регрессию.
+// TestScreenTypedPublicationAlongsideCamera проверяет типизированную публикацию экрана одновременно с камерой.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -262,7 +262,7 @@ func TestScreenTypedPublicationAlongsideCamera(t *testing.T) {
 		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func() bool { return h.manager.Snapshot().Tracks == 5 && h.manager.Snapshot().Subscriptions == 5 })
 }
 
-// TestEgressOrderingAndSlowRecorderIsolation проверяет сценарий «выход медиа порядок и Slow Recorder Isolation», фиксируя ошибки поведения как регрессию.
+// TestEgressOrderingAndSlowRecorderIsolation проверяет порядок выходного потока и изоляцию медленной записи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -313,7 +313,7 @@ func TestEgressOrderingAndSlowRecorderIsolation(t *testing.T) {
 			t.Fatal("recording received no encoded packets")
 		}
 	}
-	// The consumer now stalls, filling only its bounded egress queue.
+	// Потребитель зависает, заполняя только свою ограниченную выходную очередь.
 	select {
 	case <-sub.Done():
 	case <-time.After(2 * time.Second):

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Sourced by the official Nginx entrypoint before envsubst renders the config.
-# Every injected CSP source is an exact operator-configured origin, never Host.
+# Официальная точка входа Nginx подключает этот файл до подстановки переменных через envsubst.
+# Каждый добавляемый источник CSP точно соответствует адресу, заданному оператором, а не заголовку Host.
 
 csp_invalid_origin() {
     echo "Invalid frontend CSP origin configuration" >&2
@@ -54,7 +54,7 @@ case "$storage_endpoint" in
         [ "${APP_ENV:-local}" != production ] || csp_invalid_origin
         storage_host=${storage_endpoint#http://}
         csp_valid_hostport "$storage_host" || csp_invalid_origin
-        # Local development can play presigned MinIO media on its loopback port.
+        # При локальной разработке медиа MinIO по подписанным ссылкам воспроизводятся через его loopback-порт.
         case "$storage_host" in
             localhost|localhost:*|127.0.0.1|127.0.0.1:*) ;;
             *) csp_invalid_origin ;;

@@ -2,6 +2,23 @@
 
 REST API сервиса записи видеопотока на Go + Gin.
 
+## Документация и выпуск
+
+Meet включает веб-интерфейс, конференции, SFU, запись и опциональные фоновые
+интеграции. Текущая архитектура — один Docker Compose-хост. Реальный staging
+пока не предоставлен; локальные проверки не означают готовность production.
+
+- [Руководство пользователя](docs/USER_GUIDE.md), [архитектура](docs/ARCHITECTURE.md), [потоки данных](docs/DATA_FLOWS.md), [индекс API](docs/API.md).
+- [Развёртывание](docs/DEPLOYMENT.md), [процесс выпуска](docs/RELEASE_PROCESS.md), [откат](docs/ROLLBACK.md), [backup/restore](docs/operations/backup-restore.md).
+- [Launch audit и локальная репетиция](docs/operations/launch-readiness-report.md): фактические проверки и блокеры production.
+- [Production checklist](docs/PRODUCTION_LAUNCH_CHECKLIST.md), [шаблон release notes](docs/RELEASE_NOTES_TEMPLATE.md), [операционный runbook](docs/operations/README.md).
+
+Для staging/production используется immutable manifest и `scripts/release/`:
+образы не пересобираются на сервере, миграции выполняются явно. Команды build,
+restart и debug ниже относятся к **разработке**, не к production promotion.
+
+## Развитие функциональности
+
 API отвечает за управление задачами записи: создает запись в PostgreSQL, публикует команды `record.start` и `record.stop` в локальный RabbitMQ проекта и возвращает состояние записи через HTTP. Непосредственный захват видеопотока, склейку итогового видео, генерацию preview и загрузку артефактов в MinIO выполняет отдельный `worker`.
 
 Этап 1 платформы конференций добавляет пользователей, email/password-аутентификацию,
@@ -42,9 +59,11 @@ signaling между участниками. Протокол, настройк�
 имени идёт через `PATCH /api/v1/auth/me`. Административное право хранится отдельно
 от ролей встреч и проверяется сервером на каждом запросе. Маршруты, запуск,
 проверки и ограничения: [Frontend](docs/frontend.md),
-[административный API](docs/operations/admin.md). Перед выпуском используйте
-[чеклист этапа 9](docs/operations/STAGE9_RELEASE_CHECKLIST.md) и
-[отчёт этапа 9](docs/operations/STAGE9_REPORT.md); локальная сборка не подтверждает
+[административный API](docs/operations/admin.md). Прежние
+[чеклист этапа 9](docs/operations/RELEASE_CHECKLIST.md) и
+[отчёт этапа 9](docs/operations/PRODUCT_UX_RELEASE_REPORT.md) — исторические документы.
+Для текущего выпуска используйте [production checklist](docs/PRODUCTION_LAUNCH_CHECKLIST.md);
+локальная сборка не подтверждает
 работу в production, разных браузерах или внешних TURN-сетях.
 Локальный интерфейс: **http://localhost:5173**, HTTPS: **https://localhost:18482**.
 
@@ -352,14 +371,18 @@ make restart
 
 ## Миграции
 
-Миграции лежат в `database/migrations` и применяются автоматически при старте API.
+Миграции лежат в `database/migrations`. В development при `AUTO_MIGRATE=true`
+они применяются при старте. В production Compose `AUTO_MIGRATE=false`: startup
+проверяет ledger, а DDL выполняет явная release migration job до deploy.
+Применённые SQL-файлы нельзя менять/переименовывать: проверяется SHA-256 байтов.
+Текущий порядок — [RELEASE_PROCESS](docs/RELEASE_PROCESS.md).
 Этап 9 добавляет `000021_admin_capability.up.sql`: поле `users.is_admin` с
 начальным значением `FALSE`. До deployment сохраните согласованный backup
 PostgreSQL и MinIO; для этой миграции нет автоматического down-скрипта. Назначение
 права администратора по проверенному UUID описано в
 [операционной инструкции](docs/operations/admin.md).
 
-Запуск миграций отдельной командой:
+Запуск миграций отдельной командой в development:
 
 ```bash
 go run ./cmd/main migrate
@@ -544,8 +567,10 @@ RECORDER_TEST_POSTGRES_DSN='postgres://go_recorder:go_recorder_pass@127.0.0.1:54
 
 ## GitLab CI/CD
 
-Pipeline описан в `.gitlab-ci.yml`. Список variables для подключения deploy к
-серверу: [docs/gitlab-ci-variables.md](docs/gitlab-ci-variables.md).
+Pipeline описан в `.gitlab-ci.yml`, текущие проверки и immutable release package —
+в [RELEASE_PROCESS](docs/RELEASE_PROCESS.md). Старый `deploy-dev` / `scripts/ci-deploy.sh`
+с синхронизацией и пересборкой сохранён только для development; он не выпускает
+production. Его variables: [legacy dev deploy](docs/gitlab-ci-variables.md).
 
 ## Debug через Delve
 

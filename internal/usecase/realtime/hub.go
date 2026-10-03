@@ -197,8 +197,8 @@ type DisconnectObserver interface {
 	Disconnected(context.Context, domain.Session)
 }
 
-// DisconnectObservers composes bounded cleanup hooks without making one
-// subsystem responsible for another subsystem's lifecycle.
+// DisconnectObservers объединяет ограниченные обработчики очистки, сохраняя независимость
+// жизненных циклов отдельных подсистем.
 type DisconnectObservers []DisconnectObserver
 
 // Disconnected обрабатывает закрытие физического соединения и запускает связанное освобождение ресурсов.
@@ -409,7 +409,7 @@ func (h *Hub) Register(ctx context.Context, session domain.Session, socket Socke
 		h.Unregister(session)
 		return err
 	}
-	// Covers finish/leave concurrent with upgrade and Redis registration.
+	// Учитываем завершение или выход одновременно с upgrade соединения и регистрацией в Redis.
 	if _, err := h.repo.Authorize(ctx, session.ConferenceID, session.UserID); err != nil {
 		h.Unregister(session)
 		return err
@@ -461,8 +461,8 @@ func (h *Hub) Unregister(session domain.Session) {
 	if err := h.repo.Close(ctx, session.ConnectionID, seen); err != nil {
 		h.log(session, "history_cleanup_failed")
 	}
-	// Observers see the session already closed. In particular, two tabs closing
-	// together cannot both mistake the other tab for the last active session.
+	// Обработчики видят уже закрытую сессию. Две одновременно закрывающиеся вкладки
+	// не могут обе принять другую вкладку за последнюю активную сессию.
 	if observer != nil {
 		observer.Disconnected(ctx, session)
 	}
@@ -687,13 +687,13 @@ func (h *Hub) receive() {
 				h.logger.Warn("realtime event", "event_type", "broker_unavailable")
 				h.stopSockets("broker_unavailable")
 			}
-			return // Fail closed: never silently keep sockets on a broken broker.
+			return // При отказе брокера закрываем соединения, не оставляя их незаметно открытыми.
 		}
 		if bus.Kind == "event" && bus.Event != nil && domain.LowPriorityEvent(bus.Event.Type) {
 			select {
 			case h.lowEvents <- bus:
 			default:
-			} // Durable history repairs overflow.
+			} // Сохранённая история восстанавливает события после переполнения.
 		} else {
 			h.deliver(bus)
 		}
@@ -755,8 +755,8 @@ func (h *Hub) deliver(bus domain.Bus) {
 		return
 	}
 	if bus.Kind == "event" && bus.Event != nil {
-		// Revalidate recipients from current durable membership, not the socket's
-		// cached identity. A kick/finish can commit before its changed event arrives.
+		// Заново проверяем получателей по текущему сохранённому членству, а не кешу сокета.
+		// Удаление участника или завершение может зафиксироваться до доставки события изменения.
 		kind := bus.Event.Type
 		restricted := strings.HasPrefix(kind, "caption.") || strings.HasPrefix(kind, "chat.") || strings.HasPrefix(kind, "recording.") || strings.HasPrefix(kind, "hand.") || strings.HasPrefix(kind, "reaction.") || strings.HasPrefix(kind, "participant.")
 		allowed := map[string]bool{}
@@ -805,7 +805,7 @@ func (h *Hub) deliver(bus domain.Bus) {
 	if len(entries) == 0 {
 		return
 	}
-	// One snapshot per conference event, not one database/Redis scan per socket.
+	// Один снимок на событие конференции вместо отдельного обращения к БД и Redis для каждого сокета.
 	state, err := h.state(ctx, entries[0].session)
 	if err != nil {
 		for _, e := range entries {
@@ -883,7 +883,7 @@ func (h *Hub) janitor() {
 			if err := h.store.Prune(ctx); err != nil {
 				h.stopSockets("broker_unavailable")
 			}
-			// Crash between SQL open and Redis register is repaired too.
+			// Восстанавливаем и сбой между открытием сессии в SQL и регистрацией в Redis.
 			rows, err := h.repo.Stale(ctx, time.Now().Add(-2*h.ttl), cursor)
 			if err == nil {
 				for _, s := range rows {
@@ -928,7 +928,7 @@ func (h *Hub) Shutdown() {
 }
 
 // ShutdownContext запрещает новые сокеты и ожидает завершения сокетов, PubSub и
-// фоновых задач. ctx ограничивает ожидание для graceful deployment; при его
+// фоновых задач. ctx ограничивает ожидание при плавном развёртывании; при его
 // отмене принудительно отменяется контекст Hub и возвращается ctx.Err(). Повторные
 // вызовы ждут ту же остановку, не запускают дополнительные горутины очистки.
 func (h *Hub) ShutdownContext(ctx context.Context) error {

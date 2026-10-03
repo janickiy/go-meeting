@@ -18,7 +18,7 @@ import "./prejoin.css";
 
 type InputKind = "audio" | "video";
 
-/** Local capture is only a preview. The SFU client is mounted after admission. */
+/** Локальный захват служит только предпросмотру. Клиент SFU создаётся после допуска. */
 export function PreJoinPage() {
   const { id = "" } = useParams();
   const [params] = useSearchParams();
@@ -102,7 +102,7 @@ export function PreJoinPage() {
         return next;
       });
     } catch {
-      // Device labels can remain unavailable until the first permission grant.
+      // Названия устройств могут быть недоступны до первого предоставления разрешения.
     }
   }, []);
 
@@ -134,7 +134,7 @@ export function PreJoinPage() {
         "devicechange",
         refreshDevices,
       );
-      // Stop without React state updates while the page is unmounting.
+      // При размонтировании страницы останавливаем устройства без обновления состояния React.
       for (const kind of ["audio", "video"] as const) {
         generation.current[kind] += 1;
         const track = tracks.current[kind];

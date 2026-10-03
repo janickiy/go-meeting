@@ -60,7 +60,7 @@ type Segment struct {
 	ChecksumSHA256 string
 }
 
-// NewPostProcessor создает FFmpeg post-processor.
+// NewPostProcessor создаёт компонент постобработки FFmpeg.
 // @args
 // - ffmpegPath: путь к ffmpeg, если пусто используется ffmpeg из PATH.
 // @return готовый PostProcessor.
@@ -176,7 +176,7 @@ func (p *PostProcessor) finalize(ctx context.Context, recordDir string, composit
 	}, nil
 }
 
-// concat запускает FFmpeg concat demuxer и транскодирует результат в MP4/H.264/AAC.
+// concat запускает демультиплексор concat в FFmpeg и перекодирует результат в MP4/H.264/AAC.
 // @args
 // - ctx: контекст операции.
 // - listPath: concat.txt со списком сегментов.

@@ -1,5 +1,5 @@
-// stage_four_smoke_cleanup removes only a validated, terminal local acceptance
-// fixture. It is deliberately separate from production routes and migrations.
+// Команда smoke_cleanup удаляет только проверенные данные завершённого локального
+// приёмочного теста; она отделена от рабочих маршрутов и миграций.
 package main
 
 import (
@@ -179,7 +179,7 @@ func run() error {
 		return err
 	}
 	for _, id := range recordIDs {
-		// Every UUID came from the terminal records of the verified conference.
+		// Все UUID получены из завершённых записей проверенной конференции.
 		path := filepath.Join("dockers", "storage", "data", "records", id)
 		if err = os.RemoveAll(path); err != nil {
 			return err

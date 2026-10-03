@@ -7,7 +7,7 @@ import {
 } from "../prejoinDevices";
 import type { DevicePreferences } from "../prejoinDevices";
 
-/** Локальные предпочтения устройств применяются в Pre-Join с проверкой доступности. */
+/** Локальные предпочтения устройств применяются на экране предварительного входа с проверкой доступности. */
 export function DeviceSettings() {
   const { user } = useAuth();
   const userId = user?.id || "";

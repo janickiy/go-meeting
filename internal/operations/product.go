@@ -36,7 +36,7 @@ func Product(kind, outcome string, duration time.Duration) {
 	}
 }
 
-// ProductQueue обновляет снимок очереди; entity/user/provider URL не могут стать метками.
+// ProductQueue обновляет снимок очереди; идентификаторы сущностей, пользователей и URL провайдеров не становятся метками.
 // @args kind — фиксированная категория; state — queued/processing/failed; count — число заданий.
 func ProductQueue(kind, state string, count int64) {
 	if !productKind(kind) || (state != "queued" && state != "processing" && state != "failed") {

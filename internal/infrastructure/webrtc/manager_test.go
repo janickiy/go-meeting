@@ -58,7 +58,7 @@ func TestFailedSessionClosesBeforeFailureCallback(t *testing.T) {
 	}
 }
 
-// TestDuplicatePreparePreservesSession проверяет сценарий «повторный Prepare Preserves сессия», фиксируя ошибки поведения как регрессию.
+// TestDuplicatePreparePreservesSession проверяет сохранность сессии при повторном Prepare.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

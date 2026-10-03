@@ -1,4 +1,4 @@
-// Команда измеряет authenticated HTTP burst только на локальном тестовом API.
+// Команда измеряет всплеск авторизованных HTTP-запросов только на локальном тестовом API.
 package main
 
 import (
@@ -16,15 +16,15 @@ import (
 	"time"
 )
 
-// sample хранит измеренный HTTP status и время одного запроса без body/token.
+// sample хранит HTTP-статус и время запроса без тела ответа и токена.
 type sample struct {
 	status   int
 	duration time.Duration
 }
 
 // main создаёт тестового пользователя, выполняет 100 GET с конкуренцией 10 и
-// печатает JSON latency/errors. url разрешён только на loopback, чтобы случайно
-// не нагрузить production. Тестовый аккаунт остаётся в изолированном стенде.
+// печатает задержки и ошибки в JSON. url допускает только loopback, чтобы случайно
+// не нагрузить рабочую среду. Тестовый аккаунт остаётся в изолированном стенде.
 func main() {
 	origin := flag.String("url", "http://127.0.0.1:18085", "isolated API origin")
 	flag.Parse()

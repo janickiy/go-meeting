@@ -39,7 +39,7 @@ func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conferenc
 	conferenceRoutes.GET("/:id/history", conference.History)
 	router.GET(APIV1Prefix+"/me/conferences", authentication, conference.Timeline)
 
-	// A separate prefix avoids :id/:inviteCode wildcard conflicts and exposes only a limited view.
+	// Отдельный префикс предотвращает конфликт шаблонов :id/:inviteCode и открывает только ограниченное представление.
 	invites := router.Group(APIV1Prefix+"/conference-invites", authentication)
 	invites.GET("/:code", conference.LookupInvite)
 	invites.POST("/:code/join", conference.JoinInvite)

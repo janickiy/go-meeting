@@ -8,7 +8,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
-// Media signaling is capped separately from the configurable Stage 2 relay.
+// Ограничения сигнализации медиа задаются отдельно от настраиваемой ретрансляции этапа 2.
 const MaxSDPBytes = 49152
 const MaxICEBytes = 4096
 
@@ -45,6 +45,7 @@ type Route struct {
 //   - ID: уникальный идентификатор данной сущности.
 //   - Endpoint: адрес конечной точки вызываемого сервиса.
 type Worker struct {
+	Draining bool   `json:"draining,omitempty"`
 	ID       string `json:"id"`
 	Endpoint string `json:"endpoint"`
 }

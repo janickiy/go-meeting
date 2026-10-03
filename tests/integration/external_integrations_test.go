@@ -34,7 +34,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// integrationFixture объединяет isolated DB, generic fake gateway и сервис, не обращаясь к платным провайдерам.
+// integrationFixture объединяет изолированную БД, тестовый универсальный шлюз и сервис без платных провайдеров.
 type integrationFixture struct {
 	db            *gorm.DB
 	repo          *pg.IntegrationRepository
@@ -48,9 +48,9 @@ type integrationFixture struct {
 	fail          bool
 }
 
-// stageSevenIntegrations создаёт две учётные записи и generic HTTP fake с provider-side dedup.
+// stageSevenIntegrations создаёт две учётные записи и подставной HTTP-шлюз с дедупликацией на стороне провайдера.
 // @args t — контекст изолированного теста.
-// @return: fixture с автоматической очисткой собственной DB/HTTP server.
+// @return: тестовое окружение с автоматической очисткой собственной БД и HTTP-сервера.
 func stageSevenIntegrations(t *testing.T) *integrationFixture {
 	t.Helper()
 	f := &integrationFixture{db: stageOneDatabase(t), sent: map[string]int{}}
@@ -95,7 +95,7 @@ func stageSevenIntegrations(t *testing.T) *integrationFixture {
 	return f
 }
 
-// drain выполняет все доступные integration jobs, исключая ещё не наступившие reminders и media queue.
+// drain выполняет доступные задания интеграций, исключая будущие напоминания и очередь медиа.
 // @args t — контекст теста.
 func (f *integrationFixture) drain(t *testing.T) {
 	t.Helper()
@@ -131,7 +131,7 @@ func (f *integrationFixture) drain(t *testing.T) {
 	t.Fatal("integration queue did not drain")
 }
 
-// TestStageSevenIntegrationsPipeline проверяет scheduled→email/push/calendar, update/cancel, stable mappings и duplicate delivery.
+// TestStageSevenIntegrationsPipeline проверяет доставку запланированной встречи через почту, push и календарь, обновление, отмену и дедупликацию.
 // @args t — контекст isolated PostgreSQL проверки.
 func TestStageSevenIntegrationsPipeline(t *testing.T) {
 	f := stageSevenIntegrations(t)
@@ -196,7 +196,7 @@ func TestStageSevenIntegrationsPipeline(t *testing.T) {
 	if mappings[0].ExternalEventID != external || mappings[0].SyncStatus != "cancelled" {
 		t.Fatal("calendar cancellation missing")
 	}
-	// Force delivery redelivery after a crash boundary: gateway sees the same stable key, not a second unique delivery.
+	// Имитируем повторную доставку после сбоя: шлюз получает тот же стабильный ключ, а не новую уникальную доставку.
 	var previous jobs.Job
 	if err = f.db.Table("background_jobs").Where("kind='integrations.delivery' AND payload->>'channel'='email' AND state='done'").Order("created_at DESC").Take(&previous).Error; err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestStageSevenIntegrationsPipeline(t *testing.T) {
 	}
 }
 
-// TestStageSevenReminderStaleAndOAuthIsolation проверяет отсутствие просроченных 24h/15m reminders, state replay и revoke/refresh fencing.
+// TestStageSevenReminderStaleAndOAuthIsolation проверяет просроченные напоминания за 24 ч и 15 мин, повтор состояния OAuth и защиту от гонок отзыва и обновления.
 // @args t — контекст isolated DB.
 func TestStageSevenReminderStaleAndOAuthIsolation(t *testing.T) {
 	f := stageSevenIntegrations(t)
@@ -270,7 +270,7 @@ func TestStageSevenReminderStaleAndOAuthIsolation(t *testing.T) {
 			t.Fatal("revoked credentials persisted")
 		}
 	}
-	// Per-conference advisory locks serialize both calendar job kinds without blocking a media/conference row.
+	// Рекомендательные блокировки конференции сериализуют оба вида календарных заданий без блокировки строк медиа или встречи.
 	release, err := f.repo.AcquireCalendar(ctx, c.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -284,7 +284,7 @@ func TestStageSevenReminderStaleAndOAuthIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	release2()
-	// A fake already-due reminder is ignored once the schedule generation changes.
+	// Подставное просроченное напоминание игнорируется после смены поколения расписания.
 	if err = f.db.Exec(`INSERT INTO background_jobs(kind,entity_id,conference_id,version,payload,dedup_key) VALUES('integrations.event',?,?,1,'{"event":"conference.soon","offsetSec":900}'::jsonb,?)`, c.ID, c.ID, "stale-reminder:"+c.ID).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestStageSevenReminderStaleAndOAuthIsolation(t *testing.T) {
 	}
 }
 
-// TestStageSevenIntegrationRoutesAuthorization проверяет Bearer identity, invalid UUID и отключённый OAuth без выдачи секретов.
+// TestStageSevenIntegrationRoutesAuthorization проверяет идентичность Bearer, неверные UUID и отключённый OAuth без раскрытия секретов.
 // @args t — контекст isolated API проверки.
 func TestStageSevenIntegrationRoutesAuthorization(t *testing.T) {
 	f := stageSevenIntegrations(t)
@@ -323,7 +323,7 @@ func TestStageSevenIntegrationRoutesAuthorization(t *testing.T) {
 	api.expect(t, "GET", "/conferences/"+uuid.NewString()+"/calendar", token, nil, 403, nil)
 }
 
-// TestStageSevenIntegrationFanoutAndProviderFailure проверяет durable continuation >100 получателей и изоляцию provider failure от расписания.
+// TestStageSevenIntegrationFanoutAndProviderFailure проверяет постоянное продолжение рассылки более чем 100 получателям и изоляцию сбоя провайдера от расписания.
 // @args t — контекст isolated PostgreSQL.
 func TestStageSevenIntegrationFanoutAndProviderFailure(t *testing.T) {
 	f := stageSevenIntegrations(t)
@@ -433,7 +433,7 @@ func TestStageSevenIntegrationFanoutAndProviderFailure(t *testing.T) {
 	t.Fatal("retryable email provider failure not reached")
 }
 
-// TestStageSevenOAuthEncryptedServerFlow проверяет state+S256 на полном серверном обмене, encrypted storage, refresh и revoke с fake HTTP.
+// TestStageSevenOAuthEncryptedServerFlow проверяет полный серверный обмен состоянием и S256, шифрованное хранение, обновление и отзыв через тестовый HTTP.
 // @args t — контекст isolated DB, платные endpoints не используются.
 func TestStageSevenOAuthEncryptedServerFlow(t *testing.T) {
 	f := stageSevenIntegrations(t)
@@ -517,7 +517,7 @@ func TestStageSevenOAuthEncryptedServerFlow(t *testing.T) {
 	if _, err = service.OAuthCallback(ctx, f.owner.ID, "generic", "same-code", state); !errors.Is(err, apperrors.ErrInvalidInput) || tokenCalls != 1 {
 		t.Fatal("authorization code/state replay")
 	}
-	// Simulate approaching expiry: the worker refreshes in the same provider-boundary flow.
+	// Имитируем приближение срока истечения: воркер обновляет токен в том же сценарии обращения к провайдеру.
 	if err = f.db.Model(&d.CalendarConnection{}).Where("id=?", connection.ID).Update("expires_at", time.Now().Add(10*time.Second)).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -547,7 +547,7 @@ func TestStageSevenOAuthEncryptedServerFlow(t *testing.T) {
 	}
 }
 
-// TestStageSevenRecordingCategorySuppressesLegacyFanout проверяет category preference в постоянной SQL вставке recording.ready.
+// TestStageSevenRecordingCategorySuppressesLegacyFanout проверяет настройку категории при постоянной SQL-вставке recording.ready.
 // @args t — контекст isolated PostgreSQL; defaults прежнего пользователя сохраняются.
 func TestStageSevenRecordingCategorySuppressesLegacyFanout(t *testing.T) {
 	f := stageSevenIntegrations(t)

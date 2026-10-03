@@ -10,7 +10,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/users"
 )
 
-// TestCreateRetriesInviteCollisionAndDoesNotJoinOwner проверяет сценарий «создание Retries Invite Collision и выполняет не Join владелец», фиксируя ошибки поведения как регрессию.
+// TestCreateRetriesInviteCollisionAndDoesNotJoinOwner проверяет повтор при совпадении приглашений и отсутствие автоматического присоединения владельца.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

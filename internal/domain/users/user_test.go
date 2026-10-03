@@ -8,7 +8,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 )
 
-// TestRegistrationPasswordCharacterLimits проверяет сценарий «Registration Password Character ограничения», фиксируя ошибки поведения как регрессию.
+// TestRegistrationPasswordCharacterLimits проверяет ограничения пароля по числу символов.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

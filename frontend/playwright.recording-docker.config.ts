@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Explicit opt-in acceptance against the already running local Compose stack.
-// No development server, user browser profile, or physical devices are used.
-// From repository root: MEET_STAGE4_DOCKER=true npx --prefix frontend playwright
+// Приёмочный тест запускается явно для уже работающего локального стенда Compose.
+// Сервер разработки, профиль браузера пользователя и физические устройства не используются.
+// Запуск из корня репозитория: MEET_STAGE4_DOCKER=true npx --prefix frontend playwright
 // test -c frontend/playwright.recording-docker.config.ts
 export default defineConfig({
   testDir: "./e2e",

@@ -1,6 +1,10 @@
 stages:
+  - validate
   - test
+  - security
   - build
+  - integration
+  - package
   - deploy
 
 variables:
@@ -9,72 +13,61 @@ variables:
   GIT_STRATEGY: "none"
   GIT_DEPTH: "1"
   GIT_SUBMODULE_STRATEGY: "none"
-  GIT_FETCH_EXTRA_FLAGS: "--no-tags"
   GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
   GOCACHE: "$CI_PROJECT_DIR/.go/cache"
   DEPLOY_PORT: "22"
 
 default:
   interruptible: true
-  tags:
-    - recorder
+  tags: [recorder]
 
 workflow:
   rules:
+    - if: "$CI_COMMIT_TAG"
     - if: "$CI_COMMIT_BRANCH"
 
-.go-job:
-  image: "golang:${GO_VERSION}-alpine${GO_ALPINE_VERSION}"
+# Существующая загрузка архива сохранена: артефакты явно копируются из временного source-каталога.
+.source-job:
   before_script:
-    - apk add --no-cache curl git tar build-base
+    - 'if command -v apk >/dev/null; then apk add --no-cache bash curl git tar build-base jq ripgrep; else apt-get update && apt-get install -y --no-install-recommends bash curl git tar build-essential jq ripgrep ca-certificates; fi'
     - SOURCE_WORK_DIR="$(mktemp -d)"
     - cd "$SOURCE_WORK_DIR"
     - SOURCE_ARCHIVE_TOKEN="$(printf "%s" "${CI_SOURCE_ARCHIVE_TOKEN_B64}" | base64 -d)"
     - 'curl --fail --location --http1.1 --ipv4 --connect-timeout 10 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 2 --retry-all-errors --silent --show-error --header "PRIVATE-TOKEN: ${SOURCE_ARCHIVE_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/archive.tar.gz?sha=${CI_COMMIT_SHA}" --output source.tar.gz'
     - tar -xzf source.tar.gz --strip-components=1
     - rm source.tar.gz
-    - unset SOURCE_ARCHIVE_TOKEN
-    - unset ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy
-    - export PATH="/usr/local/go/bin:$PATH"
-    - 'if command -v go >/dev/null 2>&1; then go version; fi'
+    - unset SOURCE_ARCHIVE_TOKEN ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy
+
+.go-job:
+  extends: .source-job
+  image: "golang:${GO_VERSION}-alpine${GO_ALPINE_VERSION}"
   cache:
     key: "${CI_PROJECT_NAME}-go-${CI_COMMIT_REF_SLUG}"
-    paths:
-      - .go/pkg/mod
-      - .go/cache
+    paths: [.go/pkg/mod, .go/cache]
+
+validate:
+  extends: .go-job
+  stage: validate
+  script:
+    - test -z "$(gofmt -l $(rg --files cmd internal tests tools -g '*.go'))"
+    - go vet ./...
+    - go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
+    - bash -n scripts/ci-deploy.sh
+    - 'for script in scripts/release/*.sh; do bash -n "$script"; done'
 
 go-test:
   extends: .go-job
   stage: test
   timeout: 30m
   script:
-    - test -z "$(gofmt -l $(find cmd internal tests tools -name '*.go'))"
-    - go vet ./...
-    - go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
     - go test ./...
     - go test -race ./...
-    - go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
-
-go-build:
-  extends: .go-job
-  stage: build
-  timeout: 30m
-  needs:
-    - go-test
-  script:
-    - mkdir -p .build
-    - go build -o .build/api ./cmd/api
-    - go build -o .build/worker ./cmd/worker
-    - go build -o .build/media-worker ./cmd/media-worker
-    - go build -o .build/product-worker ./cmd/product-worker
-    - go build -o .build/live-worker ./cmd/live-worker
-    - go build -o .build/main ./cmd/main
 
 frontend-check:
-  extends: .go-job
+  extends: .source-job
   image: node:24-alpine
   stage: test
-  timeout: 10m
+  timeout: 15m
   script:
     - cd frontend
     - npm ci
@@ -84,36 +77,136 @@ frontend-check:
     - npm test
     - npm run test:a11y
     - npm run build
-    - npm audit --omit=dev
+
+security-go:
+  extends: .go-job
+  stage: security
+  script:
+    - go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+security-frontend:
+  extends: .source-job
+  image: node:24-alpine
+  stage: security
+  script:
+    - cd frontend
+    - npm ci
+    - npm audit --audit-level=high
+
+go-build:
+  extends: .go-job
+  stage: build
+  script:
+    - mkdir -p "$CI_PROJECT_DIR/release-artifacts/bin"
+    - 'for command in api worker media-worker product-worker live-worker main; do CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=${CI_COMMIT_TAG:-v0.0.0-ci.${CI_PIPELINE_ID}} -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$CI_COMMIT_SHA -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$CI_PIPELINE_CREATED_AT" -o "$CI_PROJECT_DIR/release-artifacts/bin/$command" "./cmd/$command"; done'
+  artifacts:
+    paths: [release-artifacts/bin/]
+    expire_in: 14 days
+
+integration-postgres-redis:
+  extends: .go-job
+  stage: integration
+  timeout: 20m
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    POSTGRES_DB: recorder_ci
+    POSTGRES_USER: recorder_ci
+    POSTGRES_PASSWORD: ci-isolated-only
+    RECORDER_STAGE1_TEST_POSTGRES_DSN: "postgres://recorder_ci:ci-isolated-only@127.0.0.1:15433/recorder_ci?sslmode=disable"
+    RECORDER_STAGE2_TEST_REDIS_ADDR: "127.0.0.1:16380"
+  script:
+    - apk add --no-cache ffmpeg socat postgresql-client redis
+    # Защитные проверки тестов допускают только loopback; прокси ведут исключительно к службам этого job.
+    - socat TCP-LISTEN:15433,bind=127.0.0.1,reuseaddr,fork TCP:postgres:5432 & pg_forwarder=$!
+    - socat TCP-LISTEN:16380,bind=127.0.0.1,reuseaddr,fork TCP:redis:6379 & redis_forwarder=$!
+    - trap 'kill "$pg_forwarder" "$redis_forwarder" 2>/dev/null || true' EXIT
+    - 'for attempt in $(seq 1 30); do if pg_isready -h 127.0.0.1 -p 15433 -U recorder_ci -d recorder_ci >/dev/null && redis-cli -h 127.0.0.1 -p 16380 ping | grep -q PONG; then break; fi; sleep 2; done'
+    - pg_isready -h 127.0.0.1 -p 15433 -U recorder_ci -d recorder_ci
+    - test "$(redis-cli -h 127.0.0.1 -p 16380 ping)" = PONG
+    - go test -race -count=1 -timeout 15m ./tests/integration
+
+frontend-browser:
+  extends: .source-job
+  image: mcr.microsoft.com/playwright:v1.63.0-noble
+  stage: integration
+  timeout: 20m
+  variables:
+    VITE_CLIENT_TELEMETRY_ENABLED: "true"
+  script:
+    - cd frontend
+    - npm ci
+    - 'browser_status=0; npm run test:e2e:all || browser_status=$?; mkdir -p "$CI_PROJECT_DIR/release-artifacts/browser"; if [ -d test-results ]; then cp -R test-results "$CI_PROJECT_DIR/release-artifacts/browser/"; fi; exit "$browser_status"'
+  artifacts:
+    when: always
+    paths: [release-artifacts/browser/]
+    expire_in: 7 days
 
 media-soak-manual:
   extends: .go-job
-  stage: test
+  stage: integration
   timeout: 40m
-  allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      allow_failure: false
     - when: manual
+      allow_failure: true
   script:
     - RECORDER_MEDIA_LOAD=true go test -v ./internal/infrastructure/sfu -run '^TestStageSixMediaLoad$' -timeout 5m
     - RECORDER_SOAK_DURATION=30m go test -v ./internal/infrastructure/sfu -run '^TestStageSixSoak$' -timeout 35m
 
+# Этот job требует отдельного privileged Docker runner, registry credentials и закреплённого TRIVY_IMAGE.
+# Пока инфраструктура не подключена, publish job остаётся явным блокирующим gate тега.
+release-package:
+  extends: .source-job
+  image: docker:29-cli
+  services:
+    - name: docker:29-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: "/certs/client"
+  stage: package
+  interruptible: false
+  timeout: 90m
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$/'
+  script:
+    - test -n "$CI_REGISTRY_IMAGE"
+    - test -n "$TRIVY_IMAGE"
+    - |
+      if [ -n "${RELEASE_INFRASTRUCTURE_MANIFEST:-}" ]; then
+        test -f "$RELEASE_INFRASTRUCTURE_MANIFEST"
+        test "${RELEASE_BOOTSTRAP:-false}" != true
+      else
+        test "${RELEASE_BOOTSTRAP:-false}" = true || { printf '%s\n' 'Provide the reviewed previous infrastructure manifest, or explicitly set RELEASE_BOOTSTRAP=true for the first deployment.' >&2; exit 1; }
+      fi
+    - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login --username "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - bash scripts/release/build.sh --version "$CI_COMMIT_TAG" --commit "$CI_COMMIT_SHA" --registry "$CI_REGISTRY_IMAGE" --output "$CI_PROJECT_DIR/release-artifacts/build"
+    - |
+      if [ -n "${RELEASE_INFRASTRUCTURE_MANIFEST:-}" ]; then
+        bash scripts/release/package.sh --build "$CI_PROJECT_DIR/release-artifacts/build/build.json" --output "$CI_PROJECT_DIR/release-artifacts/package" --mode registry --infrastructure-manifest "$RELEASE_INFRASTRUCTURE_MANIFEST"
+      else
+        bash scripts/release/package.sh --build "$CI_PROJECT_DIR/release-artifacts/build/build.json" --output "$CI_PROJECT_DIR/release-artifacts/package" --mode registry
+      fi
+  artifacts:
+    when: always
+    paths: [release-artifacts/build/, release-artifacts/package/]
+    expire_in: never
+
+# Legacy dev deploy сохраняется, но больше не считается production promotion.
 deploy-dev:
-  image: alpine:3.22
+  extends: .source-job
+  image: alpine:3.23
   stage: deploy
   timeout: 30m
-  needs:
-    - go-build
-  before_script:
-    - apk add --no-cache bash curl git openssh-client rsync sshpass tar
-    - 'find . -mindepth 1 -maxdepth 1 ! -name .go -exec rm -rf {} +'
-    - SOURCE_ARCHIVE_TOKEN="$(printf "%s" "${CI_SOURCE_ARCHIVE_TOKEN_B64}" | base64 -d)"
-    - 'curl --fail --location --http1.1 --ipv4 --connect-timeout 10 --max-time 120 --speed-limit 1024 --speed-time 30 --retry 2 --retry-all-errors --silent --show-error --header "PRIVATE-TOKEN: ${SOURCE_ARCHIVE_TOKEN}" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/archive.tar.gz?sha=${CI_COMMIT_SHA}" --output source.tar.gz'
-    - tar -xzf source.tar.gz --strip-components=1
-    - rm source.tar.gz
-    - unset SOURCE_ARCHIVE_TOKEN
-    - unset ALL_PROXY HTTPS_PROXY HTTP_PROXY all_proxy https_proxy http_proxy
   script:
+    - apk add --no-cache openssh-client rsync sshpass
     - bash scripts/ci-deploy.sh
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'

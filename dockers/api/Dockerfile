@@ -7,10 +7,17 @@ RUN go mod download
 
 COPY . .
 ARG BUILD_VERSION=dev
+ARG BUILD_COMMIT=unknown
+ARG BUILD_TIME=unknown
 RUN printf '%s' "$BUILD_VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$' \
     && CGO_ENABLED=0 GOOS=linux go build \
-      -ldflags "-X github.com/janickiy/go-recorder/internal/usecase/platform.ReleaseVersion=$BUILD_VERSION" \
-      -o /bin/go-recorder ./cmd/api
+      -trimpath -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$BUILD_TIME" \
+      -o /bin/go-recorder ./cmd/api \
+    && CGO_ENABLED=0 GOOS=linux go build -trimpath \
+      -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$BUILD_TIME" \
+      -o /bin/recorder-migrate ./cmd/main \
+    && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o /bin/object-backup ./tools/object-backup \
+    && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o /bin/release-smoke ./tools/release-smoke
 
 FROM alpine:3.22 AS runtime
 
@@ -18,6 +25,9 @@ RUN apk add --no-cache ca-certificates && addgroup -S app && adduser -S app -G a
 WORKDIR /app
 
 COPY --from=build /bin/go-recorder /app/go-recorder
+COPY --from=build /bin/recorder-migrate /app/recorder-migrate
+COPY --from=build /bin/object-backup /app/object-backup
+COPY --from=build /bin/release-smoke /app/release-smoke
 COPY database/migrations /app/database/migrations
 
 USER app

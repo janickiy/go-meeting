@@ -11,7 +11,7 @@ import { notificationLabel } from "../components/NotificationBell";
 import { Button, ErrorNotice, Loading } from "../components/ui";
 import { notificationLink } from "../intelligence";
 import { formatDate } from "../utils";
-import "./stage9-pages.css";
+import "./history-notifications.css";
 
 /** Полная история личных уведомлений с серверным курсором и отметкой прочтения. */
 export function NotificationsPage() {

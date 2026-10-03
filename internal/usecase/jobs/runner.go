@@ -1,4 +1,4 @@
-// Package jobs исполняет постоянную очередь ограниченным набором независимых работников.
+// Пакет jobs исполняет постоянную очередь ограниченным набором независимых работников.
 package jobs
 
 import (
@@ -13,7 +13,7 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/jobs"
 )
 
-// Handler исполняет операцию; Fail сохраняет безопасный terminal failure связанной сущности.
+// Handler исполняет операцию; Fail сохраняет безопасный окончательный отказ связанной сущности.
 type Handler struct {
 	Handle func(context.Context, domain.Job) error
 	Fail   func(context.Context, domain.Job, string) error
@@ -30,6 +30,9 @@ type Pool struct {
 
 // Runner опрашивает PostgreSQL с постоянным числом горутин, не создавая таймер на встречу.
 type Runner struct {
+	drainMu  sync.Mutex
+	draining bool
+	active   int
 	repo     domain.Repository
 	pools    []Pool
 	interval time.Duration
@@ -51,8 +54,14 @@ func New(repo domain.Repository, pools []Pool, interval time.Duration, observe f
 		}
 		seen[pool.Kind] = true
 	}
-	return &Runner{repo, pools, interval, observe}, nil
+	return &Runner{repo: repo, pools: pools, interval: interval, observe: observe}, nil
 }
+
+// BeginDrain прекращает новые захваты, разрешая текущим обработчикам сохранить результат.
+func (r *Runner) BeginDrain() { r.drainMu.Lock(); r.draining = true; r.drainMu.Unlock() }
+
+// Active возвращает число выполняемых работ, включая незавершённый SQL-захват.
+func (r *Runner) Active() int { r.drainMu.Lock(); defer r.drainMu.Unlock(); return r.active }
 
 // Run запускает выделенные пулы и ждёт их освобождения при отмене общего контекста.
 // @args ctx — срок жизни процесса; новые задания после отмены не захватываются.
@@ -72,13 +81,26 @@ func (r *Runner) work(ctx context.Context, pool Pool) {
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 	for ctx.Err() == nil {
+		r.drainMu.Lock()
+		if r.draining {
+			r.drainMu.Unlock()
+			return
+		}
+		r.active++
+		r.drainMu.Unlock()
 		claimCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		job, found, err := r.repo.Claim(claimCtx, pool.Kind, pool.Timeout+30*time.Second)
 		cancel()
 		if err == nil && found {
 			r.execute(ctx, pool, job)
+			r.drainMu.Lock()
+			r.active--
+			r.drainMu.Unlock()
 			continue
 		}
+		r.drainMu.Lock()
+		r.active--
+		r.drainMu.Unlock()
 		if err != nil && ctx.Err() == nil {
 			slog.Warn("product job queue unavailable", "event_type", "product.queue.failed", "kind", pool.Kind)
 		}
@@ -144,7 +166,7 @@ func callHandler(ctx context.Context, handle func(context.Context, domain.Job) e
 	return handle(ctx, job)
 }
 
-// classify преобразует произвольный отказ в безопасные метаданные, не сохраняя vendor body.
+// classify преобразует произвольный отказ в безопасные метаданные без сохранения тела ответа поставщика.
 // @args err — результат обработчика.
 // @return состояние, безопасный код, возможность повтора и пожелание провайдера к паузе.
 func classify(err error) (string, string, bool, time.Duration) {

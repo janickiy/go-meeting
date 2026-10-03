@@ -44,7 +44,7 @@ func RunLiveWorker() error {
 	sqlDB.SetMaxOpenConns(cfg.Operations.DBMaxOpen)
 	sqlDB.SetMaxIdleConns(cfg.Operations.DBMaxIdle)
 	sqlDB.SetConnMaxLifetime(cfg.Operations.DBLifetime)
-	if err = pg.RunMigrations(db, "database/migrations"); err != nil {
+	if err = pg.RunStartupMigrations(db, "database/migrations"); err != nil {
 		return err
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -63,6 +63,7 @@ func RunLiveWorker() error {
 	c := cfg.StageEight
 	worker := &live.Worker{Repo: pg.NewCaptionsRepository(db), Tap: liveproviders.NewTap(redisinfra.NewMediaRegistry(client, mediaCfg.Namespace), mediaCfg.InternalSecret), Decoder: ffmpeg.LiveAudio{Binary: cfg.FFmpegPath}, Provider: liveproviders.Provider{Mode: c.Live.Mode, Endpoint: c.Live.Endpoint, Token: c.Live.Token, Timeout: c.ProviderTimeout}, Events: redisinfra.NewRealtimeStore(client, rt.Namespace), Config: c}
 	done := make(chan struct{})
+	ops.ConfigureDrain(worker.BeginDrain, worker.Active)
 	go func() { defer close(done); worker.Run(ctx) }()
 	mux := http.NewServeMux()
 	ops.Register(mux)

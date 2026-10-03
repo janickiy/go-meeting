@@ -82,7 +82,7 @@ type MockOptions = {
   prejoin?: boolean;
 };
 
-/** Every API request in these browser cases is fulfilled locally; no live data is touched. */
+/** Все API-запросы этих браузерных тестов обрабатываются локально; реальные данные не затрагиваются. */
 async function mockStage9(page: Page, options: MockOptions = {}) {
   await page.addInitScript(() => {
     sessionStorage.setItem(

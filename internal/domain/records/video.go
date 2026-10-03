@@ -82,7 +82,7 @@ func VideoSettingsForQuality(quality string) VideoSettings {
 // IsSupportedVideoQuality проверяет, поддерживается ли quality.
 // @args
 // - quality: качество из API.
-// @return true, если quality известно backend-у.
+// @return true, если quality поддерживается серверной частью.
 func IsSupportedVideoQuality(quality string) bool {
 	switch strings.ToLower(strings.TrimSpace(quality)) {
 	case "360p", "480p", "720p", "1080p":

@@ -16,3 +16,5 @@ scrape_configs:
         labels: {service: recorder-worker}
       - targets: ["product-worker:8092"]
         labels: {service: product-worker}
+      - targets: ["live-worker:8093"]
+        labels: {service: live-worker}

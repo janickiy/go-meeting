@@ -12,7 +12,7 @@ import (
 )
 
 // TestReconnectCorrelationAndQuarantine проверяет разрыв собственных AMQP
-// соединений, повторное подключение, correlation header и durable poison queue.
+// соединений, переподключение, заголовок корреляции и постоянную очередь некорректных сообщений.
 // t получает ошибки; требуется явно заданный локальный RABBITMQ_TEST_URL.
 func TestReconnectCorrelationAndQuarantine(t *testing.T) {
 	address := os.Getenv("RABBITMQ_TEST_URL")

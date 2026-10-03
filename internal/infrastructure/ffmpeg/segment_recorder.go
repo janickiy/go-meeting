@@ -58,10 +58,10 @@ type SegmentProcess struct {
 	logger *log.Logger
 }
 
-// NewSegmentRecorder создает recorder FFmpeg-сегментов.
+// NewSegmentRecorder создаёт компонент записи сегментов FFmpeg.
 // @args
 // - path: путь к ffmpeg.
-// - logger: logger worker-а.
+// - logger: журнал записывающего воркера.
 // @return SegmentRecorder.
 func NewSegmentRecorder(path string, logger *log.Logger) *SegmentRecorder {
 	if path == "" {
@@ -74,7 +74,7 @@ func NewSegmentRecorder(path string, logger *log.Logger) *SegmentRecorder {
 	return &SegmentRecorder{path: path, logger: logger}
 }
 
-// Start создает SDP и запускает FFmpeg segment muxer.
+// Start создаёт SDP и запускает мультиплексор сегментов FFmpeg.
 // @args
 // - ctx: context записи.
 // - recordID: UUID записи.
@@ -164,9 +164,9 @@ func (r *SegmentRecorder) Start(ctx context.Context, recordID string, tracks []R
 	}
 }
 
-// Stop мягко завершает FFmpeg, чтобы segment muxer закрыл текущий файл.
+// Stop плавно завершает FFmpeg, чтобы мультиплексор сегментов закрыл текущий файл.
 // @args
-// - timeout: сколько ждать graceful stop.
+// - timeout: время ожидания плавной остановки.
 // @return nil; незавершенный хвостовой сегмент отфильтрует post-processing.
 func (p *SegmentProcess) Stop(timeout time.Duration) error {
 	if p == nil || p.cmd == nil || p.cmd.Process == nil {
@@ -216,7 +216,7 @@ func (p *SegmentProcess) Stop(timeout time.Duration) error {
 	}
 }
 
-// Stderr возвращает stderr FFmpeg.
+// Stderr возвращает поток ошибок stderr процесса FFmpeg.
 // @args нет.
 // @return строку stderr без крайних пробелов.
 func (p *SegmentProcess) Stderr() string {

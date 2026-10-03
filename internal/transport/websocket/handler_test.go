@@ -14,7 +14,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/infrastructure/security"
 )
 
-// TestBoundedQueueDisconnectsSlowClient проверяет сценарий «ограниченный очередь Disconnects Slow клиент», фиксируя ошибки поведения как регрессию.
+// TestBoundedQueueDisconnectsSlowClient проверяет отключение медленного клиента при переполнении ограниченной очереди.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

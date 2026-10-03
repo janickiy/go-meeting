@@ -14,11 +14,11 @@ import (
 	"unicode/utf8"
 )
 
-// ChunkSegments разбивает UTF-8 текст детерминированно с сохранением original IDs.
-// Один длинный сегмент делится на части без выдуманных новых source IDs.
+// ChunkSegments детерминированно разбивает текст UTF-8 с сохранением исходных ID.
+// Длинный сегмент делится на части без создания вымышленных ID источника.
 // @args segments — хронологический transcript; maximum — rune-budget;
 // maxChunks — абсолютный предел стоимости.
-// @return bounded chunks либо ошибку превышения бюджета.
+// @return ограниченный набор фрагментов либо ошибку превышения бюджета.
 func ChunkSegments(segments []domain.Segment, maximum, maxChunks int) ([][]domain.Segment, error) {
 	if maximum < 1 || maxChunks < 1 {
 		return nil, fmt.Errorf("invalid chunk budget")
@@ -61,8 +61,8 @@ func ChunkSegments(segments []domain.Segment, maximum, maxChunks int) ([][]domai
 }
 
 // ValidateSummary проверяет JSON-схему, refs и отсутствие выдуманных assignee/date.
-// @args data — untrusted provider output; source — разрешённые original segments.
-// @return нормализованный output; сомнительные optional facts очищаются до null.
+// @args data — недоверенный результат провайдера; source — разрешённые исходные сегменты.
+// @return нормализованный результат; сомнительные необязательные факты очищаются до null.
 func ValidateSummary(data json.RawMessage, source []domain.Segment) (domain.SummaryOutput, error) {
 	var out domain.SummaryOutput
 	if len(data) > 256<<10 {
@@ -130,9 +130,9 @@ func ValidateSummary(data json.RawMessage, source []domain.Segment) (domain.Summ
 	return out, nil
 }
 
-// explicitAssignee консервативно требует явный assignment marker, а не упоминание имени.
-// @args evidence — cited untrusted text; name — предлагаемый исполнитель.
-// @return true при буквальном marker «ответственный/исполнитель/assignee: NAME».
+// explicitAssignee требует явную отметку назначения исполнителя, а не простое упоминание имени.
+// @args evidence — цитируемый недоверенный текст; name — предлагаемый исполнитель.
+// @return true при буквальном маркере «ответственный/исполнитель/assignee: NAME».
 func explicitAssignee(evidence, name string) bool {
 	text := strings.ToLower(evidence)
 	name = strings.ToLower(strings.TrimSpace(name))
@@ -144,7 +144,7 @@ func explicitAssignee(evidence, name string) bool {
 	return false
 }
 
-// explicitDeadline требует явный marker срока с ISO-date, не дату обычной встречи.
+// explicitDeadline требует явную отметку срока с датой ISO, а не дату обычной встречи.
 // @args evidence — cited text; date — YYYY-MM-DD из проверяемого JSON.
 // @return true для «срок/deadline/due: DATE» или «до DATE».
 func explicitDeadline(evidence, date string) bool {
@@ -157,16 +157,16 @@ func explicitDeadline(evidence, date string) bool {
 	return strings.Contains(text, "до "+date)
 }
 
-// validText ограничивает UTF-8 строку и не допускает embedded NUL для PostgreSQL.
+// validText ограничивает строку UTF-8 и запрещает встроенный NUL для PostgreSQL.
 // @args text — проверяемая строка; maximum — rune-limit; empty — допустимость пустоты.
 // @return true для безопасного строкового значения.
 func validText(text string, maximum int, empty bool) bool {
 	return utf8.ValidString(text) && !strings.ContainsRune(text, 0) && utf8.RuneCountInString(text) <= maximum && (empty || strings.TrimSpace(text) != "")
 }
 
-// summarize выполняет bounded map и иерархический reduce без смешивания инструкций с input.
-// @args ctx — общий AI deadline; key — стабильная idempotency identity; segments — original source.
-// @return проверенный результат либо retry/permanent ошибка.
+// summarize выполняет ограниченную обработку частей и иерархическое объединение, отделяя инструкции от входных данных.
+// @args ctx — общий срок выполнения ИИ; key — стабильный ключ идемпотентности; segments — исходные данные.
+// @return проверенный результат либо ошибку с возможностью повтора или без неё.
 func (s *Service) summarize(ctx context.Context, key string, segments []domain.Segment) (domain.SummaryOutput, error) {
 	chunks, err := ChunkSegments(segments, s.cfg.ChunkRunes, s.cfg.MaxChunks)
 	if err != nil {
@@ -248,10 +248,10 @@ schedule:
 	return results[0], nil
 }
 
-// aiCall передаёт untrusted JSON отдельно от immutable prompt и строго проверяет ответ.
-// @args ctx — deadline; key — chunk-specific dedup; input — ограниченный JSON;
-// merge — стадия reduce; source — допустимый whitelist original refs.
-// @return schema/evidence-validated output или классифицированную ошибку.
+// aiCall передаёт недоверенный JSON отдельно от неизменного запроса к модели и строго проверяет ответ.
+// @args ctx — срок выполнения; key — ключ дедупликации фрагмента; input — ограниченный JSON;
+// merge задаёт стадию объединения; source содержит разрешённый список исходных ссылок.
+// @return результат, проверенный по схеме и подтверждающим фрагментам, или классифицированную ошибку.
 func (s *Service) aiCall(ctx context.Context, key, input string, merge bool, source []domain.Segment) (domain.SummaryOutput, error) {
 	data, err := s.ai.Summarize(ctx, domain.AIRequest{PromptVersion: PromptVersion, SchemaVersion: SchemaVersion, Instructions: SummaryInstructions, InputJSON: input, IdempotencyKey: key, Merge: merge})
 	if err != nil {

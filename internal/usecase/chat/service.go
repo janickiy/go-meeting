@@ -228,7 +228,7 @@ type Repository interface {
 //   - CheckAttachmentPrivacy: операция проверка вложение Privacy с контрактом, описанным у метода.
 //   - PutAttachment: операция Put вложение с контрактом, описанным у метода.
 //   - StatAttachment: операция Stat вложение с контрактом, описанным у метода.
-//   - AttachmentDownloadURL: операция вложение Download URL с контрактом, описанным у метода.
+//   - AttachmentDownloadURL: получение ссылки для скачивания вложения с контрактом, описанным у метода.
 //   - CleanAttachmentObjects: операция Clean вложение Objects с контрактом, описанным у метода.
 type Storage interface {
 	// CheckAttachmentPrivacy проверяет отсутствие публичной политики бакета для приватных вложений.

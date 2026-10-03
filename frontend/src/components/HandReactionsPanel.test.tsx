@@ -21,7 +21,7 @@ afterEach(
    */ () => vi.restoreAllMocks(),
 );
 it("subscribes without replacing the media handler and bounds reaction bubbles", /**
- * Проверка: subscribes without replacing the media handler and bounds reaction bubbles выполняет тестовый сценарий «subscribes without replacing the media handler and bounds reaction bubbles» и проверяет ожидаемые результаты.
+ * Проверяет подписку без замены обработчика медиа и ограничение числа отображаемых реакций.
  *
  *
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

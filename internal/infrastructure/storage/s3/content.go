@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// limitedRecording удерживает ограничение чтения вместе с закрытием private object.
+// limitedRecording сохраняет ограничение чтения и закрывает приватный объект.
 type limitedRecording struct {
 	reader io.Reader
 	object io.Closer
@@ -16,16 +16,16 @@ type limitedRecording struct {
 
 // Read читает только заранее ограниченный объект.
 // @args p — буфер вызывающей стороны.
-// @return число bytes и stream error/EOF.
+// @return число байтов и ошибку потока либо EOF.
 func (r *limitedRecording) Read(p []byte) (int, error) { return r.reader.Read(p) }
 
 // Close освобождает HTTP/MinIO ресурсы потока.
 // @return ошибка закрытия private object.
 func (r *limitedRecording) Close() error { return r.object.Close() }
 
-// OpenRecording открывает private готовый MP4 без public URL и arbitrary fetch.
-// @args ctx — worker deadline; key — server key из БД; maximum — byte budget.
-// @return ограниченный stream, подтверждённый размер и safe storage error.
+// OpenRecording открывает приватный готовый MP4 без публичного URL и произвольных сетевых запросов.
+// @args ctx — срок выполнения воркера; key — серверный ключ из БД; maximum — бюджет байтов.
+// @return ограниченный поток, подтверждённый размер и безопасную ошибку хранилища.
 func (c *Client) OpenRecording(ctx context.Context, key string, maximum int64) (io.ReadCloser, int64, error) {
 	parts := strings.Split(key, "/")
 	if maximum <= 0 || len(parts) != 6 || parts[0] != "recordings" || !attachmentID(parts[1]) || !attachmentID(parts[2]) || parts[3] != "artifacts" || !attachmentID(parts[4]) || parts[5] != "final.mp4" {

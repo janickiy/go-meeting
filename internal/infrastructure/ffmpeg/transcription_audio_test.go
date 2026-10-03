@@ -14,14 +14,14 @@ import (
 	"time"
 )
 
-// audioObjectFake изолирует private-object чтение от реального bucket.
+// audioObjectFake отделяет чтение приватного объекта от настоящего бакета.
 type audioObjectFake struct {
 	data    []byte
 	readErr error
 }
 
-// OpenRecording выдаёт точный fixture stream с тем же byte budget контрактом.
-// @args ctx/key/maximum — trusted request; @return bounded fixture reader/size/error.
+// OpenRecording выдаёт точный тестовый поток с тем же ограничением числа байтов.
+// @args ctx/key/maximum — доверенный запрос; @return ограниченный поток тестовых данных, размер и ошибку.
 func (o audioObjectFake) OpenRecording(context.Context, string, int64) (io.ReadCloser, int64, error) {
 	if o.readErr != nil {
 		return nil, 0, o.readErr
@@ -29,7 +29,7 @@ func (o audioObjectFake) OpenRecording(context.Context, string, int64) (io.ReadC
 	return io.NopCloser(bytes.NewReader(o.data)), int64(len(o.data)), nil
 }
 
-// TestTranscriptionAudioRealExtractionAndCleanup проверяет реальный mono16k WAV и все cleanup paths.
+// TestTranscriptionAudioRealExtractionAndCleanup проверяет настоящий одноканальный WAV 16 кГц и все пути очистки.
 // @args t — test runner; отсутствие FFmpeg явно skip, без притворного PASS live extraction.
 func TestTranscriptionAudioRealExtractionAndCleanup(t *testing.T) {
 	binary, e := exec.LookPath("ffmpeg")
@@ -82,7 +82,7 @@ func TestTranscriptionAudioRealExtractionAndCleanup(t *testing.T) {
 	}
 }
 
-// TestTranscriptionAudioDownloadAndAdmissionFailures проверяет пределы до extract и cleanup при storage outage.
+// TestTranscriptionAudioDownloadAndAdmissionFailures проверяет пределы до извлечения и очистку при сбое хранилища.
 // @args t — test runner.
 func TestTranscriptionAudioDownloadAndAdmissionFailures(t *testing.T) {
 	root := t.TempDir()

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// RegisterContentRoutes защищает все content/search routes общей JWT auth.
+// RegisterContentRoutes защищает все маршруты содержимого и поиска общей авторизацией JWT.
 // @args router — HTTP router; handler — content сценарии; authentication — Bearer verifier.
 func RegisterContentRoutes(router gin.IRouter, handler *contentapp.Handler, authentication gin.HandlerFunc, limiters ...middleware.Limiter) {
 	var limiter middleware.Limiter

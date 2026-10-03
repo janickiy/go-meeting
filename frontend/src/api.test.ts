@@ -47,7 +47,7 @@ function fetchResponse(status: number, body: unknown) {
   return fetch;
 }
 describe("API contract", /**
- * Проверка: API contract выполняет тестовый сценарий «API contract» и проверяет ожидаемые результаты.
+ * Проверяет контракт API.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -73,7 +73,7 @@ describe("API contract", /**
     ).toBe("Bearer private-test-token");
   });
   it("opens notification SSE with bearer header and an abortable fetch, not a query token", /**
-   * Проверка: opens notification SSE with bearer header and an abortable fetch, not a query token выполняет тестовый сценарий «opens notification SSE with bearer header and an abortable fetch, not a query token» и проверяет ожидаемые результаты.
+   * Проверяет открытие SSE-уведомлений с Bearer в заголовке и отменяемым fetch, без токена в строке запроса.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -100,7 +100,7 @@ describe("API contract", /**
     );
   });
   it("never leaks an upload bearer token to a foreign or unexpected URL", /**
-   * Проверка: never leaks an upload bearer token to a foreign or unexpected URL выполняет тестовый сценарий «never leaks an upload bearer token to a foreign or unexpected URL» и проверяет ожидаемые результаты.
+   * Проверяет, что токен загрузки не отправляется на посторонний или неожиданный URL.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -130,7 +130,7 @@ describe("API contract", /**
     expect(xhr).not.toHaveBeenCalled();
   });
   it("issues WebSocket tickets with bearer auth only in headers", /**
-   * Проверка: issues WebSocket tickets with bearer auth only in headers выполняет тестовый сценарий «issues WebSocket tickets with bearer auth only in headers» и проверяет ожидаемые результаты.
+   * Проверяет выдачу билетов WebSocket с Bearer-авторизацией только в заголовках.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -150,7 +150,7 @@ describe("API contract", /**
     );
   });
   it("sends only title for conference creation, with the active bearer token", /**
-   * Проверка: sends only title for conference creation, with the active bearer token выполняет тестовый сценарий «sends only title for conference creation, with the active bearer token» и проверяет ожидаемые результаты.
+   * Проверяет передачу только названия конференции и текущего токена Bearer при создании встречи.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -188,7 +188,7 @@ describe("API contract", /**
     expect(options.headers.get("Authorization")).toBe("Bearer profile-token");
   });
   it("never attaches a bearer token to login or registration", /**
-   * Проверка: never attaches a bearer token to login or registration выполняет тестовый сценарий «never attaches a bearer token to login or registration» и проверяет ожидаемые результаты.
+   * Проверяет отсутствие токена Bearer при входе и регистрации.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -213,7 +213,7 @@ describe("API contract", /**
     expect(JSON.parse(fetch.mock.calls[1][1].body).displayName).toBeNull();
   });
   it("passes the used token to the expiry handler and does not retry a mutation", /**
-   * Проверка: passes the used token to the expiry handler and does not retry a mutation выполняет тестовый сценарий «passes the used token to the expiry handler and does not retry a mutation» и проверяет ожидаемые результаты.
+   * Проверяет передачу использованного токена обработчику истечения и отсутствие повтора изменения данных.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -226,7 +226,7 @@ describe("API contract", /**
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("does not log out a session on invalid login credentials", /**
-   * Проверка: does not log out a session on invalid login credentials выполняет тестовый сценарий «does not log out a session on invalid login credentials» и проверяет ожидаемые результаты.
+   * Проверяет сохранность текущей сессии при неверных данных входа.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -240,7 +240,7 @@ describe("API contract", /**
     expect(expired).not.toHaveBeenCalled();
   });
   it("does not expose backend SQL or private error details", /**
-   * Проверка: does not expose backend SQL or private error details выполняет тестовый сценарий «does not expose backend SQL or private error details» и проверяет ожидаемые результаты.
+   * Проверяет отсутствие SQL и приватных деталей серверной ошибки в ответе.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -249,7 +249,7 @@ describe("API contract", /**
     await expect(api.me()).rejects.toThrow("Сервис временно недоступен.");
   });
   it("handles non-JSON upstream errors", /**
-   * Проверка: handles non-JSON upstream errors выполняет тестовый сценарий «handles non-JSON upstream errors» и проверяет ожидаемые результаты.
+   * Проверяет обработку ошибки вышестоящего сервера без JSON.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

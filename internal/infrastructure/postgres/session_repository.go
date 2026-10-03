@@ -109,7 +109,7 @@ func (r *SessionRepository) Open(ctx context.Context, session realtime.Session) 
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *SessionRepository) Close(ctx context.Context, connectionID string, seen time.Time) error {
-	// Idempotent; PostgreSQL is updated only on open/close, not on every pong.
+	// Идемпотентно: PostgreSQL обновляется только при открытии и закрытии, а не на каждый pong.
 	return r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
 		@args
@@ -124,7 +124,7 @@ func (r *SessionRepository) Close(ctx context.Context, connectionID string, seen
 				}
 				return err
 			}
-			// Same lock order as media state updates, Open, kick and finish.
+			// Порядок блокировок совпадает с обновлением медиа, Open, удалением участника и завершением.
 			if _, err := findConference(tx, session.ConferenceID, true); err != nil {
 				return err
 			}

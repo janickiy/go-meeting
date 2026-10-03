@@ -18,7 +18,7 @@ type result struct {
 	Error                           string `json:"error,omitempty"`
 }
 
-// main проверяет точный Compose project label до любой остановки контейнера.
+// main проверяет точную метку проекта Compose до остановки любого контейнера.
 // Аргументов нет; результат — JSON отчёт, ненулевой код при провале проверки.
 func main() {
 	if os.Getenv("RECORDER_STAGE6_FAILURE") != "true" {
@@ -85,7 +85,7 @@ func command(args ...string) ([]byte, error) {
 	return exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 }
 
-// waitStatus ожидает readiness code на локальном port, не более timeout.
+// waitStatus ожидает код готовности на локальном порту не дольше таймаута.
 // Недоступный процесс приравнивается к 503 только в ожидании его остановки.
 func waitStatus(port, code int, timeout time.Duration) error {
 	client := &http.Client{Timeout: time.Second}

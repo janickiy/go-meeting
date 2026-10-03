@@ -24,7 +24,7 @@ func TestNormalizeOptionsLocalBroker(t *testing.T) {
 	}
 }
 
-// TestCommandRoundTrip проверяет сценарий «Command Round Trip», фиксируя ошибки поведения как регрессию.
+// TestCommandRoundTrip проверяет сериализацию команды и восстановление её данных.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

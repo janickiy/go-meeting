@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// AnalyticsRepository хранит агрегаты; частые RTP/VAD frames не становятся отдельными SQL rows.
+// AnalyticsRepository хранит агрегаты без отдельных строк SQL для частых кадров RTP и детекции речи.
 type AnalyticsRepository struct{ db *gorm.DB }
 
 // NewAnalyticsRepository связывает техническую аналитику с постоянным хранилищем.
@@ -19,8 +19,8 @@ type AnalyticsRepository struct{ db *gorm.DB }
 // @return repository агрегатов.
 func NewAnalyticsRepository(db *gorm.DB) *AnalyticsRepository { return &AnalyticsRepository{db} }
 
-// Source читает bounded интервалы подключений, отсекая время до допуска из зала ожидания.
-// @args ctx — deadline; job — конференция/lease.
+// Source читает ограниченный набор интервалов подключений, отсекая время до допуска из зала ожидания.
+// @args ctx — срок выполнения; job — конференция и аренда.
 // @return начало/конец встречи, интервалы и ошибка.
 func (r *AnalyticsRepository) Source(ctx context.Context, job jobs.Job) (time.Time, time.Time, []domain.Interval, error) {
 	var bounds struct{ Start, End time.Time }
@@ -39,7 +39,7 @@ func (r *AnalyticsRepository) Source(ctx context.Context, job jobs.Job) (time.Ti
 }
 
 // Save сохраняет snapshot присутствия, не перезаписывая одновременно накопленную речь/демонстрацию/руки.
-// @args ctx — deadline; job — fencing; value — рассчитанные агрегаты.
+// @args ctx — срок выполнения; job — актуальная аренда; value — рассчитанные агрегаты.
 // @return ошибка commit.
 func (r *AnalyticsRepository) Save(ctx context.Context, job jobs.Job, value domain.Conference) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -61,8 +61,8 @@ func (r *AnalyticsRepository) Save(ctx context.Context, job jobs.Job, value doma
 	})
 }
 
-// Read применяет history authorization повторно внутри обоих запросов и отдаёт только технические значения.
-// @args ctx — deadline; user,cid — актор/встреча.
+// Read повторно проверяет доступ к истории в обоих запросах и возвращает только технические значения.
+// @args ctx — срок выполнения; user,cid — актор/встреча.
 // @return snapshot с понятной приближённостью speaking-time.
 func (r *AnalyticsRepository) Read(ctx context.Context, user, cid string) (domain.Conference, error) {
 	p, err := findMembership(r.db.WithContext(ctx), cid, user)
@@ -101,7 +101,7 @@ func (r *AnalyticsRepository) Read(ctx context.Context, user, cid string) (domai
 }
 
 // Tick ставит coarse пересчёт каждые 30 секунд для активных и недавно завершённых встреч.
-// @args ctx — короткий scheduler deadline.
+// @args ctx — короткий срок выполнения планировщика.
 // @return ошибка очереди; payload не содержит персональные данные.
 func (r *AnalyticsRepository) Tick(ctx context.Context) error {
 	return r.db.WithContext(ctx).Exec(`INSERT INTO background_jobs(kind,entity_id,conference_id,version,dedup_key,max_attempts)
@@ -111,7 +111,7 @@ func (r *AnalyticsRepository) Tick(ctx context.Context) error {
 }
 
 // RecordHand считает подтверждённое изменение Redis, не повторяя одинаковый RaisedAt.
-// @args ctx — короткий deadline; cid — встреча; hand — факт успешного Raise.
+// @args ctx — короткий срок выполнения; cid — встреча; hand — факт успешного вызова Raise.
 // @return ошибка наблюдения; ошибка не отменяет поднятую руку.
 func (r *AnalyticsRepository) RecordHand(ctx context.Context, cid string, hand realtime.Hand) error {
 	return r.db.WithContext(ctx).Exec(`INSERT INTO participant_analytics(participant_id,conference_id,hand_raises,last_hand_at)

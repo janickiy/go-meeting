@@ -59,7 +59,7 @@ func loadOperations(local bool) (OperationsConfig, error) {
 	return c, nil
 }
 
-// validateProduction проверяет настройки при запуске production, не раскрывая
+// validateProduction проверяет настройки при запуске в рабочей среде, не раскрывая
 // секреты в ошибках. cfg содержит уже загруженные адреса, ключи и ограничения.
 // Возвращает nil для допустимой конфигурации или причину отказа запуска.
 func validateProduction(cfg Config) error {
@@ -144,7 +144,7 @@ func validateTypedEnvironment() error {
 			}
 		}
 	}
-	for _, key := range strings.Fields("RATE_LIMIT_ENABLED MINIO_USE_SSL RECORDING_KEEP_LOCAL") {
+	for _, key := range strings.Fields("RATE_LIMIT_ENABLED MINIO_USE_SSL RECORDING_KEEP_LOCAL AUTO_MIGRATE CLIENT_TELEMETRY_ENABLED") {
 		if v := strings.ToLower(os.Getenv(key)); v != "" && !strings.Contains("|true|false|1|0|yes|no|on|off|", "|"+v+"|") {
 			return fmt.Errorf("%s must be a boolean", key)
 		}

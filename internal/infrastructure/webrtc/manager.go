@@ -74,9 +74,12 @@ type Manager struct {
 	maxSessions int
 }
 
-// NewManager создает Pion WebRTC manager.
+// Active возвращает число сессий записи, которые требуют завершения перед обновлением.
+func (m *Manager) Active() int { m.mu.Lock(); defer m.mu.Unlock(); return len(m.sessions) }
+
+// NewManager создаёт менеджер WebRTC на основе Pion.
 // @args
-// - options: storage, FFmpeg, ICE и callbacks.
+// - options: хранилище, FFmpeg, ICE и обработчики событий.
 // @return Manager или ошибку настройки ICE.
 func NewManager(options Options) (*Manager, error) {
 	if options.MaxSessions <= 0 {
@@ -176,7 +179,7 @@ func NewManager(options Options) (*Manager, error) {
 	}, nil
 }
 
-// Prepare создает ingest-сессию под будущий SDP offer.
+// Prepare создаёт сессию приёма для будущего SDP-предложения.
 // @args
 // - recordID: UUID записи.
 // - segmentDurationSec: длительность сегмента.
@@ -197,7 +200,7 @@ func (m *Manager) Prepare(recordID string, segmentDurationSec int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.sessions[recordID]; ok {
-		// Duplicate start commands must not mutate a live session's configuration.
+		// Повторные команды запуска не меняют конфигурацию действующей сессии.
 		return nil
 	}
 	if m.closed || (m.maxSessions > 0 && len(m.sessions) >= m.maxSessions) {
@@ -218,11 +221,11 @@ func (m *Manager) Prepare(recordID string, segmentDurationSec int) error {
 	return nil
 }
 
-// HandleOffer принимает browser SDP offer и возвращает SDP answer.
+// HandleOffer принимает SDP-предложение браузера и возвращает SDP-ответ.
 // @args
-// - ctx: HTTP context.
+// - ctx: контекст HTTP-запроса.
 // - recordID: UUID записи.
-// - request: SDP offer.
+// - request: SDP-предложение.
 // @return SDP answer или ошибку signaling.
 func (m *Manager) HandleOffer(ctx context.Context, recordID string, request records.WebRTCOfferRequest) (records.WebRTCAnswerResponse, error) {
 	s, err := m.session(recordID)
@@ -721,7 +724,7 @@ func (s *session) fail(err error) {
 				s.waitTimer = nil
 			}
 			s.mu.Unlock()
-			// Stop media before releasing the conference lock in the failure callback.
+			// В обработчике сбоя останавливаем медиа до освобождения блокировки конференции.
 			s.cancel()
 			if pc != nil {
 				_ = pc.Close()

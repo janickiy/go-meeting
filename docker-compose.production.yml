@@ -1,6 +1,6 @@
-# Перед запуском заполнить .env.production и смонтировать действительные сертификаты.
+# Неизменяемые образы и файл конфигурации передаются scripts/release/release.sh.
 x-process: &process
-  env_file: .env.production
+  env_file: ${RELEASE_ENV_FILE:?use scripts/release/release.sh with --env-file}
   restart: unless-stopped
   stop_grace_period: 45s
   init: true
@@ -11,8 +11,8 @@ x-process: &process
 services:
   api:
     <<: *process
-    build: {context: ., dockerfile: dockers/api/Dockerfile, target: runtime, args: {BUILD_VERSION: "${BUILD_VERSION:?set immutable release version or commit}"}}
-    environment: {APP_ENV: production, GIN_MODE: release, APP_PORT: "8085"}
+    image: ${API_IMAGE:?set immutable API_IMAGE}
+    environment: {APP_ENV: "${RELEASE_APP_ENV:-production}", AUTO_MIGRATE: "false", GIN_MODE: release, APP_PORT: "8085"}
     mem_limit: 512m
     cpus: 2
     read_only: true
@@ -30,8 +30,8 @@ services:
       media-worker: {condition: service_healthy}
   media-worker:
     <<: *process
-    build: {context: ., dockerfile: dockers/media-worker/Dockerfile, target: runtime}
-    environment: {APP_ENV: production, GIN_MODE: release, MEDIA_HTTP_PORT: "8091"}
+    image: ${MEDIA_WORKER_IMAGE:?set immutable MEDIA_WORKER_IMAGE}
+    environment: {APP_ENV: "${RELEASE_APP_ENV:-production}", GIN_MODE: release, MEDIA_HTTP_PORT: "8091"}
     mem_limit: 2g
     cpus: 4
     read_only: true
@@ -45,11 +45,11 @@ services:
       redis: {condition: service_healthy}
   worker:
     <<: *process
-    build: {context: ., dockerfile: dockers/worker/Dockerfile, target: runtime}
-    # Каталог тома должен заранее принадлежать UID app; root entrypoint не нужен.
+    image: ${WORKER_IMAGE:?set immutable WORKER_IMAGE}
+    # Каталог тома должен заранее принадлежать UID app; запуск от root в точке входа не нужен.
     user: "1000:1000"
     entrypoint: /app/go-recorder-worker
-    environment: {APP_ENV: production, GIN_MODE: release, WORKER_PORT: "8090", STORAGE_PATH: /storage, WEBRTC_UDP_PORT: "0", WEBRTC_TCP_PORT: "0"}
+    environment: {APP_ENV: "${RELEASE_APP_ENV:-production}", AUTO_MIGRATE: "false", GIN_MODE: release, WORKER_PORT: "8090", STORAGE_PATH: /storage, WEBRTC_UDP_PORT: "0", WEBRTC_TCP_PORT: "0"}
     mem_limit: 4g
     cpus: 4
     pids_limit: 128
@@ -66,13 +66,13 @@ services:
       minio: {condition: service_healthy}
   product-worker:
     <<: *process
-    build: {context: ., dockerfile: dockers/product-worker/Dockerfile, target: runtime}
-    environment: {APP_ENV: production, GIN_MODE: release, PRODUCT_WORKER_PORT: "8092"}
+    image: ${PRODUCT_WORKER_IMAGE:?set immutable PRODUCT_WORKER_IMAGE}
+    environment: {APP_ENV: "${RELEASE_APP_ENV:-production}", AUTO_MIGRATE: "false", GIN_MODE: release, PRODUCT_WORKER_PORT: "8092"}
     mem_limit: 2g
     cpus: 2
     pids_limit: 96
     read_only: true
-    # Под стандартный один STT job: max video 1GiB + max audio 256MiB.
+    # Для одного стандартного задания STT: видео до 1 ГиБ и аудио до 256 МиБ.
     tmpfs: ["/tmp:size=1536m,mode=1777"]
     healthcheck:
       test: [CMD, wget, -q, --spider, "http://127.0.0.1:8092/health/ready"]
@@ -85,8 +85,8 @@ services:
       minio: {condition: service_healthy}
   live-worker:
     <<: *process
-    build: {context: ., dockerfile: dockers/live-worker/Dockerfile, target: runtime}
-    environment: {APP_ENV: production, GIN_MODE: release, LIVE_WORKER_PORT: "8093"}
+    image: ${LIVE_WORKER_IMAGE:?set immutable LIVE_WORKER_IMAGE}
+    environment: {APP_ENV: "${RELEASE_APP_ENV:-production}", AUTO_MIGRATE: "false", GIN_MODE: release, LIVE_WORKER_PORT: "8093"}
     mem_limit: 768m
     cpus: 2
     pids_limit: 128
@@ -102,21 +102,21 @@ services:
       redis: {condition: service_healthy}
       media-worker: {condition: service_healthy}
   frontend:
-    build: {context: ./frontend, dockerfile: Dockerfile}
+    image: ${FRONTEND_IMAGE:?set immutable FRONTEND_IMAGE}
     restart: unless-stopped
-    environment: {API_UPSTREAM: "api:8085", APP_ENV: production, PUBLIC_FRONTEND_URL: "${PUBLIC_FRONTEND_URL:?set frontend HTTPS origin}", MINIO_PUBLIC_ENDPOINT: "${MINIO_PUBLIC_ENDPOINT:?set public storage HTTPS origin}"}
+    environment: {API_UPSTREAM: "api:8085", APP_ENV: "${RELEASE_APP_ENV:-production}", PUBLIC_FRONTEND_URL: "${PUBLIC_FRONTEND_URL:?set frontend HTTPS origin}", MINIO_PUBLIC_ENDPOINT: "${MINIO_PUBLIC_ENDPOINT:?set public storage HTTPS origin}"}
     networks: [private]
     mem_limit: 256m
   proxy:
-    image: nginx:1.27-alpine
+    image: ${PROXY_IMAGE:?set immutable PROXY_IMAGE}
     restart: unless-stopped
     ports: ["443:443"]
     volumes: ["./dockers/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro", "${TLS_CERT_DIR:?set TLS certificate directory}:/run/certs:ro"]
     networks: [private]
     depends_on: [api, frontend]
   coturn:
-    image: coturn/coturn:4.18.0-r0
-    env_file: .env.production
+    image: ${COTURN_IMAGE:?set immutable COTURN_IMAGE}
+    env_file: ${RELEASE_ENV_FILE}
     entrypoint: [/bin/sh, /opt/turn-entrypoint.sh]
     restart: unless-stopped
     volumes: ["./dockers/turn/entrypoint.sh:/opt/turn-entrypoint.sh:ro", "./dockers/turn/turnserver.conf:/etc/coturn/turnserver.conf:ro", "${TURN_TLS_CERT_DIR:?set TURN TLS certificate directory}:/run/certs:ro"]
@@ -124,8 +124,8 @@ services:
     networks: [private]
     mem_limit: 512m
   postgres:
-    image: postgres:16-alpine
-    env_file: .env.production
+    image: ${POSTGRES_IMAGE:?set immutable POSTGRES_IMAGE}
+    env_file: ${RELEASE_ENV_FILE}
     command: [postgres, -c, "max_connections=100"]
     restart: unless-stopped
     volumes: ["postgres:/var/lib/postgresql/data"]
@@ -136,8 +136,8 @@ services:
       timeout: 3s
       retries: 12
   redis:
-    image: redis:7-alpine
-    env_file: .env.production
+    image: ${REDIS_IMAGE:?set immutable REDIS_IMAGE}
+    env_file: ${RELEASE_ENV_FILE}
     command: [/bin/sh, -c, 'exec redis-server --requirepass "$${REDIS_PASSWORD}" --save "" --appendonly no --maxmemory 256mb --maxmemory-policy noeviction']
     restart: unless-stopped
     networks: [private]
@@ -147,7 +147,7 @@ services:
       timeout: 3s
       retries: 12
   rabbitmq:
-    image: rabbitmq:4.2.9-management
+    image: ${RABBITMQ_IMAGE:?set immutable RABBITMQ_IMAGE}
     environment: {RABBITMQ_DEFAULT_USER: "${RABBIT_MQ_USER:?set broker user}", RABBITMQ_DEFAULT_PASS: "${RABBIT_MQ_PASSWORD:?set broker password}"}
     restart: unless-stopped
     volumes: ["rabbitmq:/var/lib/rabbitmq"]
@@ -158,8 +158,8 @@ services:
       timeout: 3s
       retries: 12
   minio:
-    build: {context: ., dockerfile: dockers/minio/Dockerfile}
-    env_file: .env.production
+    image: ${MINIO_IMAGE:?set immutable MINIO_IMAGE}
+    env_file: ${RELEASE_ENV_FILE}
     command: [server, /data, --console-address, ":9001"]
     restart: unless-stopped
     volumes: ["minio:/data"]
@@ -170,19 +170,29 @@ services:
       timeout: 3s
       retries: 12
   prometheus:
-    image: prom/prometheus:v3.5.0
+    image: ${PROMETHEUS_IMAGE:?set immutable PROMETHEUS_IMAGE}
     profiles: [observability]
     command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=7d]
     ports: ["127.0.0.1:19090:9090"]
     volumes: ["./dockers/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro", "./dockers/observability/alerts.yml:/etc/prometheus/alerts.yml:ro", "${METRICS_TOKEN_FILE:-./secrets/metrics_token}:/run/secrets/metrics_token:ro", "prometheus:/prometheus"]
     networks: [private]
   grafana:
-    image: grafana/grafana:12.2.0
+    image: ${GRAFANA_IMAGE:?set immutable GRAFANA_IMAGE}
     profiles: [observability]
     environment: {GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_password, GF_USERS_ALLOW_SIGN_UP: "false", GF_AUTH_ANONYMOUS_ENABLED: "false"}
     ports: ["127.0.0.1:13001:3000"]
-    volumes: ["${GRAFANA_PASSWORD_FILE:-./secrets/grafana_password}:/run/secrets/grafana_password:ro", "./dockers/observability/provisioning:/etc/grafana/provisioning:ro", "./dockers/observability/dashboard.json:/var/lib/grafana/dashboards/stage6.json:ro", "grafana:/var/lib/grafana"]
+    volumes: ["${GRAFANA_PASSWORD_FILE:-./secrets/grafana_password}:/run/secrets/grafana_password:ro", "./dockers/observability/provisioning:/etc/grafana/provisioning:ro", "./dockers/observability/dashboard.json:/var/lib/grafana/dashboards/release.json:ro", "grafana:/var/lib/grafana"]
     networks: [private]
+  migrate:
+    <<: *process
+    image: ${API_IMAGE}
+    profiles: [migration]
+    restart: "no"
+    read_only: true
+    entrypoint: [/app/recorder-migrate, migrate]
+    environment: {APP_ENV: "${RELEASE_APP_ENV:-production}", AUTO_MIGRATE: "false"}
+    depends_on:
+      postgres: {condition: service_healthy}
 networks:
   private:
 volumes:

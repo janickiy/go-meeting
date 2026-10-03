@@ -1,4 +1,4 @@
-// Package captions управляет изолированным live STT и постоянным восстановлением финальных реплик.
+// Пакет captions управляет изолированным живым распознаванием и восстановлением сохранённых финальных реплик.
 package captions
 
 import (
@@ -18,7 +18,7 @@ type Lease struct {
 	Attempts  int
 }
 
-// Repository отделяет авторизацию и fencing SQL от обработки звука.
+// Repository отделяет авторизацию и проверку владения в SQL от обработки звука.
 type Repository interface {
 	Read(context.Context, string, string) (domain.State, error)
 	Set(context.Context, string, string, bool, string) (domain.State, error)
@@ -42,7 +42,7 @@ type Decoder interface {
 	Decode(context.Context, media.EgressTrack, <-chan media.EgressFrame, func([]byte) error) error
 }
 
-// Events публикует небольшие результаты через существующий real-time транспорт.
+// Events публикует небольшие результаты через существующий транспорт реального времени.
 type Events interface {
 	Publish(context.Context, realtime.Bus) error
 }

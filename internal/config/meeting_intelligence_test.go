@@ -2,7 +2,7 @@ package config
 
 import "testing"
 
-// TestStageEightDefaultsAndBoundaries проверяет opt-in и конечные бюджеты auxiliary компонентов.
+// TestStageEightDefaultsAndBoundaries проверяет явное включение и конечные бюджеты вспомогательных компонентов.
 // @args t — исполнитель теста конфигурации.
 func TestStageEightDefaultsAndBoundaries(t *testing.T) {
 	for _, key := range []string{"LIVE_STT_ENABLED", "EMBEDDINGS_ENABLED", "MEETING_ANALYTICS_ENABLED", "LIVE_STT_PROVIDER_MODE", "EMBEDDING_PROVIDER_MODE"} {
@@ -25,7 +25,7 @@ func TestStageEightDefaultsAndBoundaries(t *testing.T) {
 	}
 }
 
-// TestStageEightProviderTransport запрещает небезопасный production канал и секреты в URL.
+// TestStageEightProviderTransport запрещает небезопасный канал в рабочей среде и секреты в URL.
 // @args t — исполнитель негативных сценариев.
 func TestStageEightProviderTransport(t *testing.T) {
 	t.Setenv("LIVE_STT_PROVIDER_MODE", "websocket")

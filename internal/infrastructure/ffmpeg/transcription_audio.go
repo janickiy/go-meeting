@@ -11,15 +11,15 @@ import (
 	"sync"
 )
 
-// RecordingObjectReader читает только private object и не принимает внешние URL.
+// RecordingObjectReader читает только приватный объект и не принимает внешние URL.
 type RecordingObjectReader interface {
-	// OpenRecording открывает server-owned key с byte budget.
-	// @args ctx — deadline; key — проверенный storage key; maximum — предел bytes.
-	// @return stream, actual size и ошибка storage.
+	// OpenRecording открывает принадлежащий серверу ключ с ограничением числа байтов.
+	// @args ctx — срок выполнения; key — проверенный ключ хранилища; maximum — предел байтов.
+	// @return поток, фактический размер и ошибку хранилища.
 	OpenRecording(context.Context, string, int64) (io.ReadCloser, int64, error)
 }
 
-// TranscriptionAudio извлекает WAV отдельно от recording finalization/media hot path.
+// TranscriptionAudio извлекает WAV отдельно от финализации записи и передачи медиа.
 type TranscriptionAudio struct {
 	objects                      RecordingObjectReader
 	binary, tempRoot             string
@@ -27,18 +27,18 @@ type TranscriptionAudio struct {
 	maxDuration                  int
 }
 
-// NewTranscriptionAudio создаёт off-hotpath extractor с конечными byte/duration budgets.
+// NewTranscriptionAudio создаёт независимый обработчик извлечения с конечными пределами объёма и длительности.
 // @args objects — private MinIO reader; binary — доверенный FFmpeg path;
-// tempRoot — private spool; maxVideoBytes/maxAudioBytes — input/output budgets;
-// maxDuration — maximum eligible duration seconds.
+// tempRoot — приватный каталог временных файлов; maxVideoBytes/maxAudioBytes — пределы входа и выхода;
+// maxDuration — максимально допустимая длительность в секундах.
 // @return адаптер AudioSource; actual выделение ресурсов происходит только в Open.
 func NewTranscriptionAudio(objects RecordingObjectReader, binary, tempRoot string, maxVideoBytes, maxAudioBytes int64, maxDuration int) *TranscriptionAudio {
 	return &TranscriptionAudio{objects: objects, binary: binary, tempRoot: tempRoot, maxVideoBytes: maxVideoBytes, maxAudioBytes: maxAudioBytes, maxDuration: maxDuration}
 }
 
-// Open скачивает bounded MP4 и извлекает mono16k WAV в private временном каталоге.
-// @args ctx — конечный STT deadline; source — server-ready recording metadata.
-// @return reader и идемпотентная cleanup; ошибки не меняют готовую запись.
+// Open скачивает MP4 ограниченного размера и извлекает монофонический WAV с частотой 16 кГц в приватном временном каталоге.
+// @args ctx — конечный срок распознавания речи; source — серверные метаданные готовой записи.
+// @return поток чтения и идемпотентную очистку; ошибки не меняют готовую запись.
 func (a *TranscriptionAudio) Open(ctx context.Context, source domain.RecordingSource) (domain.Audio, error) {
 	if a.objects == nil || a.binary == "" || a.maxVideoBytes < 1 || a.maxAudioBytes < 44 || a.maxDuration < 1 || source.DurationSec < 1 || source.DurationSec > a.maxDuration || source.SizeBytes > a.maxVideoBytes {
 		return domain.Audio{}, &jobs.Error{Code: "audio_input_limit", Retryable: false}

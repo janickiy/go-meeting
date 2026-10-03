@@ -35,7 +35,7 @@ type adminCheckerStub struct {
 
 func (s *adminCheckerStub) IsAdmin(context.Context, string) (bool, error) { return s.allowed, s.err }
 
-// TestPlatformStatusAuthorization verifies the persisted admin gate, including revocation of an existing JWT.
+// TestPlatformStatusAuthorization проверяет сохранённые права администратора, включая отзыв доступа при действующем JWT.
 func TestPlatformStatusAuthorization(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	tokens, err := security.NewTokenService(strings.Repeat("stage-nine-test-secret-", 2))

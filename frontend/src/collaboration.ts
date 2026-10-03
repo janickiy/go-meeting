@@ -18,7 +18,7 @@ export function isAdmitted(member?: Participant | null): boolean {
 }
 
 /**
- * mergeChatPages объединяет страницы по UUID, выбирает новую версию и сортирует по BigInt sequence без потери точности.
+ * mergeChatPages объединяет страницы по UUID, выбирает новую версию и сортирует по номеру BigInt без потери точности.
  *
  * @args
  *   - pages ({ items: ChatMessage[] }[]) — загруженные страницы чата, которые могут содержать разные версии одного сообщения.

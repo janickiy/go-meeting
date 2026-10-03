@@ -1,5 +1,5 @@
-// Package mediaworker exposes only the authenticated, internal signaling plane.
-// RTP never passes through these HTTP handlers.
+// Пакет mediaworker предоставляет только авторизованную внутреннюю сигнализацию.
+// RTP не проходит через эти HTTP-обработчики.
 package mediaworker
 
 import (
@@ -34,8 +34,8 @@ import (
 //   - ICE: операция ICE с контрактом, описанным у метода.
 //   - Unpublish: операция Unpublish с контрактом, описанным у метода.
 //   - Leave: операция Leave с контрактом, описанным у метода.
-//   - LeaveConnection: операция Leave Connection с контрактом, описанным у метода.
-//   - PeerBinding: операция Peer Binding с контрактом, описанным у метода.
+//   - LeaveConnection: завершение участия соединения в конференции с контрактом, описанным у метода.
+//   - PeerBinding: получение привязки соединения к участнику с контрактом, описанным у метода.
 //   - Bindings: операция Bindings с контрактом, описанным у метода.
 //   - Tracks: операция дорожки с контрактом, описанным у метода.
 //   - CloseConference: операция закрытие конференция с контрактом, описанным у метода.
@@ -290,9 +290,11 @@ type roomLease struct {
 //   - offers: индекс значений offers для поиска и согласования состояния.
 //   - roomGates: индекс значений roomGates для поиска и согласования состояния.
 //   - workerDeadline: временная отметка workerDeadline; указатель допускает отсутствие значения.
-//   - fencing: логический признак fencing, управляющий соответствующей веткой обработки.
+//   - fencing: логический признак проверки актуальности аренды, управляющий соответствующей веткой обработки.
 //   - closing: логический признак closing, управляющий соответствующей веткой обработки.
 type Handler struct {
+	registrationMu sync.Mutex
+	draining       bool
 	cfg            config.MediaConfig
 	registry       Registry
 	sessions       Sessions
@@ -385,7 +387,7 @@ func (h *Handler) Routes() http.Handler {
 		  - w (http.ResponseWriter): получатель HTTP-ответа.
 		  - _ (*http.Request): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		*/func(w http.ResponseWriter, _ *http.Request) {
-			if !h.ready.Load() {
+			if !h.Ready() {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
@@ -572,7 +574,7 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 		defer unlock()
 	}
 	if operation == "leave" {
-		// Expired authorization and lost ownership must not prevent cleanup.
+		// Истечение авторизации и потеря владения не должны препятствовать очистке.
 		if binding, ok := h.engine.PeerBinding(cmd.MediaPeerID); ok && !sameBinding(binding, cmd.Binding) {
 			h.fail(w, media.ErrUnauthorized)
 			return
@@ -585,7 +587,7 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			h.fail(w, err)
 			return
 		}
-		// The periodic sweep releases an empty room under the same room gate.
+		// Периодическая очистка освобождает пустую комнату под той же блокировкой.
 		h.json(w, http.StatusOK, media.Result{MediaPeerID: cmd.MediaPeerID})
 		return
 	}
@@ -617,8 +619,8 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			h.fail(w, media.ErrOwnership)
 			return
 		}
-		// Reassignment to this same process must not reuse a stale room from an
-		// older fencing lease. Join/leave for this room are serialized here.
+		// Повторное назначение комнаты этому процессу не должно переиспользовать состояние
+		// прежней аренды. Операции присоединения и выхода из этой комнаты выполняются последовательно.
 		h.mu.Lock()
 		old, existed := h.leases[binding.ConferenceID]
 		h.mu.Unlock()
@@ -626,7 +628,7 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			_ = h.engine.CloseConference(ctx, binding.ConferenceID)
 		}
 		h.mu.Lock()
-		admitted := !h.fencing && !h.closing && h.workerDeadline.After(time.Now()) && renewedAt.Add(h.cfg.OwnershipTTL).After(time.Now())
+		admitted := !h.draining && !h.fencing && !h.closing && h.workerDeadline.After(time.Now()) && renewedAt.Add(h.cfg.OwnershipTTL).After(time.Now())
 		if admitted {
 			h.leases[binding.ConferenceID] = roomLease{route: route, deadline: renewedAt.Add(h.cfg.OwnershipTTL)}
 		}
@@ -635,8 +637,8 @@ func (h *Handler) command(w http.ResponseWriter, r *http.Request, operation stri
 			h.fail(w, media.ErrUnavailable)
 			return
 		}
-		// A legitimate leave/rejoin carries a newer persisted policy. Apply it
-		// to an existing room before admission, then again for a newly made room.
+		// Корректный выход и повторное присоединение несут новую сохранённую политику. Применяем её
+		// к существующей комнате до допуска, а затем повторно к вновь созданной комнате.
 		if cmd.Policy != nil {
 			engine, ok := h.engine.(interface {
 				SetPolicy(context.Context, string, string, media.ParticipantPolicy) error
@@ -970,7 +972,7 @@ func (h *Handler) fence(ctx context.Context, reason string) {
 		if !expired {
 			h.mu.Unlock()
 			return
-		} // A concurrent renewal won the race.
+		} // Параллельное продление успело выполниться раньше.
 	}
 	h.fencing = true
 	h.ready.Store(false)
@@ -998,7 +1000,7 @@ func (h *Handler) fence(ctx context.Context, reason string) {
 	h.mu.Lock()
 	h.offers = make(map[string]*offerCache)
 	h.fencing = false
-	// Only a successful post-fence heartbeat may make the worker ready again.
+	// Воркер снова становится готовым только после успешного heartbeat за границей прежней аренды.
 	h.ready.Store(false)
 	h.mu.Unlock()
 }
@@ -1009,10 +1011,15 @@ func (h *Handler) fence(ctx context.Context, reason string) {
 // @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
 func (h *Handler) heartbeat(ctx context.Context) {
+	h.registrationMu.Lock()
+	defer h.registrationMu.Unlock()
+	h.mu.Lock()
+	draining := h.draining
+	h.mu.Unlock()
 	operation, cancel := context.WithTimeout(ctx, h.cfg.OperationTimeout)
 	defer cancel()
 	startedAt := time.Now()
-	if err := h.registry.RegisterWorker(operation, media.Worker{ID: h.cfg.WorkerID, Endpoint: h.cfg.WorkerInternalURL}, h.cfg.WorkerTTL); err != nil {
+	if err := h.registry.RegisterWorker(operation, media.Worker{ID: h.cfg.WorkerID, Endpoint: h.cfg.WorkerInternalURL, Draining: draining}, h.cfg.WorkerTTL); err != nil {
 		h.fence(operation, "registry_unavailable")
 		return
 	}
@@ -1025,7 +1032,7 @@ func (h *Handler) heartbeat(ctx context.Context) {
 	h.mu.Unlock()
 	for id, lease := range leases {
 		renewedAt := time.Now()
-		// Never place liveness renewal behind a slow join/leave room gate.
+		// Продление активности не должно ждать медленной блокировки комнаты при присоединении или выходе.
 		if err := h.registry.Renew(operation, id, lease.route, h.cfg.OwnershipTTL); err != nil {
 			if !errors.Is(err, media.ErrOwnership) {
 				h.fence(operation, "registry_unavailable")
@@ -1156,6 +1163,28 @@ func (h *Handler) Stop(ctx context.Context) error {
 	return err
 }
 
-// Ready читает состояние аренды и draining без Redis-запроса. Результат true
+// Ready читает состояние аренды и завершения работы без Redis-запроса. Результат true
 // означает, что worker ещё вправе принимать новые медиа-команды.
-func (h *Handler) Ready() bool { return h.ready.Load() }
+func (h *Handler) Ready() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.ready.Load() && !h.draining
+}
+
+// BeginDrain запрещает новые комнаты, сохраняя аренды и сигнализацию действующих.
+func (h *Handler) BeginDrain() {
+	h.mu.Lock()
+	h.draining = true
+	h.mu.Unlock()
+	h.heartbeat(context.Background())
+}
+
+// ActiveRooms считает комнаты с активными участниками для безопасного обновления.
+// @return число комнат, которые потеряют медиа при остановке процесса.
+func (h *Handler) ActiveRooms() int {
+	rooms := make(map[string]struct{})
+	for _, binding := range h.engine.Bindings() {
+		rooms[binding.ConferenceID] = struct{}{}
+	}
+	return len(rooms) + len(h.gate)
+}

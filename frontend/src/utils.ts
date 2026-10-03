@@ -40,7 +40,7 @@ export function readSession(): Session | null {
     try {
       sessionStorage.removeItem(SESSION_KEY);
     } catch {
-      /* Storage may be blocked; use memory only. */
+      /* Хранилище может быть заблокировано; используем только память. */
     }
   }
   return null;
@@ -58,7 +58,7 @@ export function saveSession(session: Session | null) {
     if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     else sessionStorage.removeItem(SESSION_KEY);
   } catch {
-    /* Do not persist credentials elsewhere. */
+    /* Не сохраняем учётные данные в других местах. */
   }
 }
 /**

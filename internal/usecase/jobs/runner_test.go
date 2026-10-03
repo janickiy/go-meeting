@@ -65,7 +65,7 @@ func TestRetryClassification(t *testing.T) {
 }
 
 // TestBoundedRetriesAndExpiredFinalLease исключает дополнительный дорогой вызов после исчерпания попыток.
-// @args t — контекст теста политики повторов и terminal callback.
+// @args t — контекст теста политики повторов и обработчика окончательного завершения.
 func TestBoundedRetriesAndExpiredFinalLease(t *testing.T) {
 	q := &testQueue{}
 	called, failed := 0, 0
@@ -94,7 +94,7 @@ func TestBoundedRetriesAndExpiredFinalLease(t *testing.T) {
 	}
 }
 
-// TestBackoffAndPanic проверяет конечные задержки и отсутствие panic payload в технической ошибке.
+// TestBackoffAndPanic проверяет конечные задержки и отсутствие содержимого паники в технической ошибке.
 // @args t — контекст проверки границ.
 func TestBackoffAndPanic(t *testing.T) {
 	for i := -1; i < 30; i++ {

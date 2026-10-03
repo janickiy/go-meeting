@@ -5,7 +5,7 @@ test.skip(
   "requires the isolated Stage 3 media harness",
 );
 test("two browsers exchange audio/video through the SFU and recreate media after reconnect", /**
- * Проверка: two browsers exchange audio/video through the SFU and recreate media after reconnect выполняет тестовый сценарий «two browsers exchange audio/video through the SFU and recreate media after reconnect» и проверяет ожидаемые результаты.
+ * Проверяет обмен аудио и видео двух браузеров через SFU и восстановление медиа после переподключения.
  *
  * @args
  *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами.
@@ -39,8 +39,8 @@ test("two browsers exchange audio/video through the SFU and recreate media after
   const password = process.env.MEET_MEDIA_PASSWORD || "stage-one-test-password";
   const diagnostics: Record<string, unknown>[][] = [[], []];
   for (const [index, page] of [alice, bob].entries()) {
-    // The isolated media harness focuses on live controls; storage/recording
-    // routes are covered by the real RabbitMQ/MinIO recording integration test.
+    // Изолированный стенд медиа проверяет управление в реальном времени; маршруты хранения
+    // и записи проверяются интеграционным тестом с настоящими RabbitMQ и MinIO.
     await page.route(
       "**/api/v1/conferences/*/recordings",
       /**
@@ -218,7 +218,7 @@ test("two browsers exchange audio/video through the SFU and recreate media after
                   ),
                 });
             } catch {
-              /* Native websocket control frames are not JSON. */
+              /* Служебные кадры WebSocket не являются JSON. */
             }
           },
         ),

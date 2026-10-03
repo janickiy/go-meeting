@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// Service задаёт API сценариев, не выполняющих внешний STT/AI в HTTP request.
+// Service задаёт API сценариев без внешнего распознавания и ИИ внутри HTTP-запроса.
 type Service interface {
 	Transcript(context.Context, string, string, string) (domain.TranscriptState, error)
 	Segments(context.Context, string, string, string, int, int) (domain.SegmentPage, error)
@@ -24,17 +24,17 @@ type Service interface {
 	Search(context.Context, string, domain.SearchQuery) (domain.SearchPage, error)
 }
 
-// Handler связывает авторизованные HTTP requests с content usecase.
+// Handler связывает авторизованные HTTP-запросы с прикладными сценариями содержимого.
 type Handler struct{ service Service }
 
-// NewHandler создаёт content routes adapter.
+// NewHandler создаёт адаптер маршрутов содержимого.
 // @args service — зависимый сценарий с repository authorization.
-// @return handler без vendor SDK/network state.
+// @return обработчик без SDK провайдера и состояния сетевых соединений.
 func NewHandler(service Service) *Handler { return &Handler{service: service} }
 
-// identifiers проверяет связанную пару path UUID перед чтением/запуском.
-// @args c — Gin request с подтверждённой auth identity.
-// @return conference/recording UUID, success flag; при ошибке пишет safe HTTP response.
+// identifiers проверяет связанную пару UUID из пути до чтения или запуска.
+// @args c — запрос Gin с подтверждённой идентичностью пользователя.
+// @return UUID конференции и записи и признак успеха; при ошибке пишет безопасный HTTP-ответ.
 func identifiers(c *gin.Context) (string, string, bool) {
 	cid, e := uuid.Parse(c.Param("id"))
 	rid, e2 := uuid.Parse(c.Param("recordingId"))
@@ -45,9 +45,9 @@ func identifiers(c *gin.Context) (string, string, bool) {
 	return cid.String(), rid.String(), true
 }
 
-// pageValue разбирает decimal пагинацию, не скрывая invalid input за default.
-// @args c — request; key — query key; fallback — значение при отсутствии.
-// @return число и success; invalid input создаёт HTTP400.
+// pageValue разбирает десятичную пагинацию, не скрывая неверные данные значением по умолчанию.
+// @args c — запрос; key — ключ параметра запроса; fallback — значение при отсутствии.
+// @return число и признак успеха; некорректные входные данные создают HTTP 400.
 func pageValue(c *gin.Context, key string, fallback int) (int, bool) {
 	value, ok := c.GetQuery(key)
 	if !ok {
@@ -61,7 +61,7 @@ func pageValue(c *gin.Context, key string, fallback int) (int, bool) {
 	return n, true
 }
 
-// Transcript возвращает nullable metadata, capabilities и честную provider-mode метку.
+// Transcript возвращает необязательные метаданные, возможности и достоверную метку режима провайдера.
 // @args c — авторизованный Gin request.
 func (h *Handler) Transcript(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
@@ -76,7 +76,7 @@ func (h *Handler) Transcript(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "item": state.Item, "enabled": state.Enabled, "canRetry": state.CanRetry, "providerMode": state.ProviderMode})
 }
 
-// Segments выдаёт bounded страницу для timestamp navigation.
+// Segments выдаёт ограниченную страницу для переходов по временным отметкам.
 // @args c — request с limit/offset.
 func (h *Handler) Segments(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
@@ -99,7 +99,7 @@ func (h *Handler) Segments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "items": page.Items, "total": page.Total, "limit": page.Limit, "offset": page.Offset})
 }
 
-// Summary возвращает nullable current-generation AI output без вызова provider.
+// Summary возвращает необязательный результат ИИ текущего поколения без вызова провайдера.
 // @args c — авторизованный request.
 func (h *Handler) Summary(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
@@ -129,7 +129,7 @@ func (h *Handler) RetryTranscript(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "success", "item": state.Item, "enabled": state.Enabled, "canRetry": false, "providerMode": state.ProviderMode})
 }
 
-// RegenerateSummary ставит bounded generation, не блокируя HTTP длительным AI.
+// RegenerateSummary ставит ограниченное поколение, не блокируя HTTP длительным вызовом ИИ.
 // @args c — авторизованный request.
 func (h *Handler) RegenerateSummary(c *gin.Context) {
 	cid, rid, ok := identifiers(c)
@@ -144,8 +144,8 @@ func (h *Handler) RegenerateSummary(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "success", "item": state.Item, "enabled": state.Enabled, "canRegenerate": false, "providerMode": state.ProviderMode})
 }
 
-// Search проверяет RFC3339 date filters и возвращает permission-filtered FTS page.
-// @args c — авторизованный request с q/source/conferenceId/from/to/limit/offset.
+// Search проверяет фильтры дат RFC3339 и возвращает страницу полнотекстового поиска с проверкой прав.
+// @args c — авторизованный запрос с q/source/conferenceId/from/to/limit/offset.
 func (h *Handler) Search(c *gin.Context) {
 	started := time.Now()
 	defer func() { operations.Search(time.Since(started), c.Writer.Status() >= http.StatusBadRequest) }()

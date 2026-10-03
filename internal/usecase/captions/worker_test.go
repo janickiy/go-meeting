@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestCaptionRevisionAndValidation проверяет порядок, terminal final и границы недоверенного текста.
+// TestCaptionRevisionAndValidation проверяет порядок, окончательность финальной реплики и границы недоверенного текста.
 // @args t — изолированный исполнитель теста.
 func TestCaptionRevisionAndValidation(t *testing.T) {
 	old := domain.Event{UtteranceID: "a", Sequence: 2, Revision: 2, Text: "Привет", Language: "ru", StartMS: 0, EndMS: 100}
@@ -37,7 +37,7 @@ func TestCaptionRevisionAndValidation(t *testing.T) {
 }
 
 // TestActivityUnion проверяет, что два устройства не удваивают время речи, включая параллельный доступ.
-// @args t — исполнитель теста с возможным race detector.
+// @args t — исполнитель теста с возможным детектором гонок данных.
 func TestActivityUnion(t *testing.T) {
 	meter := &activityMeter{}
 	var wg sync.WaitGroup

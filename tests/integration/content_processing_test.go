@@ -26,17 +26,17 @@ import (
 	"time"
 )
 
-// stageSevenAudio явно заменяет audio extraction в DB orchestration test, не выдавая fake за STT.
+// stageSevenAudio подставляет извлечение аудио в тесте взаимодействия с БД; подстановка не выполняет распознавание.
 type stageSevenAudio struct{}
 
-// Open выдаёт bounded test reader без доступа к пользовательским файлам.
-// @args ctx/source — worker contract fixture.
+// Open выдаёт ограниченный тестовый поток чтения без доступа к пользовательским файлам.
+// @args ctx/source — тестовые данные контракта воркера.
 // @return reader, закрываемый сценарием.
 func (stageSevenAudio) Open(context.Context, domain.RecordingSource) (domain.Audio, error) {
 	return domain.Audio{Reader: io.NopCloser(strings.NewReader("test-WAV")), Size: 8, ContentType: "audio/wav"}, nil
 }
 
-// stageSevenContentFixture содержит отдельную БД, принятых участников и ready recording.
+// stageSevenContentFixture содержит отдельную БД, допущенных участников и готовую запись.
 type stageSevenContentFixture struct {
 	db                      *gorm.DB
 	owner, member, outsider users.User
@@ -47,9 +47,9 @@ type stageSevenContentFixture struct {
 	jobs                    *pg.JobRepository
 }
 
-// stageSevenContent подготавливает полный durable orchestration без платных провайдеров.
+// stageSevenContent подготавливает полный сценарий постоянной обработки без платных провайдеров.
 // @args t — test runner, stageOneDatabase создаёт точную отдельную БД.
-// @return fixture с явно mock providers и реальной PostgreSQL queue/FTS.
+// @return тестовое окружение с явными имитациями провайдеров и реальной очередью и полнотекстовым поиском PostgreSQL.
 func stageSevenContent(t *testing.T) *stageSevenContentFixture {
 	t.Helper()
 	f := &stageSevenContentFixture{db: stageOneDatabase(t)}
@@ -99,8 +99,8 @@ func stageSevenContent(t *testing.T) *stageSevenContentFixture {
 	return f
 }
 
-// contentClaim требует настоящую bounded lease из общей PostgreSQL queue.
-// @args t — runner; f — отдельная fixture; kind — фиксированный job kind.
+// contentClaim требует настоящую ограниченную аренду из общей очереди PostgreSQL.
+// @args t — контекст теста; f — отдельное тестовое окружение; kind — фиксированная категория задания.
 // @return один действующий job, пригодный для fenced commit.
 func contentClaim(t *testing.T, f *stageSevenContentFixture, kind string) jobs.Job {
 	t.Helper()
@@ -111,7 +111,7 @@ func contentClaim(t *testing.T, f *stageSevenContentFixture, kind string) jobs.J
 	return job
 }
 
-// TestStageSevenContentPipelineAndSearch проверяет ready→STT→AI→notifications и permission-first FTS.
+// TestStageSevenContentPipelineAndSearch проверяет путь готовность → распознавание → ИИ → уведомления и проверку прав до полнотекстового поиска.
 // @args t — runner, live provider не используется.
 func TestStageSevenContentPipelineAndSearch(t *testing.T) {
 	f := stageSevenContent(t)
@@ -125,7 +125,7 @@ func TestStageSevenContentPipelineAndSearch(t *testing.T) {
 	if e = f.service.Handle(ctx, job); e != nil {
 		t.Fatal(e)
 	}
-	// Повтор обработки после commit, до ACK/Finish не создаёт второй transcript/AI job.
+	// Повтор после фиксации, до ACK/Finish, не создаёт вторую расшифровку или задание ИИ.
 	if e = f.service.Handle(ctx, job); !errors.Is(e, jobs.ErrSkip) {
 		t.Fatal("duplicate STT not skipped", e)
 	}
@@ -192,7 +192,7 @@ func TestStageSevenContentPipelineAndSearch(t *testing.T) {
 	}
 }
 
-// TestStageSevenContentFailureFencingAndReprocess проверяет изоляцию ошибки и bounded retry generation.
+// TestStageSevenContentFailureFencingAndReprocess проверяет изоляцию ошибки, защиту аренды и ограниченное поколение повторной обработки.
 // @args t — runner с отдельной БД.
 func TestStageSevenContentFailureFencingAndReprocess(t *testing.T) {
 	f := stageSevenContent(t)
@@ -246,7 +246,7 @@ func TestStageSevenContentFailureFencingAndReprocess(t *testing.T) {
 	}
 }
 
-// TestStageSevenReadyTriggerStrictAndTransactional проверяет strict ready/rollback/no-backfill.
+// TestStageSevenReadyTriggerStrictAndTransactional проверяет строгую готовность, откат транзакции и отсутствие обработки старых записей.
 // @args t — runner с isolated DB.
 func TestStageSevenReadyTriggerStrictAndTransactional(t *testing.T) {
 	f := stageSevenContent(t)
@@ -305,7 +305,7 @@ func TestStageSevenReadyTriggerStrictAndTransactional(t *testing.T) {
 	}
 }
 
-// TestStageSevenAIFailurePreservesTranscript проверяет schema failure из fake HTTP provider.
+// TestStageSevenAIFailurePreservesTranscript проверяет сохранность расшифровки при неверной схеме ответа тестового HTTP-провайдера.
 // @args t — runner; платные provider calls отсутствуют.
 func TestStageSevenAIFailurePreservesTranscript(t *testing.T) {
 	f := stageSevenContent(t)
@@ -356,7 +356,7 @@ func TestStageSevenAIFailurePreservesTranscript(t *testing.T) {
 	}
 }
 
-// TestStageSevenReprocessRevocationRace сериализует revoke и дорогой POST через conference lock.
+// TestStageSevenReprocessRevocationRace сериализует отзыв доступа и затратный POST блокировкой конференции.
 // @args t — runner; проверяется реальный перекрывающийся DB/HTTP-usecase порядок.
 func TestStageSevenReprocessRevocationRace(t *testing.T) {
 	f := stageSevenContent(t)

@@ -53,7 +53,7 @@ type publishedTrack struct {
 type receiver struct {
 	mid         string
 	remote      *pion.TrackRemote
-	publication *publishedTrack // guarded by publisher.mu
+	publication *publishedTrack // защищено publisher.mu
 }
 
 // subscription связывает опубликованную дорожку с исходящим потоком конкретного получателя.
@@ -145,9 +145,9 @@ func (m *Manager) receive(p *peer, remote *pion.TrackRemote, transport *pion.RTP
 		if t == nil || !t.permitted.Load() {
 			continue
 		}
-		// An SFU must not copy publisher-specific MID/RID/TWCC extension IDs
-		// into a differently negotiated subscriber transport. Pion rewrites
-		// SSRC/PT for each local sender; encoded payload/timestamps are retained.
+		// SFU не копирует специфичные для издателя ID расширений MID/RID/TWCC в транспорт
+		// подписчика с другим согласованием. Pion переписывает SSRC/PT для каждого локального
+		// отправителя; закодированная нагрузка и временные отметки сохраняются.
 		packet.Header.Extension = false
 		packet.Header.ExtensionProfile = 0
 		packet.Header.Extensions = nil
@@ -287,8 +287,8 @@ func (m *Manager) syncPeer(p *peer) {
 //   - t (*publishedTrack): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 //   - p (*peer): байты, переданные по контракту io.Writer.
 func (m *Manager) subscribe(t *publishedTrack, p *peer) {
-	// Multiple tabs have distinct endpoints, but a user's own microphone and
-	// camera are never echoed to their other endpoints.
+	// Вкладки имеют разные конечные соединения, но собственные микрофон и камера пользователя
+	// никогда не возвращаются в его остальные соединения.
 	if t.publisher.binding.ParticipantID == p.binding.ParticipantID {
 		return
 	}
@@ -452,7 +452,7 @@ func (m *Manager) unsubscribe(s *subscription) {
 			delete(s.peer.subscriptions, s.source.metadata.ID)
 			s.peer.mu.Unlock()
 			_ = s.peer.pc.RemoveTrack(s.sender)
-			// Stop independently as RemoveTrack on a closed PC returns before Stop.
+			// Останавливаем отдельно: RemoveTrack на закрытом PeerConnection возвращается до вызова Stop.
 			_ = s.sender.Stop()
 			s.peer.negotiation.Unlock()
 			s.source.mu.Lock()

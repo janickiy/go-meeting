@@ -37,7 +37,7 @@ func stageEightFFmpeg(t *testing.T) string {
 	return path
 }
 
-// TestStageEightOpusToLiveCaptions проверяет настоящий Opus→PCM→fake STT, включая финал короткой реплики.
+// TestStageEightOpusToLiveCaptions проверяет настоящий Opus → PCM → подставное распознавание, включая финал короткой реплики.
 // @args t — исполнитель; исходный звук — синусоида, не персональное аудио.
 func TestStageEightOpusToLiveCaptions(t *testing.T) {
 	binary := stageEightFFmpeg(t)

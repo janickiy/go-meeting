@@ -1,5 +1,5 @@
-// Package sfu owns media transport only. Business permissions, tickets and
-// distributed ownership are validated by the media-worker control boundary.
+// Пакет sfu отвечает за транспорт медиа. Прикладные права, билеты и распределённое
+// владение проверяются внутренними обработчиками управления media-worker.
 package sfu
 
 import (
@@ -51,10 +51,10 @@ type Options struct {
 	MaxScreenSharers, EgressQueueSize                                                  int
 	ICEDisconnectedTimeout, ICEFailedTimeout, ICEKeepaliveInterval, NegotiationTimeout time.Duration
 	Logger                                                                             *slog.Logger
-	// Emit must have a bounded implementation. It runs without SFU locks from
-	// an owned, bounded per-peer event worker, never from the RTP forwarding loop.
-	// Lifecycle operations triggered by Emit must be scheduled asynchronously:
-	// synchronous Leave would wait for the event worker currently calling Emit.
+	// Реализация Emit должна быть ограниченной. Она вызывается без блокировок SFU
+	// собственным ограниченным обработчиком событий соединения, вне цикла пересылки RTP.
+	// Операции жизненного цикла, запущенные из Emit, планируются асинхронно:
+	// синхронный Leave ожидал бы тот обработчик событий, который сейчас вызывает Emit.
 	Emit func(media.Binding, string, any)
 }
 
@@ -97,7 +97,7 @@ type Stats struct {
 //   - rooms: индекс значений rooms для поиска и согласования состояния.
 //   - peers: индекс значений peers для поиска и согласования состояния.
 //   - connections: индекс значений connections для поиска и согласования состояния.
-//   - roomClosures: канал «room Closures» для передачи данных или завершения ожидания.
+//   - roomClosures: канал завершения закрываемых комнат.
 //   - closing: логический признак closing, управляющий соответствующей веткой обработки.
 //   - closed: канал «закрытый» для передачи данных или завершения ожидания.
 //   - shutdownOnce: значение shutdownOnce типа sync.Once, используемое согласно назначению этой операции.
@@ -291,8 +291,8 @@ func NewManager(options Options) (*Manager, error) {
 		}
 	}
 	m.api = pion.NewAPI(pion.WithMediaEngine(engine), pion.WithInterceptorRegistry(registry), pion.WithSettingEngine(settings))
-	// The sentinel keeps WaitGroup additions safe until Shutdown has detached
-	// every registered peer; a peer is added to closeWG before it leaves the map.
+	// Служебный элемент защищает добавление в WaitGroup, пока Shutdown не отсоединит
+	// все зарегистрированные соединения; соединение добавляется в closeWG до удаления из карты.
 	m.closeWG.Add(1)
 	return m, nil
 }
@@ -328,8 +328,8 @@ func (m *Manager) Join(ctx context.Context, binding media.Binding) (media.PeerVi
 		}
 		return media.PeerView{}, media.ErrUnauthorized
 	}
-	// Construction happens outside the global lock, but Shutdown must still
-	// wait for an in-flight NewPeerConnection to be either registered or closed.
+	// Соединение создаётся вне общей блокировки, но Shutdown должен дождаться, пока
+	// выполняющийся NewPeerConnection будет зарегистрирован или закрыт.
 	m.closeWG.Add(1)
 	m.mu.Unlock()
 	defer m.closeWG.Done()
@@ -389,7 +389,7 @@ func (m *Manager) Join(ctx context.Context, binding media.Binding) (media.PeerVi
 	m.peers[p.id] = p
 	m.connections[binding.ConnectionID] = p
 	m.total.Add(1)
-	// Set handlers/start workers while registered and protected from Shutdown.
+	// Настраиваем обработчики и запускаем фоновые задачи после регистрации под защитой от Shutdown.
 	p.install()
 	m.mu.Unlock()
 	m.syncPeer(p)
@@ -574,8 +574,8 @@ func (m *Manager) CloseConference(ctx context.Context, id string) error {
 	}
 	done := make(chan struct{})
 	m.roomClosures[id] = done
-	// Track coordinator as well as peer cleanup; Shutdown waits for any
-	// conference close that started before its global closing gate.
+	// Учитываем координатор и очистку соединений; Shutdown ждёт все закрытия конференций,
+	// которые начались до установки общего признака завершения.
 	m.closeWG.Add(1)
 	for _, p := range peers {
 		m.detachLocked(p)

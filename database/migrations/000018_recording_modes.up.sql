@@ -1,4 +1,4 @@
--- Стратегии используют общую аренду, outbox и атомарную публикацию артефактов.
+-- Стратегии используют общую аренду, исходящую очередь и атомарную публикацию артефактов.
 ALTER TABLE record ADD COLUMN IF NOT EXISTS media_started_at TIMESTAMPTZ;
 ALTER TABLE record_file DROP CONSTRAINT IF EXISTS record_file_type_check;
 ALTER TABLE record_file ADD CONSTRAINT record_file_type_check CHECK (file_type IN ('final_mp4','preview_jpg','debug_log','final_audio','tracks_archive'));

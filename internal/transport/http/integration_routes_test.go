@@ -17,13 +17,13 @@ import (
 	u "github.com/janickiy/go-recorder/internal/usecase/integrations"
 )
 
-// integrationLimiter фиксирует безопасные Redis bucket keys и controlled решение запроса.
+// integrationLimiter фиксирует безопасные ключи областей Redis и управляемое решение по запросу.
 type integrationLimiter struct {
 	allowed bool
 	keys    []string
 }
 
-// Allow моделирует общую distributed quota без внешнего Redis в unit тесте маршрутов.
+// Allow моделирует общую распределённую квоту без внешнего Redis в модульном тесте маршрутов.
 // @args ctx — срок запроса; key — пользовательская область; limit/window — фиксированная policy.
 // @return: controlled результат и nil.
 func (l *integrationLimiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (ratelimit.Result, error) {
@@ -31,7 +31,7 @@ func (l *integrationLimiter) Allow(ctx context.Context, key string, limit int, w
 	return ratelimit.Result{Allowed: l.allowed, Limit: limit, RetryAfter: time.Minute, ResetAt: time.Now().Add(time.Minute)}, nil
 }
 
-// TestIntegrationRoutesRateLimitAndStrictJSON проверяет quota до handler и запрет provider tokens/unknown/trailing JSON.
+// TestIntegrationRoutesRateLimitAndStrictJSON проверяет квоту до обработчика и запрет токенов провайдера, неизвестных полей и данных после JSON.
 // @args t — контекст unit теста HTTP.
 func TestIntegrationRoutesRateLimitAndStrictJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)

@@ -9,7 +9,7 @@ import (
 )
 
 // FinalizeAudio объединяет аудиосегменты без видеопроцесса и без искусственного превью.
-// @args ctx — deadline; dir — приватный каталог закрытых сегментов.
+// @args ctx — срок выполнения; dir — приватный каталог закрытых сегментов.
 // @return проверенный AAC/MP4, контрольная сумма и метаданные либо ошибка.
 func (p *PostProcessor) FinalizeAudio(ctx context.Context, dir string) (Result, error) {
 	paths, err := findSegments(dir)

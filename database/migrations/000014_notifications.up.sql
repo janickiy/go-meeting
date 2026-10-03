@@ -15,8 +15,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id) WH
 CREATE INDEX IF NOT EXISTS idx_notifications_pending ON notifications(created_at, id) WHERE published_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_record_notifications ON record(platform_conference_id, uuid) WHERE mode = 'composite' AND status IN ('ready','partial_ready');
 
--- Durable product-event snapshots, separate from the media command queue.
--- Triggers capture rapid successive decisions without polling mutable facts.
+-- Постоянные снимки продуктовых событий хранятся отдельно от очереди медиакоманд.
+-- Триггеры фиксируют быстрые последовательные решения без опроса изменяемых исходных данных.
 CREATE TABLE IF NOT EXISTS notification_jobs (
     id BIGSERIAL PRIMARY KEY,
     kind VARCHAR(40) NOT NULL CHECK (kind IN ('admission.decided','recording.ready')),
@@ -37,9 +37,9 @@ CREATE TABLE IF NOT EXISTS notification_jobs (
         (kind='recording.ready' AND recording_id IS NOT NULL AND user_id IS NULL AND participant_id IS NULL AND admission_state IS NULL)
     )
 );
--- The non-null participant/record entity FK already restricts deletion of its
--- conference. A second direct FK would invert the recorder's record-row lock
--- against Stop's conference-row lock while the ready trigger inserts a job.
+-- Ненулевой внешний ключ участника или записи уже ограничивает удаление соответствующей
+-- конференции. Дополнительный прямой ключ изменил бы порядок блокировок записи и конференции
+-- относительно Stop при вставке задания триггером готовности.
 ALTER TABLE notification_jobs DROP CONSTRAINT IF EXISTS notification_jobs_conference_id_fkey;
 CREATE INDEX IF NOT EXISTS idx_notification_jobs_pending ON notification_jobs(available_at,id) WHERE processed_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_participants_notification_fanout ON conference_participants(conference_id,id)
@@ -73,8 +73,8 @@ DROP TRIGGER IF EXISTS trg_record_notification ON record;
 CREATE TRIGGER trg_record_notification AFTER INSERT OR UPDATE OF status ON record
 FOR EACH ROW EXECUTE FUNCTION enqueue_recording_notification();
 
--- Idempotent one-time/startup discovery of pre-stage-five facts. Normal ticks
--- only inspect the partial pending-jobs index, never all historical recordings.
+-- Идемпотентное обнаружение старых данных при запуске. Обычные периодические проверки
+-- читают только частичный индекс ожидающих заданий, а не всю историю записей.
 INSERT INTO notification_jobs(kind,entity_id,entity_version,conference_id,user_id,participant_id,admission_state,created_at)
 SELECT 'admission.decided',id,admission_version,conference_id,user_id,id,admission_state,admission_decided_at
 FROM conference_participants WHERE user_id IS NOT NULL AND admission_decided_at IS NOT NULL AND admission_state IN ('admitted','rejected','kicked')

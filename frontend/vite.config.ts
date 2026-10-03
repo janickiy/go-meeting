@@ -1,8 +1,18 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { buildMetadataPlugin, readBuildMetadata } from "./build-metadata.ts";
+
+const buildMetadata = readBuildMetadata(process.env);
+const telemetryFlag = process.env.VITE_CLIENT_TELEMETRY_ENABLED || "false";
+if (!["true", "false"].includes(telemetryFlag))
+  throw new Error("VITE_CLIENT_TELEMETRY_ENABLED must be true or false");
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), buildMetadataPlugin(buildMetadata)],
+  define: {
+    __APP_BUILD__: JSON.stringify(buildMetadata),
+    __CLIENT_TELEMETRY_ENABLED__: telemetryFlag === "true",
+  },
   server: {
     port: 5173,
     strictPort: true,

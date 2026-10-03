@@ -251,7 +251,7 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 				}
 				return tx.Create(&participant).Error
 			}
-			// Repeated invites cannot change admission; scheduled joins are enrollment.
+			// Повторные приглашения не меняют допуск; присоединение к запланированной встрече означает запись на неё.
 			if participant.AdmissionState == conferences.AdmissionWaiting {
 				if participant.Status == conferences.Waiting {
 					return nil

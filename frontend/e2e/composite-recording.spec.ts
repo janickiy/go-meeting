@@ -118,7 +118,7 @@ async function enableMedia(page: Page) {
 }
 
 test("real Docker UI conference recording produces private MP4 and preview", /**
- * Проверка: real Docker UI conference recording produces private MP4 and preview выполняет тестовый сценарий «real Docker UI conference recording produces private MP4 and preview» и проверяет ожидаемые результаты.
+ * Проверяет, что запись конференции через реальный интерфейс Docker создаёт приватные MP4 и превью.
  *
  * @args
  *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами; request — параметры сообщения или другого API-действия.
@@ -205,7 +205,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
         const NativePeer = window.RTCPeerConnection;
         window.RTCPeerConnection = class extends NativePeer {
           /**
-           * constructor function Object() { [native code] }.
+           * constructor создаёт подставной объект с переданными параметрами для проверки записи.
            *
            * @args
            *   - configuration (RTCConfiguration) — входное значение configuration текущего шага обработки (необязательный параметр).
@@ -242,7 +242,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
         const NativeWebSocket = window.WebSocket;
         window.WebSocket = class extends NativeWebSocket {
           /**
-           * constructor function Object() { [native code] }.
+           * constructor создаёт подставной объект с переданными параметрами для проверки записи.
            *
            * @args
            *   - url (string | URL) — адрес запроса или ресурса.
@@ -398,7 +398,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
                   ...(event.data?.code ? { code: event.data.code } : {}),
                 });
             } catch {
-              /* Ignore non-JSON control frames. */
+              /* Игнорируем служебные кадры без JSON. */
             }
           };
         socket.on("framereceived", collect("framereceived"));
@@ -537,7 +537,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
         );
         summary.spoolSnapshot = "spool-snapshot";
       } catch {
-        /* The worker removes successful temporary files after upload. */
+        /* После загрузки воркер удаляет временные файлы успешной записи. */
       }
     }
   };
@@ -555,7 +555,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
         "POST",
         { email, password, displayName: name },
       );
-      // Persist the created identity immediately so a later login failure is cleanable.
+      // Сразу сохраняем созданную учётную запись, чтобы очистить её и при последующем сбое входа.
       const actor = { id: registered.user.id, token: "", email, name };
       actors.push(actor);
       const session = await request<{ accessToken: string }>(
@@ -699,7 +699,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
                *
                * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
                */ () => {
-                /* Resource sampling does not alter recording state. */
+                /* Измерение ресурсов не меняет состояние записи. */
               },
             )
             .finally(
@@ -912,7 +912,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
       .click();
     await expect(owner.locator(".media-tile-screen video")).toHaveCount(0);
     phase = "recording/grid-after-screen";
-    // Composition layout changes at segment boundaries; include a full next grid segment.
+    // Раскладка меняется на границах сегментов; включаем полный следующий сегмент сетки.
     await owner.waitForTimeout(6500);
     await diagnostics();
     const stopAt = Date.now();
@@ -1111,8 +1111,8 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
         { encoding: "buffer", maxBuffer: 5 * 1024 * 1024 },
       )
     ).stdout;
-    // Three Chrome fake-camera pictures must be present, not merely three layout
-    // descriptors. The synthetic cameras are green; the unused fourth cell is slate.
+    // Должны присутствовать изображения трёх подставных камер Chrome, а не только три описания
+    // раскладки. Подставные камеры зелёные, незанятая четвёртая ячейка — серо-синяя.
     const gridWidth = Number(videoStream.width);
     const gridHeight = Number(videoStream.height);
     const greenRatios: number[] = [];
@@ -1159,8 +1159,8 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
         "-i",
         videoPath,
         "-vf",
-        // Chrome's fake camera uses saturated zero-luma green. Evaluate rendered
-        // RGB brightness, not its raw Y plane, and reject only a fully blank scene.
+        // Подставная камера Chrome использует насыщенный зелёный цвет с нулевой яркостью Y.
+        // Оцениваем яркость отображаемого RGB, а не плоскости Y, и отклоняем только полностью пустую сцену.
         "format=rgb24,format=gray,blackdetect=d=0.4:pix_th=0.1:pic_th=0.99",
         "-an",
         "-f",

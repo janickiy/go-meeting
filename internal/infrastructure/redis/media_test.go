@@ -47,7 +47,7 @@ func mediaRegistryFixture(t *testing.T) *MediaRegistry {
 	return s
 }
 
-// TestMediaOwnershipAtomicClaimAndFencing проверяет сценарий «медиа Ownership Atomic Claim и защита версии владения», фиксируя ошибки поведения как регрессию.
+// TestMediaOwnershipAtomicClaimAndFencing проверяет атомарный захват владения медиа и защиту версии аренды.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -135,7 +135,7 @@ func TestMediaOwnershipAtomicClaimAndFencing(t *testing.T) {
 	}
 }
 
-// TestMediaWorkerExpiryAndRegistrationBinding проверяет сценарий «медиа воркер истечение срока и Registration Binding», фиксируя ошибки поведения как регрессию.
+// TestMediaWorkerExpiryAndRegistrationBinding проверяет истечение воркера и привязку регистрации.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

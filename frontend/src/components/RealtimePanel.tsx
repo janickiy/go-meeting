@@ -194,7 +194,7 @@ function MediaTile({
   );
 }
 
-// Hardware capture always requires an explicit user action.
+// Захват с физических устройств всегда требует явного действия пользователя.
 /**
  * RealtimePanel показывает состояние связи, локальные и удалённые медиа и действия устройств и экрана.
  *

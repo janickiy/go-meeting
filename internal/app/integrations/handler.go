@@ -39,7 +39,7 @@ func (h *Handler) Preferences(c *gin.Context) {
 	c.JSON(http.StatusOK, value)
 }
 
-// SavePreferences заменяет boolean настройки только для identity из токена.
+// SavePreferences заменяет логические настройки только для пользователя, определённого по токену.
 // @args c — authenticated JSON запрос.
 func (h *Handler) SavePreferences(c *gin.Context) {
 	var request d.Preferences
@@ -65,7 +65,7 @@ func (h *Handler) Devices(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
-// RegisterDevice принимает platform token от клиентского SDK, но не произвольный provider endpoint.
+// RegisterDevice принимает токен платформы из клиентского SDK, но не произвольный адрес провайдера.
 // @args c — authenticated JSON запрос регистрации.
 func (h *Handler) RegisterDevice(c *gin.Context) {
 	var request d.DeviceRequest
@@ -94,7 +94,7 @@ func (h *Handler) RevokeDevice(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// Calendars перечисляет собственные подключённые и отозванные календари без OAuth tokens.
+// Calendars перечисляет собственные подключённые и отозванные календари без токенов OAuth.
 // @args c — authenticated HTTP запрос.
 func (h *Handler) Calendars(c *gin.Context) {
 	items, err := h.service.Connections(c.Request.Context(), middleware.UserID(c))
@@ -121,7 +121,7 @@ func (h *Handler) MockConnect(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"item": item})
 }
 
-// Connect начинает серверный authorization-code поток; PKCE verifier остаётся зашифрованным в DB.
+// Connect начинает серверный обмен кода авторизации; проверочное значение PKCE хранится зашифрованным в БД.
 // @args c — authenticated HTTP запрос с provider=generic.
 func (h *Handler) Connect(c *gin.Context) {
 	authURL, state, err := h.service.OAuthStart(c.Request.Context(), middleware.UserID(c), c.Param("provider"))
@@ -133,13 +133,13 @@ func (h *Handler) Connect(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"authUrl": authURL, "state": state})
 }
 
-// oauthCallbackRequest содержит только одноразовые code/state, не access/refresh tokens.
+// oauthCallbackRequest содержит только одноразовые код и состояние, без токенов доступа и обновления.
 type oauthCallbackRequest struct {
 	Code  string `json:"code"`
 	State string `json:"state"`
 }
 
-// Callback меняет одноразовый code после проверки state/user/provider; token never reaches browser.
+// Callback обменивает одноразовый код после проверки состояния, пользователя и провайдера; токен не попадает в браузер.
 // @args c — authenticated JSON запрос возврата OAuth.
 func (h *Handler) Callback(c *gin.Context) {
 	var request oauthCallbackRequest
@@ -155,7 +155,7 @@ func (h *Handler) Callback(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"item": item})
 }
 
-// Disconnect удаляет локальные credentials и пытается отозвать grant внешнего провайдера.
+// Disconnect удаляет локальные учётные данные и пытается отозвать разрешение внешнего провайдера.
 // @args c — authenticated HTTP запрос с connectionId.
 func (h *Handler) Disconnect(c *gin.Context) {
 	id, ok := resourceID(c, "provider")
@@ -169,7 +169,7 @@ func (h *Handler) Disconnect(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// CalendarMappings показывает внешнее состояние только actor с owner/cohost permissions.
+// CalendarMappings показывает внешнее состояние только пользователю с правами владельца или соведущего.
 // @args c — authenticated HTTP запрос с conference id.
 func (h *Handler) CalendarMappings(c *gin.Context) {
 	id, ok := resourceID(c, "id")
@@ -184,7 +184,7 @@ func (h *Handler) CalendarMappings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items})
 }
 
-// resourceID нормализует path UUID до обращения к постоянному хранилищу.
+// resourceID нормализует UUID из пути до обращения к постоянному хранилищу.
 // @args c — HTTP запрос; name — фиксированный route parameter.
 // @return: canonical UUID и признак успеха; ошибка уже отправлена клиенту.
 func resourceID(c *gin.Context, name string) (string, bool) {

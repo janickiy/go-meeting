@@ -48,7 +48,7 @@ vi.mock(
            */ async () => {},
         );
         /**
-         * constructor function Object() { [native code] }.
+         * constructor создаёт подставное соединение для проверки жизненного цикла медиа.
          *
          * @args
          *   - _send (unknown) — входное значение _send текущего шага обработки.
@@ -157,13 +157,13 @@ afterEach(
 );
 
 describe("per-connection media snapshots", /**
- * Проверка: per-connection media snapshots выполняет тестовый сценарий «per-connection media snapshots» и проверяет ожидаемые результаты.
+ * Проверяет снимки медиа отдельно для каждого соединения.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
   it("increments sequence across capture stop/restart on the same connection", /**
-   * Проверка: increments sequence across capture stop/restart on the same connection выполняет тестовый сценарий «increments sequence across capture stop/restart on the same connection» и проверяет ожидаемые результаты.
+   * Проверяет рост номера последовательности при остановке и повторном захвате в одном соединении.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -270,7 +270,7 @@ describe("per-connection media snapshots", /**
   });
 
   it("never relabels an old snapshot with a reconnected tab's identity", /**
-   * Проверка: never relabels an old snapshot with a reconnected tab's identity выполняет тестовый сценарий «never relabels an old snapshot with a reconnected tab's identity» и проверяет ожидаемые результаты.
+   * Проверяет, что старый снимок не получает идентичность переподключённой вкладки.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

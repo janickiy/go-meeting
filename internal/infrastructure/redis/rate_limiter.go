@@ -47,9 +47,9 @@ type RateLimiter struct {
 	client *goredis.Client
 }
 
-// NewRateLimiter создает Redis rate limiter.
+// NewRateLimiter создаёт ограничитель запросов на основе Redis.
 // @args
-// - client: Redis client.
+// - client: клиент Redis.
 // @return RateLimiter.
 func NewRateLimiter(client *goredis.Client) *RateLimiter {
 	return &RateLimiter{client: client}
@@ -58,7 +58,7 @@ func NewRateLimiter(client *goredis.Client) *RateLimiter {
 // Allow проверяет, можно ли выполнить запрос по ключу лимита.
 // @args
 // - ctx: контекст операции.
-// - key: Redis key лимита.
+// - key: ключ лимита Redis.
 // - limit: максимум запросов за окно.
 // - window: длительность окна.
 // @return результат проверки или ошибку Redis.

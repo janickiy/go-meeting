@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate проверяет сценарий «этап пять уведомление задания захват Every Decision и Deduplicate», фиксируя ошибки поведения как регрессию.
+// TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate проверяет фиксацию каждого решения и дедупликацию уведомлений.
 // Операции с базой данных объединяет в транзакцию.
 //
 // @args
@@ -86,7 +86,7 @@ func TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate(t *testing.
 	if err = f.db.Table("notification_jobs").Where("entity_id=?", record.UUID).Count(&count).Error; err != nil || count != 1 {
 		t.Fatal("duplicate ready jobs", count, err)
 	}
-	// Thousands of completed historical events must not be scanned each tick.
+	// Тысячи завершённых исторических событий не должны сканироваться на каждом периодическом запуске.
 	if err = f.db.Exec(`INSERT INTO notification_jobs(kind,entity_id,entity_version,conference_id,user_id,participant_id,admission_state,processed_at)
         SELECT 'admission.decided',?::uuid,n,?::uuid,?::uuid,?::uuid,'kicked',now() FROM generate_series(1000,3999) n`, p.ID, c.ID, f.member.ID, p.ID).Error; err != nil {
 		t.Fatal(err)
@@ -238,8 +238,8 @@ func TestStageFiveRecordingNotificationFanoutBoundedAndAtomic(t *testing.T) {
 	if err = f.db.Model(&notifications.Notification{}).Where("type='recording.ready'").Count(&count).Error; err != nil || count != 100 {
 		t.Fatal("fanout is not bounded to 100/job/tick", count, err)
 	}
-	// A later batch must recheck recipients rather than trusting the initial
-	// event. Exclude an as-yet-unnotified attendee kicked between batches.
+	// Каждая последующая порция заново проверяет получателей, не полагаясь на первоначальное
+	// событие. Исключаем ещё не уведомлённого участника, удалённого из встречи между порциями.
 	target := ps[0]
 	for _, p := range ps {
 		if p.ID > target.ID {
@@ -327,14 +327,14 @@ func TestStageFiveNotificationReadyDoesNotInvertConferenceLock(t *testing.T) {
 		t.Fatal(ownerStop.Error)
 	}
 	defer ownerStop.Rollback()
-	// Stop first owns the conference row and subsequently asks for the record.
+	// Stop сначала блокирует строку конференции, а затем обращается к записи.
 	if err = ownerStop.Exec("SELECT id FROM conferences WHERE id=? FOR UPDATE", f.conference.ID).Error; err != nil {
 		t.Fatal(err)
 	}
 	readyCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	// A ready-trigger FK on conference_id would wait for ownerStop here while
-	// holding the record row, causing the inverse order/deadlock with Stop.
+	// Внешний ключ conference_id в триггере готовности ожидал бы ownerStop, удерживая
+	// строку записи, что меняет порядок блокировок и создаёт взаимоблокировку со Stop.
 	if err = f.db.WithContext(readyCtx).Model(&records.Record{}).Where("id=?", record.ID).Update("status", records.StatusReady).Error; err != nil {
 		t.Fatalf("recording-ready trigger waited on conference lock: %v", err)
 	}

@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// monitoredSTT инъецирует один отказ на дорожку и выявляет одновременные повторные provider sessions.
+// monitoredSTT добавляет один отказ на дорожку и выявляет одновременно работающие повторные сессии провайдера.
 type monitoredSTT struct {
 	mu               sync.Mutex
 	active, attempts map[string]int
@@ -53,7 +53,7 @@ func (p *monitoredSTT) StartSession(ctx context.Context, cfg captions.SessionCon
 }
 
 // WriteAudio создаёт проверяемый отказ после получения 600 ms, не касаясь SFU.
-// @args ctx — deadline; pcm — синтетическое аудио.
+// @args ctx — срок выполнения; pcm — синтетическое аудио.
 // @return ошибка первой попытки либо результат fake STT.
 func (s *monitoredSession) WriteAudio(ctx context.Context, pcm []byte) error {
 	s.bytes += len(pcm)
@@ -71,7 +71,7 @@ func (s *monitoredSession) Close() error {
 	return err
 }
 
-// TestStageEightLiveEndToEnd соединяет реальный SFU, HTTP tap, FFmpeg, fake STT, SQL и WebSocket другого участника.
+// TestStageEightLiveEndToEnd соединяет реальный SFU, отдельный HTTP-поток, FFmpeg, подставное распознавание, SQL и WebSocket другого участника.
 // @args t — исполнитель на изолированных PostgreSQL/Redis; никаких платных вызовов.
 func TestStageEightLiveEndToEnd(t *testing.T) {
 	f := stageTwo(t)

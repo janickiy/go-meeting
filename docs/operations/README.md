@@ -1,43 +1,30 @@
-# Эксплуатация Go Recorder — этап 6
+# Эксплуатация Go Recorder / Meet
 
-Дата проверки: 1–2 октября 2026. Это single-host Compose, не HA-платформа.
-Состояние приёмки и фактические числа: [CAPACITY_BASELINE](../CAPACITY_BASELINE.md),
-[отчёт этапа](production-hardening-report.md). Этап 7 не запускается автоматически.
+Текущая модель — single-host Compose, не HA-платформа. Реальный staging ещё
+не предоставлен; локальные проверки не подтверждают production/WAN/TURNS.
+Измерения 1–2 октября 2026 в [CAPACITY_BASELINE](../CAPACITY_BASELINE.md),
+[отчёте этапа 6](production-hardening-report.md) и
+[UX-отчёте этапа 9](PRODUCT_UX_RELEASE_REPORT.md) — исторические результаты,
+а не приёмка текущего выпуска.
 
-## Запуск production
+## Выпуск и навигация
 
-1. Скопировать `.env.production.example` в неотслеживаемый `.env.production`.
-   Заполнить все пустые поля. Для каждого JWT/media/internal/metrics/TURN ключа
-   сгенерировать отдельное значение `openssl rand -hex 32`. Пароли зависимостей
-   также генерировать независимо; образцы не содержат готовых паролей. Задать
-   `BUILD_VERSION` как неизменяемый release ID или короткий commit SHA; API
-   возвращает его как `buildVersion` в авторизованном `/api/v1/capabilities`.
-2. Указать действительные `WS_ALLOWED_ORIGINS`, `MINIO_PUBLIC_ENDPOINT`,
-   `TURN_URLS`, `TURN_REALM`, публичный IPv4 `MEDIA_NAT_IPS` и `TURN_PUBLIC_IP`.
-   `example.invalid` — только обозначение, не рабочий адрес. Production frontend
-   требует HTTPS `PUBLIC_FRONTEND_URL` и HTTPS `MINIO_PUBLIC_ENDPOINT` как точные
-   origins без пути/query/userinfo: по ним формируется ограниченный CSP для WSS
-   и внешнего хранилища. Заголовок Host на CSP не влияет.
-3. Подготовить действительные HTTPS и TURN TLS сертификаты. В каталогах
-   `TLS_CERT_DIR` / `TURN_TLS_CERT_DIR` должны находиться `fullchain.pem` и
-   `privkey.pem`. Coturn работает как nobody; ключ должен быть читаем этим
-   пользователем, но не всеми пользователями хоста. Не копировать сертификаты
-   или `.env.production` внутрь образа. Они исключены из build context.
-4. Подготовить `RECORDER_STORAGE_DIR`, доступный UID/GID `1000:1000` с правами
-   0750. Production recorder запускается без root entrypoint. По умолчанию
-   требуется запас 1 ГиБ; размер запаса не означает лимит размера записи.
-5. Выполнить `docker compose --env-file .env.production -f docker-compose.production.yml config --quiet`.
-   Затем `docker compose --env-file .env.production -f docker-compose.production.yml up -d --build`.
-   Не публиковать вывод `config` без `--quiet`: там присутствуют secrets.
-6. Проверить readiness всех трёх служб, приватность бакета и внешнюю конференцию
-   с `TURN_FORCE_RELAY=true`. Затем вернуть `TURN_FORCE_RELAY=false` и повторить
-   с обеими реальными сетями. Миграции выполняются при старте; развёртывание
-   API/recorder лучше производить последовательно, особенно при изменении схемы.
+- [Итоговый launch audit и локальная репетиция](launch-readiness-report.md): результаты, ограничения и production NO-GO.
+- [Развёртывание и окружения](../DEPLOYMENT.md): хост, конфигурация, сеть, secrets и local rehearsal.
+- [Процесс выпуска](../RELEASE_PROCESS.md): immutable package, CI gates, ledger и production approval.
+- [Откат](../ROLLBACK.md): предыдущие образы и совместимость с текущей схемой.
+- [Backup/restore](backup-restore.md): write freeze, проверка копии и границы восстановления.
+- [Production checklist](../PRODUCTION_LAUNCH_CHECKLIST.md): актуальное решение go/no-go.
+- [Frontend release checks](frontend-release-checks.md): browser/build результаты, npm versions и raw license inventory.
+- [Архитектура](../ARCHITECTURE.md), [потоки данных](../DATA_FLOWS.md), [API](../API.md), [пользовательское руководство](../USER_GUIDE.md).
 
-Миграция `000021_admin_capability.up.sql` создаёт три обычных индекса в общей
-транзакции при старте API. На больших таблицах возможны задержка и блокировки
-записей. До production измерить её на копии с сопоставимым объёмом данных и
-запланировать окно; не менять её на сервере во время запуска.
+Прежняя инструкция этапа 6 с `up --build` и автоматическими миграциями **заменена
+для staging/production** указанным release-процессом. Dev-сборка остаётся в
+[корневом README](../../README.md). На release-хосте используются закреплённые
+образы, `AUTO_MIGRATE=false` и явная migration job до deploy, не DDL при старте.
+Применённые SQL-файлы и их комментарии не редактируют: ledger сверяет байты.
+В частности, индексы `000021_admin_capability.up.sql` требуют замера времени и
+блокировок на репрезентативной копии, а не предположения по локальному запуску.
 
 Внутренний транспорт на одном доверенном Compose-хосте — HTTP/AMQP/Redis без
 TLS, не опубликованный наружу. Между отдельными хостами нужны TLS/mTLS/VPN и
@@ -111,23 +98,54 @@ Shared secret никогда не передаётся браузеру. Для 
 не публикуются. Readiness API: PG, Redis, Rabbit, MinIO; media: Redis и lease
 ownership; recorder/compositor: PG, Redis, Rabbit consumer, MinIO и локальный диск.
 Compositor встроен в recorder, отдельного процесса/health порта у него нет.
+Product проверяет PG и MinIO при включённом STT; live-worker — PG и Redis.
+Readiness внешнего provider нельзя считать доказанным только по этим probes.
 
-Примеры, не выводящие secrets:
+Диагностические команды ниже выполняются в отдельном Bash из корня checkout
+после выбора **установленного** manifest. Helper читает env как данные Compose,
+не исполняет его shell-код и не выводит конфигурацию с секретами:
 
-```sh
-docker compose --env-file .env.production -f docker-compose.production.yml exec -T api wget -qO- http://127.0.0.1:8085/health/ready
-docker compose --env-file .env.production -f docker-compose.production.yml exec -T media-worker wget -qO- http://127.0.0.1:8091/health/ready
-docker compose --env-file .env.production -f docker-compose.production.yml exec -T worker wget -qO- http://127.0.0.1:8090/health/ready
+```bash
+bash
+source scripts/release/common.sh
+parse_release_args --environment production --project recorder-production --env-file /srv/meet/config/production.env --manifest /srv/meet/releases/v1.2.3/release.json
+validate_release
+compose ps
+compose exec -T api wget -qO- http://127.0.0.1:8085/health/ready
+compose exec -T media-worker wget -qO- http://127.0.0.1:8091/health/ready
+compose exec -T worker wget -qO- http://127.0.0.1:8090/health/ready
+compose exec -T product-worker wget -qO- http://127.0.0.1:8092/health/ready
+compose exec -T live-worker wget -qO- http://127.0.0.1:8093/health/ready
 ```
 
-Перед restart убрать экземпляр из внешнего LB и дождаться отсутствия новой
-нагрузки. SIGTERM устанавливает draining/readiness=false, API перестаёт принимать
+Замените пути/версию на фактические. Для local/staging выберите их отдельный
+project/env/manifest. После диагностики `exit` закрывает этот Bash. Эти read-only
+команды не являются обходом approval для deploy/migrate/drain/resume.
+
+Перед заменой процесса release helper вызывает закрытый `/operations/drain`,
+запрещает новую работу и ждёт `active=0`. В счётчик входят прикладные HTTP и
+работа роли: WS, комнаты, записи или jobs. Timeout оставляет процесс draining,
+не перезапускает его силой. Возврат в ready — только пересоздание через `resume`
+с тем же manifest. Во внешнем LB/admission также ограничить новую нагрузку.
+SIGTERM устанавливает draining/readiness=false, API перестаёт принимать
 новые запросы и закрывает hijacked WS, media освобождает комнаты/PC/leases,
 recorder завершает обработку в ограниченное время. `SHUTDOWN_TIMEOUT=20s`, Compose
 grace period 45s. После дедлайна процесс может завершиться без полной финализации,
 закрытые фрагменты сохраняются. Live migration комнат между SFU не реализована:
 при смене media-worker требуется reconnect, повторное получение ticket и новые PC.
 Redis PubSub ephemeral; клиент после reconnect получает HTTP snapshot/history.
+
+Для recorder перед drain сначала прекратить появление новых `record.start` и
+дождаться обработки уже ожидающих стартов, сопоставляя очередь/outbox со
+статусами записей. Уже активные записи остановить штатно и дождаться финализации;
+сделать это до общего drain API, который отклоняет новые прикладные запросы.
+`active=0` — счётчик процесса, не доказательство пустой Rabbit-очереди.
+Во время drain consumer возвращает новые старты через `Nack(requeue=true)` с
+паузой 250ms. Start/stop используют одну очередь: повторяемый start способен
+задерживать stop; отдельной retry-топологии или приоритета stop пока нет.
+У composite остановка сохраняется в SQL и замечается владельцем при опросе,
+но это не заменяет проверку завершения. Если активность не исчезла, timeout
+безопасно прекращает deploy, оставляя процесс draining; не обходить его force restart.
 
 ## Диагностика и метрики
 
@@ -139,11 +157,9 @@ JSON логи имеют `service`, `instance_id`, `event_type`; HTTP получ
 Не включать dump SDP, JWT, tickets, upload/download query или тела чата.
 
 `/metrics` без `Authorization: Bearer METRICS_SECRET` возвращает 404. Публичный
-production Nginx закрывает metrics/internal/debug/health. Включение стека:
-
-```sh
-docker compose --env-file .env.production -f docker-compose.production.yml --profile observability up -d prometheus grafana
-```
+production Nginx закрывает metrics/internal/debug/health и drain. `release.sh
+deploy` поднимает observability-профиль из того же immutable manifest; отдельно
+пересобирать или запускать mutable образы метрик при выпуске не нужно.
 
 Предварительно положить token в `METRICS_TOKEN_FILE`, совпадающий с METRICS_SECRET,
 и отдельный пароль Grafana в `GRAFANA_PASSWORD_FILE`. Файлы вне Git, доступны
@@ -170,6 +186,12 @@ Waiting/online глобально и Rabbit queue depth пока не экспо
 смотреть в брокере.
 Такие ограничения перечислены в отчёте, не выдаются за реализованные метрики.
 
+Продуктовые jobs имеют `recorder_product_queue`, `recorder_product_jobs_total`
+и provider-метрики. Это не Rabbit depth. Опциональная frontend-телеметрия добавляет
+`recorder_client_errors_total{code,browser,route}` с ограниченными значениями;
+она не содержит пользовательский контент и не измеряет всех пользователей:
+disabled-флаг, rate limits и ошибки доставки уменьшают наблюдаемую выборку.
+
 Pprof: `PPROF_PORT=0` по умолчанию; ненулевой порт слушает `127.0.0.1` **внутри**
 контейнера. Не добавлять port mapping или публичный proxy маршрут. Временный
 admin доступ через `docker compose exec`/внутренний namespace. Сервер отклоняет
@@ -187,8 +209,9 @@ upload route имеет отдельный лимит 10 МиБ и собств�
 отдельные heartbeat/write deadlines, поэтому общий HTTP WriteTimeout не используется.
 
 PG pool 20 open/10 idle/30m lifetime. Подключение 5s, query timeout 10s,
-lock timeout 5s. Длинные миграции выполнять отдельно с осознанным
-`DB_QUERY_TIMEOUT`, не увеличивая лимит всех пользовательских запросов без review.
+lock timeout 5s. Migration job имеет отдельные transaction/advisory lock,
+`lock_timeout=15s` и deadline 5 минут. Не увеличивать лимит всех пользовательских
+запросов ради DDL; тяжёлую миграцию проектировать и проверять отдельно.
 Redis dial/read/write/pool 3s, context cancellation; Rabbit heartbeat 5s,
 connect bounded, publisher confirms/reconnect, consumer QoS=1/reconnect.
 Команда: одна повторная доставка, затем durable `.failed` queue (7 суток,
@@ -220,7 +243,8 @@ Low disk снимает readiness, но не является полноценн
 
 ## Аварии и восстановление
 
-См. [FAILURE_TESTS](FAILURE_TESTS.md) для фактически выполненной матрицы и рисков.
+См. исторический [FAILURE_TESTS](FAILURE_TESTS.md) для выполненной в этапе 6 матрицы
+и рисков; он не является повторным тестом текущего release artifact.
 
 При recording failed не подменять статус success. Проверить worker readiness,
 lease/token, свободный диск, retained chunks, FFmpeg stderr, MinIO и outbox.
@@ -228,8 +252,8 @@ lease/token, свободный диск, retained chunks, FFmpeg stderr, MinIO 
 RTP или незакрытый хвостовой chunk. Не копировать файлы между record/token
 каталогами без проверки ownership. Для Rabbit backlog:
 
-```sh
-docker compose --env-file .env.production -f docker-compose.production.yml exec -T rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged consumers
+```bash
+compose exec -T rabbitmq rabbitmqctl list_queues name messages_ready messages_unacknowledged consumers
 ```
 
 PG saturation: посмотреть pool metrics/lock waits, `pg_stat_activity` в закрытом
@@ -240,22 +264,18 @@ MinIO outage: восстановить storage/диск/credentials, свери�
 
 ## Backup, restore и rollback
 
-Сохранять PostgreSQL (pg_dump/custom-format + проверка restore), MinIO objects и
-metadata, а также secrets/config/TLS вне Git в защищённом хранилище. Redis presence,
-ownership и PubSub ephemeral; не восстанавливать старые realtime leases из backup.
-Rabbit durable commands сохранять вместе с PG или учитывать duplicate replay.
-Для согласованного backup остановить новые записи, дождаться финализации,
-приостановить пользовательские изменения либо использовать согласованный snapshot.
+Актуальные команды и границы — [backup-restore.md](backup-restore.md) и
+[ROLLBACK.md](../ROLLBACK.md). Backup helper сохраняет PG и текущие MinIO objects
+с `ContentType`, не историю версий, произвольную metadata или весь broker/spool.
+Глобальный write freeze обязателен: это не атомарный cross-store snapshot.
+Secrets/config/TLS и ключ provider-токенов сохраняются отдельно защищённо.
+Redis presence/ownership/PubSub не восстанавливают как живые старые leases.
 
-Порядок restore: PG schema/data → MinIO → secrets/TLS → Redis/Rabbit → media-worker
-→ recorder → API/proxy. Проверить соответствие file object keys, token и record
-status, затем тестовую загрузку/запись. Тестовый restore на отдельном сервере
-обязателен: наличие dump не доказывает его пригодность. Сроки RPO/RTO не измерены.
-
-Rollback: сохранить старые image digests/config, drain, остановить новую версию,
-проверить обратную совместимость миграций, поднять прежние images. Не выполнять
-автоматический down migration с удалением колонок/данных. При несовместимой схеме
-нужен restore согласованного PG+MinIO snapshot и решение о потерях после snapshot.
+Restore drill создаёт отдельные БД/bucket и сохраняет их для осмотра. Hash/privacy
+и signed access проверяются, но бизнес-связи и playback требуют дополнительной
+приёмки. Локальные длительности не задают production RPO/RTO. Application rollback
+запускает предыдущие immutable images на совместимой текущей схеме, без DB down
+и без пересборки старого commit. Несовместимость схемы требует отдельного решения.
 
 ## Повторяемые тесты
 
@@ -279,6 +299,47 @@ Browser profile требует локальные dev сертификаты; д
 защитный marker check откажет в очистке. Тестовые записи не удалять по широкому
 prefix из рабочего проекта.
 
-В обычном CI: format, unit, race, vet, govulncheck, frontend tests/build/audit,
-бинарники. Heavy SFU/30m soak — manual/scheduled. Полный Docker/TURN/browser
-acceptance запускается отдельно с доступом к Docker и тестовыми зависимостями.
+Актуальные CI jobs и gates описаны в [RELEASE_PROCESS](../RELEASE_PROCESS.md).
+Heavy SFU/30m soak — manual/scheduled. Полный Docker/TURN/recording acceptance
+требует изолированных зависимостей, а внешний TURNS/WAN — реального стенда.
+
+## Предлагаемые SLI/SLO и окно наблюдения
+
+Это начальный **план измерений, не утверждённый SLO/SLA**. Исторический локальный
+baseline содержит 100 auth-запросов (p95 1.984ms), burst 100 WS (p95 261ms),
+синтетический SFU 2/5/10 участников с RTP payload 4 bytes, короткую запись и
+30m SFU soak. Он полезен для сравнения одинаковых сценариев, но не задаёт
+production latency, bitrate, безопасное число встреч и доступность в процентах.
+
+| Область SLI | Что измерять перед назначением SLO |
+| --- | --- |
+| HTTP/auth | Число реальных запросов и 5xx, p95 по маршрутам без long-lived WS/SSE; отдельно ожидаемые 401/403/429 |
+| WS/media | Попытки join/reconnect и успешные подключения, время до выбранной ICE pair и приёма медиа; denominator фиксировать в smoke/browser harness, не выводить из одного gauge |
+| Записи | Start/stop/finalization, failed/ready, время до доступного проверенного MP4/preview, backlog и число реально завершённых записей |
+| Фоновые функции | Jobs queued/failed/retries, возраст работ, provider errors/rate limits, live audio drops; отделять отключённую функцию от неисправной |
+| Ресурсы и зависимости | Readiness, DB pool/locks, CPU/RSS/goroutines/FD, диск/spool, PG/MinIO/Rabbit и выбранные relay/direct подключения |
+| Frontend | Ограниченные error codes и версии с фактическим числом browser-сценариев; отсутствие событий не доказывает отсутствие ошибок |
+
+Предложение для первого выпуска: 15 минут первичной проверки после deploy и
+ещё 30 минут наблюдения при согласованном реальном/синтетическом трафике. Это
+организационные окна, не автоматический gate и не достаточное измерение SLO.
+До начала владелец выпуска задаёт минимальный объём каждого сценария для
+своего pilot; в отчёте сохраняются **фактические counts** HTTP/login/WS/media/
+recordings и период. Если трафика мало или нет, продлить наблюдение и выполнить
+контролируемые проверки: нулевые ошибки при нулевой нагрузке не основание для go.
+Численные SLO и capacity утверждаются только после representative staging run.
+
+Стартовые alert rules находятся в `dockers/observability/alerts.yml`:
+
+- Критичные: стойкая недоступность зависимостей/metrics, опасно низкий диск.
+  Оператор также немедленно разбирает системную недоступность auth/WS/media и потерю данных.
+- Предупреждения: HTTP 5xx/p95, saturation/рост ресурсов, SFU/FFmpeg failures,
+  повторные jobs/DLQ/provider errors. Одиночный FFmpeg failure сейчас warning,
+  а не автоматическая paging-эскалация или доказательство общего outage.
+- Информационные: всплеск frontend errors — сигнал к сверке версии и сценария,
+  не точное число пострадавших пользователей.
+
+Порог HTTP 5xx >5%/p95 >1s, DB in-use ≥18 и другие числа в starter rules —
+начальные защитные настройки, не обещанный SLO; пересмотреть под реальную выборку,
+лимиты и роль сервиса. Настроить доставку, группировку, ответственных и проверку
+уведомлений. До этого dashboard/alert rule не считается работающим on-call процессом.

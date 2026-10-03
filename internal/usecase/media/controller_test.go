@@ -219,7 +219,7 @@ func (f *controllerFixture) join(t *testing.T) {
 	}
 }
 
-// TestControllerTrustedIdentityAndReplies проверяет сценарий «Controller Trusted Identity и ответы», фиксируя ошибки поведения как регрессию.
+// TestControllerTrustedIdentityAndReplies проверяет доверенную идентичность и ответы контроллера.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -256,7 +256,7 @@ func TestControllerTrustedIdentityAndReplies(t *testing.T) {
 	}
 }
 
-// TestControllerRejectsSpoofingUnsupportedMessagesAndLeaseLoss проверяет сценарий «Controller Rejects Spoofing Unsupported Messages и аренда Loss», фиксируя ошибки поведения как регрессию.
+// TestControllerRejectsSpoofingUnsupportedMessagesAndLeaseLoss проверяет защиту от подмены, неподдерживаемых сообщений и утраты аренды.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -292,7 +292,7 @@ func TestControllerRejectsSpoofingUnsupportedMessagesAndLeaseLoss(t *testing.T) 
 	}
 }
 
-// TestControllerICEEndOfCandidatesLeaveAndIdempotentCleanup проверяет сценарий «Controller ICE End Of Candidates Leave и идемпотентность очистка», фиксируя ошибки поведения как регрессию.
+// TestControllerICEEndOfCandidatesLeaveAndIdempotentCleanup проверяет завершение ICE-кандидатов, выход и идемпотентную очистку.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -316,7 +316,7 @@ func TestControllerICEEndOfCandidatesLeaveAndIdempotentCleanup(t *testing.T) {
 	}
 }
 
-// TestControllerSessionBoundJoinCancellation проверяет сценарий «Controller сессия Bound Join Cancellation», фиксируя ошибки поведения как регрессию.
+// TestControllerSessionBoundJoinCancellation проверяет отмену присоединения, привязанного к сессии.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -334,7 +334,7 @@ func TestControllerSessionBoundJoinCancellation(t *testing.T) {
 	}
 }
 
-// TestControllerReadyHasStrictBindingAndNegotiationCorrelation проверяет сценарий «Controller готовность Has строгий Binding и Negotiation Correlation», фиксируя ошибки поведения как регрессию.
+// TestControllerReadyHasStrictBindingAndNegotiationCorrelation проверяет строгую привязку ready к соединению и согласованию.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -359,7 +359,7 @@ func TestControllerReadyHasStrictBindingAndNegotiationCorrelation(t *testing.T) 
 	}
 }
 
-// TestControllerPublishFailureCleansPreparedMedia проверяет сценарий «Controller публикация сбой Cleans Prepared медиа», фиксируя ошибки поведения как регрессию.
+// TestControllerPublishFailureCleansPreparedMedia проверяет освобождение подготовленных медиа при сбое публикации.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -374,7 +374,7 @@ func TestControllerPublishFailureCleansPreparedMedia(t *testing.T) {
 	}
 }
 
-// TestControllerRequiresLiveAuthorizedSession проверяет сценарий «Controller Requires Live Authorized сессия», фиксируя ошибки поведения как регрессию.
+// TestControllerRequiresLiveAuthorizedSession проверяет требование действующей авторизованной сессии.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -393,7 +393,7 @@ func TestControllerRequiresLiveAuthorizedSession(t *testing.T) {
 	}
 }
 
-// TestControllerRequiresObjectPayload проверяет сценарий «Controller Requires Object Payload», фиксируя ошибки поведения как регрессию.
+// TestControllerRequiresObjectPayload проверяет требование JSON-объекта в полезной нагрузке.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -408,7 +408,7 @@ func TestControllerRequiresObjectPayload(t *testing.T) {
 	}
 }
 
-// TestControllerValidatesAndPropagatesCustomCaptureTarget проверяет сценарий «Controller Validates и Propagates Custom захват Target», фиксируя ошибки поведения как регрессию.
+// TestControllerValidatesAndPropagatesCustomCaptureTarget проверяет валидацию и передачу заданных параметров захвата.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

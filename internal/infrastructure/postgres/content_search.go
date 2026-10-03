@@ -5,7 +5,7 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/content"
 )
 
-// contentSearchSQL использует простой RU/EN word index, без semantic search.
+// contentSearchSQL использует простой словесный индекс для русского и английского текста без семантического поиска.
 // Permissions являются частью SQL до rank/page; snippet содержит обычный текст,
 // не HTML. Старый summary исключается, если сменилось поколение transcript.
 const contentSearchSQL = `WITH searchquery AS (SELECT websearch_to_tsquery('simple'::regconfig,?) AS query),
@@ -35,7 +35,7 @@ const contentSearchSQL = `WITH searchquery AS (SELECT websearch_to_tsquery('simp
  CROSS JOIN searchquery q WHERE m.search_vector@@q.query AND ? IN ('all','summary')) `
 
 // Search выполняет разрешённый FTS без выдачи count/snippet из других конференций.
-// @args ctx — query deadline; userID — актор; query — проверенные фильтры/пагинация.
+// @args ctx — срок выполнения запроса; userID — действующий пользователь; query — проверенные фильтры и пагинация.
 // @return страница plain-text результатов с timestamp и ошибка БД.
 func (r *ContentRepository) Search(ctx context.Context, userID string, query domain.SearchQuery) (domain.SearchPage, error) {
 	page := domain.SearchPage{Items: []domain.SearchResult{}, Limit: query.Limit, Offset: query.Offset}
@@ -49,7 +49,7 @@ func (r *ContentRepository) Search(ctx context.Context, userID string, query dom
 	return page, err
 }
 
-// contentSearchArgs формирует значения общего permission-first запроса в неизменном порядке placeholders.
+// contentSearchArgs формирует параметры запроса с предварительной проверкой прав в неизменном порядке подстановок.
 // @args userID — текущий актор; query — проверенные фильтры.
 // @return параметры SQL без пользовательской интерполяции.
 func contentSearchArgs(userID string, query domain.SearchQuery) []any {

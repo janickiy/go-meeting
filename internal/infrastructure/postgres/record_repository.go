@@ -113,7 +113,7 @@ func (r *RecordRepository) ListDetails(ctx context.Context, limit int, offset in
 	return result, nil
 }
 
-// ListSummaryDetailsByConferenceIDs returns records with only final and preview files.
+// ListSummaryDetailsByConferenceIDs возвращает записи только с итоговыми файлами и превью.
 // @args
 // - ctx: контекст операции.
 // - conferenceIDs: список UUID конференций.
@@ -217,7 +217,7 @@ func (r *RecordRepository) MarkStopping(ctx context.Context, uuid string, reason
 // - uuid: UUID записи.
 // @return ошибку БД.
 func (r *RecordRepository) MarkFinalizing(ctx context.Context, uuid string) error {
-	// Uploading is allowed on retry: local artifacts remain until the DB commit.
+	// При повторе допустимо состояние uploading: локальные артефакты сохраняются до фиксации БД.
 	return r.transition(ctx, uuid, []string{records.StatusStarting, records.StatusRecording, records.StatusDegraded, records.StatusStopping, records.StatusFinalizing, records.StatusUploading}, map[string]any{"status": records.StatusFinalizing})
 }
 
@@ -310,7 +310,7 @@ func (r *RecordRepository) SaveFinalArtifacts(ctx context.Context, uuid string, 
 // - recordUUID: UUID записи.
 // - eventType: тип события.
 // - source: источник события.
-// - severity: info/warning/error.
+// - severity: уровень важности info/warning/error.
 // - message: текст события.
 // - workerID: идентификатор worker-а.
 // @return ошибку БД.
@@ -383,7 +383,7 @@ func (r *RecordRepository) filesByRecordIDs(ctx context.Context, recordIDs []int
 //
 // @args
 //   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - recordIDs ([]int64): набор идентификаторов запись I Ds для пакетной операции.
+//   - recordIDs ([]int64): набор идентификаторов записей для пакетной операции.
 //
 // @return:
 //   - результат 1 (map[int64][]records.RecordFile): значение, подготовленное операцией для вызывающей стороны.

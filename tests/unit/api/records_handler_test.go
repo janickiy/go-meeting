@@ -33,7 +33,7 @@ func TestRecordsStartValidationErrorResponse(t *testing.T) {
 	}
 }
 
-// TestRecordsLegacyStartRouteIsRemoved проверяет сценарий «Records Legacy запуск Route является Removed», фиксируя ошибки поведения как регрессию.
+// TestRecordsLegacyStartRouteIsRemoved проверяет отсутствие прежнего маршрута запуска записи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -51,7 +51,7 @@ func TestRecordsLegacyStartRouteIsRemoved(t *testing.T) {
 	}
 }
 
-// TestRecordsStartAcceptedResponse проверяет сценарий «Records запуск Accepted Response», фиксируя ошибки поведения как регрессию.
+// TestRecordsStartAcceptedResponse проверяет ответ о принятом запуске записи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -84,7 +84,7 @@ func TestRecordsStartAcceptedResponse(t *testing.T) {
 	}
 }
 
-// TestRecordsStartConferenceLockConflict проверяет сценарий «Records запуск конференция Lock Conflict», фиксируя ошибки поведения как регрессию.
+// TestRecordsStartConferenceLockConflict проверяет конфликт запуска при блокировке конференции.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -103,7 +103,7 @@ func TestRecordsStartConferenceLockConflict(t *testing.T) {
 	assertJSONField(t, response.Body.String(), "message", records.ErrConferenceAlreadyRecording.Error())
 }
 
-// TestRecordsEndReadsRecordIDFromBody проверяет сценарий «Records End Reads запись ID из Body», фиксируя ошибки поведения как регрессию.
+// TestRecordsEndReadsRecordIDFromBody проверяет чтение ID записи из тела команды завершения.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -128,7 +128,7 @@ func TestRecordsEndReadsRecordIDFromBody(t *testing.T) {
 	}
 }
 
-// TestRecordsListUsesQueryFallbacks проверяет сценарий «Records список Uses Query Fallbacks», фиксируя ошибки поведения как регрессию.
+// TestRecordsListUsesQueryFallbacks проверяет резервные значения параметров списка записей.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -197,7 +197,7 @@ func TestRecordsCountByConference(t *testing.T) {
 	assertJSONRecordsCount(t, response.Body.String(), "33333333-3333-4333-8333-333333333333", 0)
 }
 
-// TestRecordsCountByConferenceSupportsCSVQuery проверяет сценарий «Records количество By конференция Supports CSV Query», фиксируя ошибки поведения как регрессию.
+// TestRecordsCountByConferenceSupportsCSVQuery проверяет список конференций в CSV-параметре счётчика.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -244,7 +244,7 @@ func TestRecordsCountByConferenceValidation(t *testing.T) {
 	assertJSONField(t, response.Body.String(), "message", "status must be starting, recording, stopping, finalizing, uploading, ready, partial_ready or failed")
 }
 
-// TestRecordsReadNotFoundResponse проверяет сценарий «Records чтение не Found Response», фиксируя ошибки поведения как регрессию.
+// TestRecordsReadNotFoundResponse проверяет ответ при отсутствии записи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -261,7 +261,7 @@ func TestRecordsReadNotFoundResponse(t *testing.T) {
 	assertJSONField(t, response.Body.String(), "message", "record not found")
 }
 
-// TestRecordsOfferProxiesWorkerAnswer проверяет сценарий «Records SDP-предложение Proxies воркер SDP-ответ», фиксируя ошибки поведения как регрессию.
+// TestRecordsOfferProxiesWorkerAnswer проверяет передачу SDP-ответа воркера клиенту.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -291,7 +291,7 @@ func TestRecordsOfferProxiesWorkerAnswer(t *testing.T) {
 	assertJSONField(t, response.Body.String(), "sdp", "answer-sdp")
 }
 
-// newRecordsRouter подготавливает или проверяет часть тестового сценария «новый Records Router».
+// newRecordsRouter подготавливает тестовый маршрутизатор записей.
 //
 // @args
 //   - workerURL (string): значение workerURL типа string, используемое согласно назначению этой операции.
@@ -309,7 +309,7 @@ func newRecordsRouter(workerURL string) (*gin.Engine, *fakeRecordService) {
 	return router, service
 }
 
-// performJSON подготавливает или проверяет часть тестового сценария «perform JSON».
+// performJSON выполняет тестовый запрос с JSON.
 //
 // @args
 //   - router (http.Handler): значение router типа http.Handler, используемое согласно назначению этой операции.
@@ -341,7 +341,7 @@ func assertStatus(t *testing.T, got int, want int) {
 	}
 }
 
-// assertJSONField подготавливает или проверяет часть тестового сценария «проверка JSON Field».
+// assertJSONField проверяет значение поля JSON-ответа.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -360,7 +360,7 @@ func assertJSONField(t *testing.T, body string, key string, want string) {
 	}
 }
 
-// assertJSONRecordsCount подготавливает или проверяет часть тестового сценария «проверка JSON Records количество».
+// assertJSONRecordsCount проверяет число записей в JSON-ответе.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

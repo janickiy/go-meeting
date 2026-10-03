@@ -1,4 +1,4 @@
-# Alternative to the shared UDP socket: a bounded ephemeral UDP range.
+# Альтернатива общему UDP-сокету: ограниченный диапазон временных UDP-портов.
 services:
   media-worker:
     environment:

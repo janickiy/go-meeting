@@ -9,7 +9,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
 )
 
-// TestFailIngestReleasesOnlyFailedRecordLock проверяет сценарий «сбой Ingest Releases только Failed запись Lock», фиксируя ошибки поведения как регрессию.
+// TestFailIngestReleasesOnlyFailedRecordLock проверяет освобождение блокировки только неудачной записи.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -28,7 +28,7 @@ func TestFailIngestReleasesOnlyFailedRecordLock(t *testing.T) {
 	}
 }
 
-// TestFailIngestKeepsLockWhenDatabaseUpdateFails проверяет сценарий «сбой Ingest Keeps Lock когда Database обновление Fails», фиксируя ошибки поведения как регрессию.
+// TestFailIngestKeepsLockWhenDatabaseUpdateFails проверяет сохранение блокировки при сбое обновления БД.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -43,7 +43,7 @@ func TestFailIngestKeepsLockWhenDatabaseUpdateFails(t *testing.T) {
 	}
 }
 
-// TestFailIngestReleasesLockEvenWhenEventFails проверяет сценарий «сбой Ingest Releases Lock Even когда событие Fails», фиксируя ошибки поведения как регрессию.
+// TestFailIngestReleasesLockEvenWhenEventFails проверяет освобождение блокировки даже при сбое события.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -85,7 +85,7 @@ func (r *failureRepository) FindByUUID(context.Context, string) (records.Record,
 	return records.Record{UUID: "record-1", ConferenceID: "conference-1", Status: r.status}, nil
 }
 
-// TestLateIngestFailureDoesNotOverwriteReadyRecord проверяет сценарий «Late Ingest сбой выполняет не Overwrite готовность запись», фиксируя ошибки поведения как регрессию.
+// TestLateIngestFailureDoesNotOverwriteReadyRecord проверяет сохранность готовой записи при запоздалом сбое приёма.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

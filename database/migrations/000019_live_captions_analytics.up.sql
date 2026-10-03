@@ -1,4 +1,4 @@
--- Потоковая речь вспомогательна: её аренды и ошибки не меняют SFU/record lifecycle.
+-- Потоковое распознавание вспомогательно: его аренды и сбои не меняют жизненный цикл SFU и записи.
 CREATE TABLE IF NOT EXISTS live_transcription_sessions (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), conference_id UUID NOT NULL UNIQUE REFERENCES conferences(id) ON DELETE RESTRICT,
  enabled BOOLEAN NOT NULL DEFAULT FALSE, language VARCHAR(8) NOT NULL DEFAULT 'auto' CHECK(language IN ('auto','ru','en')),
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS conference_analytics (
  recording_available BOOLEAN NOT NULL DEFAULT FALSE, transcript_available BOOLEAN NOT NULL DEFAULT FALSE,
  audio_observation_enabled BOOLEAN NOT NULL DEFAULT FALSE, updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- Только переходы состояния демонстрации: нет строки на RTP packet или frame.
+-- Хранятся только переходы состояния демонстрации, без отдельных строк на каждый RTP-пакет или кадр.
 CREATE OR REPLACE FUNCTION track_screen_duration() RETURNS TRIGGER AS $$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM live_transcription_sessions WHERE conference_id=NEW.conference_id AND analytics_enabled AND lease_until>clock_timestamp()) THEN

@@ -348,7 +348,7 @@ async function noOverflow(page: Page) {
 }
 
 test("landing, login, registration and success match the reference at desktop size", /**
- * Проверка: landing, login, registration and success match the reference at desktop size выполняет тестовый сценарий «landing, login, registration and success match the reference at desktop size» и проверяет ожидаемые результаты.
+ * Проверяет соответствие главной страницы, входа, регистрации и результата образцу на настольном экране.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -412,7 +412,7 @@ test("landing, login, registration and success match the reference at desktop si
 });
 
 test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
- * Проверка: login -> dashboard -> create -> share -> lifecycle -> logout выполняет тестовый сценарий «login -> dashboard -> create -> share -> lifecycle -> logout» и проверяет ожидаемые результаты.
+ * Проверяет полный цикл: вход, главная страница, создание встречи, обмен ссылкой, жизненный цикл встречи и выход.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -502,7 +502,7 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
 });
 
 test("an invitation survives login and a participant cannot see owner controls", /**
- * Проверка: an invitation survives login and a participant cannot see owner controls выполняет тестовый сценарий «an invitation survives login and a participant cannot see owner controls» и проверяет ожидаемые результаты.
+ * Проверяет сохранность приглашения после входа и отсутствие элементов владельца у участника.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -536,7 +536,7 @@ test("an invitation survives login and a participant cannot see owner controls",
 });
 
 test("finds current membership after the first 100 participants", /**
- * Проверка: finds current membership after the first 100 participants выполняет тестовый сценарий «finds current membership after the first 100 participants» и проверяет ожидаемые результаты.
+ * Проверяет поиск текущего членства за пределами первых 100 участников.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -554,7 +554,7 @@ test("finds current membership after the first 100 participants", /**
 });
 
 test("restores a session, but an expired token redirects safely to login", /**
- * Проверка: restores a session, but an expired token redirects safely to login выполняет тестовый сценарий «restores a session, but an expired token redirects safely to login» и проверяет ожидаемые результаты.
+ * Проверяет восстановление сессии и безопасный переход ко входу при истёкшем токене.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -599,7 +599,7 @@ test("restores a session, but an expired token redirects safely to login", /**
 });
 
 test("handles errors without leaking server details or pretending registration failed", /**
- * Проверка: handles errors without leaking server details or pretending registration failed выполняет тестовый сценарий «handles errors without leaking server details or pretending registration failed» и проверяет ожидаемые результаты.
+ * Проверяет обработку ошибок без раскрытия серверных деталей и ложного сообщения о сбое успешной регистрации.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -612,7 +612,7 @@ test("handles errors without leaking server details or pretending registration f
     "Сервис временно недоступен",
   );
   await expect(page.getByText(/postgres|secret database/)).toHaveCount(0);
-  await page.goto("/register"); // Already authenticated users are redirected.
+  await page.goto("/register"); // Уже авторизованные пользователи перенаправляются.
   await expect(page).toHaveURL(/\/app$/);
   await page.getByRole("button", { name: "Выйти из аккаунта" }).click();
   await page.unroute("**/api/v1/**");
@@ -637,7 +637,7 @@ test("handles errors without leaking server details or pretending registration f
 });
 
 test("registration counts characters, not bytes, and accepts eight plain letters", /**
- * Проверка: registration counts characters, not bytes, and accepts eight plain letters выполняет тестовый сценарий «registration counts characters, not bytes, and accepts eight plain letters» и проверяет ожидаемые результаты.
+ * Проверяет подсчёт символов вместо байтов при регистрации и приём восьми обычных букв.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -695,7 +695,7 @@ test("registration counts characters, not bytes, and accepts eight plain letters
 });
 
 test("mobile layouts, menu, keyboard dialog dismissal and deep-link refresh", /**
- * Проверка: mobile layouts, menu, keyboard dialog dismissal and deep-link refresh выполняет тестовый сценарий «mobile layouts, menu, keyboard dialog dismissal and deep-link refresh» и проверяет ожидаемые результаты.
+ * Проверяет мобильную раскладку, меню, закрытие диалогов клавиатурой и обновление прямой ссылки.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.

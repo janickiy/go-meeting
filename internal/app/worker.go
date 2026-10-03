@@ -61,7 +61,7 @@ func RunWorker() error {
 	if err != nil {
 		return err
 	}
-	if err := postgresinfra.RunMigrations(db, "database/migrations"); err != nil {
+	if err := postgresinfra.RunStartupMigrations(db, "database/migrations"); err != nil {
 		return err
 	}
 	s3Client, err := s3storage.NewClient(ctx, cfg.MinIOEndpoint, cfg.MinIOAccessKey, cfg.MinIOSecretKey, cfg.MinIOBucket, cfg.MinIOUseSSL)
@@ -171,6 +171,7 @@ func RunWorker() error {
 	}
 	defer consumer.Close()
 	ops := operations.New("recorder-worker", cfg.WorkerID, cfg.Operations, map[string]operations.Check{"postgres": sqlDB.PingContext, "redis": func(ctx context.Context) error { return redisClient.Ping(ctx).Err() }, "minio": s3Client.Check, "rabbitmq": consumer.Check, "disk": operations.DiskCheck(cfg.StoragePath, cfg.Operations.DiskMinBytes)})
+	ops.ConfigureDrain(func() { consumer.BeginDrain(); composites.BeginDrain() }, func() int { return composites.Active() + ingest.Active() + consumer.Active() })
 	ops.Run(ctx)
 	go runProfiling(ctx, ops)
 	go sampleDatabase(ctx, sqlDB)

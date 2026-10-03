@@ -18,13 +18,13 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media/samplebuilder"
 )
 
-// LiveAudio декодирует одну Opus-дорожку в отдельном процессе с одним CPU thread.
-// Конкурентность задаёт общий pool live-worker, а не неограниченное число publisher goroutines.
+// LiveAudio декодирует одну дорожку Opus в отдельном процессе с одним потоком CPU.
+// Конкурентность задаёт общий пул live-worker, а не неограниченное число горутин издателей.
 type LiveAudio struct{ Binary string }
 
 // Decode читает ограниченную очередь RTP и передаёт порции 20 ms PCM16LE mono/16k.
-// @args ctx — срок жизни дорожки; track — доверенные codec metadata; packets — bounded tap;
-// pcm — callback обработки decoded samples вне SFU, должен учитывать ctx.
+// @args ctx — срок жизни дорожки; track — доверенные метаданные кодека; packets — ограниченный поток перехваченных пакетов;
+// pcm — обработчик декодированных отсчётов вне SFU; учитывает отмену ctx.
 // @return ошибка декодирования/отмены; исходные аудиобайты на диск не записываются.
 func (d LiveAudio) Decode(ctx context.Context, track media.EgressTrack, packets <-chan media.EgressFrame, pcm func([]byte) error) error {
 	if track.MimeType != "audio/opus" || track.ClockRate != 48000 || track.Channels < 1 || track.Channels > 2 {
@@ -140,7 +140,7 @@ loop:
 	if readErr != nil {
 		return readErr
 	}
-	// Нормальный EOF не отменяет процесс: ошибка exit status остаётся наблюдаемой.
+	// Нормальный EOF не отменяет процесс: ошибка кода завершения остаётся наблюдаемой.
 	if waitErr != nil {
 		return fmt.Errorf("live decoder failed")
 	}

@@ -8,19 +8,19 @@ import (
 	"gorm.io/gorm"
 )
 
-// PlatformRepository reads global capability and operations data without private content.
+// PlatformRepository читает глобальные полномочия и операционные данные без приватного содержимого.
 type PlatformRepository struct{ db *gorm.DB }
 
 func NewPlatformRepository(db *gorm.DB) *PlatformRepository { return &PlatformRepository{db: db} }
 
-// IsAdmin checks the current persisted capability, so demotion invalidates an existing JWT.
+// IsAdmin проверяет текущие сохранённые полномочия, поэтому отзыв роли лишает доступа и с действующим JWT.
 func (r *PlatformRepository) IsAdmin(ctx context.Context, userID string) (bool, error) {
 	var allowed bool
 	err := r.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM users WHERE id = ? AND is_admin)`, userID).Scan(&allowed).Error
 	return allowed, err
 }
 
-// Summary reads bounded aggregates and recent safe failure codes, never payload or content.
+// Summary читает ограниченные агрегаты и недавние безопасные коды сбоев, без полезной нагрузки и содержимого.
 func (r *PlatformRepository) Summary(ctx context.Context) (platform.Summary, error) {
 	var counts struct {
 		ActiveConferences       int64 `gorm:"column:active_conferences"`
@@ -67,7 +67,7 @@ func (r *PlatformRepository) Summary(ctx context.Context) (platform.Summary, err
 	return value, nil
 }
 
-// safeOperationCode prevents a malformed stored value from becoming a free-form UI message.
+// safeOperationCode не позволяет некорректному сохранённому значению стать произвольным сообщением интерфейса.
 func safeOperationCode(value string) string {
 	if len(value) == 0 || len(value) > 64 {
 		return "failed"

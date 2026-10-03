@@ -243,8 +243,8 @@ func (h *Handler) Ticket(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"ticket": ticket, "expiresAt": time.Now().UTC().Add(ttl)})
 }
 
-// ICE выдаёт авторизованному пользователю STUN/TURN config с временными
-// credentials и relay-policy. Shared secret не включается в ответ; no-store
+// ICE выдаёт авторизованному пользователю конфигурацию STUN/TURN с временными
+// учётными данными и политикой ретрансляции. Общий секрет отсутствует в ответе; no-store
 // предотвращает кеширование credentials за пределами их короткого TTL.
 //
 // @args
@@ -269,7 +269,7 @@ func (h *Handler) origin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return true
-	} // Native clients use Bearer headers.
+	} // Нативные клиенты используют заголовки Bearer.
 	u, err := url.Parse(origin)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 		return false
@@ -438,7 +438,7 @@ func (c *client) Offer(event domain.Envelope) bool {
 		case c.low <- event:
 		default:
 		}
-		return true // Dropping recoverable events must not close media sockets.
+		return true // Пропуск восстанавливаемых событий не должен закрывать медиасоединения.
 	}
 	select {
 	case c.out <- event:
@@ -522,8 +522,8 @@ func (c *client) write() {
 				return
 			}
 		case event := <-c.low:
-			// If both queues are ready, always write the critical event first.
-			// The selected low-priority event may be dropped, like queue overflow.
+			// Если обе очереди готовы, сначала отправляем критичное событие.
+			// Выбранное событие низкого приоритета можно отбросить, как при переполнении очереди.
 			select {
 			case event = <-c.out:
 			default:

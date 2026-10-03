@@ -1,5 +1,5 @@
-// Package content описывает расшифровки, проверенные AI-результаты и поиск по встречам.
-// Оно не зависит от SDK внешних поставщиков и не участвует в передаче медиапотока.
+// Пакет content описывает расшифровки, проверенные результаты ИИ и поиск по встречам.
+// Он не зависит от SDK внешних поставщиков и не участвует в передаче медиапотока.
 package content
 
 import (
@@ -48,7 +48,7 @@ type Segment struct {
 }
 
 // ActionItem содержит только подтверждённое текстом действие. Исполнитель и
-// срок остаются null, если соответствующего свидетельства нет в source segments.
+// срок остаются null, если в исходных сегментах нет соответствующего подтверждения.
 type ActionItem struct {
 	Text             string   `json:"text"`
 	Assignee         *string  `json:"assignee"`
@@ -64,7 +64,7 @@ type SummaryOutput struct {
 	Topics      []string     `json:"topics"`
 }
 
-// Summary хранит проверенный результат с версией исходной расшифровки и prompt.
+// Summary хранит проверенный результат с версией исходной расшифровки и инструкции.
 type Summary struct {
 	ID                   string `json:"id"`
 	ConferenceID         string `json:"conferenceId"`
@@ -94,7 +94,7 @@ type TranscriptState struct {
 	ProviderMode string      `json:"providerMode"`
 }
 
-// SummaryState возвращает nullable результат и права без вымышленных lifecycle statuses.
+// SummaryState возвращает необязательный результат и права без вымышленных состояний обработки.
 type SummaryState struct {
 	Item          *Summary `json:"item"`
 	Enabled       bool     `json:"enabled"`
@@ -110,7 +110,7 @@ type SegmentPage struct {
 	Offset int       `json:"offset"`
 }
 
-// SearchQuery задаёт серверные фильтры; время передаётся как однозначный UTC instant.
+// SearchQuery задаёт серверные фильтры; время передаётся как однозначная временная отметка UTC.
 type SearchQuery struct {
 	Mode, ParticipantID, Membership string
 	Query, Source, ConferenceID     string
@@ -118,7 +118,7 @@ type SearchQuery struct {
 	Limit, Offset                   int
 }
 
-// SearchResult возвращает plain-text snippet и точку перехода к записи, не выдавая storage URL.
+// SearchResult возвращает обычный текст фрагмента и точку перехода к записи, без URL хранилища.
 type SearchResult struct {
 	SpeakerID       *string `json:"speakerId,omitempty"`
 	Speaker         string  `json:"speaker,omitempty"`
@@ -158,7 +158,7 @@ type Audio struct {
 	Cleanup     func()
 }
 
-// TranscriptionRequest передаёт аудио, автоязык и стабильный idempotency key адаптеру.
+// TranscriptionRequest передаёт аудио, автоматический выбор языка и стабильный ключ идемпотентности адаптеру.
 type TranscriptionRequest struct {
 	Audio                                 io.Reader
 	Size                                  int64
@@ -177,13 +177,13 @@ type TranscriptionProvider interface {
 	// Name возвращает постоянное имя адаптера без секретов.
 	Name() string
 	// Transcribe распознаёт аудио, соблюдая отмену контекста.
-	// @args ctx — deadline; request — ограниченное аудио и ключ дедупликации.
+	// @args ctx — срок выполнения; request — ограниченное аудио и ключ дедупликации.
 	// @return непроверенный результат или классифицированную ошибку.
 	Transcribe(context.Context, TranscriptionRequest) (TranscriptionResult, error)
 }
 
 // AIRequest отделяет неизменные инструкции от недоверенного JSON содержимого встречи.
-// Tools/network actions не являются частью контракта.
+// Инструменты и сетевые действия не входят в контракт.
 type AIRequest struct {
 	PromptVersion, SchemaVersion, Instructions, InputJSON, IdempotencyKey string
 	Merge                                                                 bool
@@ -195,8 +195,8 @@ type AIProvider interface {
 	Name() string
 	// Model возвращает техническое имя модели без credentials.
 	Model() string
-	// Summarize обрабатывает только переданный input, не выполняя внешних действий.
-	// @args ctx — deadline; request — инструкции и недоверенные данные.
+	// Summarize обрабатывает только переданные входные данные, не выполняя внешних действий.
+	// @args ctx — срок выполнения; request — инструкции и недоверенные данные.
 	// @return сырой JSON для строгой серверной проверки или ошибку.
 	Summarize(context.Context, AIRequest) (json.RawMessage, error)
 }

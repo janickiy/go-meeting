@@ -13,7 +13,7 @@ import (
 	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 )
 
-// TestDebugCompletedRecordsReadsFromStorage проверяет сценарий «Debug Completed Records Reads из Storage», фиксируя ошибки поведения как регрессию.
+// TestDebugCompletedRecordsReadsFromStorage проверяет чтение завершённых записей из хранилища на странице отладки.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -48,7 +48,7 @@ func TestDebugCompletedRecordsReadsFromStorage(t *testing.T) {
 	}
 }
 
-// containsAll подготавливает или проверяет часть тестового сценария «contains All».
+// containsAll проверяет наличие всех ожидаемых фрагментов.
 //
 // @args
 //   - body (string): тело входящего запроса или сериализованные данные передачи.
@@ -66,7 +66,7 @@ func containsAll(body string, values ...string) bool {
 	return true
 }
 
-// fakeCompletedRecordsLister хранит изолированное состояние тестового компонента «fake Completed Records Lister».
+// fakeCompletedRecordsLister хранит состояние подставного источника завершённых записей.
 // @params:
 //   - items: элементы страницы или порции пакетной обработки.
 //   - limit: максимальное число элементов страницы или порции обработки.

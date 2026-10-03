@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// TestHTTPTranscription проверяет streaming multipart и stable idempotency header.
+// TestHTTPTranscription проверяет потоковый multipart и стабильный заголовок идемпотентности.
 // @args t — test runner; server работает только на loopback.
 func TestHTTPTranscription(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +50,7 @@ func TestHTTPTranscription(t *testing.T) {
 	}
 }
 
-// TestProviderFailureClassification проверяет bounded Retry-After и safe errors без ответа сервера.
+// TestProviderFailureClassification проверяет ограниченный Retry-After и безопасные ошибки без тела ответа сервера.
 // @args t — test runner.
 func TestProviderFailureClassification(t *testing.T) {
 	for _, status := range []int{400, 401, 429, 503} {
@@ -71,7 +71,7 @@ func TestProviderFailureClassification(t *testing.T) {
 	}
 }
 
-// TestNoopMockAndRedirectPrivacy проверяет честные режимы и запрет переноса Bearer на redirect host.
+// TestNoopMockAndRedirectPrivacy проверяет достоверность режимов и запрет передачи Bearer на адрес перенаправления.
 // @args t — test runner.
 func TestNoopMockAndRedirectPrivacy(t *testing.T) {
 	noop, _ := NewTranscriptionProvider("noop", "", "", time.Second)

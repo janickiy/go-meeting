@@ -29,14 +29,14 @@ import (
 
 // CompositeRepository задаёт контракт зависимого компонента CompositeRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 // @params
-//   - FindByUUID: операция поиск By UUID с контрактом, описанным у метода.
+//   - FindByUUID: поиск записи по UUID с контрактом, описанным у метода.
 //   - ListActiveComposite: операция список Active общая запись с контрактом, описанным у метода.
 //   - ClaimComposite: операция Claim общая запись с контрактом, описанным у метода.
 //   - RenewComposite: операция Renew общая запись с контрактом, описанным у метода.
 //   - ReleaseComposite: операция освобождение общая запись с контрактом, описанным у метода.
 //   - TransitionComposite: операция переход общая запись с контрактом, описанным у метода.
 //   - SaveCompositeArtifacts: операция сохранение общая запись артефакты с контрактом, описанным у метода.
-//   - MarkStopping: операция Mark Stopping с контрактом, описанным у метода.
+//   - MarkStopping: перевод записи в состояние остановки с контрактом, описанным у метода.
 //   - AddEvent: операция Add событие с контрактом, описанным у метода.
 type CompositeRepository interface {
 	// FindByUUID читает задачу записи по её внешнему UUID.
@@ -182,8 +182,8 @@ type CompositeOptions struct {
 	InternalSecret string
 	Config         config.CompositeConfig
 	ConferenceLock conferenceReleaser
-	// Publish is called after a committed lifecycle transition. It must use
-	// bounded I/O and must not call back into this service.
+	// Publish вызывается после фиксации перехода состояния. Он должен ограничивать время
+	// ввода-вывода и не вызывать этот сервис повторно.
 	Publish func(context.Context, records.Record, string) error
 	Logger  *log.Logger
 }
@@ -208,6 +208,7 @@ type CompositeService struct {
 	running   map[string]struct{}
 	wg        sync.WaitGroup
 	started   bool
+	draining  bool
 }
 
 // NewCompositeService создаёт и связывает зависимости компонента CompositeService, используемого в управлении задачами записи и её артефактами.
@@ -273,6 +274,9 @@ func (s *CompositeService) Wait() { s.wg.Wait(); s.client.CloseIdleConnections()
 // Аргументов нет; блокировка защищает только чтение локального индекса.
 func (s *CompositeService) Active() int { s.mu.Lock(); defer s.mu.Unlock(); return len(s.running) }
 
+// BeginDrain прекращает новые захваты, пока действующие записи завершаются и загружаются.
+func (s *CompositeService) BeginDrain() { s.mu.Lock(); s.draining = true; s.mu.Unlock() }
+
 // WaitContext ограничивает ожидание остановленных задач дедлайном ctx.
 // Возвращает nil после освобождения транспорта или ctx.Err при истечении срока;
 // отмена работы должна быть запрошена владельцем сервиса до вызова.
@@ -314,8 +318,8 @@ func (s *CompositeService) HandleCommand(ctx context.Context, command records.Co
 			record.Status = records.StatusStopping
 			s.publish(ctx, record, "recording.stopping")
 		}
-		// A command can reach another replica. The owner's DB poll observes
-		// stopping; launch only succeeds if no live owner currently exists.
+		// Команда может попасть в другую реплику. Владелец замечает stopping при опросе БД;
+		// запуск разрешён только при отсутствии действующего владельца.
 		return s.launch(ctx, record)
 	default:
 		return fmt.Errorf("unknown composite command")
@@ -351,7 +355,7 @@ func (s *CompositeService) reconcile(ctx context.Context) {
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *CompositeService) launch(ctx context.Context, record records.Record) error {
 	s.mu.Lock()
-	if _, ok := s.running[record.UUID]; ok || len(s.running) >= s.o.Config.MaxActive || s.ctx.Err() != nil {
+	if _, ok := s.running[record.UUID]; ok || s.draining || len(s.running) >= s.o.Config.MaxActive || s.ctx.Err() != nil {
 		s.mu.Unlock()
 		return nil
 	}
@@ -471,8 +475,8 @@ func (s *CompositeService) run(ctx context.Context, record records.Record, token
 	if s.o.S3 == nil {
 		return fmt.Errorf("recording storage is unavailable")
 	}
-	// Immutable incarnation keys also fence storage: a stale in-flight upload
-	// cannot overwrite the winning lease owner's already-published artifact.
+	// Неизменные ключи экземпляров защищают и хранилище: запоздалая загрузка прежнего владельца
+	// не может перезаписать уже опубликованный артефакт владельца действующей аренды.
 	base := filepath.ToSlash(filepath.Join("recordings", record.ConferenceID, record.UUID, "artifacts", token))
 	committed := false
 	defer func() {
@@ -528,9 +532,9 @@ func (s *CompositeService) run(ctx context.Context, record records.Record, token
 		_ = s.o.ConferenceLock.Release(ctx, record.ConferenceID, record.UUID)
 	}
 	_ = s.o.Repository.AddEvent(ctx, record.UUID, "recording.ready", "recorder", "info", "Validated composite MP4 and preview uploaded", s.o.WorkerID)
-	// Failed/interrupted recordings retain chunks. Once the fenced ready commit
-	// is durable, private MinIO becomes authoritative and successful local spool
-	// can be removed; KEEP_LOCAL is intended for diagnostics/acceptance tests.
+	// Сегменты неудачных и прерванных записей сохраняются. После защищённой арендой фиксации
+	// ready источником истины становится приватный MinIO, и временные файлы успешной записи
+	// можно удалить; KEEP_LOCAL предназначен для диагностики и приёмочных тестов.
 	if !s.o.Config.KeepLocal {
 		if err := os.RemoveAll(dir); err != nil {
 			s.o.Logger.Printf("composite local cleanup failed record=%s", record.UUID)
@@ -700,7 +704,7 @@ func (s *CompositeService) fail(record records.Record, token string, cause error
 	operations.Event("recording_failed")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	// Full FFmpeg diagnostics stay local; clients receive a bounded safe error.
+	// Полная диагностика FFmpeg остаётся локально; клиент получает ограниченное безопасное сообщение.
 	s.o.Logger.Printf("composite record=%s failed: %v", record.UUID, cause)
 	//lint:ignore ST1005 Сообщение клиенту сохраняет существующий текст ошибки.
 	safe := errors.New("Conference recording failed; completed segments were retained")

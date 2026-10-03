@@ -1,4 +1,4 @@
-// Package platformapp exposes safe capabilities and read-only admin operations.
+// Пакет platformapp предоставляет безопасный просмотр возможностей и операционных данных администратора.
 package platformapp
 
 import (
@@ -20,12 +20,12 @@ type Handler struct {
 	BuildVersion string
 }
 
-// Capabilities returns only effective feature switches and a safe build identifier.
+// Capabilities возвращает только действующие переключатели функций и безопасный идентификатор сборки.
 func (h *Handler) Capabilities(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "capabilities": h.Service.Capabilities(c.Request.Context()), "buildVersion": h.BuildVersion})
 }
 
-// Summary returns aggregate operations data after the persisted admin check.
+// Summary возвращает операционные агрегаты после проверки сохранённых прав администратора.
 func (h *Handler) Summary(c *gin.Context) {
 	value, err := h.Service.Summary(c.Request.Context())
 	if err != nil {

@@ -69,7 +69,7 @@ func TestStageOnePostgres(t *testing.T) {
 		*/func(t *testing.T) {
 			api.expect(t, "GET", "/auth/me", ownerToken, nil, 200, nil)
 			api.expect(t, "POST", "/auth/logout", ownerToken, nil, 200, nil)
-			api.expect(t, "GET", "/auth/me", ownerToken, nil, 200, nil) // Stateless logout.
+			api.expect(t, "GET", "/auth/me", ownerToken, nil, 200, nil) // Выход без серверного состояния сессии.
 			api.expect(t, "POST", "/conferences", "", map[string]any{"title": "Test"}, 401, nil)
 			api.expect(t, "POST", "/auth/register", "", map[string]any{"email": "OWNER@example.com", "password": stageOneTestPassword}, 409, nil)
 			unknown := api.expect(t, "POST", "/auth/login", "", map[string]any{"email": "unknown@example.com", "password": stageOneTestPassword}, 401, nil)
@@ -114,7 +114,7 @@ func TestStageOnePostgres(t *testing.T) {
 			if firstJoin.ID != ownerMembershipID || firstJoin.JoinedAt == nil || firstJoin.LeftAt != nil {
 				t.Fatal("owner join replaced the membership or has incorrect dates")
 			}
-			firstJoinedAt := *firstJoin.JoinedAt // Later JSON decoding reuses pointer fields.
+			firstJoinedAt := *firstJoin.JoinedAt // Последующее декодирование JSON повторно использует поля-указатели.
 			api.expect(t, "POST", path+"/join", ownerToken, nil, 200, &joined)
 			if !joined.Item.JoinedAt.Equal(firstJoinedAt) {
 				t.Fatal("idempotent join changed joinedAt")
@@ -519,7 +519,7 @@ func stageOneDatabase(t *testing.T) *gorm.DB {
 
 		 */func() { _ = sqlDB.Close() })
 	migrations := filepath.Join("..", "..", "database", "migrations")
-	for i := 0; i < 2; i++ { // Startup migrations are intentionally repeatable.
+	for i := 0; i < 2; i++ { // Повторный запуск миграций при старте предусмотрен намеренно.
 		if err := postgresinfra.RunMigrations(db, migrations); err != nil {
 			t.Fatal(err)
 		}

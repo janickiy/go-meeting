@@ -1,4 +1,4 @@
-# Дополнение к изолированному stage6 стенду. Все mock credentials только тестовые.
+# Дополнение к изолированному стенду stage6. Все учётные данные подставных сервисов предназначены только для тестов.
 # docker compose -p recorder-stage6 -f docker-compose.integration.yml -f docker-compose.product-test.yml --profile browser up -d --build
 x-product: &product
   PUBLIC_FRONTEND_URL: https://localhost:15482

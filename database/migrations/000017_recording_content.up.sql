@@ -1,5 +1,5 @@
--- Новые продуктовые задачи создаются внутри ready commit, без ожидания STT/AI
--- и без изменения media command queue. Исторические записи не обрабатываются
+-- Новые продуктовые задания создаются при фиксации готовности без ожидания распознавания и ИИ
+-- и без изменения очереди медиакоманд. Исторические записи не обрабатываются
 -- автоматически: повторная обработка требует разрешённого явного запроса.
 CREATE TABLE IF NOT EXISTS transcripts (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -41,7 +41,7 @@ CREATE OR REPLACE FUNCTION enqueue_stage_seven_recording() RETURNS TRIGGER AS $$
 BEGIN
  IF NEW.mode='composite' AND NEW.platform_conference_id IS NOT NULL AND NEW.status='ready' AND NEW.deleted_at IS NULL
  AND (TG_OP='INSERT' OR OLD.status IS DISTINCT FROM 'ready') THEN
-   -- Нет direct conference FK: сохраняется established recorder lock ordering.
+   -- Прямой внешний ключ конференции отсутствует: сохраняется принятый порядок блокировок записи.
    INSERT INTO background_jobs(kind,entity_id,conference_id,version,payload,dedup_key,max_attempts)
    VALUES ('content.transcribe',NEW.uuid,NEW.platform_conference_id,1,'{}','content.transcribe:'||NEW.uuid::text||':1',5)
    ON CONFLICT(dedup_key) DO NOTHING;

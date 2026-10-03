@@ -1,4 +1,4 @@
-// Package search описывает embeddings без зависимости от конкретной модели или SDK.
+// Пакет search описывает векторные представления без зависимости от конкретной модели или SDK.
 package search
 
 import "context"
@@ -15,7 +15,7 @@ type EmbeddingRequest struct {
 // EmbeddingProvider изолирует внешний сервис от хранения, прав и ранжирования.
 type EmbeddingProvider interface {
 	// Embed возвращает векторы в том же порядке, что Inputs; размерность проверяет сценарий.
-	// @args ctx — deadline; request — ограниченная порция и версия модели.
+	// @args ctx — срок выполнения; request — ограниченная порция и версия модели.
 	// @return массив векторов либо классифицированная ошибка.
 	Embed(context.Context, EmbeddingRequest) ([][]float32, error)
 }

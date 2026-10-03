@@ -131,8 +131,8 @@ func (s *Service) Read(ctx context.Context, userID, id string) (domain.Notificat
 	if err != nil {
 		return item, err
 	}
-	// Read state is durable before publication. Poll/reconnect repairs missed
-	// Redis events; no sensitive content is placed on a conference broadcast.
+	// Состояние прочтения сохраняется до публикации. Опрос и переподключение восстанавливают
+	// пропущенные события Redis; чувствительное содержимое не попадает в общую рассылку конференции.
 	event := realtime.Event("notification.read", "", map[string]any{"id": item.ID})
 	_ = s.bus.Publish(ctx, userID, event)
 	return item, nil
@@ -155,7 +155,7 @@ func (s *Service) Tick(ctx context.Context) error {
 	}
 	for _, item := range pending {
 		event := realtime.Event("notification.created", "", map[string]any{"notification": item})
-		event.ID = item.ID // At-least-once deliveries have a stable identity.
+		event.ID = item.ID // Повторные доставки одного события имеют стабильный идентификатор.
 		if err = s.bus.Publish(ctx, item.UserID, event); err != nil {
 			return err
 		}

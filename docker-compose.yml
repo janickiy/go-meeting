@@ -1,4 +1,4 @@
-# Keep all Compose clients on the project's broker, even with an old .env.
+# Все клиенты Compose используют брокер проекта, в том числе при старом файле .env.
 x-rabbitmq-client: &rabbitmq-client
   RABBIT_MQ_DSN: ""
   RABBIT_MQ_HOST: rabbitmq
@@ -109,7 +109,7 @@ services:
       - app-network
 
   https:
-    image: nginx:1.27-alpine
+    image: nginx:1.30.5-alpine
     restart: unless-stopped
     depends_on:
       - api
@@ -171,7 +171,7 @@ services:
     environment:
       MEDIA_HTTP_PORT: "8091"
       MEDIA_WORKER_INTERNAL_URL: "http://media-worker:8091"
-      # Dedicated SFU sockets, independent from recorder-worker's port 50000.
+      # Отдельные сокеты SFU работают независимо от порта 50000 сервиса recorder-worker.
       MEDIA_UDP_PORT: "${MEDIA_UDP_PORT:-50010}"
       MEDIA_TCP_PORT: "${MEDIA_TCP_PORT:-50010}"
       MEDIA_UDP_MIN_PORT: "0"
@@ -180,7 +180,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    # Internal HTTP is not published to the host or gateway network.
+    # Внутренний HTTP недоступен с хоста и из сети шлюза.
     expose:
       - "8091"
     ports:

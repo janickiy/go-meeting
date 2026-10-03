@@ -82,11 +82,11 @@ export function configureAuth(
  * ApiError связывает HTTP-статус с понятным пользователю сообщением ошибки API.
  *
  * @params:
- *   - constructor — function Object() { [native code] }.
+ *   - constructor — создаёт экземпляр класса с переданными параметрами.
  */
 export class ApiError extends Error {
   /**
-   * constructor function Object() { [native code] }.
+   * constructor создаёт ошибку API с HTTP-статусом и понятным сообщением.
    *
    * @args
    *   - status (number) — HTTP-статус либо состояние встречи.
@@ -518,7 +518,7 @@ export const api = {
   /**
    * Передаёт фильтры полнотекстового поиска с авторизацией в заголовке.
    * @args filters — запрос и UTC-даты; offset — смещение; signal — отмена.
-   * @return Страница доступных результатов без выдачи storage URL.
+   * @return Страница доступных результатов без выдачи URL хранилища.
    */
   search: (filters: SearchFilters, offset: number, signal?: AbortSignal) => {
     const params = new URLSearchParams({
@@ -574,7 +574,7 @@ export const api = {
     request<Items<CalendarConnection>>("/integrations/calendars", { signal }),
   /**
    * Создаёт демонстрационное подключение только при разрешении сервера.
-   * @return Тестовое подключение либо отказ для production.
+   * @return Тестовое подключение либо отказ для рабочей среды.
    */
   connectMockCalendar: () =>
     request<Item<CalendarConnection>>("/integrations/calendars/mock", {
@@ -956,7 +956,7 @@ export const api = {
       { method: "POST" },
     ),
   /**
-   * notificationEvents открывает fetch SSE-поток с JWT в заголовке и поддержкой отмены.
+   * notificationEvents открывает поток SSE через fetch с JWT в заголовке и поддержкой отмены.
    *
    * @args
    *   - signal (AbortSignal) — сигнал отмены запроса или потока.

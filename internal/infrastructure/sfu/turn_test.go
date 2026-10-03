@@ -11,7 +11,7 @@ import (
 )
 
 // TestStageSixForcedTURN проверяет реальный двусторонний RTP через Coturn с
-// временными REST-credentials по UDP и TCP-control. t фиксирует выбранную relay
+// временными учётными данными REST по UDP и управлением по TCP. t фиксирует выбранный ретранслятор
 // пару, доставку аудио/видео, повторное подключение и очистку SFU.
 func TestStageSixForcedTURN(t *testing.T) {
 	host, secret := os.Getenv("RECORDER_TEST_TURN_HOST"), os.Getenv("RECORDER_TEST_TURN_SECRET")
@@ -39,8 +39,8 @@ func TestStageSixForcedTURN(t *testing.T) {
 	}
 }
 
-// assertTURNMedia требует обе дорожки у peers и выбранный local relay candidate.
-// t сообщает ошибку, h обеспечивает bounded ожидание, peers — живые Pion-клиенты.
+// assertTURNMedia требует обе дорожки у соединений и выбранный локальный кандидат ретрансляции.
+// t сообщает ошибку, h обеспечивает ограниченное по времени ожидание, peers — действующие клиенты Pion.
 func assertTURNMedia(t *testing.T, h *pionHarness, peers ...*testPeer) {
 	t.Helper()
 	eventually(t, h, "relay RTP", func() bool {
@@ -64,7 +64,7 @@ func assertTURNMedia(t *testing.T, h *pionHarness, peers ...*testPeer) {
 }
 
 // TestStageSixTURNUnavailable ожидает контролируемую внешнюю остановку тестового
-// Coturn после маркера INJECT_TURN_OUTAGE_NOW. t подтверждает failed/cleanup, не
+// Coturn после маркера INJECT_TURN_OUTAGE_NOW. t подтверждает отказ и очистку ресурсов, не
 // считает пропажу RTP успешным сценарием. Никогда не останавливает чужие сервисы.
 func TestStageSixTURNUnavailable(t *testing.T) {
 	if os.Getenv("RECORDER_TEST_TURN_OUTAGE") != "true" {

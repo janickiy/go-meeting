@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Изолированный opt-in стенд: конфигурация не запускает Vite и не обращается к основному Compose.
+// Изолированный стенд с явным включением: конфигурация не запускает Vite и не обращается к основному Compose.
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "product-integrations-live.spec.ts",

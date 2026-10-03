@@ -269,7 +269,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
               if (disposed || typeof message.data !== "string") return;
               const e = parseRealtime(message.data, conferenceId);
               if (!e) return;
-              // Show only event names; never display full SDP/ICE/tickets.
+              // Показываем только имена событий; полные SDP, ICE и билеты не выводятся.
               if (e.type !== "reaction.created" && !e.type.startsWith("chat."))
                 setEvents(
                   /**
@@ -336,7 +336,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
                 try {
                   subscriber(e);
                 } catch {
-                  /* Noncritical UI listeners cannot break signaling delivery. */
+                  /* Второстепенные обработчики интерфейса не должны нарушать доставку сигнализации. */
                 }
               }
             };

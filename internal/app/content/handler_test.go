@@ -19,10 +19,10 @@ const actor = "1e5806a1-7e74-45f6-8bbf-d034f9dd7c19"
 const cid = "03f62a99-bf60-48aa-8bd8-c19e76c5bc22"
 const rid = "ac174d19-b4ef-45a4-a85a-3989a1798c22"
 
-// verifier принимает только test bearer и выдаёт server identity.
+// verifier принимает только тестовый токен Bearer и выдаёт серверную идентичность.
 type verifier struct{}
 
-// Verify не получает userID из запроса и исключает ID spoofing.
+// Verify не принимает userID из запроса и исключает подмену идентификатора.
 // @args token — тестовая строка Bearer.
 // @return authenticated actor или ошибка token.
 func (verifier) Verify(token string) (string, error) {
@@ -32,16 +32,16 @@ func (verifier) Verify(token string) (string, error) {
 	return actor, nil
 }
 
-// fakeService реализует ограниченную HTTP fixture без provider calls.
+// fakeService реализует ограниченный тестовый HTTP-сервис без вызовов провайдера.
 type fakeService struct {
 	contentapp.Service
 	called bool
 	denied bool
 }
 
-// Transcript выдаёт nullable state и authoritative capability.
+// Transcript выдаёт необязательное состояние и достоверный признак доступной функции.
 // @args ctx/user/cid/rid — область авторизованного request.
-// @return controlled state, без nested envelope.
+// @return контролируемое состояние без вложенного конверта ответа.
 func (s *fakeService) Transcript(_ context.Context, user, conference, recording string) (domain.TranscriptState, error) {
 	s.called = true
 	if user != actor || conference != cid || recording != rid {
@@ -53,23 +53,23 @@ func (s *fakeService) Transcript(_ context.Context, user, conference, recording 
 	return domain.TranscriptState{Enabled: false, ProviderMode: "noop"}, nil
 }
 
-// Search выдаёт plain-text fixture с timestamp и фильтром server actor.
+// Search выдаёт обычный тестовый текст с временной отметкой и фильтром серверного пользователя.
 // @args ctx/user/query — проверяемый contract HTTP parsing.
-// @return bounded search page.
+// @return страница результатов поиска ограниченного размера.
 func (s *fakeService) Search(_ context.Context, user string, q domain.SearchQuery) (domain.SearchPage, error) {
 	s.called = true
 	return domain.SearchPage{Items: []domain.SearchResult{}, Limit: q.Limit, Offset: q.Offset}, nil
 }
 
-// RetryTranscript только ставит fixture generation в очередь.
-// @args ctx/user/cid/rid — auth/resource identity.
-// @return metadata queued без внешнего вызова.
+// RetryTranscript ставит только тестовое поколение в очередь.
+// @args ctx/user/cid/rid — авторизованный пользователь и идентификаторы ресурсов.
+// @return метаданные поставленного в очередь задания без внешнего вызова.
 func (s *fakeService) RetryTranscript(context.Context, string, string, string) (domain.TranscriptState, error) {
 	s.called = true
 	return domain.TranscriptState{Enabled: true, ProviderMode: "mock", Item: &domain.Transcript{Status: domain.Queued}}, nil
 }
 
-// TestContentHTTPPrivacyAndValidation проверяет cache/auth, UUID/JSON/date errors и nullable response.
+// TestContentHTTPPrivacyAndValidation проверяет кеш, авторизацию, ошибки UUID, JSON и дат и необязательный ответ.
 // @args t — test runner.
 func TestContentHTTPPrivacyAndValidation(t *testing.T) {
 	gin.SetMode(gin.TestMode)

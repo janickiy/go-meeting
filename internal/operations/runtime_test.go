@@ -15,8 +15,8 @@ import (
 	"time"
 )
 
-// TestReadinessCacheDrainAndSecret проверяет отсутствие health load storm,
-// отказ готовности, draining и Bearer-защиту метрик. t фиксирует регрессии.
+// TestReadinessCacheDrainAndSecret проверяет отсутствие всплеска нагрузки от проверок готовности,
+// отказ готовности, завершение работы и защиту метрик токеном Bearer. t фиксирует регрессии.
 func TestReadinessCacheDrainAndSecret(t *testing.T) {
 	var calls atomic.Int64
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,8 +84,8 @@ func TestReadinessCacheDrainAndSecret(t *testing.T) {
 	}
 }
 
-// TestMiddlewareCardinalityAndBody проверяет UUID correlation, bounded labels,
-// размер JSON, учёт отказов и отклонение новых запросов во время draining.
+// TestMiddlewareCardinalityAndBody проверяет корреляцию UUID, ограниченный набор меток,
+// размер JSON, учёт отказов и отклонение новых запросов во время завершения работы.
 func TestMiddlewareCardinalityAndBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := New("test", "test", config.OperationsConfig{HTTPBodyBytes: 65536}, nil)
@@ -138,7 +138,7 @@ func TestMiddlewareCardinalityAndBody(t *testing.T) {
 }
 
 // TestProfilingDurationBound проверяет отказ до запуска долгой диагностики.
-// t перебирает malformed/NaN/Inf и допустимые значения, не запускает CPU sampling.
+// t перебирает неверные значения, NaN, Inf и допустимые параметры без запуска измерений CPU.
 func TestProfilingDurationBound(t *testing.T) {
 	for _, value := range []string{"61", "0", "-1", "NaN", "Inf", "text", "0.5", "60", ""} {
 		called := false

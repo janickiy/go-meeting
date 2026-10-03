@@ -228,8 +228,8 @@ func (e *testEngine) Shutdown(ctx context.Context) error {
 //   - lost: логический признак lost, управляющий соответствующей веткой обработки.
 //   - released: значение released типа int, используемое согласно назначению этой операции.
 //   - registerErr: значение registerErr типа error, используемое согласно назначению этой операции.
-//   - renewBlock: канал «renew Block» для передачи данных или завершения ожидания.
-//   - renewStarted: канал «renew Started» для передачи данных или завершения ожидания.
+//   - renewBlock: канал блокирования продления аренды в тесте.
+//   - renewStarted: канал уведомления о начале продления аренды.
 type testRegistry struct {
 	mu           sync.Mutex
 	route        media.Route
@@ -503,15 +503,15 @@ func TestInternalMediaAuthorizationAndBinding(t *testing.T) {
 	}
 }
 
-// TestMediaJoinPropagatesConfiguredCaptureTarget проверяет сценарий «медиа Join Propagates Configured захват Target», фиксируя ошибки поведения как регрессию.
+// TestMediaJoinPropagatesConfiguredCaptureTarget проверяет передачу заданных параметров захвата при присоединении.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
 func TestMediaJoinPropagatesConfiguredCaptureTarget(t *testing.T) {
 	f := newFixture(t)
-	// Handler already copied config at construction; mutate only a fresh
-	// handler with no lifecycle workers so this test is race-free.
+	// Handler копирует конфигурацию при создании; изменяем только новый обработчик
+	// без фоновых обработчиков жизненного цикла, чтобы в тесте не было гонок данных.
 	cfg := f.cfg
 	cfg.VideoMaxWidth, cfg.VideoMaxHeight, cfg.VideoMaxFPS = 640, 360, 15
 	h := NewHandler(cfg, f.registry, f.sessions, f.tickets, f.engine, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
@@ -532,7 +532,7 @@ func TestMediaJoinPropagatesConfiguredCaptureTarget(t *testing.T) {
 	}
 }
 
-// TestRoomGateCancellationAndReferenceCleanup проверяет сценарий «Room Gate Cancellation и Reference очистка», фиксируя ошибки поведения как регрессию.
+// TestRoomGateCancellationAndReferenceCleanup проверяет отмену ожидания блокировки комнаты и очистку ссылок.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -575,7 +575,7 @@ func TestMediaUUIDAndUTF8StrictValidation(t *testing.T) {
 	}
 }
 
-// TestLocalLeaseWatchdogFencesWhileRenewalIsBlocked проверяет сценарий «локальный аренда Watchdog Fences While Renewal является Blocked», фиксируя ошибки поведения как регрессию.
+// TestLocalLeaseWatchdogFencesWhileRenewalIsBlocked проверяет прекращение владения локальным контролем аренды при заблокированном продлении.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -614,7 +614,7 @@ func TestLocalLeaseWatchdogFencesWhileRenewalIsBlocked(t *testing.T) {
 	close(block)
 }
 
-// TestMediaSessionBrokerFailureClosesEveryOwnedRoom проверяет сценарий «медиа сессия Broker сбой Closes Every Owned Room», фиксируя ошибки поведения как регрессию.
+// TestMediaSessionBrokerFailureClosesEveryOwnedRoom проверяет закрытие всех принадлежащих воркеру комнат при сбое брокера.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -641,7 +641,7 @@ func TestMediaSessionBrokerFailureClosesEveryOwnedRoom(t *testing.T) {
 	}
 }
 
-// deadlineSessions хранит изолированное состояние тестового компонента «deadline сессии».
+// deadlineSessions хранит изолированное состояние тестовых сессий с ограниченным сроком ожидания.
 // @params:
 //   - calls: значение calls типа atomic.Int32, используемое согласно назначению этой операции.
 type deadlineSessions struct{ calls atomic.Int32 }
@@ -661,7 +661,7 @@ func (s *deadlineSessions) Get(ctx context.Context, _ string) (realtime.Session,
 	return realtime.Session{}, ctx.Err()
 }
 
-// TestMediaSessionSweepUsesOneGlobalBudget проверяет сценарий «медиа сессия Sweep Uses один Global Budget», фиксируя ошибки поведения как регрессию.
+// TestMediaSessionSweepUsesOneGlobalBudget проверяет единый общий бюджет обхода медиа-сессий.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args
@@ -802,7 +802,7 @@ func TestWorkerLostLeaseAndOrphanCleanup(t *testing.T) {
 	}
 }
 
-// TestLeaveDoesNotRequireLiveSession проверяет сценарий «Leave выполняет не Require Live сессия», фиксируя ошибки поведения как регрессию.
+// TestLeaveDoesNotRequireLiveSession проверяет возможность выхода без действующей сессии.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
 // @args

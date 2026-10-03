@@ -13,9 +13,9 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-// Redis TIME, not API clocks, controls presence leases. The TTL routing key is
-// authoritative; a sorted expiry index retains enough metadata to announce a
-// crash after that key expires. All removal/count changes are atomic.
+// Аренды присутствия используют Redis TIME вместо часов API. Ключ маршрутизации с TTL
+// является источником истины; отсортированный индекс истечения сохраняет метаданные для
+// сообщения о сбое после исчезновения ключа. Удаление и изменение счётчиков атомарны.
 var presenceScript = goredis.NewScript(`
 local prefix = ARGV[1]
 local op = ARGV[2]

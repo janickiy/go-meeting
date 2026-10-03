@@ -71,9 +71,9 @@ type CompletedRecord struct {
 
 // NewClient создает S3-клиент и bucket при необходимости.
 // @args
-// - endpoint: host:port MinIO.
-// - accessKey: access key.
-// - secretKey: secret key.
+// - endpoint: адрес MinIO в формате хост:порт.
+// - accessKey: ключ доступа.
+// - secretKey: секретный ключ.
 // - bucket: bucket для записей.
 // - useSSL: использовать HTTPS.
 // @return Client или ошибку подключения.
@@ -134,7 +134,7 @@ func (c *Client) Check(ctx context.Context) error {
 	return nil
 }
 
-// SetPublicEndpoint задает внешний endpoint MinIO для ссылок, которые открываются с хоста.
+// SetPublicEndpoint задаёт внешний адрес MinIO для ссылок, открываемых с хоста.
 // @args
 // - endpoint: host:port или URL, например localhost:9000.
 // @return ничего.

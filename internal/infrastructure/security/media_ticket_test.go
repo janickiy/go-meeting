@@ -83,7 +83,7 @@ func TestMediaTicketBindingAndExpiration(t *testing.T) {
 	}
 }
 
-// TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity проверяет сценарий «медиа билет Rejects Forged Purpose Algorithm и Identity», фиксируя ошибки поведения как регрессию.
+// TestMediaTicketRejectsForgedPurposeAlgorithmAndIdentity проверяет отклонение поддельного назначения, алгоритма и идентичности билета.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

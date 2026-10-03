@@ -11,7 +11,7 @@ import (
 
 const testSecret = "only-for-tests-32-bytes-or-more-secret"
 
-// TestPasswordHashesAreSaltedAndVerified проверяет сценарий «Password Hashes Are Salted и Verified», фиксируя ошибки поведения как регрессию.
+// TestPasswordHashesAreSaltedAndVerified проверяет соль и верификацию хешей паролей.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -128,7 +128,7 @@ func TestTokenValidation(t *testing.T) {
 	}
 }
 
-// TestInviteCodesAreIndependentRandomIdentifiers проверяет сценарий «Invite Codes Are Independent Random Identifiers», фиксируя ошибки поведения как регрессию.
+// TestInviteCodesAreIndependentRandomIdentifiers проверяет независимые случайные идентификаторы приглашений.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

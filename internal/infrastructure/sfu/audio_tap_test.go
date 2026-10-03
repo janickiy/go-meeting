@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// TestStageEightAudioTapIsolation моделирует зависший STT consumer рядом с исправной записью.
+// TestStageEightAudioTapIsolation моделирует зависший потребитель распознавания рядом с исправной записью.
 // @args t — исполнитель; отдельная audio очередь должна отказать, не влияя на RTP или recorder.
 func TestStageEightAudioTapIsolation(t *testing.T) {
 	sizes := []int{2}

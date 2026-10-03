@@ -34,7 +34,7 @@ func (c *Client) SetSecret(secret string) *Client { c.secret = secret; return c 
 
 // NewClient создает HTTP-клиент recorder-worker.
 // @args
-// - baseURL: внутренний URL worker-а, например http://worker:8090.
+// - baseURL: внутренний URL воркера, например http://worker:8090.
 // @return Client.
 func NewClient(baseURL string) *Client {
 	return &Client{
@@ -43,7 +43,7 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-// StartRecord просит worker подготовить WebRTC ingest для записи.
+// StartRecord просит воркер подготовить приём WebRTC для записи.
 // @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
@@ -71,11 +71,11 @@ func (c *Client) StopRecord(ctx context.Context, recordID string, reason string)
 	})
 }
 
-// Offer отправляет browser SDP offer во worker и возвращает SDP answer.
+// Offer отправляет SDP-предложение браузера воркеру и возвращает SDP-ответ.
 // @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
-// - request: SDP offer браузера.
+// - request: SDP-предложение браузера.
 // @return SDP answer или ошибку signaling.
 func (c *Client) Offer(ctx context.Context, recordID string, request records.WebRTCOfferRequest) (records.WebRTCAnswerResponse, error) {
 	var response records.WebRTCAnswerResponse

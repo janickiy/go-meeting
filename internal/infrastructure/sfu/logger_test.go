@@ -52,7 +52,7 @@ func (b *safeLogBuffer) String() string {
 	return b.b.String()
 }
 
-// unsafeLogArgument хранит изолированное состояние тестового компонента «unsafe Log Argument».
+// unsafeLogArgument хранит изолированные небезопасные аргументы для проверки журналирования.
 type unsafeLogArgument struct{}
 
 // String возвращает строковое представление накопленного значения или ограниченного диагностического вывода.
@@ -74,7 +74,7 @@ func (unsafeLogArgument) Error() string { panic("upstream Error invoked") }
 //   - аргумент 2 (rune): значение для проверки, нормализации или преобразования.
 func (unsafeLogArgument) Format(fmt.State, rune) { panic("upstream Format invoked") }
 
-// TestPionLoggerNeverFormatsOrRetainsUpstreamData проверяет сценарий «Pion Logger Never Formats Or Retains Upstream Data», фиксируя ошибки поведения как регрессию.
+// TestPionLoggerNeverFormatsOrRetainsUpstreamData проверяет, что журнал Pion не форматирует и не сохраняет входные данные зависимости.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -96,7 +96,7 @@ func TestPionLoggerNeverFormatsOrRetainsUpstreamData(t *testing.T) {
 		t.Fatal("upstream data leaked through safe logger")
 	}
 	lines := strings.Split(strings.TrimSpace(raw), "\n")
-	if len(lines) != 12 { // Trace/Debug are intentionally disabled.
+	if len(lines) != 12 { // Уровни Trace и Debug намеренно отключены.
 		t.Fatalf("unexpected bounded event count: %d", len(lines))
 	}
 	for _, line := range lines {
@@ -126,7 +126,7 @@ func TestPionLoggerNeverFormatsOrRetainsUpstreamData(t *testing.T) {
 	}
 }
 
-// TestMalformedSDPCandidateCannotLeakIntoPionLogs проверяет сценарий «Malformed SDP Candidate Cannot раскрытие Into Pion Logs», фиксируя ошибки поведения как регрессию.
+// TestMalformedSDPCandidateCannotLeakIntoPionLogs проверяет сокрытие неверного SDP-кандидата в журналах Pion.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -146,8 +146,8 @@ func TestMalformedSDPCandidateCannotLeakIntoPionLogs(t *testing.T) {
 				t.Fatal("test manager cleanup failed")
 			}
 		})
-	// Build a real supported offer with the same API used by the worker. Do
-	// not expose its ICE credentials or whole SDP in assertions/failure output.
+	// Создаём реальное поддерживаемое предложение через тот же API, что использует воркер.
+	// Учётные данные ICE и полный SDP не должны попадать в утверждения и сообщения об ошибках теста.
 	client, err := m.api.NewPeerConnection(pion.Configuration{})
 	if err != nil {
 		t.Fatal(err)
@@ -187,8 +187,8 @@ func TestMalformedSDPCandidateCannotLeakIntoPionLogs(t *testing.T) {
 	if _, err := validateOffer(flood, m.opts.MaxPeers); !errors.Is(err, media.ErrLimit) {
 		t.Fatal("embedded candidate flood was not bounded")
 	}
-	// Exercise the upstream warning itself as a defense-in-depth regression:
-	// bypassing our validator still must not pass candidate/credentials to slog.
+	// Проверяем само предупреждение зависимости как дополнительную регрессионную защиту:
+	// даже при обходе валидатора кандидаты и учётные данные не должны попасть в slog.
 	probe, err := m.api.NewPeerConnection(pion.Configuration{})
 	if err != nil {
 		t.Fatal(err)

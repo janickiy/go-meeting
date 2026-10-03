@@ -10,7 +10,7 @@ import (
 )
 
 // StageEightConfig ограничивает вспомогательную обработку речи, векторов и аналитики.
-// Передача аудио и текста провайдерам требует явного включения; mock запрещён в production.
+// Передача аудио и текста провайдерам требует явного включения; имитация запрещена в рабочей среде.
 type StageEightConfig struct {
 	LiveEnabled, EmbeddingsEnabled, AnalyticsEnabled                           bool
 	Live, Embeddings                                                           ProviderConfig

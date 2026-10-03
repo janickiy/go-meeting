@@ -94,19 +94,19 @@ type Handler struct {
 	workerSignaler WorkerSignaler
 }
 
-// NewHandler создает HTTP handler.
+// NewHandler создаёт HTTP-обработчик.
 // @args
-// - service: use-case управления записью.
+// - service: прикладной сервис управления записью.
 // - workerInternalURL: внутренний URL recorder-worker.
 // @return Handler.
 func NewHandler(service Service, workerInternalURL string) *Handler {
 	return NewHandlerWithSignaler(service, workerinfra.NewClient(workerInternalURL))
 }
 
-// NewHandlerWithSignaler создает HTTP handler с явно переданным signaling-клиентом.
+// NewHandlerWithSignaler создаёт HTTP-обработчик с явно переданным клиентом сигнализации.
 // @args
-// - service: use-case управления записью.
-// - workerSignaler: клиент SDP signaling recorder-worker-а.
+// - service: прикладной сервис управления записью.
+// - workerSignaler: клиент сигнализации SDP сервиса recorder-worker.
 // @return Handler.
 func NewHandlerWithSignaler(service Service, workerSignaler WorkerSignaler) *Handler {
 	return &Handler{

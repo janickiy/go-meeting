@@ -298,9 +298,9 @@ func (c *Controller) Handle(ctx context.Context, session realtime.Session, expir
 		}
 		return domain.ErrPeerNotFound
 	}
-	// Empty media.leave cancels a join that was queued before the browser knew
-	// its peer ID. The single WS reader serializes it after the join response;
-	// its authenticated session is the only allowed cleanup target.
+	// Пустая команда media.leave отменяет присоединение, поставленное в очередь до получения
+	// браузером ID соединения. Единственный читатель WS выполняет её после ответа на join;
+	// очищать разрешено только авторизованную сессию отправителя.
 	if signal.MediaPeerID != peer.peerID && !(event.Type == "media.leave" && signal.MediaPeerID == "") {
 		return domain.ErrUnauthorized
 	}
@@ -361,8 +361,8 @@ func (c *Controller) join(ctx context.Context, binding domain.Binding, requestID
 	if err != nil || len(workers) == 0 {
 		return domain.ErrUnavailable
 	}
-	// A small stable hash distributes new conferences; Claim preserves the
-	// existing healthy owner. This is routing, not a distributed scheduler.
+	// Небольшой стабильный хеш распределяет новые конференции; Claim сохраняет текущего
+	// работающего владельца. Это маршрутизация, а не распределённый планировщик.
 	conf, _ := uuid.Parse(binding.ConferenceID)
 	index := int(conf[0]) % len(workers)
 	route, err := c.registry.Claim(ctx, binding.ConferenceID, workers[index].ID, c.cfg.OwnershipTTL)
@@ -382,8 +382,8 @@ func (c *Controller) join(ctx context.Context, binding domain.Binding, requestID
 	}
 	video := result.VideoCapture
 	if video.MaxWidth < 1 || video.MaxWidth > 1280 || video.MaxHeight < 1 || video.MaxHeight > 720 || video.MaxFrameRate < 1 || video.MaxFrameRate > 30 {
-		// The worker prepared a peer, but an invalid capture target may not reach
-		// the browser. Do not leave that prepared media endpoint orphaned.
+		// Воркер подготовил соединение, но неверный источник захвата может не дойти до браузера.
+		// Освобождаем подготовленное медиа-соединение, чтобы не оставить его без владельца.
 		cleanup, cancel := context.WithTimeout(context.Background(), min(c.cfg.OperationTimeout, 3*time.Second))
 		_, _ = c.transport.Call(cleanup, "leave", domain.Command{RequestID: uuid.NewString(), Binding: binding, Route: route, MediaPeerID: result.MediaPeerID})
 		cancel()

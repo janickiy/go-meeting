@@ -14,7 +14,7 @@ import (
 	pg "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
 )
 
-// TestStageSevenJobDedupLeaseAndMigrationRepeat проверяет реальные SQL-дедупликацию и fencing.
+// TestStageSevenJobDedupLeaseAndMigrationRepeat проверяет реальные SQL-дедупликацию и контроль актуальности аренды.
 // Используется отдельная случайная тестовая БД, никогда не база пользователя.
 // @args t — контекст изолированной интеграционной проверки.
 func TestStageSevenJobDedupLeaseAndMigrationRepeat(t *testing.T) {

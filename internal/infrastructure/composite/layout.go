@@ -1,5 +1,5 @@
-// Package composite implements recording-only capture and composition. It is
-// deliberately independent of the SFU forwarding loop.
+// Пакет composite выполняет захват и композицию только для записи.
+// Он работает независимо от цикла пересылки SFU.
 package composite
 
 import (

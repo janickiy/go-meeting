@@ -66,6 +66,9 @@ type Publisher struct {
 //   - consumerTag: значение consumerTag типа string, используемое согласно назначению этой операции.
 //   - logger: значение logger типа *log.Logger, используемое согласно назначению этой операции.
 type Consumer struct {
+	drainMu     sync.Mutex
+	draining    bool
+	active      int
 	conn        *amqp.Connection
 	channel     *amqp.Channel
 	queue       string
@@ -77,10 +80,16 @@ type Consumer struct {
 	closed      bool
 }
 
-// NewPublisher создает RabbitMQ publisher и объявляет exchange/queue/binding.
+// BeginDrain откладывает новые старты; команды завершения продолжают обслуживаться.
+func (c *Consumer) BeginDrain() { c.drainMu.Lock(); c.draining = true; c.drainMu.Unlock() }
+
+// Active возвращает число команд, чьё подтверждение или обработка ещё не закончены.
+func (c *Consumer) Active() int { c.drainMu.Lock(); defer c.drainMu.Unlock(); return c.active }
+
+// NewPublisher создаёт издателя RabbitMQ и объявляет обменник, очередь и привязку.
 // @args
 // - ctx: контекст bootstrap-а.
-// - options: URL, exchange, queue и routing key.
+// - options: URL, обменник, очередь и ключ маршрутизации.
 // @return готовый Publisher или ошибку подключения.
 func NewPublisher(ctx context.Context, options Options) (*Publisher, error) {
 	options = normalizeOptions(options)
@@ -105,7 +114,7 @@ func NewPublisher(ctx context.Context, options Options) (*Publisher, error) {
 	return p, nil
 }
 
-// StartRecord публикует команду подготовки WebRTC ingest.
+// StartRecord публикует команду подготовки приёма WebRTC.
 // @args
 // - ctx: контекст HTTP-запроса API.
 // - recordID: UUID записи.
@@ -133,7 +142,7 @@ func (p *Publisher) StopRecord(ctx context.Context, recordID string, reason stri
 	})
 }
 
-// Close закрывает RabbitMQ channel и connection.
+// Close закрывает канал и соединение RabbitMQ.
 // @args нет.
 // @return ничего.
 func (p *Publisher) Close() {
@@ -225,7 +234,7 @@ func (p *Publisher) publishLocked(ctx context.Context, body []byte, commandType 
 	return nil
 }
 
-// Check проверяет действующий publisher connection без блокировки отправки.
+// Check проверяет действующее соединение издателя без блокировки отправки.
 // ctx задаёт дедлайн health-пробы; метод не создаёт новую очередь или публикацию.
 func (p *Publisher) Check(ctx context.Context) error {
 	if !p.alive.Load() {
@@ -274,7 +283,7 @@ func (p *Publisher) reconnectLocked(ctx context.Context) error {
 	return nil
 }
 
-// watch следит за закрытием конкретного соединения. conn — новый AMQP connection;
+// watch наблюдает закрытие конкретного соединения. conn — новое соединение AMQP;
 // закрытие старого connection не переводит новый publisher в failed.
 func (p *Publisher) watch(conn *amqp.Connection) {
 	p.alive.Store(true)
@@ -288,10 +297,10 @@ func (p *Publisher) watch(conn *amqp.Connection) {
 	}()
 }
 
-// NewConsumer создает RabbitMQ consumer и объявляет exchange/queue/binding.
+// NewConsumer создаёт потребителя RabbitMQ и объявляет обменник, очередь и привязку.
 // @args
 // - ctx: контекст bootstrap-а.
-// - options: URL, exchange, queue, routing key и consumer tag.
+// - options: URL, обменник, очередь, ключ маршрутизации и метка потребителя.
 // @return готовый Consumer или ошибку подключения.
 func NewConsumer(ctx context.Context, options Options) (*Consumer, error) {
 	options = normalizeOptions(options)
@@ -411,7 +420,7 @@ func (c *Consumer) reconnect(ctx context.Context) error {
 	return nil
 }
 
-// Close закрывает RabbitMQ channel и connection.
+// Close закрывает канал и соединение RabbitMQ.
 // @args нет.
 // @return ничего.
 func (c *Consumer) Close() {
@@ -449,6 +458,22 @@ func (c *Consumer) handleDelivery(ctx context.Context, delivery amqp.Delivery, h
 		c.quarantine(ctx, delivery)
 		return
 	}
+	c.drainMu.Lock()
+	deferred := c.draining && command.Type == "record.start"
+	if !deferred {
+		c.active++
+	}
+	c.drainMu.Unlock()
+	if deferred {
+		// Возврат не считается ошибкой задания и не отправляет повтор в карантин.
+		_ = delivery.Nack(false, true)
+		select {
+		case <-ctx.Done():
+		case <-time.After(250 * time.Millisecond):
+		}
+		return
+	}
+	defer func() { c.drainMu.Lock(); c.active--; c.drainMu.Unlock() }()
 	c.logf("received RabbitMQ command %s for record %s", command.Type, command.RecordID)
 	messageCtx, cancel := context.WithTimeout(ctx, 45*time.Minute)
 	if id, ok := delivery.Headers["request_id"].(string); ok {
@@ -468,7 +493,7 @@ func (c *Consumer) handleDelivery(ctx context.Context, delivery amqp.Delivery, h
 	_ = delivery.Ack(false)
 }
 
-// quarantine сохраняет poison/repeated-failure сообщение в отдельной durable
+// quarantine сохраняет некорректное или повторно сбойное сообщение в отдельной постоянной
 // очереди с подтверждением брокера перед ack. ctx ограничивает операцию пятью
 // секундами; при ошибке исходная доставка остаётся доступной для повтора.
 func (c *Consumer) quarantine(ctx context.Context, d amqp.Delivery) {

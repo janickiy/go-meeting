@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TestInternalErrorsDoNotExposeInfrastructureDetails проверяет сценарий «Internal ошибки Do не Expose Infrastructure Details», фиксируя ошибки поведения как регрессию.
+// TestInternalErrorsDoNotExposeInfrastructureDetails проверяет сокрытие деталей инфраструктуры во внутренних ошибках.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

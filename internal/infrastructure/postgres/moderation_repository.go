@@ -96,7 +96,7 @@ func (r *ConferenceRepository) Moderate(ctx context.Context, conferenceID, userI
 					updates["role"] = request.Role
 				}
 			}
-			// Unblocking never resurrects a pre-moderation state from another tab.
+			// Снятие запрета не восстанавливает прежнее состояние другой вкладки, сброшенное модерацией.
 			if request.Blocked != nil && *request.Blocked {
 				cleared := map[string]any{}
 				switch request.Action {

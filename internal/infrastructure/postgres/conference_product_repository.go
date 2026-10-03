@@ -222,8 +222,8 @@ func (r *ConferenceRepository) Timeline(ctx context.Context, userID string, quer
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *ConferenceRepository) History(ctx context.Context, conferenceID, userID string) (conferences.HistoryView, error) {
 	var result conferences.HistoryView
-	// A shared conference lifecycle lock prevents kick/finish/admission from
-	// changing authorization while the bounded historical snapshot is assembled.
+	// Общая блокировка жизненного цикла конференции не позволяет удалению, завершению или
+	// допуску менять права во время сборки ограниченного снимка истории.
 	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
 		@args

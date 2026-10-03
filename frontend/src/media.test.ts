@@ -17,7 +17,7 @@ const videoId = "00000000-0000-4000-8000-000000000005";
  *   - onended — поле или операция этого контракта.
  *   - stop — поле или операция этого контракта.
  *   - applyConstraints — поле или операция этого контракта.
- *   - constructor — function Object() { [native code] }.
+ *   - constructor — создаёт экземпляр класса с переданными параметрами.
  */
 class FakeTrack {
   readyState = "live";
@@ -50,7 +50,7 @@ class FakeTrack {
      */ async (_constraints: MediaTrackConstraints) => {},
   );
   /**
-   * constructor function Object() { [native code] }.
+   * constructor создаёт подставную дорожку с заданными видом и идентификатором.
    *
    * @args
    *   - kind (string) — вид устройства, медиаисточника или события, определяющий действие.
@@ -67,7 +67,7 @@ class FakeTrack {
  * FakeStream имитирует браузерный поток и его набор дорожек.
  *
  * @params:
- *   - constructor — function Object() { [native code] }.
+ *   - constructor — создаёт экземпляр класса с переданными параметрами.
  *   - getTracks — поле или операция этого контракта.
  *   - getAudioTracks — поле или операция этого контракта.
  *   - getVideoTracks — поле или операция этого контракта.
@@ -76,7 +76,7 @@ class FakeTrack {
  */
 class FakeStream {
   /**
-   * constructor function Object() { [native code] }.
+   * constructor создаёт подставной поток с заданным набором дорожек.
    *
    * @args
    *   - list (FakeTrack[]) — входное значение list текущего шага обработки (по умолчанию []).
@@ -176,7 +176,7 @@ class FakeStream {
  *   - oniceconnectionstatechange — поле или операция этого контракта.
  *   - onsignalingstatechange — поле или операция этого контракта.
  *   - transceivers — поле или операция этого контракта.
- *   - constructor — function Object() { [native code] }.
+ *   - constructor — создаёт экземпляр класса с переданными параметрами.
  *   - addTrack — поле или операция этого контракта.
  *   - addTransceiver — поле или операция этого контракта.
  *   - getTransceivers — поле или операция этого контракта.
@@ -254,7 +254,7 @@ class FakePeer {
   }[] = [];
   getStats = vi.fn(async () => new Map() as unknown as RTCStatsReport);
   /**
-   * constructor function Object() { [native code] }.
+   * constructor создаёт подставное соединение и сохраняет его конфигурацию.
    *
    * @args
    *   - config (RTCConfiguration) — параметры создания тестируемого компонента.
@@ -550,7 +550,7 @@ afterEach(
 );
 
 describe("SFU media client", /**
- * Проверка: SFU media client выполняет тестовый сценарий «SFU media client» и проверяет ожидаемые результаты.
+ * Проверяет клиент медиа SFU.
  *
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -607,7 +607,7 @@ describe("SFU media client", /**
     fixture.client.stop();
   });
   it("requests camera/microphone only on explicit start, bounds capture, and cleans up once", /**
-   * Проверка: requests camera/microphone only on explicit start, bounds capture, and cleans up once выполняет тестовый сценарий «requests camera/microphone only on explicit start, bounds capture, and cleans up once» и проверяет ожидаемые результаты.
+   * Проверяет захват камеры и микрофона только при явном запуске, ограничения захвата и однократную очистку.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -677,7 +677,7 @@ describe("SFU media client", /**
     expect(f.client.snapshot().active).toBe(false);
   });
   it("stops capture that resolves after the user leaves instead of joining a zombie peer", /**
-   * Проверка: stops capture that resolves after the user leaves instead of joining a zombie peer выполняет тестовый сценарий «stops capture that resolves after the user leaves instead of joining a zombie peer» и проверяет ожидаемые результаты.
+   * Проверяет остановку запоздалого захвата после выхода пользователя без создания оставшегося соединения.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -729,7 +729,7 @@ describe("SFU media client", /**
     );
   });
   it("reports denied permissions safely without opening a worker peer", /**
-   * Проверка: reports denied permissions safely without opening a worker peer выполняет тестовый сценарий «reports denied permissions safely without opening a worker peer» и проверяет ожидаемые результаты.
+   * Проверяет безопасное сообщение об отказе в разрешениях без создания соединения на воркере.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -746,7 +746,7 @@ describe("SFU media client", /**
     expect(f.send).not.toHaveBeenCalled();
   });
   it("joins receive-only without requesting devices and can enable a single source later", /**
-   * Проверка: joins receive-only without requesting devices and can enable a single source later выполняет тестовый сценарий «joins receive-only without requesting devices and can enable a single source later» и проверяет ожидаемые результаты.
+   * Проверяет присоединение только для приёма без запроса устройств и последующее включение одного источника.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -817,7 +817,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("cancels an in-flight media join with authenticated session cleanup", /**
-   * Проверка: cancels an in-flight media join with authenticated session cleanup выполняет тестовый сценарий «cancels an in-flight media join with authenticated session cleanup» и проверяет ожидаемые результаты.
+   * Проверяет отмену незавершённого присоединения с очисткой авторизованной сессии.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -853,7 +853,7 @@ describe("SFU media client", /**
     expect(FakePeer.instances).toHaveLength(0);
   });
   it("applies the worker's lower video target before creating an offer", /**
-   * Проверка: applies the worker's lower video target before creating an offer выполняет тестовый сценарий «applies the worker's lower video target before creating an offer» и проверяет ожидаемые результаты.
+   * Проверяет применение более низких параметров видео воркера до создания предложения.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -952,7 +952,7 @@ describe("SFU media client", /**
     },
   );
   it("does not recreate media after stopping during async camera constraints", /**
-   * Проверка: does not recreate media after stopping during async camera constraints выполняет тестовый сценарий «does not recreate media after stopping during async camera constraints» и проверяет ожидаемые результаты.
+   * Проверяет отсутствие повторного создания медиа после остановки во время применения ограничений камеры.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1036,7 +1036,7 @@ describe("SFU media client", /**
     expect(f.send).toHaveBeenCalledWith("media.leave", { mediaPeerId: peerId });
   });
   it("serializes browser-owned offers, coalesces revisions, and ignores stale answers", /**
-   * Проверка: serializes browser-owned offers, coalesces revisions, and ignores stale answers выполняет тестовый сценарий «serializes browser-owned offers, coalesces revisions, and ignores stale answers» и проверяет ожидаемые результаты.
+   * Проверяет последовательные предложения браузера, объединение ревизий и игнорирование устаревших ответов.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1146,7 +1146,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("buffers ICE until the matching remote SDP and supports end-of-candidates", /**
-   * Проверка: buffers ICE until the matching remote SDP and supports end-of-candidates выполняет тестовый сценарий «buffers ICE until the matching remote SDP and supports end-of-candidates» и проверяет ожидаемые результаты.
+   * Проверяет буферизацию ICE до соответствующего удалённого SDP и поддержку окончания кандидатов.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1222,7 +1222,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("stops media when the correlated readiness command is rejected", /**
-   * Проверка: stops media when the correlated readiness command is rejected выполняет тестовый сценарий «stops media when the correlated readiness command is rejected» и проверяет ожидаемые результаты.
+   * Проверяет остановку медиа при отказе соответствующей команды готовности.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1279,7 +1279,7 @@ describe("SFU media client", /**
     );
   });
   it("clears the readiness deadline on its matching acknowledgement", /**
-   * Проверка: clears the readiness deadline on its matching acknowledgement выполняет тестовый сценарий «clears the readiness deadline on its matching acknowledgement» и проверяет ожидаемые результаты.
+   * Проверяет сброс срока ожидания готовности после соответствующего подтверждения.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1323,7 +1323,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("uses authoritative track metadata for remote streams and removes stopped publishers", /**
-   * Проверка: uses authoritative track metadata for remote streams and removes stopped publishers выполняет тестовый сценарий «uses authoritative track metadata for remote streams and removes stopped publishers» и проверяет ожидаемые результаты.
+   * Проверяет использование достоверных метаданных удалённых дорожек и удаление остановленных публикаций.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1348,8 +1348,8 @@ describe("SFU media client", /**
         source: "camera",
       },
     ];
-    // Chromium's preallocated RTCRtpReceiver can keep its generated ID instead
-    // of the worker's SDP track ID, while SDP stream ID remains authoritative.
+    // Заранее выделенный RTCRtpReceiver в Chromium может сохранить свой сгенерированный ID
+    // вместо ID дорожки из SDP воркера; достоверным источником остаётся ID потока в SDP.
     pc.ontrack!({
       track: new FakeTrack("audio", "browser-audio-id"),
       streams: [{ id: remotePeer }],
@@ -1410,7 +1410,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("ignores stale joined responses and unrelated server errors", /**
-   * Проверка: ignores stale joined responses and unrelated server errors выполняет тестовый сценарий «ignores stale joined responses and unrelated server errors» и проверяет ожидаемые результаты.
+   * Проверяет игнорирование устаревших ответов присоединения и посторонних ошибок сервера.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1448,7 +1448,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("reports stopped local tracks with the worker-assigned track identity", /**
-   * Проверка: reports stopped local tracks with the worker-assigned track identity выполняет тестовый сценарий «reports stopped local tracks with the worker-assigned track identity» и проверяет ожидаемые результаты.
+   * Проверяет сообщение об остановке локальной дорожки с её идентификатором, назначенным воркером.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1487,7 +1487,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("releases devices and requires an explicit restart after ICE failure", /**
-   * Проверка: releases devices and requires an explicit restart after ICE failure выполняет тестовый сценарий «releases devices and requires an explicit restart after ICE failure» и проверяет ожидаемые результаты.
+   * Проверяет освобождение устройств и требование явного повторного запуска после сбоя ICE.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1513,7 +1513,7 @@ describe("SFU media client", /**
     expect(f.capture).toHaveBeenCalledOnce();
   });
   it("toggles and replaces capture without creating a new peer or leaking tracks", /**
-   * Проверка: toggles and replaces capture without creating a new peer or leaking tracks выполняет тестовый сценарий «toggles and replaces capture without creating a new peer or leaking tracks» и проверяет ожидаемые результаты.
+   * Проверяет переключение и замену захвата без нового соединения и утечки дорожек.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1541,7 +1541,7 @@ describe("SFU media client", /**
     expect(replacement.stop).toHaveBeenCalledOnce();
   });
   it("blocks capture on moderator policy without automatically enabling hardware on unblock", /**
-   * Проверка: blocks capture on moderator policy without automatically enabling hardware on unblock выполняет тестовый сценарий «blocks capture on moderator policy without automatically enabling hardware on unblock» и проверяет ожидаемые результаты.
+   * Проверяет запрет захвата политикой модератора без автоматического запуска устройств после снятия запрета.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1565,7 +1565,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("keeps camera while screen shares and handles native screen end without requiring audio", /**
-   * Проверка: keeps camera while screen shares and handles native screen end without requiring audio выполняет тестовый сценарий «keeps camera while screen shares and handles native screen end without requiring audio» и проверяет ожидаемые результаты.
+   * Проверяет сохранность камеры при демонстрации экрана и завершение экрана без обязательного аудио.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1602,7 +1602,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("releases a screen capture that completes after leave", /**
-   * Проверка: releases a screen capture that completes after leave выполняет тестовый сценарий «releases a screen capture that completes after leave» и проверяет ожидаемые результаты.
+   * Проверяет освобождение захвата экрана, завершившегося после выхода.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1649,7 +1649,7 @@ describe("SFU media client", /**
     expect(f.client.snapshot().localScreen).toBeNull();
   });
   it("rejects stale policy and stops screen audio on forced mute", /**
-   * Проверка: rejects stale policy and stops screen audio on forced mute выполняет тестовый сценарий «rejects stale policy and stops screen audio on forced mute» и проверяет ожидаемые результаты.
+   * Проверяет отказ для устаревшей политики и остановку звука экрана при принудительном выключении микрофона.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1685,7 +1685,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("cleans partially installed screen capture if a second sender rejects", /**
-   * Проверка: cleans partially installed screen capture if a second sender rejects выполняет тестовый сценарий «cleans partially installed screen capture if a second sender rejects» и проверяет ожидаемые результаты.
+   * Проверяет очистку частично установленного захвата экрана при отказе второго отправителя.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1716,7 +1716,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("uses the newest receiver for a replaced publication and ignores old track end", /**
-   * Проверка: uses the newest receiver for a replaced publication and ignores old track end выполняет тестовый сценарий «uses the newest receiver for a replaced publication and ignores old track end» и проверяет ожидаемые результаты.
+   * Проверяет выбор нового приёмника заменённой публикации и игнорирование окончания старой дорожки.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1758,7 +1758,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("keeps screen video if optional screen audio ends", /**
-   * Проверка: keeps screen video if optional screen audio ends выполняет тестовый сценарий «keeps screen video if optional screen audio ends» и проверяет ожидаемые результаты.
+   * Проверяет сохранность видео экрана при завершении необязательной звуковой дорожки.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
@@ -1796,7 +1796,7 @@ describe("SFU media client", /**
     f.client.stop();
   });
   it("preserves the peer as receive-only when a moderator policy races an offer", /**
-   * Проверка: preserves the peer as receive-only when a moderator policy races an offer выполняет тестовый сценарий «preserves the peer as receive-only when a moderator policy races an offer» и проверяет ожидаемые результаты.
+   * Проверяет сохранение соединения только для приёма при гонке политики модератора и предложения.
    *
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.

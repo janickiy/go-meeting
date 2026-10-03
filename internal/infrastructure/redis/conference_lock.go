@@ -39,21 +39,21 @@ type ConferenceLock struct {
 	ttl    time.Duration
 }
 
-// NewConferenceLock создает Redis lock для conferenceId.
+// NewConferenceLock создаёт блокировку Redis для conferenceId.
 // @args
-// - client: Redis client.
+// - client: клиент Redis.
 // - ttl: срок жизни lock-а.
 // @return ConferenceLock.
 func NewConferenceLock(client *goredis.Client, ttl time.Duration) *ConferenceLock {
 	return &ConferenceLock{client: client, ttl: ttl}
 }
 
-// Acquire пытается поставить lock conferenceId со значением recordId.
+// Acquire пытается установить блокировку conferenceId со значением recordId.
 // @args
 // - ctx: контекст операции.
 // - conferenceID: UUID конференции.
 // - recordID: UUID записи-владельца lock-а.
-// @return true, если lock успешно установлен.
+// @return true, если блокировка успешно установлена.
 func (l *ConferenceLock) Acquire(ctx context.Context, conferenceID string, recordID string) (bool, error) {
 	if l == nil || l.client == nil {
 		return true, nil

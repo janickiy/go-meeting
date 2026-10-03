@@ -1,4 +1,4 @@
-// Package liveproviders реализует потоковый gateway и явно тестовый источник субтитров.
+// Пакет liveproviders реализует потоковый шлюз и явно тестовый источник субтитров.
 package liveproviders
 
 import (
@@ -18,7 +18,7 @@ type Provider struct {
 	Timeout               time.Duration
 }
 
-// StartSession открывает WebSocket gateway: JSON config, затем binary PCM, ответы JSON Event.
+// StartSession открывает шлюз WebSocket: сначала конфигурация JSON, затем двоичный PCM и ответы с событиями JSON.
 // @args ctx — срок жизни; config — серверная дорожка и формат mono PCM16LE/16k.
 // @return отменяемая сессия; mock выдаёт демонстрационный текст только после поступления PCM.
 func (p Provider) StartSession(ctx context.Context, config captions.SessionConfig) (captions.Session, error) {
@@ -89,7 +89,7 @@ func (s *wsSession) read() {
 	}
 }
 
-// WriteAudio посылает только ограниченную порцию PCM с конечным write deadline.
+// WriteAudio отправляет ограниченную порцию PCM с конечным сроком записи.
 // @args ctx — отмена; pcm — чётное количество байт не более 32 KiB.
 // @return безопасная ошибка отправки.
 func (s *wsSession) WriteAudio(ctx context.Context, pcm []byte) error {
@@ -115,7 +115,7 @@ func (s *wsSession) WriteAudio(ctx context.Context, pcm []byte) error {
 	return nil
 }
 
-// Events возвращает bounded поток результатов.
+// Events возвращает поток результатов ограниченного размера.
 // @return канал, закрываемый read.
 func (s *wsSession) Events() <-chan captions.Event { return s.events }
 

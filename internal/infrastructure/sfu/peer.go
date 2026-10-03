@@ -63,10 +63,10 @@ type peer struct {
 	pc      *pion.PeerConnection
 	ctx     context.Context
 	cancel  context.CancelFunc
-	// negotiation serializes ALL AddTrack/RemoveTrack and SDP operations.
+	// negotiation сериализует все операции AddTrack/RemoveTrack и согласование SDP.
 	negotiation sync.Mutex
-	// offers spans publication cleanup without holding negotiation while
-	// cleanup touches other peers' senders, preventing cross-peer deadlocks.
+	// offers защищает очистку публикации без удержания negotiation при работе с отправителями
+	// других соединений, что предотвращает взаимоблокировки между соединениями.
 	offers               sync.Mutex
 	mu                   sync.Mutex
 	closing              bool
@@ -84,13 +84,13 @@ type peer struct {
 	receivers            map[string]*receiver
 	suspendedSources     map[string]string
 	offeredTrackIDs      map[string]string
-	pendingRemoteICE     []pion.ICECandidateInit // guarded by negotiation
-	remoteICECount       int                     // guarded by negotiation; bounded for this PeerConnection
+	pendingRemoteICE     []pion.ICECandidateInit // защищено negotiation
+	remoteICECount       int                     // защищено negotiation; число ограничено для данного PeerConnection
 	ready                atomic.Bool
-	forwarding           sync.RWMutex    // guards readiness changes against in-flight RTP writes
-	pendingSubscriptions []*subscription // exact answered set, guarded by negotiation
-	negotiationID        string          // guarded by mu
-	pendingReadyAt       time.Time       // guarded by mu
+	forwarding           sync.RWMutex    // защищает изменения готовности от параллельных записей RTP
+	pendingSubscriptions []*subscription // точный набор из ответа, защищённый negotiation
+	negotiationID        string          // защищено mu
+	pendingReadyAt       time.Time       // защищено mu
 }
 
 // view собирает внешний снимок текущего состояния без раскрытия внутренних ресурсов.
@@ -219,7 +219,7 @@ func (p *peer) install() {
 
 // markFailure отмечает сбой физического подключения ровно один раз. Аргументов
 // нет; нормальный выход после stopRequested не считается аварией. Метод нужен
-// и callback-у Pion, и watchdog-у, который может закрыть disconnected раньше failed.
+// и обработчику Pion, и сторожевому таймеру, который может закрыть соединение в состоянии disconnected до перехода в failed.
 func (p *peer) markFailure() {
 	if !p.stopRequested.Load() && p.failed.CompareAndSwap(false, true) {
 		p.manager.failures.Add(1)
@@ -322,8 +322,8 @@ func (p *peer) negotiationNotifications() {
 		case <-p.ctx.Done():
 			return
 		case <-p.notify:
-			// Coalescing is only a hint optimization. Revision is monotonic and every
-			// mutation during an in-flight offer leaves another pending notification.
+			// Объединение уведомлений — лишь оптимизация. Ревизия растёт монотонно, и каждое
+			// изменение во время незавершённого предложения оставляет новое ожидающее уведомление.
 			timer := time.NewTimer(30 * time.Millisecond)
 			select {
 			case <-p.ctx.Done():
@@ -361,8 +361,8 @@ func (p *peer) close() {
 			}
 			p.mu.Unlock()
 			p.cancel()
-			// Closing transport first unblocks every RTP and RTCP reader. No peer or
-			// room lock is held while Pion closes its network transports.
+			// Первым закрываем транспорт, освобождая все чтения RTP и RTCP. При закрытии сетевых
+			// транспортов Pion блокировки соединения и комнаты не удерживаются.
 			_ = p.pc.Close()
 			for _, t := range pubs {
 				p.manager.unpublish(t)
@@ -448,8 +448,8 @@ func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw strin
 	}
 	p.forwarding.Lock()
 	p.mu.Lock()
-	// An answer write is not proof the recipient applied it. Gate newly bound
-	// SSRCs until its correlated Ready arrives after SetRemoteDescription.
+	// Отправка ответа не доказывает, что получатель применил его. Новые SSRC блокируются
+	// до соответствующего Ready, отправленного после SetRemoteDescription.
 	p.ready.Store(false)
 	p.pendingSubscriptions = nil
 	for _, sub := range p.subscriptions {
@@ -463,8 +463,8 @@ func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw strin
 	p.forwarding.Unlock()
 	if err = p.pc.SetRemoteDescription(pion.SessionDescription{Type: pion.SDPTypeOffer, SDP: raw}); err != nil {
 		p.negotiation.Unlock()
-		// A failed SRD may have partially changed Pion's signaling/ICE state.
-		// Do not retain a transport with an indeterminate negotiation lifecycle.
+		// Неудачный SetRemoteDescription может частично изменить состояние сигнализации или ICE в Pion.
+		// Транспорт с неопределённым состоянием согласования не сохраняется.
 		p.stopAsync()
 		return pion.SessionDescription{}, media.ErrInvalid
 	}
@@ -501,9 +501,9 @@ func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw strin
 	}
 	p.mu.Lock()
 	for _, sub := range p.subscriptions {
-		// Sender parameters allocate SSRCs before binding, so they are not
-		// negotiation proof. Only a primary SSRC actually declared in an active
-		// sending answer section belongs to this applied-answer barrier.
+		// SSRC выделяются параметрами отправителя до привязки и не подтверждают согласование.
+		// Защиту применения ответа проходит только основной SSRC, явно объявленный в активной
+		// передающей секции уже применённого ответа.
 		parameters := sub.sender.GetParameters()
 		if len(parameters.Encodings) > 0 && declared[uint32(parameters.Encodings[0].SSRC)] {
 			p.pendingSubscriptions = append(p.pendingSubscriptions, sub)
@@ -511,9 +511,9 @@ func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw strin
 	}
 	p.mu.Unlock()
 	p.negotiation.Unlock()
-	// Reconciliation cannot run holding publisher.negotiation: removing a
-	// publication also locks subscribers, and two simultaneous offers must
-	// never deadlock A -> B and B -> A.
+	// Сверка не выполняется при удержании publisher.negotiation: удаление публикации
+	// также блокирует подписчиков. Два параллельных предложения не должны создавать
+	// взаимоблокировки A → B и B → A.
 	p.mu.Lock()
 	retire := []*publishedTrack{}
 	for _, t := range p.publications {
@@ -640,8 +640,8 @@ func (m *Manager) ICE(ctx context.Context, id string, candidate *pion.ICECandida
 		if len(p.pendingRemoteICE) >= 64 {
 			return media.ErrLimit
 		}
-		// Copy caller-owned optional pointers as well as the struct so buffering
-		// cannot retain mutable HTTP decoder objects across requests.
+		// Копируем структуру и переданные вызывающей стороной необязательные указатели,
+		// чтобы буфер не сохранял изменяемые объекты HTTP-декодера между запросами.
 		buffered := *candidate
 		if candidate.SDPMid != nil {
 			value := *candidate.SDPMid
@@ -749,10 +749,10 @@ func validateSourceOffer(raw string, maxPeers int, publications []media.Publicat
 	if len(description.MediaDescriptions) == 0 || len(description.MediaDescriptions) > slotLimit {
 		return nil, media.ErrLimit
 	}
-	// Validate embedded candidates before passing untrusted SDP into Pion
-	// (which may otherwise warn and ignore bad values). Pion's complete SDP
-	// offers include redundant component-2 candidates even with rtcp-mux;
-	// trickle remains component-1-only, while complete SDP permits 1 or 2.
+	// Проверяем встроенные кандидаты до передачи недоверенного SDP в Pion
+	// (иначе Pion может лишь предупредить и проигнорировать неверные значения). Полные
+	// SDP-предложения включают избыточные кандидаты component-2 даже при rtcp-mux;
+	// поштучная передача допускает только component-1, полный SDP — component-1 или component-2.
 	attributes := [][]sdp.Attribute{description.Attributes}
 	for _, section := range description.MediaDescriptions {
 		attributes = append(attributes, section.Attributes)

@@ -57,9 +57,9 @@ test("local Compose: prejoin gates entry, history opens, notifications load and 
     });
     expect(capabilities.ok()).toBe(true);
     const { buildVersion } = await capabilities.json();
-    expect(buildVersion).toMatch(/^stage9-local-/);
     if (process.env.MEET_STAGE9_EXPECTED_BUILD_VERSION)
       expect(buildVersion).toBe(process.env.MEET_STAGE9_EXPECTED_BUILD_VERSION);
+    else expect(buildVersion).toMatch(/^stage9-local-/);
     console.log(`Stage9 API buildVersion: ${buildVersion}`);
 
     await page.getByRole("link", { name: "Новая конференция" }).click();

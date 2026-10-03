@@ -4,7 +4,7 @@ test.skip(
   "requires the isolated Stage 2 Go harness",
 );
 test("two browsers: presence, two tabs and reconnect without opening camera or microphone", /**
- * Проверка: two browsers: presence, two tabs and reconnect without opening camera or microphone выполняет тестовый сценарий «two browsers: presence, two tabs and reconnect without opening camera or microphone» и проверяет ожидаемые результаты.
+ * Проверяет присутствие, две вкладки и переподключение двух браузеров без запуска камеры и микрофона.
  *
  * @args
  *   - объект параметров: browser — браузер Playwright с отдельными тестовыми контекстами.
@@ -37,7 +37,7 @@ test("two browsers: presence, two tabs and reconnect without opening camera or m
     );
     await expect(bobPresence).toContainText("Онлайн · подключений: 1");
     const b2 = await bob.newPage();
-    // Auth is deliberately per tab. A second login obtains its own valid JWT.
+    // Авторизация раздельна для каждой вкладки. Второй вход получает собственный действующий JWT.
     await b2.goto(`${base}/login`);
     await b2.getByLabel("Email").fill("member@stage2.example");
     await b2
@@ -60,7 +60,7 @@ test("two browsers: presence, two tabs and reconnect without opening camera or m
     await expect(a.getByTestId("media-status")).toHaveText(
       "Камера и микрофон выключены",
     );
-    // Test never grants media permissions or clicks the explicit media start action.
+    // Тест не предоставляет разрешений на медиа и не нажимает кнопку запуска захвата.
     await b.close();
     await expect(bobPresence).toContainText("Не в сети");
   } finally {

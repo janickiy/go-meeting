@@ -13,7 +13,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/operations"
 )
 
-// hostname возвращает идентичность экземпляра для логов, не для metric labels.
+// hostname возвращает идентичность экземпляра для журналов, а не меток метрик.
 // Аргументов нет; при отсутствии hostname используется фиксированное имя.
 func hostname() string {
 	value, err := os.Hostname()

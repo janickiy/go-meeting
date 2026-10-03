@@ -8,12 +8,12 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 )
 
-// AdminChecker reads the current persisted global capability for an authenticated user.
+// AdminChecker читает текущие сохранённые глобальные полномочия авторизованного пользователя.
 type AdminChecker interface {
 	IsAdmin(context.Context, string) (bool, error)
 }
 
-// RequireAdmin checks the database on every request; conference roles and stale JWTs cannot grant access.
+// RequireAdmin проверяет БД при каждом запросе; роли конференции и устаревшие JWT не предоставляют доступ.
 func RequireAdmin(checker AdminChecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if checker == nil || UserID(c) == "" {

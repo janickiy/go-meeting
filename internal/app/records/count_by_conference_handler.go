@@ -10,7 +10,7 @@ import (
 
 // CountByConference возвращает количество записей и краткие карточки записей для переданных conferenceId.
 // @args
-// - c: Gin context HTTP-запроса.
+// - c: контекст HTTP-запроса Gin.
 // Query-параметры:
 // - conferenceIds[] или conferenceIds: один или несколько UUID конференций.
 // - status: optional фильтр по статусу записи.

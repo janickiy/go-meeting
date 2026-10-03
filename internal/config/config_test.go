@@ -6,7 +6,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// TestRabbitMQURL проверяет сценарий «Rabbit MQURL», фиксируя ошибки поведения как регрессию.
+// TestRabbitMQURL проверяет формирование адреса RabbitMQ.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -66,7 +66,7 @@ func TestRabbitMQURL(t *testing.T) {
 	}
 }
 
-// TestRabbitMQURLExplicitDSN проверяет сценарий «Rabbit MQURL Explicit DSN», фиксируя ошибки поведения как регрессию.
+// TestRabbitMQURLExplicitDSN проверяет явно заданную строку подключения RabbitMQ.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

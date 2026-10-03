@@ -34,7 +34,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [recovery, setRecovery] = useState(false);
   const submitted = useRef(false);
-  // Do not interrupt the registration success transition after automatic login.
+  // Автоматический вход не должен прерывать переход на страницу успешной регистрации.
   if (auth.user && !auth.loading && !submitted.current)
     return <Navigate to={next} replace />;
   /**
@@ -76,7 +76,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
         try {
           await auth.login(email.trim(), password);
         } catch {
-          /* Registration succeeded; the success page will offer login if needed. */
+          /* Регистрация успешна; страница результата при необходимости предложит войти. */
         }
         setPassword("");
         navigate(`/register/success${nextQuery}`, { replace: true });

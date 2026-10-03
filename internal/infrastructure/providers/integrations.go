@@ -69,7 +69,7 @@ type gateway struct {
 	client   *http.Client
 }
 
-// newGateway проверяет фиксированный endpoint и запрещает redirect, способный раскрыть provider secret.
+// newGateway проверяет фиксированный адрес и запрещает перенаправление, способное раскрыть секрет провайдера.
 // @args cfg — режим, endpoint, секрет, timeout и явное разрешение HTTP для тестового окружения.
 // @return: настроенный gateway либо ошибка конфигурации.
 func newGateway(cfg AdapterConfig) (*gateway, error) {
@@ -99,7 +99,7 @@ func newGateway(cfg AdapterConfig) (*gateway, error) {
 	return g, nil
 }
 
-// call отправляет только заранее определённую операцию с idempotency key; response и error body ограничены.
+// call отправляет только заданную операцию с ключом идемпотентности; ответ и тело ошибки ограничены.
 // @args ctx — отмена; operation — доверенная операция; key — стабильный ключ; input/output — JSON запрос и результат.
 // @return: классифицированная ошибка, не включающая response body или credentials.
 func (g *gateway) call(ctx context.Context, operation, key string, input, output any) error {
@@ -150,11 +150,11 @@ func (g *gateway) call(ctx context.Context, operation, key string, input, output
 	return nil
 }
 
-// EmailAdapter реализует EmailProvider через server gateway или явно обозначенный mock/noop.
+// EmailAdapter реализует EmailProvider через серверный шлюз или явно обозначенные подставной и отключённый режимы.
 type EmailAdapter struct{ gateway *gateway }
 
-// Send доставляет одно письмо с provider-side идемпотентностью.
-// @args ctx — отмена; message — минимальное escaped письмо и ключ доставки.
+// Send доставляет письмо с идемпотентностью на стороне провайдера.
+// @args ctx — отмена; message — минимальное письмо с экранированием и ключ доставки.
 // @return: ошибка провайдера либо ErrSkip при noop.
 func (a *EmailAdapter) Send(ctx context.Context, message d.EmailMessage) error {
 	return a.gateway.call(ctx, "email/send", message.IdempotencyKey, message, nil)
@@ -170,7 +170,7 @@ func (a *PushAdapter) Send(ctx context.Context, message d.PushMessage) error {
 	return a.gateway.call(ctx, "push/send", message.IdempotencyKey, message, nil)
 }
 
-// CalendarAdapter поддерживает постоянный external event id и операции lifecycle через gateway.
+// CalendarAdapter сохраняет постоянный ID внешнего события и выполняет операции его жизненного цикла через шлюз.
 type CalendarAdapter struct{ gateway *gateway }
 
 // calendarInput сериализует credentials только в защищённый запрос доверенного gateway, не в API/logs.
@@ -179,7 +179,7 @@ type calendarInput struct {
 	AccessToken string          `json:"accessToken"`
 }
 
-// invoke выполняет calendar operation; mock получает детерминированный id, одинаковый при повторе create.
+// invoke выполняет операцию календаря; подставной режим возвращает одинаковый детерминированный ID при повторном создании.
 // @args ctx — отмена; operation — фиксированная операция; credentials — серверный токен; event — vendor-neutral event.
 // @return: безопасный event либо классифицированная ошибка.
 func (a *CalendarAdapter) invoke(ctx context.Context, operation string, credentials d.CalendarCredentials, event d.CalendarEvent) (d.CalendarEvent, error) {
@@ -201,7 +201,7 @@ func (a *CalendarAdapter) invoke(ctx context.Context, operation string, credenti
 	return out, nil
 }
 
-// CreateEvent создаёт event, требуя от адаптера сохранения idempotency key.
+// CreateEvent создаёт событие, требуя от адаптера сохранения ключа идемпотентности.
 // @args ctx — отмена; credentials — OAuth разрешение; event — расписание и стабильный ключ.
 // @return: сохранённый внешний event либо ошибка.
 func (a *CalendarAdapter) CreateEvent(ctx context.Context, c d.CalendarCredentials, e d.CalendarEvent) (d.CalendarEvent, error) {
@@ -215,7 +215,7 @@ func (a *CalendarAdapter) UpdateEvent(ctx context.Context, c d.CalendarCredentia
 	return a.invoke(ctx, "update", c, e)
 }
 
-// CancelEvent отменяет event с тем же idempotency key.
+// CancelEvent отменяет событие с тем же ключом идемпотентности.
 // @args ctx — отмена; c — OAuth разрешение; e — существующий event.
 // @return: ошибка отмены либо nil.
 func (a *CalendarAdapter) CancelEvent(ctx context.Context, c d.CalendarCredentials, e d.CalendarEvent) error {
@@ -225,7 +225,7 @@ func (a *CalendarAdapter) CancelEvent(ctx context.Context, c d.CalendarCredentia
 	return a.gateway.call(ctx, "calendar/cancel", e.IdempotencyKey+":cancel", calendarInput{e, c.AccessToken}, nil)
 }
 
-// GetEvent читает event для диагностики или восстановления mapping.
+// GetEvent читает событие для диагностики или восстановления соответствия внешнего ресурса.
 // @args ctx — отмена; c — OAuth разрешение; e — внешний идентификатор.
 // @return: актуальный event либо ошибка.
 func (a *CalendarAdapter) GetEvent(ctx context.Context, c d.CalendarCredentials, e d.CalendarEvent) (d.CalendarEvent, error) {

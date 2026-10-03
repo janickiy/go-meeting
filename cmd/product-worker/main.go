@@ -7,7 +7,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/app"
 )
 
-// main запускает только фоновые продуктовые задания; ошибка не выводит configuration secrets.
+// main запускает только фоновые продуктовые задания; ошибки не раскрывают секреты конфигурации.
 func main() {
 	if app.RunProductWorker() != nil {
 		slog.Error("product worker stopped", "event_type", "product.bootstrap.failed")

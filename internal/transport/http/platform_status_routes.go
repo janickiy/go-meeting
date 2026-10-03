@@ -6,7 +6,7 @@ import (
 	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 )
 
-// RegisterPlatformStatusRoutes exposes an authenticated capability view and admin-only aggregates.
+// RegisterPlatformStatusRoutes открывает авторизованный просмотр возможностей и агрегаты только для администратора.
 func RegisterPlatformStatusRoutes(router gin.IRouter, handler *platformapp.Handler, auth gin.HandlerFunc, checker middleware.AdminChecker) {
 	private := func(c *gin.Context) {
 		c.Header("Cache-Control", "private, no-store")

@@ -10,7 +10,7 @@ import (
 	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
 )
 
-// TestStageNineAdminRepository uses an isolated PostgreSQL database and repeated migrations.
+// TestStageNineAdminRepository проверяет повторные миграции на изолированной базе PostgreSQL.
 func TestStageNineAdminRepository(t *testing.T) {
 	db := stageOneDatabase(t)
 	ctx := context.Background()

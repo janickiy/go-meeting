@@ -63,8 +63,8 @@ type Engagement struct {
 	hub          *Hub
 }
 
-// SetHandObserver подключает bounded запись технического счётчика успешных поднятий руки.
-// @args observer — функция сохранения агрегата, не влияющая на права или Redis state.
+// SetHandObserver подключает ограниченную по времени запись технического счётчика успешных поднятий руки.
+// @args observer — функция сохранения агрегата, не влияющая на права или состояние Redis.
 func (s *Engagement) SetHandObserver(observer func(context.Context, string, domain.Hand) error) {
 	s.handObserver = observer
 }
@@ -119,7 +119,7 @@ func (s *Engagement) authorized(ctx context.Context, conferenceID, userID string
 	if status != conferences.Active {
 		return actor, nil, apperrors.New(apperrors.ErrConflict, "conference is not active")
 	}
-	// Recheck from the newest snapshot; Authorize may have raced a kick.
+	// Повторно проверяем свежий снимок: вызов Authorize мог совпасть с удалением участника.
 	for _, p := range roster {
 		if p.ID == actor.ID && p.CanParticipate() {
 			return p, roster, nil

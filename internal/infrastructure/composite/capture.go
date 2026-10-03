@@ -124,9 +124,9 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 	closeChunk := func(end int64, final bool) error {
 		chunk := Chunk{Index: index, Mode: options.Mode, StartedAtNS: epoch, Duration: float64(end-epoch) / 1e9, Sources: []Source{}}
 		var closeErr error
-		// A live browser video source may send no packets for a whole chunk
-		// (for example a static screen). Carry its last decodable GOP forward;
-		// absence of a fresh packet does not mean that the source has ended.
+		// Действующий источник видео браузера может не передавать пакеты в течение целого сегмента
+		// (например, при статичном экране). Сохраняем последнюю декодируемую группу кадров;
+		// отсутствие свежего пакета не означает завершение источника.
 		for id, track := range active {
 			if track.Kind != media.KindVideo || writers[id] != nil || states[id] == nil {
 				continue
@@ -140,8 +140,8 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 		}
 		for id, writer := range writers {
 			_, stillActive := active[id]
-			// Release the last complete sparse video frame after the jitter
-			// window; SampleBuilder normally waits for the next RTP timestamp.
+			// Передаём последний полный кадр редко обновляемого видео после окна компенсации
+			// джиттера; SampleBuilder обычно ждёт следующую временную отметку RTP.
 			quietVideo := writer.track.Kind == media.KindVideo && end-writer.state.lastPacketAt >= int64(200*time.Millisecond)
 			if err := writer.closeChunk(final || !stillActive || quietVideo); err != nil {
 				closeErr = errors.Join(closeErr, err)
@@ -202,9 +202,9 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 		epoch = end
 		return nil
 	}
-	// Decode ahead into a bounded queue. Closing an HTTP request at stop must
-	// not discard frames already received while a source file was being closed.
-	// This queue is recording-only and never puts disk I/O on the SFU path.
+	// Читаем и декодируем вперёд в ограниченную очередь. Закрытие HTTP-запроса при остановке
+	// не должно отбрасывать кадры, полученные во время закрытия файла источника.
+	// Эта очередь служит только записи; дисковый ввод-вывод не выполняется в пути SFU.
 	readCtx, stopReading := context.WithCancel(workCtx)
 	defer stopReading()
 	frames := make(chan media.EgressFrame, 512)
@@ -223,7 +223,7 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 			if json.Unmarshal(scanner.Bytes(), &frame) != nil {
 				if captureCtx.Err() != nil {
 					return
-				} // stop may cut one HTTP frame
+				} // остановка может оборвать один HTTP-кадр
 				readErr = fmt.Errorf("invalid egress frame")
 				return
 			}
@@ -266,8 +266,8 @@ readLoop:
 			last = epoch
 			continue
 		}
-		// Concurrent SFU publishers may stamp just before acquiring the stream
-		// mutex. Clamp tiny arrival inversions to the ordered stream clock.
+		// Параллельные издатели SFU могут поставить время до захвата блокировки потока.
+		// Выравниваем небольшие нарушения порядка поступления по часам упорядоченного потока.
 		if frame.CapturedAt < last {
 			frame.CapturedAt = last
 		}
@@ -327,9 +327,9 @@ readLoop:
 			}
 			writer := writers[track.ID]
 			if writer == nil {
-				// Ended tracks can retain a writer until this chunk closes. Count
-				// those buffers too, so rapid device replacement cannot bypass
-				// the active-track limit and allocate unlimited SampleBuilders.
+				// Завершённые дорожки могут сохранять обработчик записи до закрытия сегмента. Учитываем
+				// также эти буферы, чтобы быстрая смена устройств не обходила предел активных дорожек
+				// и не создавала неограниченное число SampleBuilder.
 				if states[track.ID] == nil && len(states) >= options.MaxTracks {
 					captureErr = fmt.Errorf("recording retained track limit reached")
 					break readLoop
@@ -359,8 +359,8 @@ readLoop:
 		case "track.end":
 			track, exists := active[frame.TrackID]
 			if exists && track.Kind == media.KindVideo && writers[frame.TrackID] == nil && states[frame.TrackID] != nil {
-				// Preserve a quiet source up to its explicit end, not merely up
-				// to the last packet received in a previous segment.
+				// Сохраняем тихий источник до его явного завершения, а не только до последнего
+				// пакета, принятого в предыдущем сегменте.
 				writer, err := newSourceWriterState(dir, index, track, states[frame.TrackID])
 				if err != nil {
 					captureErr = err
@@ -372,8 +372,8 @@ readLoop:
 				writer.endedAt = frame.CapturedAt
 			}
 			delete(active, frame.TrackID)
-			// A quiet track may end after its previous writer was closed. It
-			// has no pending current chunk to retain its pre-roll state for.
+			// Тихая дорожка может завершиться после закрытия прежнего обработчика записи.
+			// В таком случае текущий сегмент не содержит данных, ради которых нужен сохранённый начальный кадр.
 			if writers[frame.TrackID] == nil {
 				delete(states, frame.TrackID)
 			}
@@ -534,9 +534,9 @@ func newSourceWriterState(dir string, index int, track media.EgressTrack, state 
 			return nil, err
 		}
 	}
-	// Repeating encoded pre-roll is cheap and avoids waiting for a new keyframe
-	// (or losing Opus decoder pre-skip) at every layout boundary. Negative source
-	// offsets are trimmed/aligned by the independent compositor.
+	// Повторное использование начальных закодированных данных исключает ожидание ключевого кадра
+	// и потерю состояния пропуска начальных отсчётов Opus при смене раскладки. Отрицательные
+	// смещения обрезаются и выравниваются независимым процессом композиции.
 	for _, sample := range w.state.preroll {
 		if err := w.writeSample(sample); err != nil {
 			if w.file != nil {
@@ -686,9 +686,9 @@ func (w *sourceWriter) closeChunk(final bool) error {
 		count := make([]byte, 4)
 		binary.LittleEndian.PutUint32(count, w.samples)
 		_, countErr := w.file.WriteAt(count, 24)
-		// Keep disk synchronisation off the ingest loop: the compositor flushes
-		// closed source files before consuming them. macOS fsync can otherwise
-		// stall packet reads long enough to discard a stop-time tail.
+		// Синхронизация диска вынесена из цикла приёма: процесс композиции синхронизирует
+		// закрытые файлы источников перед чтением. Иначе fsync в macOS может задержать
+		// чтение пакетов настолько, что будет потерян хвост записи при остановке.
 		err = errors.Join(err, countErr, w.file.Close())
 	}
 	return err

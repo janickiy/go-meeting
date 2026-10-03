@@ -18,8 +18,8 @@ func TestStageFourBrowserControls(t *testing.T) {
 		t.Skip("set RECORDER_STAGE4_BROWSER_E2E=true with PostgreSQL/Redis test settings")
 	}
 	f := stageTwo(t)
-	// Use production signaling limits: a browser must not burst one ICE
-	// transport per preallocated receiver and disconnect before media starts.
+	// Используем рабочие ограничения сигнализации: браузер не должен создавать всплеск ICE-транспортов
+	// для каждого заранее выделенного приёмника и отключаться до начала передачи медиа.
 	f.config.MessagesPerSecond = 20
 	f.config.Burst = 40
 	engine, _ := startMediaWithLimits(t, f, 4, 2, 2)

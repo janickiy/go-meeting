@@ -18,7 +18,7 @@ type JobRepository struct{ db *gorm.DB }
 func NewJobRepository(db *gorm.DB) *JobRepository { return &JobRepository{db: db} }
 
 // Claim атомарно получает одно задание, не ожидая блокировок другого работника.
-// Последний просроченный захват разрешён для фиксации terminal failure, но не вызова провайдера.
+// Последний просроченный захват допускает фиксацию окончательного отказа, но не вызов провайдера.
 // @args ctx — предел SQL; kind — фиксированная категория; lease — срок владения.
 // @return задание, признак наличия работы и ошибка базы.
 func (r *JobRepository) Claim(ctx context.Context, kind string, lease time.Duration) (jobs.Job, bool, error) {
@@ -31,7 +31,7 @@ func (r *JobRepository) Claim(ctx context.Context, kind string, lease time.Durat
 	return job, result.RowsAffected != 0, result.Error
 }
 
-// Finish фиксирует результат с fencing-проверкой UUID аренды и её срока.
+// Finish фиксирует результат с проверкой актуальности UUID аренды и её срока.
 // @args ctx — срок записи; job — захваченная версия; state/code — безопасный исход;
 // retryAt — время следующей попытки либо nil для окончательного завершения.
 // @return ошибка SQL или ErrLeaseLost, если владение уже прекратилось.

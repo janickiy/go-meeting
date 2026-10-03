@@ -9,7 +9,7 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
-// TestOutOfOrderHandEventsUseCurrentState проверяет сценарий «Out Of Order рука события Use текущий состояние», фиксируя ошибки поведения как регрессию.
+// TestOutOfOrderHandEventsUseCurrentState проверяет использование текущего состояния при нарушении порядка событий поднятия руки.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -31,7 +31,7 @@ func TestOutOfOrderHandEventsUseCurrentState(t *testing.T) {
 	}
 }
 
-// TestStateVisibilityIsPerRecipient проверяет сценарий «состояние Visibility является Per Recipient», фиксируя ошибки поведения как регрессию.
+// TestStateVisibilityIsPerRecipient проверяет индивидуальную видимость состояния для каждого получателя.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

@@ -18,7 +18,7 @@ type Registry interface {
 	GetOwner(context.Context, string) (media.Route, error)
 }
 
-// Tap открывает отдельный HTTP stream без проксирования медиа через API/RabbitMQ.
+// Tap открывает отдельный HTTP-поток без проксирования медиа через API и RabbitMQ.
 type Tap struct {
 	Registry Registry
 	Secret   string

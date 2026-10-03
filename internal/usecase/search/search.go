@@ -1,4 +1,4 @@
-// Package search координирует ограниченную индексацию и поиск с проверкой прав в repository.
+// Пакет search координирует ограниченную индексацию и поиск с проверкой прав в репозитории.
 package search
 
 import (
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-// Repository сохраняет результаты только с актуальными lease/generation и фильтрует доступ внутри SQL.
+// Repository сохраняет результаты только с актуальными арендой и поколением и фильтрует доступ внутри SQL.
 type Repository interface {
 	Available(context.Context) (bool, error)
 	Source(context.Context, jobs.Job) (content.Transcript, []content.Segment, error)
@@ -29,7 +29,7 @@ type Repository interface {
 	Search(context.Context, string, content.SearchQuery, string, []float32) (content.SearchPage, error)
 }
 
-// Service разделяет обработчик durable jobs и ограниченное векторизование пользовательского запроса.
+// Service разделяет обработку постоянных заданий и ограниченное векторизование поискового запроса.
 type Service struct {
 	Repo       Repository
 	Provider   domain.EmbeddingProvider
@@ -37,7 +37,7 @@ type Service struct {
 	querySlots chan struct{}
 }
 
-// New создаёт сценарий с конечным числом одновременных query embeddings.
+// New ограничивает число одновременных вычислений векторов поисковых запросов.
 // @args repo — SQL; provider — внешний adapter; cfg — лимиты и идентичность модели.
 // @return сервис, не выполняющий сеть при создании.
 func New(repo Repository, provider domain.EmbeddingProvider, cfg config.StageEightConfig) *Service {
@@ -52,7 +52,7 @@ func ModelKey(cfg config.StageEightConfig) string {
 	return Hash(string(raw))
 }
 
-// Hash вычисляет content identity без включения исходного текста в jobs/логи.
+// Hash вычисляет идентичность содержимого без включения исходного текста в задания и журналы.
 // @args text — ограниченный UTF-8 фрагмент.
 // @return hex SHA-256.
 func Hash(text string) string { sum := sha256.Sum256([]byte(text)); return hex.EncodeToString(sum[:]) }
@@ -84,7 +84,7 @@ func Chunks(transcript content.Transcript, segments []content.Segment, cfg confi
 }
 
 // ValidVectors отклоняет неверный batch, NaN/Infinity и нулевые векторы до pgvector.
-// @args vectors — непроверенный output; count,dimensions — ожидаемая форма.
+// @args vectors — непроверенный результат; count,dimensions — ожидаемая форма.
 // @return true при корректном конечном результате.
 func ValidVectors(vectors [][]float32, count, dimensions int) bool {
 	if len(vectors) != count {
@@ -108,9 +108,9 @@ func ValidVectors(vectors [][]float32, count, dimensions int) bool {
 	return true
 }
 
-// Handle переиспользует content-hash cache и обрабатывает bounded batches вне recording lifecycle.
-// @args ctx — deadline leased job; job — transcript generation и токен.
-// @return ошибка провайдера/fencing либо успешная атомарная публикация индекса.
+// Handle переиспользует кеш хешей содержимого и обрабатывает ограниченные порции вне жизненного цикла записи.
+// @args ctx — срок выполнения арендованного задания; job — поколение расшифровки и токен.
+// @return ошибка провайдера, потеря актуальности аренды либо успешная атомарная публикация индекса.
 func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 	started := time.Now()
 	defer func() { operations.Observe("embedding", time.Since(started).Seconds()) }()
@@ -172,14 +172,14 @@ func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 }
 
 // FailJob фиксирует только безопасный код отказа индекса, не меняя расшифровку.
-// @args ctx — deadline; job — lease; code — классификация.
+// @args ctx — срок выполнения; job — аренда; code — классификация.
 // @return ошибка SQL.
 func (s *Service) FailJob(ctx context.Context, job jobs.Job, code string) error {
 	return s.Repo.Fail(ctx, job, s.Config, code)
 }
 
 // Search векторизует только поисковый запрос; при недоступности использует тот же авторизованный FTS.
-// @args ctx — HTTP deadline; user — актор; query — уже проверенные фильтры.
+// @args ctx — срок выполнения HTTP-запроса; user — действующий пользователь; query — уже проверенные фильтры.
 // @return результаты с явным effectiveMode/fallbackReason.
 func (s *Service) Search(ctx context.Context, user string, query content.SearchQuery) (content.SearchPage, error) {
 	started := time.Now()

@@ -73,8 +73,8 @@ func (m *Manager) SetPolicy(ctx context.Context, conferenceID, participantID str
 		m.unpublish(t)
 	}
 	if policy.Kicked {
-		// Cancel every tab before any transport cleanup can wait on an event
-		// writer, preserving the same immediate fence as conference shutdown.
+		// Отменяем все вкладки до ожидания обработчика событий при очистке транспорта,
+		// сохраняя такое же немедленное прекращение доступа, как при завершении конференции.
 		m.mu.Lock()
 		detached := []*peer{}
 		for _, p := range peers {

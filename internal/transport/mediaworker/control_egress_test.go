@@ -56,7 +56,7 @@ func TestPolicyJoinOrderingAndCrossLeaseRejection(t *testing.T) {
 	f, engine := stageFourFixture(t)
 	f.cmd.Policy = &media.ParticipantPolicy{Version: 1}
 	id := f.join(t)
-	// Keep the room alive across the first participant's leave/rejoin.
+	// Сохраняем комнату активной при первом выходе и повторном присоединении участника.
 	other := f.cmd.Binding
 	other.ParticipantID = uuid.NewString()
 	other.ConnectionID = uuid.NewString()
@@ -83,7 +83,7 @@ func TestPolicyJoinOrderingAndCrossLeaseRejection(t *testing.T) {
 	if resumed := f.join(t); resumed == id {
 		t.Fatal("join did not recreate transport")
 	}
-	// A delayed version2 command cannot kick the restored version3 participant.
+	// Запоздалая команда версии 2 не может удалить восстановленного участника версии 3.
 	if status, _ := f.request("policy", policy, f.cfg.InternalSecret); status != 200 {
 		t.Fatal(status)
 	}
@@ -92,7 +92,7 @@ func TestPolicyJoinOrderingAndCrossLeaseRejection(t *testing.T) {
 	}
 }
 
-// TestEgressAuthenticationLeaseAndLongLivedWriteDeadline проверяет сценарий «выход медиа Authentication аренда и Long Lived запись данных Deadline», фиксируя ошибки поведения как регрессию.
+// TestEgressAuthenticationLeaseAndLongLivedWriteDeadline проверяет авторизацию выходного потока, аренду и срок длительной записи данных.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.

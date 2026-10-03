@@ -127,8 +127,8 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	api.expect(t, "POST", path+"/recordings", f.memberToken, nil, 403, nil)
 	api.expect(t, "POST", path+"/recordings", "", nil, 401, nil)
 
-	// The conference row lock + partial unique index allow one active recording
-	// even when requests arrive on different API instances concurrently.
+	// Блокировка строки конференции и частичный уникальный индекс разрешают только одну активную запись
+	// даже при одновременных запросах к разным экземплярам API.
 	var wg sync.WaitGroup
 	ids := make(chan string, 20)
 	failures := make(chan error, 20)
@@ -176,8 +176,8 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 		t.Fatalf("legacy captured platform conference: %v", err)
 	}
 
-	// Stop and finish share the same conference row lock; exactly one durable
-	// stop survives, and the original stop timestamp is not rewritten.
+	// Stop и завершение используют общую блокировку конференции; сохраняется ровно одна команда
+	// остановки, а исходная временная отметка не перезаписывается.
 	api.expect(t, "POST", path+"/recordings/"+recordID+"/stop", f.ownerToken, nil, 202, nil)
 	before, _ := recordRepo.FindByUUID(ctx, recordID)
 	api.expect(t, "POST", path+"/recordings/"+recordID+"/stop", f.ownerToken, nil, 202, nil)
@@ -196,7 +196,7 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	}
 }
 
-// TestStageFourKickSurvivesRejoinAndFailedEnforcement проверяет сценарий «этап четыре Kick Survives Rejoin и Failed Enforcement», фиксируя ошибки поведения как регрессию.
+// TestStageFourKickSurvivesRejoinAndFailedEnforcement проверяет сохранение удаления участника после повторного входа и сбоя применения.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -246,7 +246,7 @@ func TestStageFourKickSurvivesRejoinAndFailedEnforcement(t *testing.T) {
 	api.expect(t, "GET", path+"/"+record.UUID, f.ownerToken, nil, 200, nil)
 }
 
-// TestStageFourCoHostCannotChangeRolesOrCameraPolicy проверяет сценарий «этап четыре Co Host Cannot Change Roles Or Camera политика», фиксируя ошибки поведения как регрессию.
+// TestStageFourCoHostCannotChangeRolesOrCameraPolicy проверяет запрет соведущему менять роли и политику камеры.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -308,8 +308,8 @@ func TestStageFourDurableOutboxOrderingAndFencing(t *testing.T) {
 	if err != nil || stop.CommandType != "record.stop" {
 		t.Fatalf("claim stop %+v %v", stop, err)
 	}
-	// Simulate dispatcher crash after claiming but before publish. Another API
-	// recovers the command; the old token must not acknowledge its new claim.
+	// Имитируем сбой диспетчера после захвата команды до публикации. Другой экземпляр API
+	// восстанавливает команду; старый токен не может подтвердить новый захват.
 	if err = f.db.Table("recording_outbox").Where("id = ?", stop.ID).Update("claimed_until", time.Now().Add(-time.Second)).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestStageFourDurableOutboxOrderingAndFencing(t *testing.T) {
 	}
 }
 
-// TestStageFourStartVersusFinish проверяет сценарий «этап четыре запуск Versus Finish», фиксируя ошибки поведения как регрессию.
+// TestStageFourStartVersusFinish проверяет гонку запуска записи и завершения конференции.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -538,7 +538,7 @@ func TestStageFourSessionMediaStateIsOrderedAndAggregated(t *testing.T) {
 		}
 	}
 	check(update(first.state.ConnectionID, 1, true, false, false), true, false, false)
-	// An idle second tab must not clear media in the first tab.
+	// Неактивная вторая вкладка не должна сбрасывать состояние медиа первой.
 	check(update(second.state.ConnectionID, 1, false, false, false), true, false, false)
 	check(update(second.state.ConnectionID, 2, false, true, true), true, true, true)
 	check(update(first.state.ConnectionID, 2, false, false, false), false, true, true)
@@ -567,8 +567,8 @@ func TestStageFourSessionMediaStateIsOrderedAndAggregated(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// A later idle update recomputes every tab. Unblock must not resurrect the
-	// previously true per-session state that moderation cleared.
+	// Позднее неактивное обновление пересчитывает состояние всех вкладок. Снятие запрета не должно
+	// восстанавливать состояние отдельной сессии, сброшенное модерацией.
 	check(update(first.state.ConnectionID, 4, false, false, false), false, false, false)
 	check(update(first.state.ConnectionID, 5, true, false, false), true, false, false)
 	check(update(second.state.ConnectionID, 7, false, true, false), true, true, false)

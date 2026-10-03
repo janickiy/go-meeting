@@ -86,7 +86,7 @@ func stageTwo(t *testing.T) *stageTwoFixture {
 		t.Fatal("integration tests require local Redis")
 	}
 	f := &stageTwoFixture{db: stageOneDatabase(t)}
-	f.redis = goredis.NewClient(&goredis.Options{Addr: addr})
+	f.redis = goredis.NewClient(&goredis.Options{Addr: addr, Password: os.Getenv("RECORDER_STAGE2_TEST_REDIS_PASSWORD")})
 	if err := f.redis.Ping(context.Background()).Err(); err != nil {
 		t.Fatal(err)
 	}
@@ -147,8 +147,8 @@ func stageTwo(t *testing.T) *stageTwoFixture {
 			for _, server := range f.servers {
 				server.Close()
 			}
-			// Delete only this test's random namespace; never FLUSHDB or app keys.
-			cleanup := goredis.NewClient(&goredis.Options{Addr: addr})
+			// Удаляем только случайное пространство имён этого теста; FLUSHDB и ключи приложения запрещены.
+			cleanup := goredis.NewClient(&goredis.Options{Addr: addr, Password: os.Getenv("RECORDER_STAGE2_TEST_REDIS_PASSWORD")})
 			defer cleanup.Close()
 			keys, _ := cleanup.Keys(context.Background(), f.config.Namespace+":*").Result()
 			if len(keys) > 0 {
@@ -320,7 +320,7 @@ func presenceCount(e domain.Envelope, userID string, count int) bool {
 	return false
 }
 
-// TestStageTwoPresenceSignalingMultiInstance проверяет сценарий «этап два присутствие сигнализация Multi Instance», фиксируя ошибки поведения как регрессию.
+// TestStageTwoPresenceSignalingMultiInstance проверяет присутствие и сигнализацию между несколькими экземплярами API.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -447,7 +447,7 @@ func TestStageTwoPresenceSignalingMultiInstance(t *testing.T) {
 	}
 }
 
-// TestStageTwoBrokerFailureClosesSockets проверяет сценарий «этап два Broker сбой Closes Sockets», фиксируя ошибки поведения как регрессию.
+// TestStageTwoBrokerFailureClosesSockets проверяет закрытие сокетов при сбое брокера.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -455,8 +455,8 @@ func TestStageTwoBrokerFailureClosesSockets(t *testing.T) {
 	f := stageTwo(t)
 	a := f.connect(t, 0, f.ownerToken, f.conference.ID)
 	b := f.connect(t, 1, f.memberToken, f.conference.ID)
-	// Closing only this test's Redis client simulates a lost broker connection;
-	// the shared Redis service and user's application are left untouched.
+	// Закрытие только Redis-клиента теста имитирует потерю соединения с брокером;
+	// общий сервис Redis и приложение пользователя продолжают работать.
 	_ = f.redis.Close()
 	for _, s := range []*testSocket{a, b} {
 		select {
@@ -477,7 +477,7 @@ func TestStageTwoBrokerFailureClosesSockets(t *testing.T) {
 	}
 }
 
-// TestStageTwoJWTExpiryClosesLiveSession проверяет сценарий «этап два JWT истечение срока Closes Live сессия», фиксируя ошибки поведения как регрессию.
+// TestStageTwoJWTExpiryClosesLiveSession проверяет завершение активной сессии при истечении JWT.
 //
 // @args
 //   - t (*testing.T): контекст теста: сообщает об ошибках, управляет вспомогательными проверками и очисткой.
@@ -628,7 +628,7 @@ func TestStageTwoPayloadLimitsAndHistoryConstraints(t *testing.T) {
 			t.Fatalf("expected %s, got %s", step.code, data.Code)
 		}
 	}
-	// The database cannot accept a participant belonging to another identity.
+	// База не должна принимать участника, связанного с другой учётной записью.
 	now := time.Now().UTC()
 	invalid := domain.Session{ID: uuid.NewString(), ConnectionID: uuid.NewString(), ConferenceID: f.conference.ID, ParticipantID: a.state.ParticipantID, UserID: f.member.ID, Status: "connected", ConnectedAt: now, LastSeenAt: now}
 	if err := f.db.Create(&invalid).Error; err == nil {
@@ -639,7 +639,7 @@ func TestStageTwoPayloadLimitsAndHistoryConstraints(t *testing.T) {
 	if err := f.db.Create(&invalid).Error; err == nil {
 		t.Fatal("disconnected session without timestamp accepted")
 	}
-	// Simulate SQL commit immediately before a process dies, without Redis registration.
+	// Имитируем фиксацию SQL перед завершением процесса, без регистрации в Redis.
 	orphan := invalid
 	orphan.Status = "connected"
 	orphan.ID = uuid.NewString()
@@ -678,7 +678,7 @@ func TestStageTwoPayloadLimitsAndHistoryConstraints(t *testing.T) {
 func TestStageTwoDeadLeaseAndShutdown(t *testing.T) {
 	f := stageTwo(t)
 	a := f.connect(t, 0, f.ownerToken, f.conference.ID)
-	// No read loop means no native pong; server must expire it without client close.
+	// Без цикла чтения не отправляется автоматический pong; сервер завершает сессию без закрытия клиентом.
 	dead, _, err := ws.DefaultDialer.Dial("ws"+strings.TrimPrefix(f.servers[1].URL, "http")+"/api/v1/conferences/"+f.conference.ID+"/ws", http.Header{"Authorization": []string{"Bearer " + f.memberToken}})
 	if err != nil {
 		t.Fatal(err)
@@ -698,7 +698,7 @@ func TestStageTwoDeadLeaseAndShutdown(t *testing.T) {
 
 		@return:
 		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e domain.Envelope) bool { return presenceCount(e, f.member.ID, 0) })
-	// Emulate process crash: lease expires but no local socket calls Unregister.
+	// Имитируем сбой процесса: аренда истекает без вызова Unregister локальным сокетом.
 	now := time.Now().UTC()
 	ghost := domain.Session{ID: uuid.NewString(), ConferenceID: f.conference.ID, ParticipantID: a.state.ParticipantID, UserID: f.owner.ID, ConnectionID: uuid.NewString(), Status: "connected", ConnectedAt: now, LastSeenAt: now}
 	repo := pg.NewSessionRepository(f.db)
@@ -746,8 +746,8 @@ func TestStageTwoLoad100Connections(t *testing.T) {
 	f := stageTwo(t)
 	start := time.Now()
 	sockets := make([]*testSocket, 100)
-	// Connect sequentially but keep every socket open and draining; simultaneous
-	// means 100 live sockets, not 100 upgrade requests or media participants.
+	// Подключаем последовательно, сохраняя все сокеты открытыми и читая их данные; одновременность
+	// означает 100 работающих сокетов, а не 100 запросов upgrade или участников с медиа.
 	for i := range sockets {
 		sockets[i] = f.connect(t, i%2, f.ownerToken, f.conference.ID)
 	}
@@ -792,7 +792,7 @@ func TestStageTwoBrowserProof(t *testing.T) {
 		t.Skip("set RECORDER_FRONTEND_E2E=true for the two-browser DataChannel proof")
 	}
 	f := stageTwo(t)
-	// Browser lifecycle/ICE negotiation needs production-style heartbeat timing.
+	// Жизненный цикл браузера и согласование ICE требуют рабочих интервалов проверки связи.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	command := exec.CommandContext(ctx, "npm", "run", "test:e2e", "--", "e2e/realtime.spec.ts", "--workers=1")
