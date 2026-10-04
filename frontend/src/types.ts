@@ -138,6 +138,7 @@ export interface ModerationAction {
  * @params:
  *   - uuid — внешний UUID записи.
  *   - conferenceId — идентификатор конференции и области данных.
+ *   - requestedBy — идентификатор пользователя, запустившего запись; может отсутствовать у старых записей.
  *   - mode — режим записи конференции.
  *   - status — HTTP-статус либо состояние встречи.
  *   - createdAt — время создания.
@@ -150,10 +151,12 @@ export interface ModerationAction {
 export interface ConferenceRecording {
   uuid: string;
   conferenceId: string;
+  requestedBy?: string | null;
   mode: RecordingMode;
   status:
     | "starting"
     | "recording"
+    | "degraded"
     | "stopping"
     | "processing"
     | "ready"

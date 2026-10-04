@@ -48,6 +48,8 @@ func (r *ConferenceRecordingRepository) Start(ctx context.Context, userID, confe
 }
 
 // StartMode создаёт запись выбранной стратегии, сериализуя её с модерацией и завершением встречи.
+// Только допущенный владелец может начать запись. Любая незавершённая запись встречи,
+// включая подготовку и сохранение файлов, запрещает повторный старт во всех режимах.
 // @args ctx — срок выполнения; userID/conferenceID — актор и встреча; segmentDuration — секунды фрагмента; mode — серверная стратегия.
 // @return запись, признак создания и ошибка прав/состояния.
 func (r *ConferenceRecordingRepository) StartMode(ctx context.Context, userID, conferenceID string, segmentDuration int, mode string) (records.Record, bool, error) {
@@ -79,10 +81,7 @@ func (r *ConferenceRecordingRepository) StartMode(ctx context.Context, userID, c
 			}
 			err = tx.Where("platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus') AND status IN ?", conferenceID, activeRecordingStatuses()).Take(&record).Error
 			if err == nil {
-				if record.Mode != mode {
-					return apperrors.New(apperrors.ErrConflict, "another recording mode is active")
-				}
-				return nil
+				return apperrors.New(apperrors.ErrConflict, "recording is already active")
 			}
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err

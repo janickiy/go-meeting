@@ -432,10 +432,12 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     await owner
       .getByRole("button", { name: "Начать запись", exact: true })
       .click();
-    await owner
-      .getByRole("dialog", { name: "Записи конференции", exact: true })
-      .getByRole("button", { name: "Закрыть окно" })
-      .click();
+    await expect(
+      owner.getByRole("dialog", { name: "Записи конференции", exact: true }),
+    ).toBeHidden();
+    await expect(
+      owner.getByRole("button", { name: "Записи конференции", exact: true }),
+    ).toBeFocused();
     await expect(owner.getByTestId("recording-indicator")).toContainText(
       "Идёт запись",
     );
@@ -672,6 +674,7 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       .getByRole("button", { name: "Записи конференции", exact: true })
       .click();
     await owner
+      .getByRole("dialog", { name: "Записи конференции" })
       .getByRole("button", { name: "Остановить запись", exact: true })
       .click();
     /**
@@ -699,6 +702,18 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       .toBe("ready");
     const record = (await records()).items[0];
     summary.recordingId = record.uuid;
+    // Завершённая карточка приходит из защищённого API; диалог активной встречи остаётся только управлением.
+    const recordingDialog = owner.getByRole("dialog", {
+      name: "Записи конференции",
+      exact: true,
+    });
+    await expect(recordingDialog.locator(".recording-row")).toHaveCount(0);
+    await expect(
+      recordingDialog.getByTestId(`recording-${record.uuid}`),
+    ).toHaveCount(0);
+    await expect(
+      recordingDialog.getByRole("link", { name: "Скачать MP4", exact: true }),
+    ).toHaveCount(0);
     expect(
       record.files.some(
         /**

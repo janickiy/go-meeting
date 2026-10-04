@@ -57,6 +57,7 @@ vi.mock("../realtime", () => ({
   useRealtime: () => ({
     state: { connectionId: "connection", participants: [] },
     status: "Подключено",
+    subscribe: () => () => {},
   }),
 }));
 vi.mock("../useCapabilities", () => ({

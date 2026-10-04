@@ -21,10 +21,11 @@ import { api } from "../api";
 import { RealtimePanel } from "../components/RealtimePanel";
 import { ParticipantsPanel } from "../components/ParticipantsPanel";
 import { RecordingPanel } from "../components/RecordingPanel";
+import { RecordingNotice } from "../components/RecordingNotice";
 import { CaptionsPanel } from "../components/CaptionsPanel";
 import { AnalyticsPanel } from "../components/AnalyticsPanel";
 import { ConferenceCalendarStatus } from "../components/IntegrationsSettings";
-import type { ModerationAction } from "../types";
+import type { ConferenceRecording, Items, ModerationAction } from "../types";
 import { useAuth } from "../auth";
 import { useConference, useParticipants, useMembership } from "../queries";
 import { isAdmitted } from "../collaboration";
@@ -129,6 +130,44 @@ export function ConferencePage() {
     queryFn: ({ signal }) => api.recordings(id, signal),
     enabled: activeMeeting,
     refetchInterval: activeMeeting ? 3000 : false,
+  });
+  const stopRecording = useMutation({
+    /**
+     * Останавливает выбранную запись прямо из верхней панели, не открывая диалог.
+     * @args recordingId — UUID текущей записи этой конференции.
+     * @return Подтверждённая сервером карточка записи; отказ передаётся как ошибка.
+     */
+    mutationFn: (recordingId: string) => api.stopRecording(id, recordingId),
+    /**
+     * Сразу отражает подтверждённое состояние остановки в общем кеше панели и диалога.
+     * @args response — серверный ответ с обновлённой карточкой записи.
+     */
+    onSuccess: (response) => {
+      client.setQueryData<Items<ConferenceRecording>>(
+        ["recordings", id],
+        /**
+         * Обновляет только остановленную запись, сохраняя остальные элементы списка.
+         * @args cached — текущий ответ списка записей либо отсутствие загруженных данных.
+         * @return Список с обновлённой карточкой; отсутствующий кеш не создаётся.
+         */
+        (cached) =>
+          cached && {
+            ...cached,
+            items: cached.items.map(
+              /**
+               * Подставляет подтверждённую карточку по UUID, не затрагивая другие записи.
+               * @args item — текущая карточка списка.
+               * @return Серверная карточка остановленной записи либо прежний элемент.
+               */ (item) =>
+                item.uuid === response.item.uuid ? response.item : item,
+            ),
+          },
+      );
+    },
+    /** После ответа или ошибки повторно сверяет записи с сервером. */
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ["recordings", id] });
+    },
   });
   useEffect(() => {
     if (!captionsEnabled && stagePanel === "captions") setStagePanel("chat");
@@ -273,9 +312,20 @@ export function ConferencePage() {
     kicked: "Исключён",
   };
   if (activeMeeting && membership) {
-    const activeRecording = recordingStatus.data?.items.find((item) =>
-      ["starting", "recording", "stopping"].includes(item.status),
-    );
+    const activeRecording = !recordingStatus.isError
+      ? recordingStatus.data?.items.find(
+          /**
+           * Исключает чужую конференцию и уже завершённую обработку из действий остановки.
+           * @args item — карточка записи из подтверждённого списка конференции.
+           * @return Признак незавершённой записи именно этой встречи.
+           */
+          (item) =>
+            item.conferenceId === conference.id &&
+            ["starting", "recording", "degraded", "stopping"].includes(
+              item.status,
+            ),
+        )
+      : undefined;
     const recordingLabel =
       activeRecording?.status === "starting"
         ? "Запись запускается"
@@ -314,6 +364,40 @@ export function ConferencePage() {
               {recordingLabel}
             </span>
           )}
+          {activeRecording && owner && membership.role === "owner" && (
+            <button
+              type="button"
+              className="room-header-action room-header-stop-recording"
+              aria-label="Остановить запись"
+              aria-busy={stopRecording.isPending || undefined}
+              title={
+                stopRecording.isPending || activeRecording.status === "stopping"
+                  ? "Запись останавливается"
+                  : "Остановить запись"
+              }
+              disabled={
+                stopRecording.isPending || activeRecording.status === "stopping"
+              }
+              onClick={
+                /** Запрашивает остановку один раз; повторные нажатия и уже начатая остановка игнорируются. */
+                () => {
+                  if (
+                    !stopRecording.isPending &&
+                    activeRecording.status !== "stopping"
+                  )
+                    stopRecording.mutate(activeRecording.uuid);
+                }
+              }
+            >
+              <Square size={17} fill="currentColor" aria-hidden="true" />
+              <span>
+                {stopRecording.isPending ||
+                activeRecording.status === "stopping"
+                  ? "Останавливаем…"
+                  : "Остановить запись"}
+              </span>
+            </button>
+          )}
           <button
             className="room-header-action"
             onClick={() => setUtility("recording")}
@@ -336,9 +420,31 @@ export function ConferencePage() {
             {initials(membership.displayName)}
           </span>
         </header>
+        <RecordingNotice
+          conferenceId={id}
+          ownerId={conference.ownerId}
+          userId={user?.id}
+          participants={
+            people.some((person) => person.id === membership.id)
+              ? people
+              : [...people, membership]
+          }
+          recordings={
+            recordingStatus.isSuccess && !recordingStatus.isError
+              ? recordingStatus.data.items
+              : undefined
+          }
+          subscribe={live.subscribe}
+        />
         <div className="room-errors">
           <ErrorNotice
-            error={mutation.error || moderation.error || self.error}
+            error={
+              stopRecording.error ||
+              recordingStatus.error ||
+              mutation.error ||
+              moderation.error ||
+              self.error
+            }
           />
         </div>
         <section className="conference-stage" aria-label="Активная встреча">
@@ -554,7 +660,12 @@ export function ConferencePage() {
             onClose={() => setUtility(null)}
           >
             {utility === "recording" ? (
-              <RecordingPanel conference={conference} membership={membership} />
+              <RecordingPanel
+                conference={conference}
+                membership={membership}
+                showHistory={false}
+                onStarted={() => setUtility(null)}
+              />
             ) : (
               <>
                 <p className="modal-description">

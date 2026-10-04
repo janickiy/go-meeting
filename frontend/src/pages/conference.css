@@ -53,8 +53,22 @@
   font-size: 12px;
   cursor: pointer;
 }
-.room-header-action:hover {
+.room-header-action:hover:not(:disabled) {
   background: var(--room-surface-raised);
+}
+.room-header-action:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+/* Остановка доступна организатору прямо в верхней панели, отдельно от истории записей. */
+.room-header-stop-recording {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 60%, var(--room-border));
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.room-header-stop-recording:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, var(--room-surface));
 }
 .room-self-avatar {
   background: var(--room-surface-raised);

@@ -603,10 +603,12 @@ test("новая сборка с настоящими SFU, чатом, прив�
     await owner
       .getByRole("button", { name: "Начать запись", exact: true })
       .click();
-    await owner
-      .getByRole("dialog", { name: "Записи конференции" })
-      .getByRole("button", { name: "Закрыть окно" })
-      .click();
+    await expect(
+      owner.getByRole("dialog", { name: "Записи конференции" }),
+    ).toBeHidden();
+    await expect(
+      owner.getByRole("button", { name: "Записи конференции", exact: true }),
+    ).toBeFocused();
     await expect(member.getByTestId("recording-indicator")).toContainText(
       "Идёт запись",
       { timeout: 30_000 },
@@ -620,6 +622,7 @@ test("новая сборка с настоящими SFU, чатом, прив�
       .getByRole("button", { name: "Записи конференции", exact: true })
       .click();
     await owner
+      .getByRole("dialog", { name: "Записи конференции" })
       .getByRole("button", { name: "Остановить запись", exact: true })
       .click();
     await expect
@@ -638,9 +641,36 @@ test("новая сборка с настоящими SFU, чатом, прив�
         { timeout: 90_000, intervals: [1000, 2000] },
       )
       .toBe("ready");
+    const readyRecording = await api<{
+      item: {
+        uuid: string;
+        status: string;
+        files: { fileType: string; url?: string }[];
+      };
+    }>(
+      request,
+      `/conferences/${conferenceId}/recordings/${recordingId}`,
+      actors[0],
+    );
+    expect(readyRecording.item.uuid).toBe(recordingId);
+    expect(readyRecording.item.status).toBe("ready");
+    expect(
+      readyRecording.item.files.find(
+        /** Выбирает MP4 только из авторизованной карточки этой записи. */
+        (file) => file.fileType === "final_mp4",
+      )?.url,
+    ).toBeTruthy();
+    // Диалог активной встречи содержит управление, а готовые файлы проверяются через API и историю ниже.
+    const recordingDialog = owner.getByRole("dialog", {
+      name: "Записи конференции",
+    });
+    await expect(recordingDialog.locator(".recording-row")).toHaveCount(0);
     await expect(
-      owner.getByRole("link", { name: "Скачать MP4", exact: true }),
-    ).toBeVisible();
+      recordingDialog.getByTestId(`recording-${recordingId}`),
+    ).toHaveCount(0);
+    await expect(
+      recordingDialog.getByRole("link", { name: "Скачать MP4", exact: true }),
+    ).toHaveCount(0);
     checks.push("recording-start-stop-ready");
     await owner
       .getByRole("dialog", { name: "Записи конференции" })

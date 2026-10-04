@@ -378,6 +378,64 @@ SHA-256 `8ff6f8600d94345eb94ee524563775183179edfd2dfbdd703c6dde776aec4021`
 подтверждённые потоки и перечисленные сценарии завершились успешно. Подробные результаты:
 `tmp/presence-release-20261003/evidence/verification.json`.
 
+## Раздел записей и автоматическое закрытие окна запуска
+
+Компонентный выпуск `v1.0.0-meeting.20261004-recordings.1` установлен в прежнем
+закрытом `recorder-staging-meeting`. UI использует snapshot
+`b0ba244d1c962878abd0613c09a12be14ab34f9b`, API остаётся на `.3-presence.1`
+и commit `e13cb97f2913fdee900935c6c368f65848e0a2cb`. Различие версий намеренное;
+проверять их нужно по `frontend-routes-patch.json.expectedRuntime`, а не по
+предположению, что API и UI обязаны совпадать.
+
+Добавлены список `/recordings` с выбором конференции и отдельная страница
+`/recordings/:uuid?conference=:uuid`. Общий каталог, избранное и удаление
+не добавлялись по согласованному ограничению. Используются существующие
+права API и подписанные URL материалов. Маршруты SPA отделены от вложенных
+путей S3 bucket `/recordings/`: MP4 и превью не заменяются HTML-страницей.
+Окно «Записи конференции» автоматически закрывается после успешного ответа
+на запуск записи и возвращает фокус кнопке открытия. Ожидание ответа, ошибка
+запуска и остановка записи не закрывают окно.
+
+Пакет: `/opt/meetrix/releases/v1.0.0-meeting.20261004-recordings.1/package`;
+чистые исходники — соседний каталог `source`. Source fingerprint
+`dc636eafa881cd56a2829f27dd663521c033c22ced5b159bfb67c9fea9b821b0`
+повторно подтверждён после переноса. Manifest SHA-256:
+`56273baf128e8ff034161f72529ad721a1cf4d4341d0295428baff8d2ebae1e4`.
+Переданы только gzip-архив frontend размером 32 024 942 байта и архив
+исходников 14 169 236 байт, без env, секретов и macOS extended attributes.
+Свежие pinned Trivy scan и CycloneDX SBOM связаны с проверенным OCI config:
+HIGH/CRITICAL — 0. Исторические пакеты и образы сохранены.
+
+Пересозданы только frontend (`c27959304080`, healthy) и proxy (`fc201fac779d`).
+Новый `compose.routes.yaml` сохраняет внешний TLS-конфиг и меняет только
+readonly bind маршрутов. Все остальные 17 контейнеров хоста, общий env,
+Apache и presence-overlay сохранены; API (`0b7b9dade60f`), БД, SFU, workers
+и VPN не перезапускались. Миграции не выполнялись, доступ не расширялся.
+После установки свободно 1554 МиБ, резерв 1024 МиБ соблюдён.
+
+Установщик: `/opt/meetrix/evidence/recordings-20261004/install-recordings-patch-v2.sh`.
+Первые две проверки безопасно остановились до переключения: сначала из-за
+владельца распакованной копии исходников, затем из-за представления image ID
+в containerd store Docker 29.1.3. Владелец исправлен только у новой копии;
+проверка различает pinned OCI descriptor и config digest, дополнительно
+сверяет полное содержимое загруженного config и rootfs diff IDs с архивом.
+Manifest и байты сборки при этом не изменялись. Успешная установка сохранена
+в `install-v2.log`; ограниченный откат затрагивает только UI и routes bind.
+
+Для дальнейшего управления проектом нужно сохранять parent Compose-файлы,
+прежний `compose.presence.yaml` и новый `compose.routes.yaml`, а также разные
+immutable API/UI образы из ожидаемой карты manifest. Слепой запуск полного
+parent release вернёт старые версии и маршруты.
+
+Проверки: 400 frontend unit tests, TypeScript/build и форматирование — PASS.
+Локальный Docker frontend обновлён без пересоздания других контейнеров;
+Chromium-сценарий с подменёнными API подтвердил pending/error/success/stop
+и восстановление фокуса. Публичные HTTPS-проверки версии, списка, deep link,
+JS-ресурса, отказа неподписанных S3 URL и закрытых внутренних endpoints — PASS.
+Полная медиавстреча и новая запись на сервере в этой операции не запускались.
+Локальные результаты: `tmp/recordings-release-20261004/published-verification.json`
+и `tmp/recordings-release-20261004/modal-browser-evidence/`.
+
 ## Оставшиеся шаги
 
 Зашифрованный off-host backup и подтверждение rollback/production evidence,

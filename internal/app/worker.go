@@ -138,11 +138,7 @@ func RunWorker() error {
 
 		@return:
 		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(ctx context.Context, record records.Record, kind string) error {
-			status := record.Status
-			if status == records.StatusFinalizing || status == records.StatusUploading {
-				status = "processing"
-			}
-			event := realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": status, "mode": record.Mode, "error": record.ErrorMessage})
+			event := recordingWorkerEvent(kind, record)
 			return store.Publish(ctx, realtime.Bus{Kind: "event", ConferenceID: record.ConferenceID, Event: &event})
 		},
 	})
@@ -343,6 +339,19 @@ func handleWorkerCommand(w http.ResponseWriter, r *http.Request, service *record
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// recordingWorkerEvent формирует уведомление о сохранённом состоянии записи.
+// Инициатор берётся из самой записи, а внутренние стадии обработки файлов скрываются
+// за публичным статусом processing; тип события и сведения об ошибке не меняются.
+// @args kind — тип события воркера; record — запись с инициатором и текущим состоянием.
+// @return конверт события для участников указанной конференции.
+func recordingWorkerEvent(kind string, record records.Record) realtime.Envelope {
+	return realtime.Event(kind, record.ConferenceID, map[string]any{
+		"recordingId": record.UUID, "conferenceId": record.ConferenceID,
+		"status": records.PublicStatus(record.Status), "mode": record.Mode,
+		"error": record.ErrorMessage, "requestedBy": record.RequestedBy,
+	})
 }
 
 // handleWorkerWebRTCOffer принимает SDP-предложение на внутреннем HTTP-маршруте старого воркера записи.

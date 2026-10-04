@@ -149,18 +149,22 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	wg.Wait()
 	close(ids)
 	close(failures)
+	conflicts := 0
 	for err := range failures {
-		t.Fatal(err)
+		if !errors.Is(err, apperrors.ErrConflict) {
+			t.Fatal(err)
+		}
+		conflicts++
 	}
 	recordID := ""
 	for id := range ids {
-		if recordID != "" && recordID != id {
-			t.Fatal("duplicate active recording")
+		if recordID != "" {
+			t.Fatal("duplicate start unexpectedly succeeded")
 		}
 		recordID = id
 	}
-	if recordID == "" {
-		t.Fatal("no recording created")
+	if recordID == "" || conflicts != 19 {
+		t.Fatalf("expected one successful start and 19 conflicts, got record %q and %d conflicts", recordID, conflicts)
 	}
 	var count int64
 	if err = f.db.Table("recording_outbox").Where("record_id = ? AND command_type = 'record.start'", recordID).Count(&count).Error; err != nil || count != 1 {

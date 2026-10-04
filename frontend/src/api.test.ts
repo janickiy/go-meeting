@@ -52,6 +52,19 @@ describe("API contract", /**
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
+  it("объясняет конфликт повторного запуска записи без технических деталей", async () => {
+    fetchResponse(409, {
+      status: "error",
+      message: "recording is already active",
+    });
+    await expect(api.startRecording("room", "composite")).rejects.toMatchObject(
+      {
+        status: 409,
+        message:
+          "Запись уже запущена. Дождитесь завершения текущей записи перед запуском новой.",
+      },
+    );
+  });
   it("передаёт лимит и смещение записей третьим аргументом с авторизацией и отменой", async () => {
     configureAuth("recordings-test-token");
     const fetch = fetchResponse(200, { status: "success", items: [] });

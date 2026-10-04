@@ -217,9 +217,9 @@ func TestStageFourCompositeRecording(t *testing.T) {
 	var duplicate struct {
 		Item records.RecordCard `json:"item"`
 	}
-	recordingRequest(t, api.URL, f.ownerToken, "POST", "/api/v1/conferences/"+f.conference.ID+"/recordings", records.ConferenceStartRequest{SegmentDurationSec: 2}, http.StatusAccepted, &duplicate)
-	if duplicate.Item.UUID != id {
-		t.Fatal("duplicate start created another recording")
+	recordingRequest(t, api.URL, f.ownerToken, "POST", "/api/v1/conferences/"+f.conference.ID+"/recordings", records.ConferenceStartRequest{SegmentDurationSec: 2}, http.StatusConflict, &duplicate)
+	if duplicate.Item.UUID != "" {
+		t.Fatal("duplicate start returned a successful recording card")
 	}
 	waitRecording(t, repository, id, records.StatusRecording, 15*time.Second)
 	recordingObservedAt := time.Now()

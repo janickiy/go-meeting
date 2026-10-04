@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Circle, Download, Square } from "lucide-react";
 import { api } from "../api";
-import type { Conference, Participant, RecordingMode } from "../types";
+import type {
+  Conference,
+  ConferenceRecording,
+  Items,
+  Participant,
+  RecordingMode,
+} from "../types";
 import { Button, ErrorNotice } from "./ui";
 import { formatDate } from "../utils";
 import { isAdmitted } from "../collaboration";
@@ -12,6 +18,7 @@ import { useCapabilities } from "../useCapabilities";
 const labels = {
   starting: "Запись запускается",
   recording: "Идёт запись",
+  degraded: "Запись продолжается с ограничениями",
   stopping: "Запись останавливается",
   processing: "Обрабатываем запись",
   ready: "Запись готова",
@@ -22,23 +29,31 @@ const labels = {
  * RecordingPanel показывает состояние записи и разрешённые действия запуска, остановки и чтения артефактов.
  *
  * @args
- *   - объект параметров: conference — свойство текущего компонента; membership — свойство текущего компонента.
+ *   - conference — текущая конференция; membership — членство и права текущего пользователя.
+ *   - showHistory — показывать список прошлых записей и их файлов; в диалоге управления отключается.
+ *   - showInsights — показывать доступные результаты обработки записи.
+ *   - onStarted — уведомить родительский интерфейс только после успешного запроса запуска записи.
  *
- * @returns JSX-представление компонента для текущих свойств и состояния.
+ * @return JSX-представление состояния записи и разрешённых действий.
  */
 export function RecordingPanel({
   conference,
   membership,
+  showHistory = true,
   showInsights = false,
+  onStarted,
 }: {
   conference: Conference;
   membership?: Participant;
+  showHistory?: boolean;
   showInsights?: boolean;
+  onStarted?: () => void;
 }) {
   const client = useQueryClient();
   const capabilities = useCapabilities();
   const recordingModes = capabilities.data?.capabilities.recordingModes ?? [];
   const [mode, setMode] = useState<RecordingMode>("composite");
+  const commandPending = useRef(false);
   const selectedMode = recordingModes.includes(mode) ? mode : recordingModes[0];
   const query = useQuery({
     queryKey: ["recordings", conference.id],
@@ -64,10 +79,22 @@ export function RecordingPanel({
      *
      * @returns логический признак соответствия элемента условию.
      */ (item) =>
-      ["starting", "recording", "stopping", "processing"].includes(item.status),
+      item.conferenceId === conference.id &&
+      ["starting", "recording", "degraded", "stopping", "processing"].includes(
+        item.status,
+      ),
   );
+  // Нельзя считать отсутствие загруженных данных подтверждением, что запись свободна.
+  const canStart =
+    query.isSuccess &&
+    !query.isFetching &&
+    !query.isError &&
+    !current &&
+    Boolean(selectedMode) &&
+    conference.status === "active";
   const recording =
-    current && ["starting", "recording", "stopping"].includes(current.status);
+    current &&
+    ["starting", "recording", "degraded", "stopping"].includes(current.status);
   const mutation = useMutation({
     /**
      * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
@@ -75,14 +102,40 @@ export function RecordingPanel({
      * @args
      *   - stopId (string | null) — идентификатор останавливаемой записи.
      *
-     * @returns вычисленное значение: stopId ? api.stopRecording(conference.id, stopId) : api.startRecording(conference.id).
+     * @return Подтверждённая карточка записи либо отказ запуска до проверки её состояния.
      */
-    mutationFn: (stopId: string | null) =>
-      stopId
-        ? api.stopRecording(conference.id, stopId)
-        : selectedMode
-          ? api.startRecording(conference.id, selectedMode)
-          : Promise.reject(new Error("Режимы записи недоступны")),
+    mutationFn: (stopId: string | null) => {
+      if (stopId) return api.stopRecording(conference.id, stopId);
+      if (!canStart || !selectedMode)
+        return Promise.reject(new Error("Запуск записи сейчас недоступен"));
+      return api.startRecording(conference.id, selectedMode);
+    },
+    /**
+     * Уведомляет родителя об успешном запуске, не закрывая интерфейс при остановке записи или ошибке.
+     * @args response — подтверждение сервера; stopId — null для запуска либо UUID останавливаемой записи.
+     * @return Значение не возвращается; родитель при необходимости закрывает окно управления записью.
+     */
+    onSuccess: (response, stopId) => {
+      client.setQueryData<Items<ConferenceRecording>>(
+        ["recordings", conference.id],
+        /**
+         * Сразу сохраняет ответ сервера, чтобы повторный запуск и верхняя панель учитывали новую запись.
+         * @args cached — ранее загруженный список записей.
+         * @return Список с подтверждённой карточкой запуска или остановки.
+         */
+        (cached) => ({
+          status: "success",
+          ...cached,
+          items: [
+            response.item,
+            ...(cached?.items ?? []).filter(
+              (item) => item.uuid !== response.item.uuid,
+            ),
+          ],
+        }),
+      );
+      if (stopId === null) onStarted?.();
+    },
     /**
      * onSettled обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
      *
@@ -90,11 +143,23 @@ export function RecordingPanel({
      * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
      */
     onSettled: () => {
+      commandPending.current = false;
       void client.invalidateQueries({
         queryKey: ["recordings", conference.id],
       });
     },
   });
+  /**
+   * Блокирует повторный щелчок сразу, до обновления асинхронного состояния запроса.
+   * @args stopId — UUID для остановки либо null для запуска единственной записи.
+   * @return Значение не возвращается; запрещённый или уже отправленный запрос игнорируется.
+   */
+  function runCommand(stopId: string | null) {
+    if (commandPending.current || mutation.isPending || (!stopId && !canStart))
+      return;
+    commandPending.current = true;
+    mutation.mutate(stopId);
+  }
   const owner = membership?.role === "owner" && membership.status === "joined";
   if (!membership || !isAdmitted(membership)) return null;
   return (
@@ -123,7 +188,7 @@ export function RecordingPanel({
               Режим записи
               <select
                 value={selectedMode}
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || !canStart}
                 onChange={(event) =>
                   setMode(event.target.value as RecordingMode)
                 }
@@ -159,10 +224,11 @@ export function RecordingPanel({
                  * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                  *
                  *
-                 * @returns вычисленное значение: mutation.mutate(null).
-                 */ () => mutation.mutate(null)
+                 * @return Значение не возвращается; запрос отправляется с защитой от повтора.
+                 */ () => runCommand(null)
               }
               busy={mutation.isPending}
+              disabled={!canStart}
             >
               <Circle size={16} />
               Начать запись
@@ -176,8 +242,8 @@ export function RecordingPanel({
                    * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                    *
                    *
-                   * @returns вычисленное значение: mutation.mutate(current.uuid).
-                   */ () => mutation.mutate(current.uuid)
+                   * @return Значение не возвращается; запрос остановки отправляется один раз.
+                   */ () => runCommand(current.uuid)
                 }
                 busy={mutation.isPending}
                 disabled={current.status === "stopping"}
@@ -197,92 +263,99 @@ export function RecordingPanel({
           Все участники видят этот индикатор.
         </p>
       )}
-      {!items.length && !query.isError && (
+      {query.isPending && (
+        <p className="field-hint" role="status">
+          Проверяем состояние записи…
+        </p>
+      )}
+      {showHistory && !items.length && query.isSuccess && !query.isError && (
         <p className="muted">
           Записей пока нет. Владелец может начать запись во время встречи.
         </p>
       )}
-      <div className="recording-list">
-        {items.map(
-          /**
-           * Обработчик items.map преобразует один элемент набора в представление или данные следующего шага.
-           *
-           * @args
-           *   - item — элемент списка, который обрабатывает текущий шаг.
-           *
-           * @returns преобразованное значение текущего элемента для результирующего набора.
-           */ (item) => {
-            const file = item.files?.find(
-              /**
-               * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
-               *
-               * @args
-               *   - f — метаданные одного файла записи.
-               *
-               * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
-               */ (f) =>
-                f.fileType === "final_mp4" || f.fileType === "final_audio",
-            );
-            const preview = item.files?.find(
-              /**
-               * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
-               *
-               * @args
-               *   - f — метаданные одного файла записи.
-               *
-               * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
-               */ (f) => f.fileType === "preview_jpg",
-            );
-            return (
-              <article
-                key={item.uuid}
-                className="recording-row"
-                data-testid={`recording-${item.uuid}`}
-              >
-                {preview?.url && (
-                  <a href={preview.url} target="_blank" rel="noreferrer">
-                    Посмотреть превью
-                  </a>
-                )}
-                <div>
-                  <strong>{labels[item.status] || item.status}</strong>
-                  <p className="field-hint">
-                    {formatDate(item.createdAt)}
-                    {item.durationSec ? ` · ${item.durationSec} с` : ""}
-                  </p>
-                </div>
-                {file?.url && item.status === "ready" && (
-                  <a
-                    className="text-link"
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Download size={16} />
-                    {file.fileType === "final_audio"
-                      ? "Скачать аудио"
-                      : "Скачать MP4"}
-                  </a>
-                )}
-                {item.status === "ready" &&
-                  item.files
-                    .filter((f) => f.fileType === "tracks_archive" && f.url)
-                    .map((f) => (
-                      <a
-                        key={f.fileType}
-                        className="text-link"
-                        href={f.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Скачать дорожки и манифест (ZIP)
-                      </a>
-                    ))}
-              </article>
-            );
-          },
-        )}
-      </div>
+      {showHistory && (
+        <div className="recording-list">
+          {items.map(
+            /**
+             * Обработчик items.map преобразует один элемент набора в представление или данные следующего шага.
+             *
+             * @args
+             *   - item — элемент списка, который обрабатывает текущий шаг.
+             *
+             * @returns преобразованное значение текущего элемента для результирующего набора.
+             */ (item) => {
+              const file = item.files?.find(
+                /**
+                 * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                 *
+                 * @args
+                 *   - f — метаданные одного файла записи.
+                 *
+                 * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                 */ (f) =>
+                  f.fileType === "final_mp4" || f.fileType === "final_audio",
+              );
+              const preview = item.files?.find(
+                /**
+                 * Обработчик find проверяет, соответствует ли текущий элемент условию выборки или поиска.
+                 *
+                 * @args
+                 *   - f — метаданные одного файла записи.
+                 *
+                 * @returns true, если проверяемый элемент удовлетворяет условию; false в противном случае.
+                 */ (f) => f.fileType === "preview_jpg",
+              );
+              return (
+                <article
+                  key={item.uuid}
+                  className="recording-row"
+                  data-testid={`recording-${item.uuid}`}
+                >
+                  {preview?.url && (
+                    <a href={preview.url} target="_blank" rel="noreferrer">
+                      Посмотреть превью
+                    </a>
+                  )}
+                  <div>
+                    <strong>{labels[item.status] || item.status}</strong>
+                    <p className="field-hint">
+                      {formatDate(item.createdAt)}
+                      {item.durationSec ? ` · ${item.durationSec} с` : ""}
+                    </p>
+                  </div>
+                  {file?.url && item.status === "ready" && (
+                    <a
+                      className="text-link"
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <Download size={16} />
+                      {file.fileType === "final_audio"
+                        ? "Скачать аудио"
+                        : "Скачать MP4"}
+                    </a>
+                  )}
+                  {item.status === "ready" &&
+                    item.files
+                      .filter((f) => f.fileType === "tracks_archive" && f.url)
+                      .map((f) => (
+                        <a
+                          key={f.fileType}
+                          className="text-link"
+                          href={f.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Скачать дорожки и манифест (ZIP)
+                        </a>
+                      ))}
+                </article>
+              );
+            },
+          )}
+        </div>
+      )}
       {showInsights && (
         <RecordingInsights
           conferenceId={conference.id}

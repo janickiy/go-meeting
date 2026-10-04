@@ -819,23 +819,30 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
     expect(startResponse.status()).toBe(202);
     recordingId = (await startResponse.json()).item.uuid;
     summary.recordingId = recordingId;
-    await owner
-      .getByRole("dialog", { name: "Записи конференции", exact: true })
-      .getByRole("button", { name: "Закрыть окно" })
-      .click();
+    await expect(
+      owner.getByRole("dialog", { name: "Записи конференции", exact: true }),
+    ).toBeHidden();
+    await expect(
+      owner.getByRole("button", { name: "Записи конференции", exact: true }),
+    ).toBeFocused();
     for (const page of [owner, bob])
       await expect(page.getByTestId("recording-indicator")).toHaveText(
         "Идёт запись",
         { timeout: 30000 },
       );
-    const duplicate = await request<{ item: Card }>(
-      client,
-      `/conferences/${conferenceId}/recordings`,
-      actors[0].token,
-      "POST",
-      { segmentDurationSec: 5 },
+    const duplicate = await client.fetch(
+      `${api}/api/v1/conferences/${conferenceId}/recordings`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${actors[0].token}` },
+        data: { segmentDurationSec: 5 },
+      },
     );
-    expect(duplicate.item.uuid).toBe(recordingId);
+    expect(duplicate.status()).toBe(409);
+    expect(await duplicate.json()).toEqual({
+      status: "failed",
+      message: "recording is already active",
+    });
     phase = "recording/grid";
     await owner.waitForTimeout(5500);
     await bob
@@ -929,6 +936,7 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
       .getByRole("button", { name: "Записи конференции", exact: true })
       .click();
     await owner
+      .getByRole("dialog", { name: "Записи конференции" })
       .getByRole("button", { name: "Остановить запись", exact: true })
       .click();
     phase = "processing";
@@ -969,9 +977,17 @@ test("real Docker UI conference recording produces private MP4 and preview", /**
     summary.finalizationMs = Date.now() - stopAt;
     phase = "ready";
     await diagnostics();
+    // Готовность подтверждает защищённый API, не список файлов в диалоге управления.
+    const recordingDialog = owner.getByRole("dialog", {
+      name: "Записи конференции",
+    });
+    await expect(recordingDialog.locator(".recording-row")).toHaveCount(0);
     await expect(
-      owner.getByRole("link", { name: "Скачать MP4", exact: true }),
-    ).toBeVisible();
+      recordingDialog.getByTestId(`recording-${recordingId}`),
+    ).toHaveCount(0);
+    await expect(
+      recordingDialog.getByRole("link", { name: "Скачать MP4", exact: true }),
+    ).toHaveCount(0);
     const card = ready as unknown as Card;
     expect(
       (

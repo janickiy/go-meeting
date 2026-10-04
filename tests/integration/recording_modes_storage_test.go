@@ -2,8 +2,10 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/janickiy/go-recorder/internal/config"
+	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/records"
 	pg "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
 	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
@@ -53,9 +55,9 @@ func TestStageEightRecordingStorage(t *testing.T) {
 			if err != nil || !created {
 				t.Fatal("start", err)
 			}
-			duplicate, created, err := control.StartMode(ctx, f.owner.ID, f.conference.ID, 2, mode)
-			if err != nil || created || duplicate.UUID != record.UUID {
-				t.Fatal("idempotency", err)
+			_, created, err = control.StartMode(ctx, f.owner.ID, f.conference.ID, 2, mode)
+			if !errors.Is(err, apperrors.ErrConflict) || created {
+				t.Fatal("duplicate start must conflict", err)
 			}
 			if err = service.HandleCommand(ctx, records.Command{Type: "record.start", RecordID: record.UUID}, record); err != nil {
 				t.Fatal(err)

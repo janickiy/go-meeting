@@ -114,6 +114,8 @@ const messages: Record<string, string> = {
     "Для входа в эту конференцию нужна ссылка-приглашение.",
   "conference is read-only":
     "Встреча завершена. Чат доступен только для чтения.",
+  "recording is already active":
+    "Запись уже запущена. Дождитесь завершения текущей записи перед запуском новой.",
 };
 const statuses: Record<number, string> = {
   400: "Проверьте данные запроса.",

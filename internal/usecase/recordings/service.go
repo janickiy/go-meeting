@@ -353,7 +353,7 @@ func (s *Service) card(ctx context.Context, id string) (records.RecordCard, erro
 //   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
 func (s *Service) publish(ctx context.Context, record records.Record, kind string) {
 	if s.events != nil {
-		_ = s.events.Broadcast(ctx, realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": records.PublicStatus(record.Status), "mode": record.Mode}))
+		_ = s.events.Broadcast(ctx, realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": records.PublicStatus(record.Status), "mode": record.Mode, "requestedBy": record.RequestedBy}))
 	}
 }
 

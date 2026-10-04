@@ -252,6 +252,10 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
                 void queryClient.invalidateQueries({
                   queryKey: ["chat-read", conferenceId],
                 });
+                // После переподключения сверяем запись: события во время обрыва не повторяются.
+                void queryClient.invalidateQueries({
+                  queryKey: ["recordings", conferenceId],
+                });
               }
             };
           ws.onmessage =
@@ -287,7 +291,7 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
                 invalidate();
               if (e.type.startsWith("recording."))
                 void queryClient.invalidateQueries({
-                  queryKey: ["recordings"],
+                  queryKey: ["recordings", conferenceId],
                 });
               if (e.type.startsWith("chat.")) {
                 refreshChat(e.type !== "chat.read.updated");
