@@ -95,6 +95,7 @@
 .conference-stage {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-rows: minmax(0, 1fr);
   gap: 18px;
   flex: 1;
   min-height: 0;
@@ -456,10 +457,10 @@
 }
 .conference-stage-rail {
   min-width: 0;
-  align-self: start;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 122px);
+  height: 100%;
   background: #f8f9f9;
   border: 1px solid var(--line);
   border-radius: 12px;

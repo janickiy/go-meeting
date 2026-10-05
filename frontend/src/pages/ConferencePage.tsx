@@ -126,6 +126,7 @@ export function ConferencePage() {
     null,
   );
   const [utility, setUtility] = useState<"recording" | "invite" | null>(null);
+  const recordingAccess = Boolean(user && !user.guestConferenceId);
   const recordingStatus = useQuery({
     queryKey: ["recordings", id],
     queryFn: ({ signal }) => api.recordings(id, signal),
@@ -368,48 +369,55 @@ export function ConferencePage() {
               {recordingLabel}
             </span>
           )}
-          {activeRecording && owner && membership.role === "owner" && (
-            <button
-              type="button"
-              className="room-header-action room-header-stop-recording"
-              aria-label="Остановить запись"
-              aria-busy={stopRecording.isPending || undefined}
-              title={
-                stopRecording.isPending || activeRecording.status === "stopping"
-                  ? "Запись останавливается"
-                  : "Остановить запись"
-              }
-              disabled={
-                stopRecording.isPending || activeRecording.status === "stopping"
-              }
-              onClick={
-                /** Запрашивает остановку один раз; повторные нажатия и уже начатая остановка игнорируются. */
-                () => {
-                  if (
-                    !stopRecording.isPending &&
-                    activeRecording.status !== "stopping"
-                  )
-                    stopRecording.mutate(activeRecording.uuid);
+          {activeRecording &&
+            recordingAccess &&
+            owner &&
+            membership.role === "owner" && (
+              <button
+                type="button"
+                className="room-header-action room-header-stop-recording"
+                aria-label="Остановить запись"
+                aria-busy={stopRecording.isPending || undefined}
+                title={
+                  stopRecording.isPending ||
+                  activeRecording.status === "stopping"
+                    ? "Запись останавливается"
+                    : "Остановить запись"
                 }
-              }
+                disabled={
+                  stopRecording.isPending ||
+                  activeRecording.status === "stopping"
+                }
+                onClick={
+                  /** Запрашивает остановку один раз; повторные нажатия и уже начатая остановка игнорируются. */
+                  () => {
+                    if (
+                      !stopRecording.isPending &&
+                      activeRecording.status !== "stopping"
+                    )
+                      stopRecording.mutate(activeRecording.uuid);
+                  }
+                }
+              >
+                <Square size={17} fill="currentColor" aria-hidden="true" />
+                <span>
+                  {stopRecording.isPending ||
+                  activeRecording.status === "stopping"
+                    ? "Останавливаем…"
+                    : "Остановить запись"}
+                </span>
+              </button>
+            )}
+          {recordingAccess && (
+            <button
+              className="room-header-action"
+              onClick={() => setUtility("recording")}
+              aria-label="Записи конференции"
             >
-              <Square size={17} fill="currentColor" aria-hidden="true" />
-              <span>
-                {stopRecording.isPending ||
-                activeRecording.status === "stopping"
-                  ? "Останавливаем…"
-                  : "Остановить запись"}
-              </span>
+              <Circle size={17} />
+              <span>Запись</span>
             </button>
           )}
-          <button
-            className="room-header-action"
-            onClick={() => setUtility("recording")}
-            aria-label="Записи конференции"
-          >
-            <Circle size={17} />
-            <span>Запись</span>
-          </button>
           <button
             className="room-header-action"
             onClick={() => setUtility("invite")}
@@ -647,7 +655,7 @@ export function ConferencePage() {
             )}
           </aside>
         </section>
-        {utility && (
+        {utility && (utility !== "recording" || recordingAccess) && (
           <Modal
             title={
               utility === "recording"
@@ -950,11 +958,13 @@ export function ConferencePage() {
           недоступно.
         </ErrorNotice>
       )}
-      <RecordingPanel
-        conference={conference}
-        membership={membership}
-        showInsights
-      />
+      {recordingAccess && (
+        <RecordingPanel
+          conference={conference}
+          membership={membership}
+          showInsights
+        />
+      )}
       {admitted && captionsEnabled && !activeMeeting && (
         <CaptionsPanel
           key={`captions-${id}`}

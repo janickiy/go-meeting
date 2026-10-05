@@ -8,7 +8,8 @@ const stamp = "2026-10-04T09:00:00Z";
 /**
  * Изолирует управление записью от настоящего API, WebSocket, устройств и данных пользователя.
  * @args page — тестовая страница; origin — адрес проверяемой сборки;
- * role — роль текущего участника; status — начальное состояние записи;
+ * role — роль текущего участника; guest — гостевая сессия без аккаунта;
+ * status — начальное состояние записи;
  * stopReply — управляемый ответ на попытку остановки, по умолчанию успешный.
  * @return Счётчик остановок, журнал отклонённых маршрутов и управление серверным состоянием фикстуры.
  */
@@ -18,11 +19,13 @@ async function recordingFixture(
   {
     role = "owner",
     status = "recording",
+    guest = false,
     files = [],
     stopReply = async () => "stopping" as const,
   }: {
     role?: Participant["role"];
     status?: ConferenceRecording["status"];
+    guest?: boolean;
     files?: ConferenceRecording["files"];
     stopReply?: (attempt: number) => Promise<"error" | "stopping">;
   } = {},
@@ -91,7 +94,8 @@ async function recordingFixture(
         user: {
           id: "self",
           displayName: membership.displayName,
-          email: "fixture@example.test",
+          email: guest ? "" : "fixture@example.test",
+          guestConferenceId: guest ? roomId : undefined,
           createdAt: stamp,
           updatedAt: stamp,
         },
@@ -231,6 +235,46 @@ for (const viewport of [
   { width: 1440, height: 1000, name: "desktop" },
   { width: 390, height: 844, name: "mobile" },
 ]) {
+  test(`${viewport.name}: гость видит уведомление о записи без доступа к её управлению`, async ({
+    page,
+    baseURL,
+  }, info) => {
+    await page.setViewportSize(viewport);
+    const fixture = await recordingFixture(page, new URL(baseURL!).origin, {
+      guest: true,
+      role: "participant",
+    });
+    await page.goto(`/conferences/${roomId}`);
+    await expect(page.getByTestId("recording-indicator")).toHaveText(
+      "Идёт запись",
+    );
+    await expect(
+      page.getByRole("button", { name: "Записи конференции", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Остановить запись", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Начать запись", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.locator(".recording-panel")).toHaveCount(0);
+    await expect(
+      page.getByRole("dialog", { name: "Записи конференции", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.locator(".media-grid")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Участники/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Чат", exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: info.outputPath("guest-no-recording-controls.png"),
+      fullPage: true,
+    });
+    expect(fixture.stopCount()).toBe(0);
+    expect(fixture.denied).toEqual([]);
+  });
   test(`${viewport.name}: окно управления не показывает прошлые записи и файлы`, async ({
     page,
     baseURL,
