@@ -399,6 +399,8 @@ func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 		return jobs.Error{Code: "integration_payload"}
 	}
 	switch job.Kind {
+	case "integrations.invitation":
+		return s.deliverInvitation(ctx, job)
 	case "integrations.delivery":
 		return s.deliver(ctx, job, payload)
 	case "integrations.event":
@@ -418,6 +420,13 @@ func (s *Service) Handle(ctx context.Context, job jobs.Job) error {
 // @args ctx — ограниченный срок финальной транзакции; job — последняя аренда; code — безопасный код сбоя.
 // @return: ошибка сохранения.
 func (s *Service) FailJob(ctx context.Context, job jobs.Job, code string) error {
+	if job.Kind == "integrations.invitation" {
+		repo, ok := s.repo.(invitationDeliveryRepository)
+		if !ok {
+			return jobs.Error{Code: "invitation_repository"}
+		}
+		return repo.CompleteInvitation(ctx, job, "failed", code)
+	}
 	if job.Kind == "integrations.delivery" {
 		return s.repo.CompleteDelivery(ctx, job, "failed", code)
 	}

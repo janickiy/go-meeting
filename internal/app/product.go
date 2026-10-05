@@ -44,6 +44,7 @@ func newProductServices(cfg config.Config, db *gorm.DB, storage *s3.Client) (pro
 		return providers.AdapterConfig{Mode: p.Mode, Endpoint: p.Endpoint, Secret: p.Token, Timeout: c.ProviderTimeout, AllowHTTP: local}
 	}
 	channels, err := providers.NewIntegrations(providers.IntegrationConfig{Email: adapter(c.Email), Push: adapter(c.Push), Calendar: adapter(c.Calendar), MockConnectAllowed: local,
+		SMTP:  providers.SMTPConfig{Host: c.SMTP.Host, Port: c.SMTP.Port, Username: c.SMTP.Username, Password: c.SMTP.Password, From: c.SMTP.From, TLSMode: c.SMTP.TLSMode, Timeout: c.SMTP.Timeout},
 		OAuth: providers.OAuthConfig{AuthorizationURL: c.OAuthAuthURL, TokenURL: c.OAuthTokenURL, RevokeURL: c.OAuthRevokeURL, ClientID: c.OAuthClientID, ClientSecret: c.OAuthClientSecret, RedirectURL: c.OAuthRedirectURL, Scopes: c.OAuthScopes, Timeout: c.ProviderTimeout, AllowHTTP: local}})
 	if err != nil {
 		return productServices{}, err
@@ -59,7 +60,11 @@ func newProductServices(cfg config.Config, db *gorm.DB, storage *s3.Client) (pro
 	if tokenCipher != nil {
 		cipher = tokenCipher
 	}
-	integrationService, err := integrations.NewService(pg.NewIntegrationRepository(db), channels, cipher, integrations.Options{PublicURL: c.PublicURL, ReminderOffsets: c.ReminderOffsets, ProviderTimeout: c.ProviderTimeout, MockConnectAllowed: local})
+	deliveryTimeout := c.ProviderTimeout
+	if c.Email.Mode == "smtp" && c.SMTP.Timeout > deliveryTimeout {
+		deliveryTimeout = c.SMTP.Timeout
+	}
+	integrationService, err := integrations.NewService(pg.NewIntegrationRepository(db), channels, cipher, integrations.Options{PublicURL: c.PublicURL, ReminderOffsets: c.ReminderOffsets, ProviderTimeout: deliveryTimeout, MockConnectAllowed: local})
 	if err != nil {
 		return productServices{}, err
 	}
@@ -149,9 +154,14 @@ func RunProductWorker() error {
 	analyticsService := &analyticsusecase.Service{Repo: analyticsRepo, Enabled: cfg.StageEight.AnalyticsEnabled}
 	a := jobrunner.Handler{Handle: analyticsService.Handle}
 	s := cfg.StageSeven
+	deliveryTimeout := s.ProviderTimeout
+	if s.Email.Mode == "smtp" && s.SMTP.Timeout > deliveryTimeout {
+		deliveryTimeout = s.SMTP.Timeout
+	}
 	runner, err := jobrunner.New(repo, []jobrunner.Pool{
 		{Kind: "integrations.conference", Concurrency: 1, MaxAttempts: s.MaxAttempts, Timeout: s.ProviderTimeout, Handler: i}, {Kind: "integrations.event", Concurrency: 1, MaxAttempts: s.MaxAttempts, Timeout: s.ProviderTimeout, Handler: i},
-		{Kind: "integrations.delivery", Concurrency: s.DeliveryWorkers, MaxAttempts: s.MaxAttempts, Timeout: s.ProviderTimeout, Handler: i}, {Kind: "integrations.calendar", Concurrency: s.CalendarWorkers, MaxAttempts: s.MaxAttempts, Timeout: s.ProviderTimeout * 3, Handler: i},
+		{Kind: "integrations.delivery", Concurrency: s.DeliveryWorkers, MaxAttempts: s.MaxAttempts, Timeout: deliveryTimeout, Handler: i},
+		{Kind: "integrations.invitation", Concurrency: s.DeliveryWorkers, MaxAttempts: s.MaxAttempts, Timeout: deliveryTimeout, Handler: i}, {Kind: "integrations.calendar", Concurrency: s.CalendarWorkers, MaxAttempts: s.MaxAttempts, Timeout: s.ProviderTimeout * 3, Handler: i},
 		{Kind: "content.transcribe", Concurrency: s.STTWorkers, MaxAttempts: s.MaxAttempts, Timeout: s.STTTimeout, Handler: c}, {Kind: "content.summarize", Concurrency: s.AIWorkers, MaxAttempts: s.MaxAttempts, Timeout: s.AITimeout, Handler: c},
 		{Kind: "content.embed", Concurrency: cfg.StageEight.EmbeddingWorkers, MaxAttempts: s.MaxAttempts, Timeout: cfg.StageEight.EmbeddingTimeout, Handler: e},
 		{Kind: "analytics.aggregate", Concurrency: 1, MaxAttempts: 3, Timeout: 15 * time.Second, Handler: a},
@@ -217,7 +227,7 @@ func runProductTicks(ctx context.Context, service *integrations.Service, repo *p
 		counts, err := repo.Counts(tickCtx)
 		cancel()
 		if err == nil {
-			for _, kind := range []string{"integrations.conference", "integrations.event", "integrations.delivery", "integrations.calendar", "content.transcribe", "content.summarize", "content.embed", "analytics.aggregate"} {
+			for _, kind := range []string{"integrations.conference", "integrations.event", "integrations.delivery", "integrations.invitation", "integrations.calendar", "content.transcribe", "content.summarize", "content.embed", "analytics.aggregate"} {
 				for _, state := range []string{"queued", "processing", "failed"} {
 					operations.ProductQueue(kind, state, 0)
 				}

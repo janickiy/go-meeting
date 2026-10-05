@@ -36,6 +36,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { useCapabilities } from "../useCapabilities";
 import { meetingShortcut } from "../conferenceShortcuts";
 import { EditSchedule } from "../components/ConferenceModals";
+import { ConferenceInviteContent } from "../components/ConferenceInvitations";
 import { formatDate, initials, inviteLink } from "../utils";
 import {
   Button,
@@ -126,6 +127,7 @@ export function ConferencePage() {
     null,
   );
   const [utility, setUtility] = useState<"recording" | "invite" | null>(null);
+  const [invitationBusy, setInvitationBusy] = useState(false);
   const recordingAccess = Boolean(user && !user.guestConferenceId);
   const recordingStatus = useQuery({
     queryKey: ["recordings", id],
@@ -303,6 +305,12 @@ export function ConferencePage() {
     );
   const conference = query.data.item;
   const owner = conference.ownerId === user?.id;
+  const canInvite = Boolean(
+    user &&
+    !user.guestConferenceId &&
+    !closed &&
+    (owner || (activeMeeting && membership?.role === "co_host")),
+  );
   const roleNames = {
     owner: "Организатор",
     co_host: "Соорганизатор",
@@ -662,7 +670,9 @@ export function ConferencePage() {
                 ? "Записи конференции"
                 : "Пригласить участников"
             }
-            onClose={() => setUtility(null)}
+            onClose={() => {
+              if (!invitationBusy) setUtility(null);
+            }}
           >
             {utility === "recording" ? (
               <RecordingPanel
@@ -672,17 +682,11 @@ export function ConferencePage() {
                 onStarted={() => setUtility(null)}
               />
             ) : (
-              <>
-                <p className="modal-description">
-                  Отправьте ссылку участникам. Можно подключиться без аккаунта.
-                </p>
-                <CopyLink value={inviteLink(conference.inviteCode)} />
-                <p className="field-hint">
-                  {conference.waitingRoomEnabled
-                    ? "Новые участники дождутся допуска организатора."
-                    : "Участники со ссылкой смогут присоединиться к встрече."}
-                </p>
-              </>
+              <ConferenceInviteContent
+                conference={conference}
+                canInvite={canInvite}
+                onBusyChange={setInvitationBusy}
+              />
             )}
           </Modal>
         )}
@@ -923,6 +927,12 @@ export function ConferencePage() {
               Отправьте ссылку тем, с кем хотите встретиться.
             </p>
             <CopyLink value={inviteLink(conference.inviteCode)} />
+            {canInvite && (
+              <Button variant="secondary" onClick={() => setUtility("invite")}>
+                <Users size={17} />
+                Пригласить участников
+              </Button>
+            )}
             <div className="invite-code">
               <span>Код приглашения</span>
               <code>{conference.inviteCode}</code>
@@ -934,6 +944,20 @@ export function ConferencePage() {
           </aside>
         )}
       </div>
+      {utility === "invite" && (
+        <Modal
+          title="Пригласить участников"
+          onClose={() => {
+            if (!invitationBusy) setUtility(null);
+          }}
+        >
+          <ConferenceInviteContent
+            conference={conference}
+            canInvite={canInvite}
+            onBusyChange={setInvitationBusy}
+          />
+        </Modal>
+      )}
       <WaitingRoomPanel
         conferenceId={id}
         membership={membership}

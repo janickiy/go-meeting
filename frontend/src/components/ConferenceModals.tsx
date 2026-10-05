@@ -10,6 +10,7 @@ import { Button, CopyLink, ErrorNotice, Modal, SuccessMark } from "./ui";
 import { ScheduleFields } from "./ScheduleFields";
 import { localSchedule, toLocalInput } from "../collaboration";
 import { PRODUCT_NAME } from "../brand";
+import { ConferenceInviteContent } from "./ConferenceInvitations";
 
 /**
  * ShareConference показывает результат создания встречи и действия копирования ссылки и перехода в комнату.
@@ -31,9 +32,35 @@ export function ShareConference({
    * @returns void — значение не возвращается; функция выполняет описанные действия.
    */ () => void;
 }) {
+  const [inviting, setInviting] = useState(false);
+  const [invitationBusy, setInvitationBusy] = useState(false);
   const link = inviteLink(conference.inviteCode);
+  if (inviting)
+    return (
+      <Modal
+        key="invite"
+        title="Пригласить участников"
+        onClose={() => {
+          if (!invitationBusy) onClose();
+        }}
+      >
+        <ConferenceInviteContent
+          conference={conference}
+          canInvite
+          onBusyChange={setInvitationBusy}
+        />
+        <Button
+          variant="secondary"
+          disabled={invitationBusy}
+          className="full-width"
+          onClick={() => setInviting(false)}
+        >
+          Назад
+        </Button>
+      </Modal>
+    );
   return (
-    <Modal title="Конференция создана!" onClose={onClose} wide>
+    <Modal key="share" title="Конференция создана!" onClose={onClose} wide>
       <div className="share-content">
         <SuccessMark />
         <p className="share-subtitle">
@@ -47,18 +74,17 @@ export function ShareConference({
           <Video size={19} />
           Перейти в конференцию
         </Link>
-        <a
-          className="button button-secondary full-width"
-          href={`mailto:?subject=${encodeURIComponent(`Приглашение: ${conference.title}`)}&body=${encodeURIComponent(`Присоединяйтесь к конференции «${conference.title}» в ${PRODUCT_NAME}:\n${link}\nДля входа понадобится аккаунт ${PRODUCT_NAME}.`)}`}
-          title="Открыть черновик в вашем почтовом приложении"
+        <Button
+          variant="secondary"
+          className="full-width"
+          onClick={() => setInviting(true)}
         >
           <Mail size={19} />
           Пригласить по email
-        </a>
+        </Button>
         <p className="info-line">
           <Info size={20} />
-          По ссылке может присоединиться любой пользователь с аккаунтом{" "}
-          {PRODUCT_NAME}.
+          По ссылке может присоединиться любой участник, даже без аккаунта.
         </p>
       </div>
     </Modal>

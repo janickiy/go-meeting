@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestStageSevenPrivacyDefaults проверяет, что запуск приложения не отправляет пользовательские данные наружу.
@@ -18,6 +19,52 @@ func TestStageSevenPrivacyDefaults(t *testing.T) {
 	}
 	if c.STTEnabled || c.AIEnabled || c.STT.Mode != "noop" || c.AI.Mode != "noop" || len(c.ReminderOffsets) != 2 {
 		t.Fatal("unsafe feature defaults")
+	}
+}
+
+func TestStageSevenSMTPConfiguration(t *testing.T) {
+	t.Setenv("EMAIL_PROVIDER_MODE", "smtp")
+	t.Setenv("PUBLIC_FRONTEND_URL", "https://meet.example.test")
+	t.Setenv("SMTP_HOST", "smtp.example.test")
+	t.Setenv("SMTP_USERNAME", "sender@example.test")
+	t.Setenv("SMTP_PASSWORD", "private-test-password")
+	t.Setenv("SMTP_FROM", "Meetrix <sender@example.test>")
+	t.Setenv("SMTP_PORT", "")
+	t.Setenv("SMTP_TLS_MODE", "")
+	t.Setenv("SMTP_TIMEOUT", "")
+	c, err := LoadStageSeven(false)
+	if err != nil || c.SMTP.Port != 465 || c.SMTP.TLSMode != "tls" || c.SMTP.Timeout != 15*time.Second || c.Email.Mode != "smtp" {
+		t.Fatal("secure SMTP defaults missing", err)
+	}
+	t.Setenv("SMTP_TLS_MODE", "starttls")
+	c, err = LoadStageSeven(false)
+	if err != nil || c.SMTP.Port != 587 {
+		t.Fatal("STARTTLS default port missing", err)
+	}
+	for _, tc := range []struct{ key, value string }{
+		{"SMTP_HOST", "smtp://smtp.example.test"},
+		{"SMTP_HOST", "smtp.example.test:587"},
+		{"SMTP_HOST", "user:private-test-password@smtp.example.test"},
+		{"SMTP_PORT", "0"},
+		{"SMTP_PORT", "65536"},
+		{"SMTP_TLS_MODE", "none"},
+		{"SMTP_USERNAME", ""},
+		{"SMTP_PASSWORD", ""},
+		{"SMTP_FROM", "sender@example.test\r\nBcc: stolen@example.test"},
+		{"SMTP_FROM", "one@example.test, two@example.test"},
+		{"SMTP_TIMEOUT", "2m"},
+	} {
+		t.Run(tc.key+tc.value, func(t *testing.T) {
+			t.Setenv(tc.key, tc.value)
+			_, err := LoadStageSeven(false)
+			if err == nil || strings.Contains(err.Error(), "private-test-password") || strings.Contains(err.Error(), "stolen@example.test") {
+				t.Fatal("invalid SMTP configuration accepted or secret exposed")
+			}
+		})
+	}
+	t.Setenv("PUSH_PROVIDER_MODE", "smtp")
+	if _, err := LoadStageSeven(false); err == nil {
+		t.Fatal("SMTP accepted for a different channel")
 	}
 }
 

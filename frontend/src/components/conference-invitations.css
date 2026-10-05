@@ -1,0 +1,129 @@
+.conference-invitations + .button {
+  margin-top: 10px;
+}
+.conference-invitation-form {
+  margin-top: 24px;
+  text-align: left;
+}
+.conference-invitation-form .field {
+  margin-bottom: 6px;
+}
+.conference-invitation-form > .field-hint {
+  margin: 0 0 20px;
+}
+.conference-invitation-form textarea {
+  resize: vertical;
+  min-height: 76px;
+}
+.invitation-search-field {
+  position: relative;
+  display: block;
+}
+.invitation-search-field > svg {
+  position: absolute;
+  top: 14px;
+  left: 13px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.invitation-search-field input {
+  padding-left: 38px;
+}
+.invitation-user-results,
+.invitation-selected,
+.invitation-result ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+}
+.invitation-user-results {
+  max-height: 210px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #e2eaf8);
+  border-radius: 9px;
+}
+.invitation-user-results li + li {
+  border-top: 1px solid var(--border, #e2eaf8);
+}
+.invitation-user-results label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  cursor: pointer;
+}
+.invitation-user-results input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+}
+.invitation-user-results strong,
+.invitation-user-results small,
+.invitation-result strong,
+.invitation-result span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.invitation-user-results strong,
+.invitation-result strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.invitation-user-results small,
+.invitation-result span {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+.invitation-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.invitation-selected li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 1px solid var(--border, #e2eaf8);
+  border-radius: 20px;
+  padding: 5px 7px 5px 11px;
+  background: var(--surface, #f4f6fb);
+  font-size: 11px;
+}
+.invitation-selected span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.invitation-selected button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 5px;
+  color: inherit;
+  background: transparent;
+}
+.invitation-selected button:hover {
+  background: #172b4b12;
+}
+.invitation-result {
+  padding: 14px;
+  border: 1px solid #bee4d3;
+  border-radius: 9px;
+  background: #effaf5;
+  margin-bottom: 16px;
+}
+.invitation-result ul {
+  margin-bottom: 0;
+}
+.invitation-result li + li {
+  margin-top: 12px;
+}
+.invitation-search-error {
+  margin-bottom: 20px;
+}
+.invitation-card > .button {
+  margin-top: 16px;
+  width: 100%;
+}

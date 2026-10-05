@@ -1,0 +1,10 @@
+# SMTP is enabled only in the applications that send product notifications.
+# Keep EMAIL_PROVIDER_MODE in the common env file compatible with older workers
+# during a rolling upgrade. SMTP credentials remain in the private env file.
+services:
+  api:
+    environment:
+      EMAIL_PROVIDER_MODE: smtp
+  product-worker:
+    environment:
+      EMAIL_PROVIDER_MODE: smtp

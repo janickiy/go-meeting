@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ConferencePage } from "./ConferencePage";
+import { api } from "../api";
 
 const fixture = vi.hoisted(() => ({
   membership: {
@@ -16,6 +17,9 @@ const fixture = vi.hoisted(() => ({
   captions: true,
   analytics: true,
   capabilitiesError: false,
+  conferenceStatus: "active",
+  ownerId: "other",
+  guest: false,
 }));
 
 beforeEach(() => {
@@ -24,9 +28,20 @@ beforeEach(() => {
   fixture.captions = true;
   fixture.analytics = true;
   fixture.capabilitiesError = false;
+  fixture.membership.role = "participant";
+  fixture.conferenceStatus = "active";
+  fixture.ownerId = "other";
+  fixture.guest = false;
 });
 
-vi.mock("../auth", () => ({ useAuth: () => ({ user: { id: "self" } }) }));
+vi.mock("../auth", () => ({
+  useAuth: () => ({
+    user: {
+      id: "self",
+      ...(fixture.guest ? { guestConferenceId: "room" } : {}),
+    },
+  }),
+}));
 vi.mock("../queries", () => ({
   useConference: () => ({
     isPending: false,
@@ -35,8 +50,8 @@ vi.mock("../queries", () => ({
       item: {
         id: "room",
         title: "Командная встреча",
-        status: "active",
-        ownerId: "other",
+        status: fixture.conferenceStatus,
+        ownerId: fixture.ownerId,
         createdAt: "2026-10-01T10:00:00Z",
         inviteCode: "a".repeat(32),
       },
@@ -103,6 +118,7 @@ function page() {
       <MemoryRouter initialEntries={["/conferences/room"]}>
         <Routes>
           <Route path="/conferences/:id" element={<ConferencePage />} />
+          <Route path="/meetings/:id" element={<ConferencePage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -134,6 +150,61 @@ it("puts media first and supports roving tab keys and safe H/C shortcuts", async
   fireEvent.keyDown(window, { key: "c" });
   await waitFor(() => expect(composer).toHaveFocus());
   view.client.clear();
+});
+
+it("предлагает организатору приглашать со страницы запланированной встречи", () => {
+  fixture.ownerId = "self";
+  fixture.membership.role = "owner";
+  fixture.conferenceStatus = "scheduled";
+  const view = page();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Пригласить участников" }),
+  );
+  expect(
+    screen.getByRole("dialog", { name: "Пригласить участников" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("textbox", { name: "Email участников" }),
+  ).toBeInTheDocument();
+  view.client.clear();
+});
+
+it("сохраняет обычным участникам и гостям только ссылку без поиска пользователей", () => {
+  const search = vi.spyOn(api, "invitationUsers");
+  const account = page();
+  fireEvent.click(screen.getByRole("button", { name: "Пригласить" }));
+  expect(
+    screen.getByRole("button", { name: "Копировать" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("textbox", { name: "Email участников" }),
+  ).not.toBeInTheDocument();
+  expect(search).not.toHaveBeenCalled();
+  account.unmount();
+  account.client.clear();
+  fixture.guest = true;
+  const guest = page();
+  fireEvent.click(screen.getByRole("button", { name: "Пригласить" }));
+  expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+  expect(search).not.toHaveBeenCalled();
+  guest.client.clear();
+});
+
+it("допускает форму соорганизатору только во время активного участия", () => {
+  fixture.membership.role = "co_host";
+  const joined = page();
+  fireEvent.click(screen.getByRole("button", { name: "Пригласить" }));
+  expect(
+    screen.getByRole("textbox", { name: "Email участников" }),
+  ).toBeInTheDocument();
+  joined.unmount();
+  joined.client.clear();
+  fixture.membership.status = "left";
+  const left = page();
+  expect(
+    screen.queryByRole("button", { name: "Пригласить участников" }),
+  ).not.toBeInTheDocument();
+  left.client.clear();
 });
 
 it("hides optional panels behind server flags and never mounts media while waiting", () => {

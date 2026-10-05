@@ -110,6 +110,31 @@ describe("настройки интеграций", () => {
     await screen.findByText("Настройки сохранены.");
     expect(save).toHaveBeenCalledWith({ ...preferences, reminder: false });
   });
+  it("разрешает email через SMTP и сохраняет выбор канала", async () => {
+    vi.mocked(api.integrationCapabilities).mockResolvedValue({
+      email: "smtp",
+      push: "noop",
+      calendar: "noop",
+      calendarOAuthConfigured: false,
+      mockConnectAllowed: false,
+    });
+    const save = vi
+      .spyOn(api, "saveNotificationPreferences")
+      .mockResolvedValue({ ...preferences, email: true });
+    show();
+    const email = await screen.findByRole("checkbox", { name: /Email/ });
+    expect(email).toBeEnabled();
+    expect(screen.getByText("Настроена отправка почты")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /Push-уведомления/ }),
+    ).toBeDisabled();
+    fireEvent.click(email);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Сохранить настройки" }),
+    );
+    await screen.findByText("Настройки сохранены.");
+    expect(save).toHaveBeenCalledWith({ ...preferences, email: true });
+  });
   it("явно отличает тестовый календарь от реальной интеграции", async () => {
     vi.mocked(api.integrationCapabilities).mockResolvedValue({
       email: "mock",

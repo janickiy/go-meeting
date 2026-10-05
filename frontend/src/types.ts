@@ -17,6 +17,20 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Registered account available to the organiser's invitation search. */
+export interface InvitationUser {
+  id: string;
+  email: string;
+  displayName?: string | null;
+}
+
+export interface ConferenceInvitation {
+  id: string;
+  email: string;
+  userId?: string | null;
+  status: "queued" | "already_invited";
+}
 /**
  * ConferenceStatus ограничивает допустимые серверные состояния встречи.
  *
@@ -487,7 +501,7 @@ export interface NotificationPreferences {
   push: boolean;
 }
 export interface IntegrationCapabilities {
-  email: ProviderMode;
+  email: ProviderMode | "smtp";
   push: ProviderMode;
   calendar: ProviderMode;
   calendarOAuthConfigured: boolean;

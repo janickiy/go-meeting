@@ -17,6 +17,7 @@ import (
 //   - AdmissionState: состояние ожидания, допуска, отклонения либо исключения.
 type Payload struct {
 	ConferenceID   string     `json:"conferenceId"`
+	InvitationID   string     `json:"invitationId,omitempty"`
 	RecordingID    string     `json:"recordingId,omitempty"`
 	ScheduledAt    *time.Time `json:"scheduledAt,omitempty"`
 	AdmissionState string     `json:"admissionState,omitempty"`

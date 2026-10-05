@@ -171,6 +171,7 @@ func RunAPI() error {
 	httptransport.RegisterContentRoutes(router, contentapp.NewHandler(product.content), httpmiddleware.Authenticate(tokens), rateLimiter)
 	httptransport.RegisterCaptionRoutes(router, &captionsapp.Handler{Repo: postgresinfra.NewCaptionsRepository(db), Enabled: cfg.StageEight.LiveEnabled, Config: cfg.StageEight, Analytics: postgresinfra.NewAnalyticsRepository(db), Search: postgresinfra.NewSearchRepository(db)}, httpmiddleware.Authenticate(tokens), rateLimiter)
 	httptransport.RegisterIntegrationRoutes(router, integrationsapp.NewHandler(product.integrations), httpmiddleware.Authenticate(tokens), rateLimiter)
+	httptransport.RegisterInvitationRoutes(router, &conferencesapp.InvitationHandler{Service: &conferenceusecase.InvitationService{Repository: postgresinfra.NewConferenceInvitationRepository(db)}}, httpmiddleware.Authenticate(tokens), rateLimiter)
 	mediaReady := healthinfra.NewHTTPReady(mediaConfig.WorkerInternalURL)
 	defer mediaReady.Close()
 	platformRepository := postgresinfra.NewPlatformRepository(db)

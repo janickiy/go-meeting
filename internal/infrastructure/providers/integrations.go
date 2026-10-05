@@ -29,17 +29,29 @@ type AdapterConfig struct {
 // IntegrationConfig объединяет независимые конфигурации каналов и OAuth внешнего календаря.
 type IntegrationConfig struct {
 	Email, Push, Calendar AdapterConfig
+	SMTP                  SMTPConfig
 	OAuth                 OAuthConfig
 	MockConnectAllowed    bool
 }
 
-// NewIntegrations создаёт заменяемые mock/noop/HTTP адаптеры, валидируя конфигурацию до запуска worker.
+// NewIntegrations создаёт заменяемые mock/noop/HTTP/SMTP адаптеры, валидируя конфигурацию до запуска worker.
 // @args cfg — серверные настройки каналов, разрешённых сетевых схем и OAuth.
 // @return: набор провайдеров либо ошибка небезопасной конфигурации.
 func NewIntegrations(cfg IntegrationConfig) (d.Providers, error) {
-	e, err := newGateway(cfg.Email)
-	if err != nil {
-		return d.Providers{}, err
+	var email d.EmailProvider
+	emailMode := cfg.Email.Mode
+	if emailMode == "smtp" {
+		var err error
+		email, err = NewSMTPEmail(cfg.SMTP)
+		if err != nil {
+			return d.Providers{}, err
+		}
+	} else {
+		e, err := newGateway(cfg.Email)
+		if err != nil {
+			return d.Providers{}, err
+		}
+		email, emailMode = &EmailAdapter{e}, e.mode
 	}
 	p, err := newGateway(cfg.Push)
 	if err != nil {
@@ -49,7 +61,7 @@ func NewIntegrations(cfg IntegrationConfig) (d.Providers, error) {
 	if err != nil {
 		return d.Providers{}, err
 	}
-	result := d.Providers{Email: &EmailAdapter{e}, Push: &PushAdapter{p}, Calendar: &CalendarAdapter{gateway: c}, Capabilities: d.Capabilities{Email: e.mode, Push: p.mode, Calendar: c.mode, MockConnectAllowed: cfg.MockConnectAllowed && c.mode == "mock"}}
+	result := d.Providers{Email: email, Push: &PushAdapter{p}, Calendar: &CalendarAdapter{gateway: c}, Capabilities: d.Capabilities{Email: emailMode, Push: p.mode, Calendar: c.mode, MockConnectAllowed: cfg.MockConnectAllowed && c.mode == "mock"}}
 	if cfg.OAuth.ClientID != "" {
 		o, err := NewOAuth(cfg.OAuth)
 		if err != nil {

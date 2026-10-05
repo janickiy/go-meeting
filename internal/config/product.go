@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/base64"
 	"fmt"
+	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
@@ -16,12 +18,20 @@ type ProviderConfig struct {
 	Mode, Endpoint, Token string
 }
 
+// SMTPConfig хранит только операторские настройки защищённой доставки почты.
+type SMTPConfig struct {
+	Host, Username, Password, From, TLSMode string
+	Port                                    int
+	Timeout                                 time.Duration
+}
+
 // StageSevenConfig задаёт бюджет отдельного продуктового работника и внешние интеграции.
 // STT/AI выключены по умолчанию; MockAllowed запрещает фиктивные внешние результаты в рабочей среде.
 // Ключ шифрования независим от JWT и используется только для устройств и календарных токенов.
 type StageSevenConfig struct {
 	PublicURL, EncryptionKey, TempRoot                            string
 	Email, Push, Calendar, STT, AI                                ProviderConfig
+	SMTP                                                          SMTPConfig
 	AIModel                                                       string
 	OAuthAuthURL, OAuthTokenURL, OAuthRevokeURL                   string
 	OAuthClientID, OAuthClientSecret, OAuthRedirectURL            string
@@ -46,7 +56,10 @@ func LoadStageSeven(local bool) (StageSevenConfig, error) {
 	}
 	for prefix, target := range map[string]*ProviderConfig{"EMAIL": &c.Email, "PUSH": &c.Push, "CALENDAR": &c.Calendar, "STT": &c.STT, "AI": &c.AI} {
 		*target = ProviderConfig{Mode: env(prefix+"_PROVIDER_MODE", "noop"), Endpoint: os.Getenv(prefix + "_PROVIDER_ENDPOINT"), Token: os.Getenv(prefix + "_PROVIDER_TOKEN")}
-		if target.Mode != "noop" && target.Mode != "mock" && target.Mode != "http" {
+		if target.Mode != "noop" && target.Mode != "mock" && target.Mode != "http" && !(prefix == "EMAIL" && target.Mode == "smtp") {
+			if prefix == "EMAIL" {
+				return c, fmt.Errorf("EMAIL_PROVIDER_MODE must be noop, mock, http or smtp")
+			}
 			return c, fmt.Errorf("%s_PROVIDER_MODE must be noop, mock or http", prefix)
 		}
 		if target.Mode == "mock" && !local {
@@ -59,6 +72,13 @@ func LoadStageSeven(local bool) (StageSevenConfig, error) {
 			if len(target.Token) < 16 {
 				return c, fmt.Errorf("%s_PROVIDER_TOKEN requires 16+ bytes", prefix)
 			}
+		}
+	}
+	if c.Email.Mode == "smtp" {
+		var smtpErr error
+		c.SMTP, smtpErr = loadSMTP()
+		if smtpErr != nil {
+			return c, smtpErr
 		}
 	}
 	var err error
@@ -169,6 +189,62 @@ func LoadStageSeven(local bool) (StageSevenConfig, error) {
 		}
 	}
 	return c, nil
+}
+
+// loadSMTP отклоняет открытый SMTP, инъекции заголовков и неполные credentials без их вывода.
+func loadSMTP() (SMTPConfig, error) {
+	c := SMTPConfig{Host: os.Getenv("SMTP_HOST"), Username: os.Getenv("SMTP_USERNAME"), Password: os.Getenv("SMTP_PASSWORD"), From: os.Getenv("SMTP_FROM"), TLSMode: env("SMTP_TLS_MODE", "tls")}
+	if c.Host == "" || len(c.Host) > 253 || strings.ContainsAny(c.Host, "/\\\r\n\t @?#") || strings.TrimSpace(c.Host) != c.Host {
+		return c, fmt.Errorf("SMTP_HOST requires a hostname without scheme, port or credentials")
+	}
+	if net.ParseIP(c.Host) == nil {
+		for _, label := range strings.Split(c.Host, ".") {
+			if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+				return c, fmt.Errorf("SMTP_HOST requires a valid hostname")
+			}
+			for _, char := range label {
+				if !(char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || char == '-') {
+					return c, fmt.Errorf("SMTP_HOST requires a valid hostname")
+				}
+			}
+		}
+	}
+	if c.TLSMode != "tls" && c.TLSMode != "starttls" {
+		return c, fmt.Errorf("SMTP_TLS_MODE must be tls or starttls")
+	}
+	defaultPort := "465"
+	if c.TLSMode == "starttls" {
+		defaultPort = "587"
+	}
+	var err error
+	c.Port, err = strconv.Atoi(env("SMTP_PORT", defaultPort))
+	if err != nil || c.Port < 1 || c.Port > 65535 {
+		return c, fmt.Errorf("SMTP_PORT must be 1..65535")
+	}
+	if c.Username == "" || len(c.Username) > 512 || strings.ContainsAny(c.Username, "\r\n\x00") || c.Password == "" || len(c.Password) > 4096 || strings.ContainsRune(c.Password, 0) {
+		return c, fmt.Errorf("SMTP_USERNAME and SMTP_PASSWORD are required")
+	}
+	from, err := mail.ParseAddress(c.From)
+	if err != nil || strings.ContainsAny(c.From, "\r\n\x00") || len(c.From) > 512 || !smtpASCIIAddress(from) {
+		return c, fmt.Errorf("SMTP_FROM requires one valid sender email address")
+	}
+	c.Timeout, err = time.ParseDuration(env("SMTP_TIMEOUT", "15s"))
+	if err != nil || c.Timeout < time.Second || c.Timeout > time.Minute {
+		return c, fmt.Errorf("SMTP_TIMEOUT must be within 1s..1m")
+	}
+	return c, nil
+}
+
+func smtpASCIIAddress(address *mail.Address) bool {
+	if address == nil || !strings.Contains(address.Address, "@") {
+		return false
+	}
+	for _, char := range address.Address {
+		if char <= 32 || char >= 127 {
+			return false
+		}
+	}
+	return true
 }
 
 // stageSevenURL проверяет операторский URL без credentials, fragment и скрытой redirect-конфигурации.

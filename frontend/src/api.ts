@@ -37,6 +37,8 @@ import type {
   MeetingAnalytics,
   CapabilitiesResponse,
   AdminSummary,
+  InvitationUser,
+  ConferenceInvitation,
 } from "./types";
 
 let accessToken: string | null = null;
@@ -241,6 +243,21 @@ export const api = {
     request<Item<Participant>>(
       `/conferences/${encodeURIComponent(id)}/participants/me`,
       { signal },
+    ),
+  /** Searches registered accounts inside an authorised meeting invitation flow. */
+  invitationUsers: (id: string, query: string, signal?: AbortSignal) =>
+    request<Items<InvitationUser>>(
+      `/conferences/${encodeURIComponent(id)}/invitation-users?${new URLSearchParams({ query })}`,
+      { signal },
+    ),
+  /** Queues meeting invitation emails and the recipients' account notifications. */
+  inviteParticipants: (
+    id: string,
+    recipients: { emails?: string[]; userIds?: string[] },
+  ) =>
+    request<Items<ConferenceInvitation>>(
+      `/conferences/${encodeURIComponent(id)}/invitations`,
+      { method: "POST", body: recipients },
     ),
   /**
    * admit отправляет решение организатора о допуске или отклонении участника.

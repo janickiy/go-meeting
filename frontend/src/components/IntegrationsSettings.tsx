@@ -14,6 +14,7 @@ const modes = {
   noop: "Не настроено",
   mock: "Тестовый режим",
   http: "Подключён провайдер",
+  smtp: "Настроена отправка почты",
 };
 const preferenceLabels: Record<keyof NotificationPreferences, string> = {
   invitation: "Приглашения и изменения встреч",
@@ -67,8 +68,9 @@ export function IntegrationsSettings() {
       >
         <h2>Уведомления</h2>
         <p className="field-hint">
-          Выберите события и разрешённые внешние каналы. Если email или push
-          выключены, уведомления не отправляются через соответствующий канал.
+          Выберите события и разрешённые внешние каналы. Email и push управляют
+          автоматическими уведомлениями. Приглашения, отправленные
+          организатором, приходят на email отдельно.
         </p>
         <ErrorNotice error={preferences.error || capabilities.error} />
         {preferences.isPending || capabilities.isPending ? (

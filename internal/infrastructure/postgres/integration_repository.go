@@ -364,6 +364,9 @@ func (r *IntegrationRepository) Fanout(ctx context.Context, job jobs.Job, event 
 			UserID string
 		}
 		q := tx.Table("conference_participants p").Select("p.id,p.user_id").Where("p.conference_id=? AND p.user_id IS NOT NULL AND p.status NOT IN ('kicked','rejected')", job.ConferenceID)
+		if event == "conference.invited" {
+			q = q.Where("NOT EXISTS(SELECT 1 FROM conference_invitations i WHERE i.conference_id=p.conference_id AND i.user_id=p.user_id)")
+		}
 		if cursor, ok := payload["cursorParticipantId"].(string); ok && cursor != "" {
 			q = q.Where("p.id>?::uuid", cursor)
 		}
