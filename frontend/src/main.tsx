@@ -14,9 +14,11 @@ import "./styles.css";
 import "./accessibility.css";
 import "./tokens.css";
 import "./workspace.css";
+import "./appearance.css";
 import { PRODUCT_NAME } from "./brand";
 import { ApiError } from "./api";
 import { AuthProvider } from "./auth";
+import { AppearanceProvider } from "./appearance";
 import { App } from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { installClientTelemetry } from "./clientTelemetry";
@@ -57,7 +59,9 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <App />
+            <AppearanceProvider>
+              <App />
+            </AppearanceProvider>
           </AuthProvider>
         </QueryClientProvider>
       </BrowserRouter>

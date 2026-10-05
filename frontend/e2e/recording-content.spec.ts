@@ -336,15 +336,29 @@ test("Stage7: настройки сохраняются, тестовые кан
 }, info) => {
   const writes = await mockStageSeven(page);
   await page.goto("/app/settings");
-  await page
+  const settings = page.getByRole("dialog", { name: "Настройки аккаунта" });
+  await expect(settings).toBeVisible();
+  await expect(
+    settings.getByRole("tab", { name: "Интеграции", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    settings.getByRole("tab", { name: "Безопасность", exact: true }),
+  ).toHaveCount(0);
+  await settings.getByRole("tab", { name: "Уведомления", exact: true }).click();
+  await settings
     .getByRole("checkbox", { name: "Напоминания о встречах" })
     .uncheck();
-  await page.getByRole("button", { name: "Сохранить настройки" }).click();
-  await expect(page.getByText("Настройки сохранены.")).toBeVisible();
+  await settings.getByRole("button", { name: "Сохранить настройки" }).click();
+  await expect(settings.getByText("Настройки сохранены.")).toBeVisible();
   expect(writes).toContainEqual(expect.objectContaining({ reminder: false }));
   await expect(
-    page.getByText("Тестовый календарь не создаёт события во внешнем сервисе."),
+    settings.getByText("Тестовый канал не отправляет реальные сообщения."),
   ).toBeVisible();
+  await expect(
+    settings.getByText(
+      "Тестовый календарь не создаёт события во внешнем сервисе.",
+    ),
+  ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
     .poll(() =>
@@ -355,7 +369,7 @@ test("Stage7: настройки сохраняются, тестовые кан
     .toBe(true);
   await page.screenshot({
     path: info.outputPath("settings-mobile.png"),
-    fullPage: true,
+    fullPage: false,
   });
 });
 
@@ -364,8 +378,15 @@ test("Stage7: выключенные интеграции не имитирую�
 }) => {
   await mockStageSeven(page, true);
   await page.goto("/app/settings");
-  await expect(page.getByRole("checkbox", { name: /Email/ })).toBeDisabled();
-  await expect(page.getByRole("button", { name: /Подключить/ })).toHaveCount(0);
+  const settings = page.getByRole("dialog", { name: "Настройки аккаунта" });
+  await expect(settings).toBeVisible();
+  await settings.getByRole("tab", { name: "Уведомления", exact: true }).click();
+  await expect(
+    settings.getByRole("checkbox", { name: /Email/ }),
+  ).toBeDisabled();
+  await expect(
+    settings.getByRole("button", { name: /Подключить/ }),
+  ).toHaveCount(0);
   await page.goto("/conferences/room?recording=record");
   await expect(
     page.getByText(/Расшифровка отключена администратором/),

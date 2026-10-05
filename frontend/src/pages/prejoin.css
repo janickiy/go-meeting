@@ -12,7 +12,7 @@
 }
 .prejoin-page > .text-link {
   width: fit-content;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .prejoin-heading {
   display: flex;
@@ -22,12 +22,12 @@
 }
 .prejoin-heading h1 {
   margin: 8px 0;
-  font-size: clamp(24px, 3vw, 32px);
+  font-size: calc(clamp(24px, 3vw, 32px) * var(--text-scale));
   overflow-wrap: anywhere;
 }
 .prejoin-heading p {
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   margin: 0;
   line-height: 1.7;
 }
@@ -80,7 +80,7 @@
     var(--room-surface-raised),
     var(--room-bg)
   );
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .prejoin-initials {
   display: grid;
@@ -91,7 +91,7 @@
   background: var(--room-surface-raised);
   border: 1px solid var(--room-border);
   color: var(--room-text);
-  font-size: 29px;
+  font-size: calc(29px * var(--text-scale));
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -103,14 +103,14 @@
 .prejoin-toggles .button {
   flex: 1;
   min-height: 44px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   padding: 10px;
 }
 .prejoin-level {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   color: var(--muted);
 }
 .prejoin-level meter {
@@ -127,7 +127,7 @@
 }
 .prejoin-settings h2 {
   margin: 0 0 4px;
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale));
 }
 .prejoin-settings p {
   margin: 0;
@@ -137,10 +137,10 @@
   gap: 7px;
   margin: 0;
   min-width: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .prejoin-settings .field-hint {
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   line-height: 1.6;
 }
 .prejoin-device-label {
@@ -161,7 +161,7 @@
   background: var(--soft);
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .prejoin-settings input[readonly] {
   color: var(--muted);
@@ -172,7 +172,7 @@
   border-radius: 8px;
   background: var(--soft);
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.6;
 }
 .prejoin-join {
@@ -216,10 +216,10 @@
     align-items: flex-start;
   }
   .prejoin-heading h1 {
-    font-size: 22px;
+    font-size: calc(22px * var(--text-scale));
   }
   .prejoin-heading p {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
   }
   .prejoin-grid > .content-card {
     padding: 18px;
@@ -228,12 +228,12 @@
     gap: 8px;
   }
   .prejoin-toggles .button {
-    font-size: 11px;
+    font-size: calc(11px * var(--text-scale));
     flex-direction: column;
     min-height: 58px;
   }
   .prejoin-level {
-    font-size: 11px;
+    font-size: calc(11px * var(--text-scale));
   }
 }
 
@@ -299,11 +299,11 @@
   border-radius: 50%;
   background: #ffffff12;
   color: #eee;
-  font-size: 42px;
+  font-size: calc(42px * var(--text-scale));
 }
 .invite-entry-placeholder p {
   margin: 0;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
 }
 .invite-entry-heading {
   padding: 26px 100px 50px 30px;
@@ -311,7 +311,7 @@
 }
 .invite-entry-heading h1 {
   margin: 0 0 10px;
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale));
   font-weight: 500;
   color: #f5f5f7;
   overflow-wrap: anywhere;
@@ -367,14 +367,14 @@
 }
 .invite-entry-identity h2 {
   margin: 0;
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: calc(clamp(28px, 4vw, 42px) * var(--text-scale));
   color: #fff;
   overflow-wrap: anywhere;
 }
 .invite-entry-identity > p {
   margin: 12px 0 0;
   color: #c9c5ca;
-  font-size: 16px;
+  font-size: calc(16px * var(--text-scale));
 }
 .invite-entry-name {
   display: flex;
@@ -391,7 +391,7 @@
   background: #11121835;
   color: #fff;
   font: inherit;
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: calc(clamp(28px, 4vw, 42px) * var(--text-scale));
   font-weight: 600;
   text-align: center;
 }
@@ -399,7 +399,7 @@
   max-width: 720px;
   margin: 0 auto;
   text-align: center;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   color: #e0dfe5;
 }
 .invite-entry-notices > p {
@@ -434,7 +434,7 @@
   color: #092e1b;
   box-shadow: none;
   border: 0;
-  font-size: 24px;
+  font-size: calc(24px * var(--text-scale));
   font-weight: 600;
 }
 .invite-entry-connect.button:hover:not(:disabled) {
@@ -468,7 +468,7 @@
     padding: 22px 76px 40px 22px;
   }
   .invite-entry-heading h1 {
-    font-size: 15px;
+    font-size: calc(15px * var(--text-scale));
   }
   .invite-entry-close {
     width: 44px;
@@ -498,10 +498,10 @@
   }
   .invite-entry-connect.button {
     min-height: 58px;
-    font-size: 21px;
+    font-size: calc(21px * var(--text-scale));
   }
   .invite-entry-identity > p {
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale));
   }
   .invite-entry-name input {
     width: calc(100% - 30px);

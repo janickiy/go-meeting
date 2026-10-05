@@ -38,7 +38,7 @@
   align-items: center;
   padding: 10px 12px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   text-decoration: none;
   border-radius: var(--radius-md);
 }
@@ -89,7 +89,7 @@
   background: var(--surface-soft);
   border: 1px solid var(--border);
   color: var(--primary);
-  font-size: 25px;
+  font-size: calc(25px * var(--text-scale));
   font-weight: 600;
 }
 .account-card .field > span {
@@ -114,7 +114,7 @@
   margin-top: 24px;
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .history-library-toolbar {
   display: flex;
@@ -123,7 +123,7 @@
   gap: 24px;
 }
 .history-library-toolbar h2 {
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale));
   margin: 0;
 }
 .history-search {
@@ -173,12 +173,12 @@
   color: var(--primary);
 }
 .history-library-row strong {
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale));
   overflow-wrap: anywhere;
 }
 .history-library-row p {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   color: var(--muted);
 }
 .history-row-art {
@@ -196,7 +196,7 @@
   gap: 6px;
   min-height: 36px;
   color: var(--primary);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   background: var(--surface-soft);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
@@ -249,7 +249,7 @@
   background: var(--surface-soft);
   padding: 8px 14px;
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
 }
 .history-material .recording-panel {
   display: flex;
@@ -322,14 +322,14 @@
   min-height: 36px;
   border-radius: var(--radius-sm);
   background: var(--surface-soft);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .recording-material-column .transcript-list p {
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   line-height: 1.65;
 }
 .recording-material-column .summary-content {
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   line-height: 1.65;
 }
 .recording-material-column .summary-content h4 {
@@ -340,7 +340,7 @@
   color: var(--primary);
 }
 .recording-material-column .demo-notice {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 
 @media (max-width: 1100px) {
@@ -392,7 +392,7 @@
   .profile-initials {
     width: 50px;
     height: 50px;
-    font-size: 22px;
+    font-size: calc(22px * var(--text-scale));
   }
   .recording-material-column {
     padding-inline: 12px;

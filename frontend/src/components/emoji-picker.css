@@ -60,13 +60,13 @@
   gap: 8px;
   margin-bottom: 8px;
   padding-left: 4px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   font-weight: 600;
 }
 
 .emoji-picker-count {
   color: #778585;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   font-weight: 400;
 }
 

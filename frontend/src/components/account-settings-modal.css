@@ -1,0 +1,260 @@
+/* Диалог аккаунта имеет собственную прокрутку: фон и его соединения не размонтируются. */
+.modal.account-settings-modal {
+  width: min(960px, 100%);
+  max-width: 960px;
+  max-height: min(820px, calc(100dvh - 32px));
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.modal.account-settings-modal > h2 {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 26px 68px 24px 28px;
+  border-bottom: 1px solid var(--border);
+  font-size: calc(22px * var(--text-scale, 1));
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.account-settings-modal .modal-close {
+  top: 20px;
+  right: 20px;
+}
+.account-dialog-layout {
+  display: grid;
+  grid-template-columns: 215px minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 570px;
+}
+.account-dialog-tabs {
+  min-width: 0;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-right: 1px solid var(--border);
+  background: var(--surface-soft);
+  overflow-y: auto;
+}
+.account-dialog-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  text-align: left;
+  padding: 12px;
+  min-height: 46px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: calc(14px * var(--text-scale, 1));
+  line-height: 1.4;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.account-dialog-tabs svg {
+  flex-shrink: 0;
+}
+.account-dialog-tabs button:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+.account-dialog-tabs button[aria-selected="true"] {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.account-dialog-tabs button:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -3px;
+}
+.account-dialog-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: block;
+  padding: 28px;
+}
+.account-settings-modal .account-dialog-panel > .content-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.account-dialog-panel h2,
+.appearance-theme-block legend {
+  font-size: calc(18px * var(--text-scale, 1));
+  line-height: 1.4;
+  font-weight: 600;
+  margin: 0 0 18px;
+}
+.account-dialog-panel .field {
+  margin: 16px 0;
+}
+.account-dialog-panel .field input,
+.account-dialog-panel .field select {
+  min-width: 0;
+  width: 100%;
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+.account-dialog-panel .field input[readonly] {
+  background: var(--surface-soft);
+}
+.account-dialog-panel .field-hint {
+  color: var(--muted);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.account-dialog-panel .profile-section-heading {
+  align-items: start;
+}
+.account-dialog-panel .profile-created {
+  align-items: start;
+  overflow-wrap: anywhere;
+}
+.account-dialog-panel .profile-created svg {
+  flex-shrink: 0;
+}
+.appearance-theme-block {
+  padding: 0 0 28px;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+.appearance-theme-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.appearance-theme-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 16px 8px;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.appearance-theme-selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.appearance-theme-option input {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+.appearance-theme-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: calc(13px * var(--text-scale, 1));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.appearance-theme-name svg {
+  flex-shrink: 0;
+}
+.appearance-theme-preview {
+  display: grid;
+  grid-template-columns: 25% 1fr;
+  gap: 8px;
+  height: 96px;
+  grid-column: 1/-1;
+  border-radius: 7px;
+  padding: 10px;
+}
+.appearance-theme-preview > span:first-child {
+  grid-row: span 2;
+  border-radius: 4px;
+}
+.appearance-theme-preview > span:not(:first-child) {
+  border-radius: 4px;
+}
+.appearance-preview-light {
+  background: #edf1f7;
+  border: 1px solid #d8e0ed;
+}
+.appearance-preview-light > span {
+  background: #ffffff;
+}
+.appearance-preview-dark {
+  background: #10151c;
+  border: 1px solid #354154;
+}
+.appearance-preview-dark > span {
+  background: #273243;
+}
+.appearance-text-block {
+  padding-top: 28px;
+}
+.appearance-text-size {
+  max-width: 260px;
+}
+.account-dialog-panel > :last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 680px) {
+  .modal.account-settings-modal {
+    max-height: calc(100dvh - 24px);
+  }
+  .modal.account-settings-modal > h2 {
+    padding: 22px 58px 20px 18px;
+    font-size: calc(19px * var(--text-scale, 1));
+  }
+  .account-settings-modal .modal-close {
+    top: 16px;
+    right: 12px;
+  }
+  .account-dialog-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 600px;
+  }
+  .account-dialog-tabs {
+    flex-direction: row;
+    padding: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .account-dialog-tabs button {
+    width: auto;
+    white-space: nowrap;
+    padding: 10px;
+    gap: 6px;
+  }
+  .account-dialog-panel {
+    padding: 22px 18px;
+  }
+  .appearance-theme-options {
+    gap: 10px;
+  }
+  .appearance-theme-option {
+    padding: 8px;
+    gap: 10px 5px;
+  }
+  .appearance-theme-name {
+    flex-wrap: wrap;
+  }
+  .appearance-theme-preview {
+    height: 72px;
+    gap: 5px;
+    padding: 6px;
+  }
+}

@@ -29,7 +29,9 @@ const preferenceLabels: Record<keyof NotificationPreferences, string> = {
  * Отображает настройки каналов и подключения календаря без сбора токенов.
  * @return Карточки уведомлений и интеграций текущего пользователя.
  */
-export function IntegrationsSettings() {
+export function IntegrationsSettings({
+  notificationsOnly = false,
+}: { notificationsOnly?: boolean } = {}) {
   const { user } = useAuth();
   const client = useQueryClient();
   const capabilities = useQuery({
@@ -43,6 +45,7 @@ export function IntegrationsSettings() {
   const calendars = useQuery({
     queryKey: ["calendars", user?.id],
     queryFn: ({ signal }) => api.calendars(signal),
+    enabled: !notificationsOnly,
   });
   const calendarAction = useMutation({
     mutationFn: async (action: string) => {
@@ -86,96 +89,99 @@ export function IntegrationsSettings() {
           )
         )}
       </section>
-      <section
-        className="content-card settings-section"
-        id="integration-settings"
-      >
-        <h2>Календарь</h2>
-        <p className="field-hint">
-          Созданные вами запланированные встречи синхронизируются автоматически.
-          Смена времени и отмена передаются в подключённый календарь.
-        </p>
-        <ErrorNotice error={calendars.error || calendarAction.error} />
-        {capabilities.data && (
-          <p>
-            Интеграция: <strong>{modes[capabilities.data.calendar]}</strong>
-          </p>
-        )}
-        {capabilities.data?.calendar === "mock" && (
-          <p className="demo-notice">
-            Тестовый календарь не создаёт события во внешнем сервисе.
-          </p>
-        )}
-        {calendars.isPending ? (
-          <Loading />
-        ) : (
-          <ul className="integration-list">
-            {calendars.data?.items.map((connection) => (
-              <li key={connection.id}>
-                <div>
-                  <strong>
-                    {connection.provider === "mock"
-                      ? "Тестовый календарь"
-                      : "Внешний календарь"}
-                  </strong>
-                  <p className="field-hint">
-                    {connection.status === "connected"
-                      ? "Подключён"
-                      : "Отключён"}{" "}
-                    · {connection.calendarId}
-                  </p>
-                </div>
-                {connection.status === "connected" && (
-                  <Button
-                    variant="outline"
-                    busy={calendarAction.isPending}
-                    onClick={() => calendarAction.mutate(connection.id)}
-                  >
-                    Отключить календарь
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {!calendars.isPending &&
-          !calendars.data?.items.some(
-            (connection) => connection.status === "connected",
-          ) && <p className="muted">Нет подключённых календарей.</p>}
-        <div className="meeting-actions">
-          {capabilities.data?.calendar === "mock" &&
-            capabilities.data.mockConnectAllowed && (
-              <Button
-                variant="outline"
-                busy={calendarAction.isPending}
-                onClick={() => calendarAction.mutate("mock")}
-              >
-                Подключить тестовый календарь
-              </Button>
-            )}
-          {capabilities.data?.calendar === "http" &&
-            capabilities.data.calendarOAuthConfigured && (
-              <Button
-                busy={calendarAction.isPending}
-                onClick={() => calendarAction.mutate("connect")}
-              >
-                Подключить календарь
-              </Button>
-            )}
-        </div>
-        {capabilities.data?.calendar === "noop" ||
-        (capabilities.data?.calendar === "http" &&
-          !capabilities.data.calendarOAuthConfigured) ? (
+      {!notificationsOnly && (
+        <section
+          className="content-card settings-section"
+          id="integration-settings"
+        >
+          <h2>Календарь</h2>
           <p className="field-hint">
-            Подключение станет доступно после настройки интеграции
-            администратором.
+            Созданные вами запланированные встречи синхронизируются
+            автоматически. Смена времени и отмена передаются в подключённый
+            календарь.
           </p>
-        ) : null}
-        <p className="field-hint">
-          Разрешение выдаётся на странице календарного сервиса. Пароли и токены
-          провайдера вводить здесь не нужно.
-        </p>
-      </section>
+          <ErrorNotice error={calendars.error || calendarAction.error} />
+          {capabilities.data && (
+            <p>
+              Интеграция: <strong>{modes[capabilities.data.calendar]}</strong>
+            </p>
+          )}
+          {capabilities.data?.calendar === "mock" && (
+            <p className="demo-notice">
+              Тестовый календарь не создаёт события во внешнем сервисе.
+            </p>
+          )}
+          {calendars.isPending ? (
+            <Loading />
+          ) : (
+            <ul className="integration-list">
+              {calendars.data?.items.map((connection) => (
+                <li key={connection.id}>
+                  <div>
+                    <strong>
+                      {connection.provider === "mock"
+                        ? "Тестовый календарь"
+                        : "Внешний календарь"}
+                    </strong>
+                    <p className="field-hint">
+                      {connection.status === "connected"
+                        ? "Подключён"
+                        : "Отключён"}{" "}
+                      · {connection.calendarId}
+                    </p>
+                  </div>
+                  {connection.status === "connected" && (
+                    <Button
+                      variant="outline"
+                      busy={calendarAction.isPending}
+                      onClick={() => calendarAction.mutate(connection.id)}
+                    >
+                      Отключить календарь
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {!calendars.isPending &&
+            !calendars.data?.items.some(
+              (connection) => connection.status === "connected",
+            ) && <p className="muted">Нет подключённых календарей.</p>}
+          <div className="meeting-actions">
+            {capabilities.data?.calendar === "mock" &&
+              capabilities.data.mockConnectAllowed && (
+                <Button
+                  variant="outline"
+                  busy={calendarAction.isPending}
+                  onClick={() => calendarAction.mutate("mock")}
+                >
+                  Подключить тестовый календарь
+                </Button>
+              )}
+            {capabilities.data?.calendar === "http" &&
+              capabilities.data.calendarOAuthConfigured && (
+                <Button
+                  busy={calendarAction.isPending}
+                  onClick={() => calendarAction.mutate("connect")}
+                >
+                  Подключить календарь
+                </Button>
+              )}
+          </div>
+          {capabilities.data?.calendar === "noop" ||
+          (capabilities.data?.calendar === "http" &&
+            !capabilities.data.calendarOAuthConfigured) ? (
+            <p className="field-hint">
+              Подключение станет доступно после настройки интеграции
+              администратором.
+            </p>
+          ) : null}
+          <p className="field-hint">
+            Разрешение выдаётся на странице календарного сервиса. Пароли и
+            токены провайдера вводить здесь не нужно.
+          </p>
+        </section>
+      )}
     </>
   );
 }

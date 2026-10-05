@@ -15,7 +15,7 @@
     var(--room-surface, #181f29)
   );
   color: var(--room-text, #f1f4fa);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   line-height: 1.5;
 }
 .room-recording-notice > span {
@@ -52,6 +52,6 @@
   .room-recording-notice {
     gap: 8px;
     padding-left: 10px;
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
   }
 }

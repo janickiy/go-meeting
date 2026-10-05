@@ -36,12 +36,12 @@
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .analytics-metrics dd {
   margin: 16px 0 0;
   color: var(--text);
-  font-size: clamp(24px, 2.8vw, 34px);
+  font-size: calc(clamp(24px, 2.8vw, 34px) * var(--text-scale));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -74,7 +74,7 @@
   display: flex;
   justify-content: space-between;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   font-variant-numeric: tabular-nums;
 }
 .analytics-chart-card summary {
@@ -117,7 +117,7 @@
 .analytics-scroll td {
   padding: 14px 12px;
   border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .analytics-scroll thead {
   background: var(--surface-soft);
@@ -152,13 +152,13 @@
     padding: 16px 12px;
   }
   .analytics-metrics dt {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
     gap: 5px;
   }
   .analytics-metrics dt svg {
     width: 15px;
   }
   .analytics-metrics dd {
-    font-size: 26px;
+    font-size: calc(26px * var(--text-scale));
   }
 }

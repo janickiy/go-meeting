@@ -27,6 +27,60 @@ beforeEach(() => {
 });
 
 describe("профиль в настройках", () => {
+  it("показывает только поддерживаемые вкладки, не изменяя адрес при переключении", () => {
+    render(<SettingsPage />);
+    const before = window.location.href;
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Профиль",
+      "Аудио и видео",
+      "Уведомления",
+      "Оформление",
+    ]);
+    expect(screen.queryByText("Интеграции")).toBeNull();
+    expect(screen.queryByText("Безопасность")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Аудио и видео" }));
+    expect(screen.getByText("Настройки устройств")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Email" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Уведомления" }));
+    expect(screen.getByText("Настройки уведомлений")).toBeInTheDocument();
+    expect(window.location.href).toBe(before);
+  });
+
+  it("показывает только две темы и процентный размер текста в оформлении", () => {
+    render(<SettingsPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Оформление" }));
+    expect(screen.getByRole("radio", { name: "Светлая тема" })).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Тёмная тема" }),
+    ).not.toBeChecked();
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    const size = screen.getByRole("combobox", { name: "Размер текста" });
+    expect(size).toHaveValue("100");
+    expect(
+      screen
+        .getAllByRole("option")
+        .map((option) => (option as HTMLOptionElement).value),
+    ).toEqual(["75", "90", "100", "110", "125", "150", "200"]);
+    expect(
+      screen.queryByRole("combobox", { name: /Масштаб интерфейса|Плотность/ }),
+    ).toBeNull();
+  });
+
+  it("переключает вкладки с клавиатуры и оставляет только выбранную в обычном Tab-порядке", () => {
+    render(<SettingsPage />);
+    const profile = screen.getByRole("tab", { name: "Профиль" });
+    profile.focus();
+    fireEvent.keyDown(profile, { key: "End" });
+    const appearance = screen.getByRole("tab", { name: "Оформление" });
+    expect(appearance).toHaveFocus();
+    expect(appearance).toHaveAttribute("aria-selected", "true");
+    expect(profile).toHaveAttribute("tabindex", "-1");
+    expect(screen.getAllByRole("tabpanel")).toHaveLength(1);
+    fireEvent.keyDown(appearance, { key: "Home" });
+    expect(profile).toHaveFocus();
+    expect(profile).toHaveAttribute("tabindex", "0");
+  });
+
   it("показывает реальный email только для чтения без вымышленных полей профиля", () => {
     render(<SettingsPage />);
     expect(screen.getByRole("textbox", { name: "Email" })).toHaveValue(
@@ -38,7 +92,7 @@ describe("профиль в настройках", () => {
     expect(screen.queryByRole("textbox", { name: "Должность" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Изменить фото" })).toBeNull();
     expect(
-      screen.getByRole("navigation", { name: "Разделы настроек" }),
+      screen.getByRole("tablist", { name: "Разделы настроек" }),
     ).toBeInTheDocument();
   });
   it("сохраняет собственное имя без повторной авторизации", async () => {

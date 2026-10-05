@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import {
   Bell,
   CalendarDays,
   ChevronRight,
   Clapperboard,
-  Link2,
+  Moon,
   Mail,
   Search,
-  ShieldCheck,
+  Palette,
   SlidersHorizontal,
+  Sun,
   UserRound,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -19,10 +20,12 @@ import { useConferences } from "../queries";
 import { Button, ErrorNotice, Loading } from "../components/ui";
 import { IntegrationsSettings } from "../components/IntegrationsSettings";
 import { DeviceSettings } from "../components/DeviceSettings";
+import { TEXT_SIZE_OPTIONS, useAppearance } from "../appearance";
+import type { TextSize } from "../appearance";
 import "./history-notifications.css";
 
-/** Показывает реальные настройки профиля, устройств и подключений без неподдерживаемых полей.
- * @return Страница с доступной навигацией к разделам и формой обновления имени.
+/** Показывает вкладки профиля, устройств, уведомлений и оформления внутри диалога аккаунта.
+ * @return Содержимое настроек без интеграций и неподдерживаемого раздела безопасности.
  */
 export function SettingsPage() {
   const { user, updateProfile } = useAuth();
@@ -31,16 +34,54 @@ export function SettingsPage() {
   const [profileError, setProfileError] = useState<unknown>();
   const [profileValidation, setProfileValidation] = useState("");
   const [saved, setSaved] = useState(false);
-  const [activeSection, setActiveSection] = useState(
-    () => window.location.hash || "#profile-settings",
+  const appearance = useAppearance();
+  const tabs = [
+    { id: "profile", label: "Профиль", Icon: UserRound },
+    { id: "devices", label: "Аудио и видео", Icon: SlidersHorizontal },
+    { id: "notifications", label: "Уведомления", Icon: Bell },
+    { id: "appearance", label: "Оформление", Icon: Palette },
+  ] as const;
+  const [activeSection, setActiveSection] = useState<string>(() => {
+    const section = window.location.hash;
+    return section === "#audio-video"
+      ? "devices"
+      : section === "#notification-settings"
+        ? "notifications"
+        : section === "#appearance-settings"
+          ? "appearance"
+          : "profile";
+  });
+  const prefix = useId();
+  const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);
+  const [horizontalTabs, setHorizontalTabs] = useState(
+    () => window.matchMedia?.("(max-width: 680px)").matches ?? false,
   );
   useEffect(() => setName(user?.displayName || ""), [user?.displayName]);
   useEffect(() => {
-    const updateSection = () =>
-      setActiveSection(window.location.hash || "#profile-settings");
-    window.addEventListener("hashchange", updateSection);
-    return () => window.removeEventListener("hashchange", updateSection);
+    const media = window.matchMedia?.("(max-width: 680px)");
+    if (!media) return;
+    const update = () => setHorizontalTabs(media.matches);
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
   }, []);
+
+  /** Переключает доступные вкладки стрелками, Home и End, не меняя адрес фоновой страницы.
+   * @args event — клавиатурное событие кнопки; index — позиция текущей вкладки.
+   * @return Значение не возвращается; выбранная вкладка получает фокус.
+   */
+  function changeTab(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next = index;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown")
+      next = (index + 1) % tabs.length;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp")
+      next = (index - 1 + tabs.length) % tabs.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = tabs.length - 1;
+    else return;
+    event.preventDefault();
+    setActiveSection(tabs[next].id);
+    tabButtons.current[next]?.focus();
+  }
 
   /** Проверяет имя и сохраняет его через существующий контракт профиля.
    * @args event — отправка формы, которую обрабатывает приложение.
@@ -74,59 +115,41 @@ export function SettingsPage() {
     }
   }
   return (
-    <>
-      <section className="page-heading">
-        <div>
-          <h1>Настройки аккаунта</h1>
-          <p>Ваш профиль, устройства и предпочтения.</p>
-        </div>
-      </section>
-      <div className="account-settings-layout">
-        <nav className="settings-section-nav" aria-label="Разделы настроек">
-          <a
-            href="#profile-settings"
-            aria-current={
-              activeSection === "#profile-settings" ? "location" : undefined
-            }
+    <div className="account-dialog-layout">
+      <div
+        className="account-dialog-tabs"
+        role="tablist"
+        aria-label="Разделы настроек"
+        aria-orientation={horizontalTabs ? "horizontal" : "vertical"}
+      >
+        {tabs.map(({ id, label, Icon }, index) => (
+          <button
+            type="button"
+            key={id}
+            role="tab"
+            id={`${prefix}-${id}-tab`}
+            aria-controls={`${prefix}-${id}-panel`}
+            aria-selected={activeSection === id}
+            tabIndex={activeSection === id ? 0 : -1}
+            ref={(node) => {
+              tabButtons.current[index] = node;
+            }}
+            onClick={() => setActiveSection(id)}
+            onKeyDown={(event) => changeTab(event, index)}
           >
-            <UserRound size={18} aria-hidden="true" /> Профиль
-          </a>
-          <a
-            href="#audio-video"
-            aria-current={
-              activeSection === "#audio-video" ? "location" : undefined
-            }
-          >
-            <SlidersHorizontal size={18} aria-hidden="true" /> Аудио и видео
-          </a>
-          <a
-            href="#notification-settings"
-            aria-current={
-              activeSection === "#notification-settings"
-                ? "location"
-                : undefined
-            }
-          >
-            <Bell size={18} aria-hidden="true" /> Уведомления
-          </a>
-          <a
-            href="#integration-settings"
-            aria-current={
-              activeSection === "#integration-settings" ? "location" : undefined
-            }
-          >
-            <Link2 size={18} aria-hidden="true" /> Интеграции
-          </a>
-          <a
-            href="#account-security"
-            aria-current={
-              activeSection === "#account-security" ? "location" : undefined
-            }
-          >
-            <ShieldCheck size={18} aria-hidden="true" /> Безопасность
-          </a>
-        </nav>
-        <div className="settings-section-content">
+            <Icon size={18} aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
+      <div
+        className="account-dialog-panel settings-section-content"
+        role="tabpanel"
+        id={`${prefix}-${activeSection}-panel`}
+        aria-labelledby={`${prefix}-${activeSection}-tab`}
+        tabIndex={0}
+      >
+        {activeSection === "profile" && (
           <section
             className="content-card account-card"
             id="profile-settings"
@@ -196,21 +219,85 @@ export function SettingsPage() {
               {user && formatDate(user.createdAt)}
             </p>
           </section>
-          <DeviceSettings />
-          <IntegrationsSettings />
-          <section
-            className="content-card settings-section"
-            id="account-security"
-          >
-            <h2>Безопасность</h2>
+        )}
+        {activeSection === "devices" && <DeviceSettings />}
+        {activeSection === "notifications" && (
+          <IntegrationsSettings notificationsOnly />
+        )}
+        {activeSection === "appearance" && (
+          <div className="appearance-settings" id="appearance-settings">
+            <fieldset className="appearance-theme-block">
+              <legend>Тема</legend>
+              <div className="appearance-theme-options">
+                {(["light", "dark"] as const).map((theme) => (
+                  <label
+                    key={theme}
+                    className={`appearance-theme-option ${appearance.theme === theme ? "appearance-theme-selected" : ""}`}
+                  >
+                    <span
+                      className={`appearance-theme-preview appearance-preview-${theme}`}
+                      aria-hidden="true"
+                    >
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <span className="appearance-theme-name">
+                      {theme === "light" ? (
+                        <Sun size={18} aria-hidden="true" />
+                      ) : (
+                        <Moon size={18} aria-hidden="true" />
+                      )}
+                      {theme === "light" ? "Светлая тема" : "Тёмная тема"}
+                    </span>
+                    <input
+                      type="radio"
+                      name={`${prefix}-theme`}
+                      value={theme}
+                      checked={appearance.theme === theme}
+                      onChange={() => appearance.setTheme(theme)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <section
+              className="appearance-text-block"
+              aria-labelledby={`${prefix}-text-heading`}
+            >
+              <h2 id={`${prefix}-text-heading`}>Внешний вид</h2>
+              <label className="field appearance-text-size">
+                <span>Размер текста</span>
+                <select
+                  value={appearance.textSize}
+                  onChange={(event) => {
+                    const value = Number(event.target.value) as TextSize;
+                    if (TEXT_SIZE_OPTIONS.includes(value))
+                      appearance.setTextSize(value);
+                  }}
+                >
+                  {TEXT_SIZE_OPTIONS.map((value) => (
+                    <option key={value} value={value}>
+                      {value}%{value === 100 ? " (по умолчанию)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
             <p className="field-hint">
-              Сессия действует 1 час. Для выхода используйте меню профиля. Смена
-              пароля и управление активными сессиями пока недоступны.
+              Оформление применяется сразу и сохраняется для вашего аккаунта в
+              этом браузере.
             </p>
-          </section>
-        </div>
+            {appearance.persistenceError && (
+              <p role="status">
+                Браузер не разрешил сохранить настройки. Оформление действует до
+                перезагрузки страницы.
+              </p>
+            )}
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }
 

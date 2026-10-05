@@ -178,6 +178,8 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  className = "",
+  returnFocus,
 }: {
   title: string;
   children: ReactNode;
@@ -188,11 +190,15 @@ export function Modal({
    * @returns void — значение не возвращается; функция выполняет описанные действия.
    */ () => void;
   wide?: boolean;
+  className?: string;
+  returnFocus?: () => HTMLElement | null;
 }) {
   const id = useId();
   const dialog = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  const restoreFocus = useRef(returnFocus);
+  restoreFocus.current = returnFocus;
   useEffect(
     /**
      * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
@@ -212,8 +218,10 @@ export function Modal({
       const focusable = () =>
         Array.from(
           dialog.current?.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), input:not(:disabled), a[href], textarea:not(:disabled), [tabindex="0"]',
+            'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], textarea:not(:disabled), [tabindex="0"]',
           ) || [],
+        ).filter(
+          (item) => item.tabIndex >= 0 && !item.closest("[hidden], [inert]"),
         );
       (
         dialog.current?.querySelector<HTMLElement>("[data-autofocus]") ||
@@ -229,6 +237,8 @@ export function Modal({
        * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
        */
       function handle(event: KeyboardEvent) {
+        // Горячие клавиши фоновой встречи не должны реагировать на ввод в диалоге.
+        event.stopPropagation();
         if (event.key === "Escape") {
           event.preventDefault();
           close.current();
@@ -263,7 +273,8 @@ export function Modal({
       return () => {
         document.body.style.overflow = overflow;
         document.removeEventListener("keydown", handle);
-        if (previous?.isConnected) previous.focus();
+        const target = restoreFocus.current?.() || previous;
+        if (target?.isConnected && !target.closest("[inert]")) target.focus();
       };
     },
     [],
@@ -280,13 +291,17 @@ export function Modal({
          *
          * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
          */ (event) => {
-          if (event.target === event.currentTarget) close.current();
+          if (event.target === event.currentTarget) {
+            // Не даём фону забрать фокус после восстановления ссылки открытия.
+            event.preventDefault();
+            close.current();
+          }
         }
       }
     >
       <div
         ref={dialog}
-        className={`modal ${wide ? "modal-wide" : ""}`}
+        className={`modal ${wide ? "modal-wide" : ""} ${className}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}

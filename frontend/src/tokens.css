@@ -1,6 +1,7 @@
 /* Семантическая палитра: новые компоненты используют роли, а не случайные цвета.
    Breakpoints: mobile <=760px, tablet <=1100px; CSS media не принимает var(). */
 :root {
+  --text-scale: 1;
   --primary: #1764f6;
   --primary-hover: #0d4dcc;
   --primary-soft: #edf3ff;
@@ -43,11 +44,11 @@
   --shadow-card: 0 4px 24px rgb(31 56 97 / 4%);
   --shadow-float: 0 16px 48px rgb(22 40 71 / 15%);
   --font-ui: Inter, Arial, sans-serif;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 14px;
-  --text-lg: 18px;
-  --text-title: clamp(24px, 2.2vw, 32px);
+  --text-xs: calc(12px * var(--text-scale));
+  --text-sm: calc(13px * var(--text-scale));
+  --text-base: calc(14px * var(--text-scale));
+  --text-lg: calc(18px * var(--text-scale));
+  --text-title: calc(clamp(24px, 2.2vw, 32px) * var(--text-scale));
   --z-nav: 20;
   --z-drawer: 60;
   --z-dialog: 100;
@@ -57,4 +58,33 @@
   color: var(--text);
   background: var(--canvas);
   font-family: var(--font-ui);
+}
+
+/* Комната и превью камеры остаются тёмными в обеих темах продукта. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --primary: #8bb3ff;
+  --primary-hover: #adcaff;
+  --primary-soft: #223450;
+  --primary-contrast: #0b1930;
+  --text: #f0f3f9;
+  --muted: #b5c0d2;
+  --surface: #1b2433;
+  --surface-soft: #253044;
+  --canvas: #111824;
+  --border: #354156;
+  --border-strong: #53627a;
+  --danger: #ff8695;
+  --danger-soft: #422633;
+  --success: #7ad8b0;
+  --success-soft: #1d3a32;
+  --warning: #f1c580;
+  --warning-soft: #3d3426;
+  --overlay: rgb(0 0 0 / 65%);
+  --shadow-card: 0 4px 24px rgb(0 0 0 / 14%);
+  --shadow-float: 0 16px 48px rgb(0 0 0 / 42%);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }

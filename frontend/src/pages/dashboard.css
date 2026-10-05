@@ -7,7 +7,7 @@
   margin-bottom: 24px;
 }
 .dashboard-heading h1 {
-  font-size: clamp(24px, 2.4vw, 32px);
+  font-size: calc(clamp(24px, 2.4vw, 32px) * var(--text-scale));
   letter-spacing: -0.035em;
   overflow-wrap: anywhere;
 }
@@ -17,7 +17,7 @@
   gap: 8px;
   white-space: nowrap;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .dashboard-page .dashboard-actions {
   gap: 12px;
@@ -25,7 +25,7 @@
 }
 .dashboard-page .dashboard-actions .button {
   min-height: 44px;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .dashboard-page .conferences-panel {
   max-width: none;
@@ -36,11 +36,11 @@
   box-shadow: var(--shadow-card);
 }
 .dashboard-page .section-heading h2 {
-  font-size: 17px;
+  font-size: calc(17px * var(--text-scale));
   letter-spacing: -0.02em;
 }
 .dashboard-page .section-heading .text-link {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   white-space: nowrap;
 }
 .dashboard-page .list-toolbar {
@@ -51,7 +51,7 @@
 }
 .dashboard-page .tab {
   padding: 9px 13px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .dashboard-page .conference-list {
   display: grid;
@@ -76,22 +76,22 @@
   padding-inline-end: 17px;
   margin-inline-end: 2px;
   border-inline-end: 1px solid var(--border);
-  font-size: 16px;
+  font-size: calc(16px * var(--text-scale));
   font-weight: 650;
   color: var(--text);
 }
 .dashboard-meeting-time small {
   display: block;
   margin-top: 5px;
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   font-weight: 400;
   color: var(--muted);
 }
 .dashboard-page .conference-row-copy h3 {
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
 }
 .dashboard-page .conference-row-copy p {
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   line-height: 1.5;
 }
 .dashboard-show-more {
@@ -105,7 +105,7 @@
 .dashboard-section-note {
   margin: 5px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.6;
 }
 .recent-meeting-grid {
@@ -133,7 +133,7 @@
   padding: 20px;
   color: var(--primary);
   background: var(--surface-soft);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .recent-meeting-art > svg:last-child {
   margin-inline-start: auto;
@@ -144,7 +144,7 @@
 .recent-meeting-copy h3 {
   margin: 0 0 8px;
   overflow-wrap: anywhere;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   font-weight: 600;
 }
 .recent-meeting-copy p {
@@ -152,7 +152,7 @@
   gap: 6px;
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   line-height: 1.5;
 }
 .dashboard-history-empty {
@@ -170,11 +170,11 @@
 }
 .dashboard-history-empty strong {
   color: var(--text);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
 }
 .dashboard-history-empty p {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.6;
 }
 .dashboard-page .dashboard-tip {
@@ -185,7 +185,7 @@
 .dashboard-page .dashboard-tip .text-link {
   margin-inline-start: auto;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .meeting-skeleton {
   display: grid;
@@ -242,7 +242,7 @@
   }
   .dashboard-page .dashboard-actions .button {
     padding: 11px 10px;
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
   }
   .dashboard-page .dashboard-meeting-row {
     padding: 12px;
@@ -252,7 +252,7 @@
   .dashboard-meeting-time {
     min-width: 53px;
     padding-inline-end: 10px;
-    font-size: 14px;
+    font-size: calc(14px * var(--text-scale));
   }
   .dashboard-page .conference-row-copy {
     flex: 1;

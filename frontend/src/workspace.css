@@ -5,7 +5,7 @@ body {
 }
 .brand {
   gap: 10px;
-  font-size: 23px;
+  font-size: calc(23px * var(--text-scale));
   letter-spacing: -0.7px;
 }
 .brand-mark {
@@ -73,12 +73,12 @@ body {
   color: var(--muted);
 }
 .eyebrow {
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   letter-spacing: 1.4px;
   color: var(--muted);
 }
 .section-heading h2 {
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale));
   letter-spacing: -0.35px;
 }
 .field {
@@ -126,7 +126,7 @@ body {
   padding: 0 14px 26px;
 }
 .sidebar .brand {
-  font-size: 23px;
+  font-size: calc(23px * var(--text-scale));
 }
 .sidebar .brand-mark {
   width: 28px;
@@ -135,7 +135,7 @@ body {
 .sidebar-caption {
   color: var(--muted);
   letter-spacing: 1.1px;
-  font-size: 9px;
+  font-size: calc(9px * var(--text-scale));
   font-weight: 600;
   padding: 0 14px;
   margin: 0 0 12px;
@@ -169,7 +169,7 @@ body {
   gap: 10px;
   padding: 16px 12px;
   margin-top: auto;
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   line-height: 1.7;
   color: var(--muted);
 }
@@ -193,11 +193,11 @@ body {
   font-size: var(--text-xs);
 }
 .profile span:not(.avatar) {
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
 }
 .logout-button {
   padding: 12px 6px 0;
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   color: var(--muted);
 }
 .workspace {
@@ -290,7 +290,7 @@ body {
   white-space: nowrap;
 }
 .topbar-profile-text small {
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -341,12 +341,12 @@ body {
   justify-content: space-between;
   padding: 18px 40px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   border-top: 1px solid var(--border);
 }
 .workspace-footer > span:first-child {
   color: var(--text);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .mobile-bottom-nav {
   display: none;
@@ -409,7 +409,7 @@ body {
   flex-direction: column;
   gap: 10px;
   color: var(--room-text);
-  font-size: 27px;
+  font-size: calc(27px * var(--text-scale));
 }
 .auth-card .brand-mark {
   width: 42px;
@@ -418,7 +418,7 @@ body {
 .auth-tagline {
   margin: 6px 0 22px;
   text-align: center;
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   color: var(--auth-muted);
   letter-spacing: 0.2px;
 }
@@ -427,7 +427,7 @@ body {
   margin: 24px 0;
 }
 .auth-heading h1 {
-  font-size: 24px;
+  font-size: calc(24px * var(--text-scale));
   letter-spacing: -0.7px;
   margin-bottom: 8px;
 }
@@ -459,7 +459,7 @@ body {
   color: var(--auth-muted);
 }
 .auth-note {
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   line-height: 1.7;
   margin: 20px 0;
 }
@@ -472,7 +472,7 @@ body {
   margin: -4px 0 20px;
 }
 .auth-card .recovery .text-button {
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
 }
 .auth-switch {
   color: var(--auth-muted);
@@ -480,7 +480,7 @@ body {
   margin: 18px 0 0;
 }
 .auth-footer {
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   margin: 22px 0 0;
   z-index: 1;
 }
@@ -508,13 +508,13 @@ body {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   cursor: not-allowed;
   opacity: 1;
 }
 .social-placeholder strong {
   width: 17px;
-  font-size: 16px;
+  font-size: calc(16px * var(--text-scale));
   color: var(--primary);
 }
 .social-placeholder small {
@@ -523,11 +523,11 @@ body {
   border-radius: 4px;
   background: var(--surface-soft);
   color: var(--muted);
-  font-size: 9px;
+  font-size: calc(9px * var(--text-scale));
 }
 .social-availability-note {
   color: var(--auth-muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   text-align: center;
   line-height: 1.6;
   margin: 10px 0 0;
@@ -540,7 +540,7 @@ body {
   color: var(--room-text);
 }
 .auth-scenery-caption strong {
-  font-size: 30px;
+  font-size: calc(30px * var(--text-scale));
   line-height: 1.25;
   display: block;
   letter-spacing: -0.8px;
@@ -626,7 +626,7 @@ body {
     min-width: 0;
   }
   .workspace-search input {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
   }
   .workspace-search input::placeholder {
     color: transparent;
@@ -666,13 +666,13 @@ body {
     min-height: 44px;
     min-width: 64px;
     font: inherit;
-    font-size: 10px;
+    font-size: calc(10px * var(--text-scale));
   }
   .mobile-bottom-nav .active {
     color: var(--primary);
   }
   .page-heading h1 {
-    font-size: 25px;
+    font-size: calc(25px * var(--text-scale));
   }
   .page-heading .heading-art {
     display: none;

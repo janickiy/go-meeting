@@ -66,13 +66,13 @@
 }
 .invitation-user-results strong,
 .invitation-result strong {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   font-weight: 600;
 }
 .invitation-user-results small,
 .invitation-result span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   margin-top: 4px;
 }
 .invitation-selected {
@@ -89,7 +89,7 @@
   border-radius: 20px;
   padding: 5px 7px 5px 11px;
   background: var(--surface, #f4f6fb);
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
 }
 .invitation-selected span {
   overflow-wrap: anywhere;

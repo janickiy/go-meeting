@@ -278,9 +278,17 @@ test("история, материалы, настройки и аналитик
   await expect(page.getByText(/Сейчас нет активных встреч/)).toBeVisible();
   await expect(page.getByRole("table")).toHaveCount(0);
   await page.goto("/app/settings");
+  const settings = page.getByRole("dialog", { name: "Настройки аккаунта" });
+  await expect(settings).toBeVisible();
   await expect(
-    page.getByRole("textbox", { name: "Email", exact: true }),
+    settings.getByRole("textbox", { name: "Email", exact: true }),
   ).toHaveValue(user.email);
+  await expect(
+    settings.getByRole("tab", { name: "Интеграции", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    settings.getByRole("tab", { name: "Безопасность", exact: true }),
+  ).toHaveCount(0);
   await page.screenshot({
     path: info.outputPath("settings-desktop.png"),
     fullPage: false,
@@ -292,7 +300,20 @@ test("история, материалы, настройки и аналитик
   ]) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(url);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    if (url === "/app/settings") {
+      await expect(settings).toBeVisible();
+      await expect(
+        settings.getByRole("heading", {
+          name: "Настройки аккаунта",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        settings.getByRole("textbox", { name: "Email", exact: true }),
+      ).toHaveValue(user.email);
+    } else {
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    }
     await expect
       .poll(() =>
         page.evaluate(
@@ -302,7 +323,7 @@ test("история, материалы, настройки и аналитик
       .toBe(true);
     await page.screenshot({
       path: info.outputPath(`${name}.png`),
-      fullPage: true,
+      fullPage: url !== "/app/settings",
     });
   }
 });

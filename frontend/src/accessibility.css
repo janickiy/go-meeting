@@ -8,7 +8,7 @@
   border-radius: 8px;
   background: #102f73;
   color: #fff;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   font-weight: 600;
   transform: translateY(calc(-100% - 24px));
 }
@@ -38,10 +38,10 @@ select:focus-visible {
 .logout-button,
 .tab {
   min-height: 44px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
 }
 .workspace-top {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .tabs {
   max-width: 100%;

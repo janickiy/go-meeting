@@ -27,11 +27,11 @@
 .calendar-navigation .button {
   min-height: 40px;
   padding: 9px 14px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .calendar-period {
   margin: 0;
-  font-size: 15px;
+  font-size: calc(15px * var(--text-scale));
   font-weight: 600;
   text-transform: capitalize;
 }
@@ -50,7 +50,7 @@
   color: var(--muted);
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   cursor: pointer;
 }
 .calendar-view-switch button[aria-pressed="true"] {
@@ -61,7 +61,7 @@
 .calendar-zone {
   margin: 18px 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   line-height: 1.6;
 }
 .calendar-grid-scroll {
@@ -101,12 +101,12 @@
 .calendar-week-table thead span {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
 }
 .calendar-week-table thead strong {
   display: block;
   margin-top: 4px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
 }
 .calendar-week-table tbody th {
   width: 56px;
@@ -115,7 +115,7 @@
   border-bottom: 1px solid var(--border);
   border-inline-end: 1px solid var(--border);
   color: var(--muted);
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   text-align: right;
 }
 .calendar-week-table td {
@@ -157,7 +157,7 @@
 }
 .calendar-event strong {
   display: block;
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   line-height: 1.5;
   overflow-wrap: anywhere;
   font-weight: 600;
@@ -165,7 +165,7 @@
 .calendar-event span {
   display: block;
   margin-top: 3px;
-  font-size: 10px;
+  font-size: calc(10px * var(--text-scale));
   line-height: 1.4;
   color: var(--muted);
 }
@@ -191,7 +191,7 @@
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   text-align: center;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .calendar-month-day {
   min-height: 112px;
@@ -220,7 +220,7 @@
 }
 .calendar-day-heading time {
   padding-inline-start: 4px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   font-weight: 600;
 }
 .calendar-add-day {
@@ -243,7 +243,7 @@
   gap: 10px;
   padding: 14px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .calendar-pagination {
   display: flex;
@@ -254,7 +254,7 @@
 }
 .calendar-pagination p {
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.6;
 }
 .calendar-pagination .button {
@@ -262,7 +262,7 @@
 }
 .calendar-footer-note {
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.8;
 }
 .calendar-footer-note .text-link {
@@ -314,7 +314,7 @@
   }
   .calendar-page .page-heading > .button {
     min-height: 44px;
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
     padding: 10px 12px;
   }
   .calendar-toolbar {
@@ -332,7 +332,7 @@
   }
   .calendar-mobile-agenda h3 {
     margin: 0 0 10px;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale));
     text-transform: capitalize;
   }
   .calendar-mobile-agenda .calendar-event {
@@ -340,10 +340,10 @@
     margin-bottom: 8px;
   }
   .calendar-mobile-agenda .calendar-event strong {
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale));
   }
   .calendar-mobile-agenda .calendar-event span {
-    font-size: 11px;
+    font-size: calc(11px * var(--text-scale));
   }
   .calendar-pagination {
     flex-direction: column;

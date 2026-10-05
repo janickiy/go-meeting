@@ -1,0 +1,227 @@
+/* Масштабируется только шрифт: rem-размеры сетки, пиктограммы и видео не меняются. */
+body {
+  font-size: calc(16px * var(--text-scale));
+}
+select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Увеличенные подписи переносятся, не расширяя колонки и навигацию. */
+.nav-item {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.sidebar {
+  overflow-y: auto;
+}
+.workspace-top {
+  height: auto;
+}
+.workspace-footer {
+  flex-wrap: wrap;
+}
+
+/* Эти общие поверхности ещё использовались старой вёрсткой с фиксированной палитрой. */
+.content-card,
+.modal {
+  background: var(--surface);
+  color: var(--text);
+}
+.modal {
+  border-color: var(--border);
+}
+.modal-backdrop {
+  background: var(--overlay);
+}
+
+:root[data-theme="dark"]
+  :is(
+    .conference-row,
+    .search-field,
+    .emoji-picker-popover,
+    .conference-stage-rail,
+    .conference-stage-panel-chat .chat-composer
+  ) {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+:root[data-theme="dark"]
+  :is(
+    .schedule-fields,
+    .notification-unread,
+    .dashboard-tip,
+    .copy-link,
+    .video-notice,
+    .invite-code code,
+    .chat-message-bubble,
+    .chat-message-avatar,
+    .chat-reply,
+    .hero-floating,
+    .feature-icon
+  ) {
+  background: var(--surface-soft);
+  color: var(--text);
+  border-color: var(--border);
+}
+:root[data-theme="dark"] .chat-message-own .chat-message-bubble {
+  background: var(--primary-soft);
+}
+:root[data-theme="dark"]
+  :is(
+    .brand,
+    .plain-link,
+    .account-property strong,
+    .copy-link input,
+    .chat-text,
+    .chat-compose-field textarea
+  ) {
+  color: var(--text);
+}
+:root[data-theme="dark"]
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    .conference-filters select,
+    .media-devices select,
+    .recording-insights select,
+    .search-form select,
+    .search-form input
+  ) {
+  background-color: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+:root[data-theme="dark"]
+  :is(
+    .workspace-search input,
+    .search-field input,
+    .copy-link input,
+    .chat-compose-field textarea
+  ) {
+  background: transparent;
+}
+:root[data-theme="dark"] :is(input, textarea)::placeholder {
+  color: var(--muted);
+}
+:root[data-theme="dark"] :is(input, textarea):disabled {
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+:root[data-theme="dark"]
+  :is(
+    .button-secondary:hover:not(:disabled),
+    .button-outline:hover:not(:disabled),
+    .emoji-picker-close:hover,
+    .emoji-picker-option:hover,
+    .reaction-buttons button:hover:not(:disabled)
+  ) {
+  background: var(--primary-soft);
+}
+:root[data-theme="dark"]
+  :is(
+    .reaction-buttons button,
+    .status-finished,
+    .count-badge,
+    .social-placeholder small
+  ) {
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+:root[data-theme="dark"]
+  :is(
+    .status-created,
+    .status-scheduled,
+    .tab-active,
+    .dev-badge,
+    .topic-list li,
+    .transcript-list li.segment-selected,
+    .recordings-meeting-views button[aria-pressed="true"],
+    .recordings-thumbnail
+  ) {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--border-strong);
+}
+:root[data-theme="dark"]
+  :is(.status-active, .invitation-result, .admin-health-status.is-ready) {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: var(--success);
+}
+:root[data-theme="dark"]
+  :is(.error-notice, .status-cancelled, .admin-health-status.is-down) {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+:root[data-theme="dark"] :is(.field-error, .recording-indicator) {
+  color: var(--danger);
+}
+:root[data-theme="dark"] .demo-notice {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+:root[data-theme="dark"]
+  :is(
+    .account-property,
+    .account-property span,
+    .back-link,
+    .field-hint,
+    .empty-state p,
+    .conference-row-copy p,
+    .participant-name > span,
+    .participant-status,
+    .invite-code span,
+    .info-line,
+    .info-line svg,
+    .copy-feedback,
+    .dashboard-tip p,
+    .icon-button,
+    .tab,
+    .row-arrow,
+    .profile div > span,
+    .hero-subtitle,
+    .hero-note,
+    .chat-day-label,
+    .chat-message header,
+    .chat-message-meta,
+    .chat-message-actions button,
+    .chat-message-own .chat-message-meta,
+    .emoji-picker-count,
+    .emoji-picker-close,
+    .emoji-picker-trigger,
+    .conference-stage-panel-chat .chat-panel-heading h2,
+    .conference-room-page .conference-stage-rail .chat-panel-heading .button,
+    .conference-room-page .conference-stage-rail .chat-attachment-trigger
+  ) {
+  color: var(--muted);
+}
+:root[data-theme="dark"]
+  :is(
+    .account-property,
+    .participant-row,
+    .recording-row,
+    .conference-media,
+    .recording-insights,
+    .integration-list li,
+    .search-results li,
+    .transcript-list li,
+    .analytics-scroll th,
+    .analytics-scroll td,
+    .landing,
+    .landing-footer
+  ) {
+  border-color: var(--border);
+}
+:root[data-theme="dark"] .chat-message blockquote {
+  border-color: var(--primary);
+}
+:root[data-theme="dark"] .chat-message blockquote strong {
+  color: var(--primary);
+}
+:root[data-theme="dark"] .tab-active {
+  color: var(--primary);
+}

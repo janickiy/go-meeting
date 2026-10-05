@@ -1,5 +1,12 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
+import {
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router";
 import { useAuth } from "./auth";
 import { Brand, Button, ErrorNotice, Loading } from "./components/ui";
 import { Layout } from "./components/Layout";
@@ -7,6 +14,7 @@ import { Landing } from "./pages/Landing";
 import { AuthPage, RegistrationSuccess } from "./pages/AuthPages";
 import { Link } from "react-router";
 import { CalendarCallback } from "./components/IntegrationsSettings";
+import { AccountSettingsModal } from "./components/AccountSettingsModal";
 
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
@@ -46,11 +54,6 @@ const RecordingDetailPage = lazy(() =>
     default: module.RecordingDetailPage,
   })),
 );
-const SettingsPage = lazy(() =>
-  import("./pages/AccountPages").then((module) => ({
-    default: module.SettingsPage,
-  })),
-);
 const SearchPage = lazy(() =>
   import("./pages/SearchPage").then((module) => ({
     default: module.SearchPage,
@@ -74,6 +77,22 @@ const PreJoinPage = lazy(() =>
     default: module.PreJoinPage,
   })),
 );
+
+/** Поддерживает прямые ссылки на настройки: за диалогом находится главная страница.
+ * @return Диалог аккаунта; при закрытии прямой адрес заменяется адресом кабинета.
+ */
+function SettingsRoute() {
+  const navigate = useNavigate();
+  return (
+    <>
+      <Dashboard />
+      <AccountSettingsModal
+        onClose={() => navigate("/app", { replace: true })}
+        returnFocus={() => document.getElementById("workspace-main")}
+      />
+    </>
+  );
+}
 
 /**
  * Protected проверяет восстановленную авторизацию и допускает защищённые страницы либо перенаправляет на вход.
@@ -209,8 +228,8 @@ export function App() {
           <Route path="/conferences/new" element={<Dashboard create />} />
           <Route path="/conferences/:id" element={<ConferencePage />} />
           <Route path="/conferences/:id/join" element={<PreJoinPage />} />
-          <Route path="/app/settings" element={<SettingsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/app/settings" element={<SettingsRoute />} />
+          <Route path="/settings" element={<SettingsRoute />} />
           <Route path="/app/recordings" element={<RecordingsPage />} />
           <Route path="/recordings" element={<RecordingsPage />} />
           <Route path="/recordings/:id" element={<RecordingDetailPage />} />

@@ -5,7 +5,7 @@
   margin: 0 auto;
 }
 .recordings-heading h1 {
-  font-size: 28px;
+  font-size: calc(28px * var(--text-scale));
   letter-spacing: -0.7px;
 }
 .recordings-selection {
@@ -44,7 +44,7 @@
   background: var(--surface-soft);
   color: var(--muted);
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   cursor: pointer;
 }
 .recordings-meeting-views button[aria-pressed="true"] {
@@ -60,7 +60,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   outline: 0;
 }
 .recordings-search:focus-within {
@@ -71,7 +71,7 @@
   display: grid;
   gap: 8px;
   min-width: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   font-weight: 500;
 }
 .recordings-page select {
@@ -84,11 +84,11 @@
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
 }
 .recordings-selection-note {
   grid-column: 1 / -1;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.6;
   color: var(--muted);
   margin: 0;
@@ -116,7 +116,7 @@
 }
 .recordings-library-heading h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale));
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -189,7 +189,7 @@
   color: white;
   border-radius: 4px;
   padding: 3px 5px;
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   font-variant-numeric: tabular-nums;
 }
 .recordings-row-info {
@@ -198,7 +198,7 @@
 .recordings-row-title {
   color: var(--text);
   text-decoration: none;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -212,7 +212,7 @@
   gap: 7px 16px;
   margin: 9px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.6;
 }
 .recordings-meta > span {
@@ -223,18 +223,18 @@
 .recordings-row-owner {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .recordings-row-size {
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   white-space: nowrap;
 }
 .recordings-watch {
   min-height: 38px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   padding: 8px 14px;
   text-decoration: none;
   white-space: nowrap;
@@ -274,7 +274,7 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   text-decoration: none;
   text-align: left;
   cursor: pointer;
@@ -286,7 +286,7 @@
 }
 .recordings-menu-popup p {
   margin: 6px 10px;
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   color: var(--muted);
   line-height: 1.5;
 }
@@ -302,7 +302,7 @@
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow-float);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   color: var(--text);
 }
 .recordings-copy-fallback input {
@@ -326,13 +326,13 @@
 .recordings-empty h3 {
   margin: 0;
   color: var(--text);
-  font-size: 19px;
+  font-size: calc(19px * var(--text-scale));
 }
 .recordings-empty p {
   margin: 0;
   max-width: 480px;
   line-height: 1.7;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
 }
 .recordings-pagination {
   display: flex;
@@ -343,7 +343,7 @@
   display: inline-block;
   margin-top: 20px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .recordings-back {
   display: inline-flex;
@@ -351,7 +351,7 @@
   gap: 8px;
   min-height: 44px;
   color: var(--primary);
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   text-decoration: none;
   margin-bottom: 16px;
 }
@@ -367,7 +367,7 @@
 }
 .recording-detail-heading h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: calc(26px * var(--text-scale));
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -431,7 +431,7 @@
   background: var(--surface);
 }
 .recording-detail-section h2 {
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale));
   margin: 0 0 16px;
 }
 .recording-detail-info {
@@ -444,7 +444,7 @@
   grid-template-columns: 1fr 1.2fr;
   gap: 12px;
   align-items: start;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   line-height: 1.5;
 }
 .recording-detail-info dt {
@@ -494,7 +494,7 @@
 .recording-detail-file-info {
   min-width: 0;
   flex: 1;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .recording-detail-file-info strong {
   display: block;
@@ -505,7 +505,7 @@
   display: block;
   margin: 5px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
 }
 .recording-detail-file > a {
   display: inline-flex;
@@ -518,7 +518,7 @@
   border-radius: 6px;
   color: var(--primary);
   text-decoration: none;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .recordings-actions {
   display: flex;
@@ -534,7 +534,7 @@
 }
 .recording-detail-download-note {
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--text-scale));
   line-height: 1.6;
   margin: 16px 0 0;
 }
@@ -586,7 +586,7 @@
     flex-wrap: wrap;
   }
   .recordings-heading h1 {
-    font-size: 24px;
+    font-size: calc(24px * var(--text-scale));
   }
   .recordings-selection {
     grid-template-columns: minmax(0, 1fr);
@@ -603,10 +603,10 @@
     display: none;
   }
   .recordings-row-title {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
   }
   .recordings-meta {
-    font-size: 10px;
+    font-size: calc(10px * var(--text-scale));
     margin-top: 6px;
     gap: 3px;
   }
@@ -614,14 +614,14 @@
     display: none;
   }
   .recordings-thumbnail-duration {
-    font-size: 9px;
+    font-size: calc(9px * var(--text-scale));
     padding: 2px 4px;
   }
   .recordings-filters {
     gap: 8px;
   }
   .recordings-filters select {
-    font-size: 12px;
+    font-size: calc(12px * var(--text-scale));
     padding-right: 5px;
   }
   .recordings-filters label {
@@ -631,7 +631,7 @@
     width: 32px;
   }
   .recording-detail-heading h1 {
-    font-size: 21px;
+    font-size: calc(21px * var(--text-scale));
   }
   .recording-detail-sidebar {
     grid-template-columns: minmax(0, 1fr);
