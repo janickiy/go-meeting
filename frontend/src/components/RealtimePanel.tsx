@@ -24,6 +24,7 @@ import { Button, ErrorNotice } from "./ui";
 import type { Participant } from "../types";
 import { useAuth } from "../auth";
 import {
+  subscribeDevicePreferences,
   hasDevicePreferences,
   readDevicePreferences,
   saveDevicePreferences,
@@ -322,9 +323,22 @@ export function RealtimePanel({
     version: membership.mediaPolicyVersion,
   });
   const [preferences, setPreferences] = useState(() =>
-    readDevicePreferences(user?.id || ""),
+    readDevicePreferences(user?.id || "guest"),
   );
-  const [hasSelection] = useState(() => hasDevicePreferences(user?.id || ""));
+  useEffect(() => {
+    const userId = user?.id || "guest";
+    setPreferences(readDevicePreferences(userId));
+    return subscribeDevicePreferences(userId, setPreferences);
+  }, [user?.id]);
+  useEffect(() => {
+    if (media.running) media.configure?.(preferences);
+  }, [
+    media.configure,
+    media.running,
+    media.view.controlBusy,
+    media.view.mediaPeerId,
+    preferences,
+  ]);
   useEffect(() => {
     if (
       !live.state?.connectionId ||
@@ -339,6 +353,7 @@ export function RealtimePanel({
     membership.status,
     membership.admissionState,
   ]);
+  const hasSelection = hasDevicePreferences(user?.id || "guest");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [devicesOpen, setDevicesOpen] = useState(false);
   useEffect(
@@ -417,9 +432,10 @@ export function RealtimePanel({
     media.view.controlBusy || !media.view.mediaPeerId || connectionProblem;
   const roster = onlineParticipants(participants, live.state?.participants);
   const onlineIds = new Set(roster.map((person) => person.id));
-  const localStream = onlineIds.has(membership.id)
-    ? media.view.localStream
-    : null;
+  const localStream =
+    preferences.showSelf && onlineIds.has(membership.id)
+      ? media.view.localStream
+      : null;
   const localScreen = onlineIds.has(membership.id)
     ? media.view.localScreen
     : null;
@@ -433,13 +449,15 @@ export function RealtimePanel({
       .map((remote) => remote.participantId),
   );
   const showingScreen = Boolean(
-    localScreen || visibleRemoteStreams.some((remote) => remote.screen),
+    localScreen ||
+    (!preferences.hideParticipantVideo &&
+      visibleRemoteStreams.some((remote) => remote.screen)),
   );
   // Считаем именно отрисованные плитки: камеры, аудиопотоки и заглушки онлайн-участников.
   // Экран использует прежнюю полноразмерную раскладку, независимо от числа участников.
   const participantsWithoutStream = present.filter((person) =>
     person.id === membership.id
-      ? !localStream
+      ? preferences.showSelf && !localStream
       : !remoteParticipants.has(person.id),
   );
   const cameraTileCount =
@@ -452,7 +470,7 @@ export function RealtimePanel({
       {
         id: "local",
         participantId: membership.id,
-        stream: localStream,
+        stream: media.view.localStream,
         enabled: media.view.microphoneEnabled && !membership.microphoneBlocked,
       },
       ...visibleRemoteStreams
@@ -631,8 +649,7 @@ export function RealtimePanel({
                    *
                    *
                    * @returns вычисленное значение: media.start().
-                   */ () =>
-                    media.start(true, hasSelection ? preferences : undefined)
+                   */ () => media.start(true, preferences)
                 }
               >
                 <Video size={17} />
@@ -986,11 +1003,14 @@ export function RealtimePanel({
                */ (remote) => (
                 <MediaTile
                   key={remote.id}
-                  screen={remote.screen}
+                  screen={remote.screen && !preferences.hideParticipantVideo}
                   covered={showingScreen && !remote.screen}
                   stream={remote.stream}
                   audioLevel={speaking.get(remote.participantId) ?? 0}
-                  video={remote.kinds.includes("video")}
+                  video={
+                    !preferences.hideParticipantVideo &&
+                    remote.kinds.includes("video")
+                  }
                   sinkId={preferences.audioOutputId}
                   microphoneEnabled={
                     roster.find((person) => person.id === remote.participantId)

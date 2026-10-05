@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import { playDeviceTone } from "./deviceSound";
+import { readDevicePreferences } from "./prejoinDevices";
 
 /**
  * NotificationEvent ограничивает SSE-конверт событиями создания и прочтения уведомления.
@@ -15,7 +17,14 @@ export interface NotificationEvent {
   version: 1;
   id: string;
   type: "notification.created" | "notification.read";
-  data: { notification?: { payload?: { conferenceId?: string } }; id?: string };
+  data: {
+    notification?: {
+      type?: string;
+      createdAt?: string;
+      payload?: { conferenceId?: string };
+    };
+    id?: string;
+  };
 }
 /**
  * takeNotificationFrames выделяет полные SSE-блоки из накопленного текста, проверяет события и оставляет незавершённый хвост.
@@ -99,6 +108,8 @@ export function useNotificationStream(userId?: string) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       let retry = 0;
       const seen = new Set<string>();
+      const mountedAt = Date.now();
+      let stopTone: (() => void) | undefined;
       /**
        * connect открывает соединение, обрабатывает события и назначает повтор после временного отказа.
        *
@@ -133,6 +144,20 @@ export function useNotificationStream(userId?: string) {
                 void client.invalidateQueries({
                   queryKey: ["notifications", userId],
                 });
+                const notice = event.data.notification;
+                if (
+                  event.type === "notification.created" &&
+                  ["conference.invited", "conference.soon"].includes(
+                    notice?.type || "",
+                  ) &&
+                  Date.parse(notice?.createdAt || "") >= mountedAt - 5000
+                ) {
+                  stopTone?.();
+                  stopTone = playDeviceTone(
+                    readDevicePreferences(userId).notificationOutputId,
+                    () => {},
+                  );
+                }
                 const conferenceId =
                   event.data.notification?.payload?.conferenceId;
                 if (typeof conferenceId === "string") {
@@ -194,6 +219,7 @@ export function useNotificationStream(userId?: string) {
        * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
        */
       return () => {
+        stopTone?.();
         controller.abort();
         clearTimeout(timer);
       };

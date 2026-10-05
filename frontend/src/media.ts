@@ -29,6 +29,8 @@ export interface MediaStartOptions {
   videoInputId?: string;
   microphoneEnabled?: boolean;
   cameraEnabled?: boolean;
+  noiseSuppression?: boolean;
+  hideParticipantVideo?: boolean;
 }
 /**
  * MediaTrack связывает дорожку с серверным участником, источником и физическим подключением.
@@ -306,6 +308,9 @@ export class ConferenceMediaClient {
   >();
   private localRevision = 0;
   private preferredInputs = new Map<MediaSource, string>();
+  private noiseSuppression = true;
+  private receiveVideo = true;
+  private configuredInputs = new Map<MediaSource, string>();
   private answeredLocalRevision = -1;
   private joinedRequest = "";
   private negotiation: {
@@ -484,6 +489,10 @@ export class ConferenceMediaClient {
   async start(captureDevices = true, options?: MediaStartOptions) {
     if (this.started || this.disposed) return;
     this.started = true;
+    this.noiseSuppression = options?.noiseSuppression !== false;
+    this.receiveVideo = options?.hideParticipantVideo !== true;
+    this.configuredInputs.set("microphone", options?.audioInputId || "");
+    this.configuredInputs.set("camera", options?.videoInputId || "");
     const microphone =
       captureDevices &&
       options?.microphoneEnabled !== false &&
@@ -511,7 +520,7 @@ export class ConferenceMediaClient {
         audio: microphone
           ? {
               echoCancellation: true,
-              noiseSuppression: true,
+              noiseSuppression: this.noiseSuppression,
               autoGainControl: true,
               ...(preferred && options?.audioInputId
                 ? { deviceId: { exact: options.audioInputId } }
@@ -748,6 +757,44 @@ export class ConferenceMediaClient {
    *
    * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
    */
+  /** Applies account settings without enabling a muted microphone or camera. */
+  configure(options: MediaStartOptions) {
+    if (this.disposed || !this.pc || this.view.controlBusy) return;
+    if (this.noiseSuppression !== (options.noiseSuppression !== false)) {
+      this.noiseSuppression = options.noiseSuppression !== false;
+      const track = this.sources.get("microphone")?.track;
+      void track
+        ?.applyConstraints({ noiseSuppression: this.noiseSuppression })
+        .catch(() => {
+          if (!this.disposed)
+            this.update({
+              error:
+                "Не удалось изменить шумоподавление. Проверьте настройки микрофона.",
+            });
+        });
+    }
+    if (this.receiveVideo !== !options.hideParticipantVideo) {
+      this.receiveVideo = !options.hideParticipantVideo;
+      // Preserve transceivers and publications. The SFU pauses forwarding by
+      // the negotiated receive preference instead of stopping WebRTC receivers.
+      void this.mutate(async () => {});
+    }
+    for (const [source, id] of [
+      ["microphone", options.audioInputId],
+      ["camera", options.videoInputId],
+    ] as const) {
+      if (id === undefined || (this.configuredInputs.get(source) || "") === id)
+        continue;
+      // Save before acquiring: an unavailable preferred device must not cause a retry loop.
+      this.configuredInputs.set(source, id);
+      this.preferredInputs.set(source, id);
+      if (this.sources.get(source)?.track?.readyState === "live") {
+        void this.changeSource(source, true, id);
+        return; // controlBusy changing back to false applies the next selection.
+      }
+    }
+  }
+
   private async replaceSource(
     source: MediaSource,
     track: MediaStreamTrack | null,
@@ -834,6 +881,7 @@ export class ConferenceMediaClient {
     deviceId?: string,
   ) {
     if (this.disposed || !this.pc || this.view.controlBusy) return;
+    if (deviceId !== undefined) this.configuredInputs.set(source, deviceId);
     deviceId =
       deviceId === undefined ? this.preferredInputs.get(source) : deviceId;
     if (
@@ -855,7 +903,7 @@ export class ConferenceMediaClient {
           source === "microphone"
             ? {
                 echoCancellation: true,
-                noiseSuppression: true,
+                noiseSuppression: this.noiseSuppression,
                 ...(selected ? { deviceId: { exact: selected } } : {}),
               }
             : false,
@@ -1772,7 +1820,12 @@ export class ConferenceMediaClient {
     negotiation.request = this.send("media.offer", {
       mediaPeerId: this.view.mediaPeerId,
       negotiationId: id,
-      sdp: pc.localDescription!.sdp,
+      sdp: this.receiveVideo
+        ? pc.localDescription!.sdp
+        : pc.localDescription!.sdp.replace(
+            /(?=m=)/,
+            "a=x-meet-receive-video:0\r\n",
+          ),
       publications: [...this.sources]
         .filter(
           /**

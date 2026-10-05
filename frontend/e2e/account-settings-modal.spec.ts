@@ -359,24 +359,24 @@ test("profile, device preferences, and notifications remain functional without i
   await expect(
     dialog.getByRole("textbox", { name: "Email", exact: true }),
   ).toHaveAttribute("readonly");
-  await selectTab(dialog, "Аудио и видео");
+  await selectTab(dialog, "Аудио");
   await dialog
     .getByRole("combobox", { name: "Микрофон", exact: true })
     .selectOption("fixture-microphone");
   await dialog
-    .getByRole("checkbox", {
-      name: "Включать микрофон при подключении медиасвязи",
+    .getByRole("switch", {
+      name: "Подключаться с выключенным микрофоном",
       exact: true,
     })
     .check();
   await selectTab(dialog, "Профиль");
-  await selectTab(dialog, "Аудио и видео");
+  await selectTab(dialog, "Аудио");
   await expect(
     dialog.getByRole("combobox", { name: "Микрофон", exact: true }),
   ).toHaveValue("fixture-microphone");
   await expect(
-    dialog.getByRole("checkbox", {
-      name: "Включать микрофон при подключении медиасвязи",
+    dialog.getByRole("switch", {
+      name: "Подключаться с выключенным микрофоном",
       exact: true,
     }),
   ).toBeChecked();
@@ -558,7 +558,8 @@ test("light and dark account settings are legible and fit a mobile viewport at 2
     await assertFitsViewport(page, dialog);
     for (const tabName of [
       "Профиль",
-      "Аудио и видео",
+      "Аудио",
+      "Видео",
       "Уведомления",
       "Оформление",
     ]) {
@@ -606,5 +607,239 @@ test("light and dark account settings are legible and fit a mobile viewport at 2
     });
   }
   expect(auditFailures, JSON.stringify(auditFailures)).toEqual([]);
+  expect(fixture.unexpected).toEqual([]);
+});
+
+async function syntheticDevices(page: Page) {
+  await page.addInitScript(() => {
+    const qa = {
+      captures: [] as MediaStreamConstraints[],
+      stops: 0,
+      sinks: [] as string[],
+    };
+    (window as unknown as { deviceQA: typeof qa }).deviceQA = qa;
+    Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
+      configurable: true,
+      value: async () => [
+        {
+          kind: "audioinput",
+          deviceId: "fixture-microphone",
+          label: "Микрофон MacBook Pro (Built-in)",
+        },
+        {
+          kind: "audiooutput",
+          deviceId: "fixture-speaker",
+          label: "Динамики MacBook Pro (Built-in)",
+        },
+        {
+          kind: "audiooutput",
+          deviceId: "fixture-headphones",
+          label: "Наушники USB",
+        },
+        {
+          kind: "videoinput",
+          deviceId: "fixture-camera",
+          label: "Камера MacBook Pro",
+        },
+      ],
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, "setSinkId", {
+      configurable: true,
+      value: async (id: string) => {
+        qa.sinks.push(id);
+      },
+    });
+    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+      configurable: true,
+      value: async (constraints: MediaStreamConstraints) => {
+        qa.captures.push(constraints);
+        let stream: MediaStream;
+        let cleanup = () => {};
+        if (constraints.video) {
+          const canvas = document.createElement("canvas");
+          canvas.width = 960;
+          canvas.height = 540;
+          const context = canvas.getContext("2d")!;
+          context.fillStyle = "#223857";
+          context.fillRect(0, 0, 960, 540);
+          context.fillStyle = "#a7c7ef";
+          context.font = "32px sans-serif";
+          context.textAlign = "center";
+          context.fillText("Предпросмотр камеры", 480, 275);
+          stream = canvas.captureStream(5);
+        } else {
+          const context = new AudioContext();
+          const source = context.createOscillator();
+          const gain = context.createGain();
+          gain.gain.value = 0.15;
+          const output = context.createMediaStreamDestination();
+          source.connect(gain);
+          gain.connect(output);
+          source.start();
+          void context.resume();
+          stream = output.stream;
+          cleanup = () => {
+            source.stop();
+            void context.close();
+          };
+        }
+        for (const track of stream.getTracks()) {
+          const stop = track.stop.bind(track);
+          track.stop = () => {
+            if (track.readyState !== "ended") {
+              qa.stops++;
+              cleanup();
+            }
+            stop();
+          };
+        }
+        return stream;
+      },
+    });
+  });
+}
+
+test("audio level, device outputs and noise suppression work", async ({
+  page,
+}, info) => {
+  const fixture = await accountFixture(page);
+  await syntheticDevices(page);
+  await page.goto("/app/settings");
+  const dialog = settingsDialog(page);
+  await selectTab(dialog, "Аудио");
+  await dialog
+    .getByRole("button", { name: "Проверить микрофон", exact: true })
+    .click();
+  await expect
+    .poll(async () =>
+      Number(
+        await dialog
+          .getByRole("meter", { name: "Уровень микрофона" })
+          .getAttribute("aria-valuenow"),
+      ),
+    )
+    .toBeGreaterThan(0);
+  await dialog
+    .getByRole("combobox", { name: "Микрофон", exact: true })
+    .selectOption("fixture-microphone");
+  await dialog
+    .getByRole("switch", { name: "Шумоподавление", exact: true })
+    .uncheck();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              deviceQA: { captures: MediaStreamConstraints[] };
+            }
+          ).deviceQA.captures.at(-1)?.audio,
+      ),
+    )
+    .toMatchObject({
+      noiseSuppression: false,
+      deviceId: { exact: "fixture-microphone" },
+    });
+  await dialog
+    .getByRole("combobox", { name: "Динамик", exact: true })
+    .selectOption("fixture-headphones");
+  await dialog
+    .getByRole("combobox", { name: "Источник звука уведомлений", exact: true })
+    .selectOption("fixture-speaker");
+  await dialog
+    .getByRole("button", { name: "Проверить: динамик", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { deviceQA: { sinks: string[] } }).deviceQA
+            .sinks,
+      ),
+    )
+    .toContain("fixture-headphones");
+  await expect(
+    dialog.getByRole("button", { name: "Проверить: динамик", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Проверить: звук приглашения", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { deviceQA: { sinks: string[] } }).deviceQA
+            .sinks,
+      ),
+    )
+    .toContain("fixture-speaker");
+  await page.screenshot({
+    path: info.outputPath("audio-settings-desktop.png"),
+  });
+  await dialog
+    .getByRole("button", { name: "Остановить проверку микрофона" })
+    .click();
+  await expect(
+    dialog.getByRole("meter", { name: "Уровень микрофона" }),
+  ).toHaveAttribute("aria-valuenow", "0");
+  await selectTab(dialog, "Профиль");
+  await selectTab(dialog, "Аудио");
+  await expect(
+    dialog.getByRole("switch", { name: "Шумоподавление", exact: true }),
+  ).not.toBeChecked();
+  expect(fixture.unexpected).toEqual([]);
+});
+
+test("camera preview is released, video switches persist, both panels fit mobile", async ({
+  page,
+}, info) => {
+  const fixture = await accountFixture(page);
+  await syntheticDevices(page);
+  await page.goto("/app/settings");
+  const dialog = settingsDialog(page);
+  await selectTab(dialog, "Видео");
+  await expect
+    .poll(() =>
+      dialog
+        .getByLabel("Предпросмотр камеры", { exact: true })
+        .evaluate((element) => (element as HTMLVideoElement).videoWidth),
+    )
+    .toBe(960);
+  await dialog
+    .getByRole("switch", {
+      name: "Подключаться с выключенной камерой",
+      exact: true,
+    })
+    .check();
+  await dialog.getByRole("switch", { name: /Видеть себя на звонке/ }).uncheck();
+  await dialog.getByRole("switch", { name: /Скрыть видео участников/ }).check();
+  await page.screenshot({
+    path: info.outputPath("video-settings-desktop.png"),
+  });
+  await selectTab(dialog, "Аудио");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              deviceQA: { stops: number; captures: unknown[] };
+            }
+          ).deviceQA.stops ===
+          (window as unknown as { deviceQA: { captures: unknown[] } }).deviceQA
+            .captures.length,
+      ),
+    )
+    .toBe(true);
+  await selectTab(dialog, "Видео");
+  await expect(
+    dialog.getByRole("switch", { name: /Видеть себя на звонке/ }),
+  ).not.toBeChecked();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await assertFitsViewport(page, dialog);
+  await page.screenshot({ path: info.outputPath("video-settings-mobile.png") });
+  await selectTab(dialog, "Аудио");
+  await assertFitsViewport(page, dialog);
+  await page.screenshot({ path: info.outputPath("audio-settings-mobile.png") });
   expect(fixture.unexpected).toEqual([]);
 });

@@ -943,3 +943,52 @@ SHA-256 `ac2ba90b9edbb4010ca877b8099fe12d424d56c8a23591f44e81698dfa6dfe4b`.
 изменяющие запросы выполнялись исключительно изолированными fixtures; настоящие
 аккаунты, записи и устройства на сервере не создавались и не редактировались.
 Результаты: `tmp/account-settings-modal-20261005/public-smoke.json` и `remote-results/`.
+
+
+## 5 октября 2026 — отдельные настройки аудио и видео
+
+Установлен `v1.0.0-meeting.20261005-audio-video.1`, snapshot
+`77207cee79efb36e31c95ea68828404c75f5ab99`, source SHA-256 `a447861f12a1e06251e9a2179812e279cbdbd12f1f413b85cf18390e57031a6a`.
+Описание интерфейса и протокола: [AUDIO_VIDEO_SETTINGS.md](../AUDIO_VIDEO_SETTINGS.md).
+
+Обновлены frontend и media-worker. SFU приостанавливает входящее видео по
+атрибуту SDP `x-meet-receive-video`, сохраняя звук, собственные публикации и
+трансиверы. Перед заменой media-worker выполнен authenticated drain; активность
+была нулевой. После установки draining=false, active=0; обе службы healthy.
+API, recorder/product/live workers, БД, общий env, SMTP, шесть Compose-файлов,
+прокси и публичная политика Apache сохранены. Миграций нет.
+
+- Frontend OCI: `sha256:d401d28abbab2dd711fcc8867c91cd5809fcc77907712aa4059142ab72a38cd0`.
+- Media-worker OCI: `sha256:92b3715e9ec843d4c652e048fd8e6825bb473c07047bf27d39c0d26dfab9309a`.
+- Манифест: `/opt/meetrix/releases/v1.0.0-meeting.20261005-audio-video.1/package/audio-video-patch.json`,
+  SHA-256 `9148e8e9ee08ebbfaa84037b5aa9c470a011b42e159fd9938a3d942fdf3c1bd6`.
+- Установщик: `/opt/meetrix/evidence/audio-video-20261005/install-audio-video-patch.sh`,
+  SHA-256 `127e593497b428b1bd00d5955a2fa039e369b402c701aa1492580c856a0d9d89`.
+- Для следующего обновления использовать новую карту 13 образов и версии
+  `expectedRuntime` этого манифеста. API/product-worker остаются invitations.1,
+  recorder-worker — recording-controls.1.
+
+Проверки: 523 frontend unit-теста, TypeScript/production build, `go test ./...`,
+SFU race suite и проверка приостановки/возобновления видеопередачи с сохранением
+аудио. Локально по 11 браузерных сценариев в Chromium и Firefox, на опубликованном
+UI — 11 Chromium-сценариев. Browser fixtures подменяли API и устройства: реальные
+аккаунты, приглашения и встречи для проверки не создавались. Реальная пересылка
+SFU проверена локальными Pion-тестами; на удалённом хосте подтверждены версии,
+readiness и нулевая активность, физические устройства не проверялись.
+Trivy обоих образов HIGH/CRITICAL=0, SBOM/OCI/config/layers/diff IDs и freshness
+проверены при упаковке и повторно установщиком; npm production audit=0.
+
+Для места удалены только распакованные дубликаты `source/` выпусков presence.1,
+ui.2, recording-controls.1, recordings.1, video-layout.2 и account-settings.1.
+Полные `source-clean.tar.gz` оставлены в соответствующих каталогах на хосте.
+Перед удалением проверены чистота Git, перечень и SHA каждого файла архива;
+исключён только `.git/index`, чей stat-кеш обновляется `git status`.
+История и исходники восстанавливаются из сохранённых архивов. Образы для отката,
+данные и архивы образов не удалялись. После установки свободно около 1140 МиБ,
+резерв 1024 МиБ соблюдён.
+
+Откат охватывает frontend и media-worker по `rollbackImages`, с теми же шестью
+Compose-файлами; media-worker заменять после штатного drain и нулевой активности.
+К старому frontend можно вернуться с новым SFU; старый SFU игнорирует новый
+атрибут, поэтому совместный откат устанавливает прежний интерфейс первым.
+Артефакты и журналы: `tmp/audio-video-20261005/evidence/`.

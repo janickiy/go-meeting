@@ -283,7 +283,7 @@ export function PreJoinPage({
         ? {
             audio: {
               echoCancellation: true,
-              noiseSuppression: true,
+              noiseSuppression: preferences.noiseSuppression,
               ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
             },
             video: false,
@@ -406,8 +406,10 @@ export function PreJoinPage({
     const timer = window.setTimeout(() => {
       if (autoPreviewRequested.current === id) return;
       autoPreviewRequested.current = id;
-      void capture("audio", true, preferences.audioInputId);
-      void capture("video", true, preferences.videoInputId);
+      if (preferences.microphoneEnabled)
+        void capture("audio", true, preferences.audioInputId);
+      if (preferences.cameraEnabled)
+        void capture("video", true, preferences.videoInputId);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [

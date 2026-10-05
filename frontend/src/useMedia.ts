@@ -204,7 +204,12 @@ export function useMedia(
     const sample = await current.diagnostics();
     return controller.current === current ? sample : null;
   }, []);
+  const configure = useCallback(
+    (options: MediaStartOptions) => controller.current?.configure(options),
+    [],
+  );
   return {
+    configure,
     view,
     running,
     start,

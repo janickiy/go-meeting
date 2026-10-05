@@ -9,7 +9,8 @@ import {
   Mail,
   Search,
   Palette,
-  SlidersHorizontal,
+  Mic,
+  Video,
   Sun,
   UserRound,
 } from "lucide-react";
@@ -19,7 +20,7 @@ import { formatDate } from "../utils";
 import { useConferences } from "../queries";
 import { Button, ErrorNotice, Loading } from "../components/ui";
 import { IntegrationsSettings } from "../components/IntegrationsSettings";
-import { DeviceSettings } from "../components/DeviceSettings";
+import { AudioSettings, VideoSettings } from "../components/DeviceSettings";
 import { TEXT_SIZE_OPTIONS, useAppearance } from "../appearance";
 import type { TextSize } from "../appearance";
 import "./history-notifications.css";
@@ -37,19 +38,22 @@ export function SettingsPage() {
   const appearance = useAppearance();
   const tabs = [
     { id: "profile", label: "Профиль", Icon: UserRound },
-    { id: "devices", label: "Аудио и видео", Icon: SlidersHorizontal },
+    { id: "audio", label: "Аудио", Icon: Mic },
+    { id: "video", label: "Видео", Icon: Video },
     { id: "notifications", label: "Уведомления", Icon: Bell },
     { id: "appearance", label: "Оформление", Icon: Palette },
   ] as const;
   const [activeSection, setActiveSection] = useState<string>(() => {
     const section = window.location.hash;
-    return section === "#audio-video"
-      ? "devices"
-      : section === "#notification-settings"
-        ? "notifications"
-        : section === "#appearance-settings"
-          ? "appearance"
-          : "profile";
+    return ["#audio-video", "#audio-settings"].includes(section)
+      ? "audio"
+      : section === "#video-settings"
+        ? "video"
+        : section === "#notification-settings"
+          ? "notifications"
+          : section === "#appearance-settings"
+            ? "appearance"
+            : "profile";
   });
   const prefix = useId();
   const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);
@@ -143,7 +147,7 @@ export function SettingsPage() {
         ))}
       </div>
       <div
-        className="account-dialog-panel settings-section-content"
+        className={`account-dialog-panel settings-section-content ${["audio", "video"].includes(activeSection) ? "account-media-panel" : ""}`}
         role="tabpanel"
         id={`${prefix}-${activeSection}-panel`}
         aria-labelledby={`${prefix}-${activeSection}-tab`}
@@ -220,7 +224,8 @@ export function SettingsPage() {
             </p>
           </section>
         )}
-        {activeSection === "devices" && <DeviceSettings />}
+        {activeSection === "audio" && <AudioSettings />}
+        {activeSection === "video" && <VideoSettings />}
         {activeSection === "notifications" && (
           <IntegrationsSettings notificationsOnly />
         )}

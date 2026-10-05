@@ -12,6 +12,7 @@ beforeEach(() => localStorage.clear());
 describe("prejoin device preferences", () => {
   it("keeps choices per account and rejects malformed stored values", () => {
     const selection = {
+      ...readDevicePreferences("alice"),
       audioInputId: "microphone-2",
       videoInputId: "camera-1",
       audioOutputId: "speaker-1",

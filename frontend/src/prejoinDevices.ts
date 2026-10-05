@@ -4,6 +4,10 @@ export interface DevicePreferences {
   audioOutputId: string;
   microphoneEnabled: boolean;
   cameraEnabled: boolean;
+  notificationOutputId: string;
+  noiseSuppression: boolean;
+  showSelf: boolean;
+  hideParticipantVideo: boolean;
 }
 
 // A single explicit Connect click may start media after admission. This intent
@@ -22,8 +26,12 @@ const emptyPreferences: DevicePreferences = {
   audioInputId: "",
   videoInputId: "",
   audioOutputId: "",
-  microphoneEnabled: false,
-  cameraEnabled: false,
+  microphoneEnabled: true,
+  cameraEnabled: true,
+  notificationOutputId: "",
+  noiseSuppression: true,
+  showSelf: true,
+  hideParticipantVideo: false,
 };
 
 const key = (userId: string) => `meet.devices.v1:${userId}`;
@@ -45,6 +53,10 @@ export function readDevicePreferences(userId: string): DevicePreferences {
       audioOutputId: safeId(value.audioOutputId),
       microphoneEnabled: value.microphoneEnabled === true,
       cameraEnabled: value.cameraEnabled === true,
+      notificationOutputId: safeId(value.notificationOutputId),
+      noiseSuppression: value.noiseSuppression !== false,
+      showSelf: value.showSelf !== false,
+      hideParticipantVideo: value.hideParticipantVideo === true,
     };
   } catch {
     return { ...emptyPreferences };
@@ -70,6 +82,32 @@ export function saveDevicePreferences(
   } catch {
     // Хранилище может быть отключено; встреча продолжает работать с устройствами по умолчанию.
   }
+  window.dispatchEvent(
+    new CustomEvent("meet:devices", { detail: { userId, preferences } }),
+  );
+}
+
+/** Обновляет открытые настройки и встречу, в том числе в соседней вкладке. */
+export function subscribeDevicePreferences(
+  userId: string,
+  listener: (preferences: DevicePreferences) => void,
+) {
+  const local = (event: Event) => {
+    const detail = (
+      event as CustomEvent<{ userId: string; preferences: DevicePreferences }>
+    ).detail;
+    if (detail.userId === userId) listener(detail.preferences);
+  };
+  const storage = (event: StorageEvent) => {
+    if (event.key === key(userId) || event.key === null)
+      listener(readDevicePreferences(userId));
+  };
+  window.addEventListener("meet:devices", local);
+  window.addEventListener("storage", storage);
+  return () => {
+    window.removeEventListener("meet:devices", local);
+    window.removeEventListener("storage", storage);
+  };
 }
 
 /** Сохраняет непрозрачное предпочтение, пока браузер не предоставит реальные ID устройств. */

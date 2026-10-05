@@ -414,6 +414,10 @@ func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw strin
 	if err != nil {
 		return pion.SessionDescription{}, err
 	}
+	receiveVideo, err := receiveVideoPreference(raw)
+	if err != nil {
+		return pion.SessionDescription{}, err
+	}
 	if err = ctx.Err(); err != nil {
 		return pion.SessionDescription{}, err
 	}
@@ -505,7 +509,7 @@ func (m *Manager) OfferSources(ctx context.Context, id, negotiationID, raw strin
 		// Защиту применения ответа проходит только основной SSRC, явно объявленный в активной
 		// передающей секции уже применённого ответа.
 		parameters := sub.sender.GetParameters()
-		if len(parameters.Encodings) > 0 && declared[uint32(parameters.Encodings[0].SSRC)] {
+		if len(parameters.Encodings) > 0 && declared[uint32(parameters.Encodings[0].SSRC)] && (receiveVideo || sub.source.metadata.Kind != "video") {
 			p.pendingSubscriptions = append(p.pendingSubscriptions, sub)
 		}
 	}

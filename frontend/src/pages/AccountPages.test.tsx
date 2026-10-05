@@ -15,7 +15,8 @@ vi.mock("../auth", () => ({
   }),
 }));
 vi.mock("../components/DeviceSettings", () => ({
-  DeviceSettings: () => <div>Настройки устройств</div>,
+  AudioSettings: () => <div>Настройки звука</div>,
+  VideoSettings: () => <div>Настройки видео</div>,
 }));
 vi.mock("../components/IntegrationsSettings", () => ({
   IntegrationsSettings: () => <div>Настройки уведомлений</div>,
@@ -32,14 +33,15 @@ describe("профиль в настройках", () => {
     const before = window.location.href;
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Профиль",
-      "Аудио и видео",
+      "Аудио",
+      "Видео",
       "Уведомления",
       "Оформление",
     ]);
     expect(screen.queryByText("Интеграции")).toBeNull();
     expect(screen.queryByText("Безопасность")).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: "Аудио и видео" }));
-    expect(screen.getByText("Настройки устройств")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Аудио" }));
+    expect(screen.getByText("Настройки звука")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Email" })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Уведомления" }));
     expect(screen.getByText("Настройки уведомлений")).toBeInTheDocument();

@@ -291,6 +291,7 @@ class FakePeer {
       },
       mid: String(this.transceivers.length),
       sender: {
+        track: typeof track === "string" ? null : track,
         replaceTrack: vi.fn(
           /**
            * Обработчик vi.fn выполняет переданный шаг вызова vi.fn в проверках клиентского поведения.
@@ -299,7 +300,9 @@ class FakePeer {
            *   - _track (unknown) — медиа-дорожка; имитация принимает её для совместимости с браузерным контрактом.
            *
            * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-           */ async (_track: unknown) => {},
+           */ async (_track: unknown) => {
+            item.sender.track = _track as FakeTrack | null;
+          },
         ),
       },
       setCodecPreferences: vi.fn(
@@ -334,7 +337,7 @@ class FakePeer {
      * @returns Promise: новый объект вычисленных данных.
      */ async () => ({
       type: "offer",
-      sdp: "test-sdp-not-logged",
+      sdp: "v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\n",
     }),
   );
   setLocalDescription = vi.fn(
@@ -1838,5 +1841,47 @@ describe("SFU media client", /**
       expect.objectContaining({ publications: [] }),
     );
     f.client.stop();
+  });
+});
+
+describe("account media settings", () => {
+  it("negotiates video forwarding preferences without stopping audio or camera", async () => {
+    const fixture = setup();
+    await fixture.client.start(true, { hideParticipantVideo: true });
+    const pc = await joined(fixture);
+    expect(
+      fixture.send.mock.calls.find(([type]) => type === "media.offer")?.[1],
+    ).toEqual(
+      expect.objectContaining({
+        sdp: expect.stringContaining("a=x-meet-receive-video:0\r\nm="),
+      }),
+    );
+    expect(pc.transceivers[1].direction).toBe("sendrecv");
+    const directions = pc.transceivers.map((t) => t.direction);
+    fixture.client.configure({ hideParticipantVideo: false });
+    await Promise.resolve();
+    expect(pc.transceivers.map((t) => t.direction)).toEqual(directions);
+    expect(
+      fixture.localTracks.every((track) => track.readyState === "live"),
+    ).toBe(true);
+    fixture.client.stop();
+  });
+  it("applies noise suppression to live capture without enabling muted hardware", async () => {
+    const fixture = setup();
+    await joined(fixture);
+    fixture.client.configure({ noiseSuppression: false });
+    expect(fixture.localTracks[0].applyConstraints).toHaveBeenCalledWith({
+      noiseSuppression: false,
+    });
+    await fixture.client.changeSource("microphone", false);
+    const captures = fixture.capture.mock.calls.length;
+    fixture.client.configure({
+      audioInputId: "new-mic",
+      microphoneEnabled: true,
+      noiseSuppression: true,
+    });
+    expect(fixture.capture.mock.calls).toHaveLength(captures);
+    expect(fixture.localTracks[0].readyState).toBe("ended");
+    fixture.client.stop();
   });
 });
