@@ -271,7 +271,7 @@ func (r *ConferenceRepository) History(ctx context.Context, conferenceID, userID
 				result.Participants = append(result.Participants, p.View())
 			}
 			result.ParticipantsTruncated = result.ParticipantCount > int64(len(rows))
-			return tx.Table("record").Select(`COUNT(*) AS total,
+			return tx.Table("record").Scopes(availableRecordings).Select(`COUNT(*) AS total,
 			COUNT(*) FILTER (WHERE status IN ('ready','partial_ready')) AS ready,
 			COUNT(*) FILTER (WHERE status IN ('starting','recording','degraded','stopping','finalizing','uploading')) AS processing,
 			COUNT(*) FILTER (WHERE status IN ('failed','cancelled')) AS failed`).

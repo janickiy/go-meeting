@@ -67,6 +67,7 @@ func (r *RecordRepository) List(ctx context.Context, limit int, offset int) ([]r
 
 	var result []records.Record
 	err := r.db.WithContext(ctx).
+		Scopes(availableRecordings).
 		Where("mode <> 'composite'").
 		Order("created_at DESC").
 		Limit(limit).
@@ -125,6 +126,7 @@ func (r *RecordRepository) ListSummaryDetailsByConferenceIDs(ctx context.Context
 	}
 
 	query := r.db.WithContext(ctx).
+		Scopes(availableRecordings).
 		Where("conference_id IN ? AND mode <> 'composite'", conferenceIDs)
 	if status != "" {
 		query = query.Where("status = ?", status)
@@ -164,7 +166,8 @@ func (r *RecordRepository) ListSummaryDetailsByConferenceIDs(ctx context.Context
 // - uuid: UUID записи.
 // @return карточку данных или ошибку not found.
 func (r *RecordRepository) FindDetailsByUUID(ctx context.Context, uuid string) (records.RecordDetails, error) {
-	record, err := r.FindByUUID(ctx, uuid)
+	var record records.Record
+	err := r.db.WithContext(ctx).Scopes(availableRecordings).Where("uuid = ?", uuid).First(&record).Error
 	if err != nil {
 		return records.RecordDetails{}, err
 	}

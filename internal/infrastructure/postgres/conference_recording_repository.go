@@ -163,7 +163,7 @@ func (r *ConferenceRecordingRepository) Accessible(ctx context.Context, userID, 
 		return records.Record{}, err
 	}
 	var record records.Record
-	err := r.db.WithContext(ctx).Where("uuid = ? AND platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", recordID, conferenceID).Take(&record).Error
+	err := r.db.WithContext(ctx).Scopes(availableRecordings).Where("uuid = ? AND platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", recordID, conferenceID).Take(&record).Error
 	return record, mapNotFound(err)
 }
 
@@ -184,7 +184,7 @@ func (r *ConferenceRecordingRepository) List(ctx context.Context, userID, confer
 		return nil, err
 	}
 	items := []records.Record{}
-	err := r.db.WithContext(ctx).Where("platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", conferenceID).Order("created_at DESC, id DESC").Limit(limit).Offset(offset).Find(&items).Error
+	err := r.db.WithContext(ctx).Scopes(availableRecordings).Where("platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", conferenceID).Order("created_at DESC, id DESC").Limit(limit).Offset(offset).Find(&items).Error
 	return items, err
 }
 

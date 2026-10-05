@@ -185,6 +185,7 @@ func RunAPI() error {
 	go sampleDatabase(ctx, sqlDB)
 	go controlService.Run(ctx)
 	go recordingService.Run(ctx)
+	go recorder.RunRetention(ctx, repository, s3Client)
 	go chatService.Run(ctx)
 	go notificationService.Run(ctx)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.APIPort))
