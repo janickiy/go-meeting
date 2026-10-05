@@ -246,7 +246,7 @@ func TestConferenceRecordingConcurrentStarts(t *testing.T) {
 				case r.err == nil:
 					successes++
 					id = r.record.UUID
-					if !r.created || id == "" || r.record.RequestedBy == nil || *r.record.RequestedBy != f.owner {
+					if !r.created || id == "" || r.record.RequestedBy == nil || (*r.record.RequestedBy != f.owner && *r.record.RequestedBy != f.coHost && *r.record.RequestedBy != f.member) {
 						t.Fatalf("invalid accepted record: %+v", r)
 					}
 				case errors.Is(r.err, apperrors.ErrConflict):
@@ -265,7 +265,7 @@ func TestConferenceRecordingConcurrentStarts(t *testing.T) {
 			}
 			wantConflicts, wantForbidden := 23, 0
 			if scenario == "different_users" {
-				wantConflicts, wantForbidden = 5, 18
+				wantConflicts, wantForbidden = 17, 6
 			}
 			if successes != 1 || conflicts != wantConflicts || forbidden != wantForbidden {
 				t.Fatalf("successes=%d conflicts=%d forbidden=%d", successes, conflicts, forbidden)
@@ -279,34 +279,85 @@ func TestConferenceRecordingConcurrentStarts(t *testing.T) {
 	}
 }
 
-// TestConferenceRecordingOwnerOnlyBeforeActiveLookup проверяет одинаковый отказ
-// соведущим, участникам, посторонним и недопущенному владельцу до чтения активной записи.
-// @args t — исполнитель теста серверных прав.
-func TestConferenceRecordingOwnerOnlyBeforeActiveLookup(t *testing.T) {
+// Проверяет право запуска всех ролей аккаунта, запрет гостю и недопущенным,
+// а также остановку инициатором/организатором без разрешения чужим участникам.
+func TestConferenceRecordingAccountPermissions(t *testing.T) {
 	db := recordingTestDatabase(t)
 	ctx := context.Background()
+	for _, role := range []string{"owner", "co_host", "participant"} {
+		t.Run(role, func(t *testing.T) {
+			f := newRecordingFixture(t, db)
+			actor := map[string]string{"owner": f.owner, "co_host": f.coHost, "participant": f.member}[role]
+			repo := NewConferenceRecordingRepository(db)
+			record, created, err := repo.Start(ctx, actor, f.conference, 5)
+			if err != nil || !created || record.RequestedBy == nil || *record.RequestedBy != actor {
+				t.Fatalf("account start: created=%v %+v %v", created, record, err)
+			}
+			other := f.coHost
+			if actor == other {
+				other = f.member
+			}
+			if _, err := repo.Stop(ctx, other, f.conference, record.UUID); !errors.Is(err, apperrors.ErrForbidden) {
+				t.Fatalf("unrelated participant stopped recording: %v", err)
+			}
+			stopped, err := repo.Stop(ctx, actor, f.conference, record.UUID)
+			if err != nil || stopped.Status != records.StatusStopping {
+				t.Fatalf("initiator stop: %+v %v", stopped, err)
+			}
+			if _, err := repo.Stop(ctx, f.owner, f.conference, record.UUID); err != nil {
+				t.Fatalf("owner stop: %v", err)
+			}
+			assertRecordingCounts(t, f, 1)
+		})
+	}
 	for _, active := range []bool{false, true} {
 		f := newRecordingFixture(t, db)
 		repo := NewConferenceRecordingRepository(db)
 		want := int64(0)
+		var current records.Record
 		if active {
-			if _, _, err := repo.Start(ctx, f.owner, f.conference, 5); err != nil {
+			var err error
+			current, _, err = repo.Start(ctx, f.owner, f.conference, 5)
+			if err != nil {
 				t.Fatal(err)
 			}
 			want = 1
 		}
-		for _, user := range []string{f.coHost, f.member, f.outsider} {
-			record, created, err := repo.StartMode(ctx, user, f.conference, 5, records.ModeAudioOnly)
-			if !errors.Is(err, apperrors.ErrForbidden) || created || record.UUID != "" {
-				t.Fatalf("RBAC changed (active=%v): %+v created=%v %v", active, record, created, err)
-			}
-		}
-		if err := db.Model(&conferences.Participant{}).Where("conference_id = ? AND user_id = ?", f.conference, f.owner).Updates(map[string]any{"admission_state": conferences.AdmissionWaiting, "status": conferences.Waiting}).Error; err != nil {
+		// Синтетический гость имеет настоящее joined membership и JWT, но не аккаунт.
+		if err := db.Model(&users.User{}).Where("id = ?", f.member).Update("guest_conference_id", f.conference).Error; err != nil {
 			t.Fatal(err)
 		}
-		record, created, err := repo.Start(ctx, f.owner, f.conference, 5)
-		if !errors.Is(err, apperrors.ErrForbidden) || created || record.UUID != "" {
-			t.Fatalf("unadmitted owner started or learned recording: %+v created=%v %v", record, created, err)
+		for _, user := range []string{f.member, f.outsider} {
+			record, created, err := repo.Start(ctx, user, f.conference, 5)
+			if !errors.Is(err, apperrors.ErrForbidden) || created || record.UUID != "" {
+				t.Fatalf("unauthorized start: %+v %v", record, err)
+			}
+			if active {
+				// Даже подставленный requested_by не даёт гостю прав остановки.
+				if err := db.Model(&current).Update("requested_by", user).Error; err != nil {
+					t.Fatal(err)
+				}
+				if _, err := repo.Stop(ctx, user, f.conference, current.UUID); !errors.Is(err, apperrors.ErrForbidden) {
+					t.Fatalf("unauthorized stop: %v", err)
+				}
+			}
+		}
+		for _, state := range []struct {
+			status    conferences.ParticipantStatus
+			admission conferences.AdmissionState
+		}{
+			{conferences.Waiting, conferences.AdmissionWaiting},
+			{conferences.Rejected, conferences.AdmissionRejected},
+			{conferences.Kicked, conferences.AdmissionKicked},
+			{conferences.Left, conferences.AdmissionAdmitted},
+		} {
+			if err := db.Model(&conferences.Participant{}).Where("conference_id = ? AND user_id = ?", f.conference, f.coHost).Updates(map[string]any{"status": state.status, "admission_state": state.admission}).Error; err != nil {
+				t.Fatal(err)
+			}
+			record, created, err := repo.Start(ctx, f.coHost, f.conference, 5)
+			if !errors.Is(err, apperrors.ErrForbidden) || created || record.UUID != "" {
+				t.Fatalf("unadmitted start: %+v %v", record, err)
+			}
 		}
 		assertRecordingCounts(t, f, want)
 	}

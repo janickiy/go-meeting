@@ -20,10 +20,13 @@ import { AuthProvider } from "./auth";
 import { App } from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { installClientTelemetry } from "./clientTelemetry";
+import { installRecordingAudioUnlock } from "./recordingAnnouncement";
 
 const stopTelemetry = installClientTelemetry();
+const stopRecordingAudioUnlock = installRecordingAudioUnlock();
 document.title = `${PRODUCT_NAME} — встречи без границ`;
 if (import.meta.hot) import.meta.hot.dispose(stopTelemetry);
+if (import.meta.hot) import.meta.hot.dispose(stopRecordingAudioUnlock);
 
 const queryClient = new QueryClient({
   defaultOptions: {

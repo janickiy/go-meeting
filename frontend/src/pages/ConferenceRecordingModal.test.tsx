@@ -14,6 +14,10 @@ import { api, ApiError } from "../api";
 import type { Conference, ConferenceRecording, Participant } from "../types";
 import { ConferencePage } from "./ConferencePage";
 
+vi.mock("../recordingAnnouncement", () => ({
+  playRecordingAnnouncement: () => () => {},
+}));
+
 const fixture = vi.hoisted(() => ({
   conference: {
     id: "room",
@@ -514,4 +518,14 @@ it("скрывает команду и устаревший индикатор �
     screen.getByRole("button", { name: "Записи конференции" }),
   ).toBeEnabled();
   expect(stop).not.toHaveBeenCalled();
+});
+
+it("shows stop to the authenticated initiator in the room header", async () => {
+  fixture.items = [{ ...row, requestedBy: "self" }];
+  fixture.conference.ownerId = "other";
+  fixture.membership.role = "participant";
+  showConference();
+  expect(
+    await screen.findByRole("button", { name: "Остановить запись" }),
+  ).toBeEnabled();
 });

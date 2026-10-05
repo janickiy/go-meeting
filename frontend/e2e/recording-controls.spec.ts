@@ -32,6 +32,7 @@ async function recordingFixture(
 ) {
   const denied: string[] = [];
   let stops = 0;
+  let starts = 0;
   let recording: ConferenceRecording = {
     uuid: recordId,
     conferenceId: roomId,
@@ -139,6 +140,11 @@ async function recordingFixture(
       return respond({ status: "success", item: membership });
     if (method === "GET" && path === `/conferences/${roomId}/participants`)
       return respond({ status: "success", items: [membership] });
+    if (method === "POST" && path === `/conferences/${roomId}/recordings`) {
+      starts += 1;
+      recording = { ...recording, status: "starting", requestedBy: "self" };
+      return respond({ status: "success", item: recording }, 202);
+    }
     if (method === "GET" && path === `/conferences/${roomId}/recordings`)
       return respond({ status: "success", items: [recording] });
     if (
@@ -205,6 +211,7 @@ async function recordingFixture(
   return {
     denied,
     stopCount: () => stops,
+    startCount: () => starts,
     setStatus: (next: ConferenceRecording["status"]) => {
       recording = { ...recording, status: next };
     },
@@ -492,6 +499,34 @@ for (const role of ["participant", "co_host"] as const) {
       dialog.getByRole("button", { name: "Остановить запись", exact: true }),
     ).toHaveCount(0);
     expect(fixture.stopCount()).toBe(0);
+    expect(fixture.denied).toEqual([]);
+  });
+}
+
+for (const role of ["participant", "co_host"] as const) {
+  test(`авторизованный ${role} начинает и останавливает свою запись`, async ({
+    page,
+    baseURL,
+  }) => {
+    const fixture = await recordingFixture(page, new URL(baseURL!).origin, {
+      role,
+      status: "ready",
+    });
+    await page.goto(`/conferences/${roomId}`);
+    await page
+      .getByRole("button", { name: "Записи конференции", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Начать запись", exact: true })
+      .click();
+    await expect.poll(fixture.startCount).toBe(1);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const stop = page
+      .locator(".room-header")
+      .getByRole("button", { name: "Остановить запись", exact: true });
+    await expect(stop).toBeEnabled();
+    await stop.click();
+    await expect.poll(fixture.stopCount).toBe(1);
     expect(fixture.denied).toEqual([]);
   });
 }

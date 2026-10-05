@@ -20,9 +20,18 @@ vi.mock("../useCapabilities", () => ({
   }),
 }));
 
-const conference = { id: "room", status: "active" } as Conference;
+const auth = vi.hoisted(() => ({
+  user: { id: "self", guestConferenceId: undefined as string | undefined },
+}));
+vi.mock("../auth", () => ({ useAuth: () => auth }));
+const conference = {
+  id: "room",
+  status: "active",
+  ownerId: "self",
+} as Conference;
 const membership = {
   id: "member",
+  userId: "self",
   role: "participant",
   status: "joined",
 } as Participant;
@@ -81,6 +90,7 @@ afterEach(
    * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
    */ () => {
     cleanup();
+    auth.user.guestConferenceId = undefined;
     vi.restoreAllMocks();
     capabilityState.modes = [
       "composite",
@@ -122,13 +132,33 @@ describe("conference recording controls", /**
     expect(screen.queryByRole("button", { name: "Начать запись" })).toBeNull();
     client.clear();
   });
-  it("keeps cohost recording permission owner-only", /**
-   * Проверяет, что соведущий не получает права владельца на запись.
-   *
-   *
-   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-   */ async () => {
-    const client = show("co_host", []);
+  it.each(["participant", "co_host"] as const)(
+    "allows authenticated %s to start",
+    async (role) => {
+      const start = vi
+        .spyOn(api, "startRecording")
+        .mockResolvedValue({
+          status: "success",
+          item: { ...row, status: "starting", requestedBy: "self" },
+        });
+      const client = show(role, []);
+      fireEvent.click(await readyStart());
+      await waitFor(() =>
+        expect(start).toHaveBeenCalledWith("room", "composite"),
+      );
+      client.clear();
+    },
+  );
+  it("allows the recording initiator to stop", async () => {
+    const client = show("participant", [{ ...row, requestedBy: "self" }]);
+    expect(
+      await screen.findByRole("button", { name: "Остановить запись" }),
+    ).toBeEnabled();
+    client.clear();
+  });
+  it("never offers recording controls to a guest, even with an owner role", async () => {
+    auth.user.guestConferenceId = "room";
+    const client = show("owner", []);
     await screen.findByText(/Записей пока нет/);
     expect(screen.queryByRole("button", { name: "Начать запись" })).toBeNull();
     client.clear();

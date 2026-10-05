@@ -9,6 +9,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ConferenceRecording, Participant, RealtimeEvent } from "../types";
 import { RecordingNotice, type RecordingNoticeProps } from "./RecordingNotice";
 
+const sound = vi.hoisted(() => ({ play: vi.fn(() => vi.fn()) }));
+vi.mock("../recordingAnnouncement", () => ({
+  playRecordingAnnouncement: sound.play,
+}));
+
 const stamp = "2026-10-04T12:00:00Z";
 const self = {
   id: "self-member",
@@ -35,6 +40,7 @@ const started = {
 };
 
 beforeEach(() => {
+  sound.play.mockClear();
   vi.stubGlobal(
     "fetch",
     vi.fn(() => Promise.reject(new Error("Сетевые запросы запрещены"))),
@@ -183,7 +189,7 @@ it("использует организатора как безопасный з
   });
   subject.deliver(event());
   expect(screen.getByRole("status")).toHaveTextContent(
-    "Организатор начал запись встречи.",
+    "Участник начал запись встречи.",
   );
   expect(screen.queryByText(/Чужое имя/)).not.toBeInTheDocument();
 });
@@ -458,4 +464,38 @@ it("большая история terminal-записей не вытесняе�
   subject.update({ recordings: items.map((item) => ({ ...item })) });
   subject.deliver(event({ id: "duplicate-after-large-poll" }));
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+it.each(["self", "owner"])(
+  "announces audio once to %s including the initiator",
+  (userId) => {
+    const subject = notice({ userId });
+    subject.deliver(event());
+    subject.deliver(event({ id: "duplicate" }));
+    subject.update({ recordings: [row()] });
+    expect(sound.play).toHaveBeenCalledOnce();
+  },
+);
+it("does not sound for starting, foreign events, or a stale completed recording", () => {
+  const subject = notice({ recordings: [row("ready")] });
+  subject.deliver(event());
+  subject.deliver(event({ conferenceId: "other" }));
+  subject.deliver(
+    event({
+      type: "recording.starting",
+      data: { ...started, status: "starting" },
+    }),
+  );
+  expect(sound.play).not.toHaveBeenCalled();
+});
+it("cancels pending audio on stop and on leaving the room", () => {
+  const subject = notice();
+  subject.deliver(event());
+  const cancel = sound.play.mock.results[0].value;
+  subject.update({ recordings: [row("stopping")] });
+  expect(cancel).toHaveBeenCalledOnce();
+  subject.deliver(event({ data: { ...started, recordingId: "record-b" } }));
+  const nextCancel = sound.play.mock.results[1].value;
+  subject.view.unmount();
+  expect(nextCancel).toHaveBeenCalledOnce();
 });

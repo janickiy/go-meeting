@@ -14,6 +14,7 @@ import { formatDate } from "../utils";
 import { isAdmitted } from "../collaboration";
 import { RecordingInsights } from "./RecordingInsights";
 import { useCapabilities } from "../useCapabilities";
+import { useAuth } from "../auth";
 
 const labels = {
   starting: "Запись запускается",
@@ -49,6 +50,12 @@ export function RecordingPanel({
   showInsights?: boolean;
   onStarted?: () => void;
 }) {
+  const { user } = useAuth();
+  const account = Boolean(
+    user && !user.guestConferenceId && membership?.userId === user.id,
+  );
+  const joined =
+    account && membership?.status === "joined" && isAdmitted(membership);
   const client = useQueryClient();
   const capabilities = useCapabilities();
   const recordingModes = capabilities.data?.capabilities.recordingModes ?? [];
@@ -86,6 +93,7 @@ export function RecordingPanel({
   );
   // Нельзя считать отсутствие загруженных данных подтверждением, что запись свободна.
   const canStart =
+    joined &&
     query.isSuccess &&
     !query.isFetching &&
     !query.isError &&
@@ -160,7 +168,10 @@ export function RecordingPanel({
     commandPending.current = true;
     mutation.mutate(stopId);
   }
-  const owner = membership?.role === "owner" && membership.status === "joined";
+  const canStop =
+    joined &&
+    (current?.requestedBy === user?.id ||
+      (membership?.role === "owner" && conference.ownerId === user?.id));
   if (!membership || !isAdmitted(membership)) return null;
   return (
     <section
@@ -181,7 +192,7 @@ export function RecordingPanel({
         )}
       </div>
       <ErrorNotice error={query.error || mutation.error} />
-      {owner && conference.status === "active" && (
+      {joined && conference.status === "active" && (
         <div className="meeting-actions">
           {!current && recordingModes.length > 0 && (
             <label>
@@ -234,7 +245,8 @@ export function RecordingPanel({
               Начать запись
             </Button>
           ) : (
-            recording && (
+            recording &&
+            canStop && (
               <Button
                 variant="danger"
                 onClick={
@@ -270,7 +282,8 @@ export function RecordingPanel({
       )}
       {showHistory && !items.length && query.isSuccess && !query.isError && (
         <p className="muted">
-          Записей пока нет. Владелец может начать запись во время встречи.
+          Записей пока нет. Участник с аккаунтом может начать запись во время
+          встречи.
         </p>
       )}
       {showHistory && (

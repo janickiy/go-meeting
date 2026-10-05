@@ -9,6 +9,7 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/conferences"
 	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/go-recorder/internal/domain/users"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -48,7 +49,8 @@ func (r *ConferenceRecordingRepository) Start(ctx context.Context, userID, confe
 }
 
 // StartMode создаёт запись выбранной стратегии, сериализуя её с модерацией и завершением встречи.
-// Только допущенный владелец может начать запись. Любая незавершённая запись встречи,
+// Любой допущенный участник с аккаунтом может начать запись. Гостевые сессии запрещены.
+// Любая незавершённая запись встречи,
 // включая подготовку и сохранение файлов, запрещает повторный старт во всех режимах.
 // @args ctx — срок выполнения; userID/conferenceID — актор и встреча; segmentDuration — секунды фрагмента; mode — серверная стратегия.
 // @return запись, признак создания и ошибка прав/состояния.
@@ -73,8 +75,11 @@ func (r *ConferenceRecordingRepository) StartMode(ctx context.Context, userID, c
 			if err != nil {
 				return membershipError(err)
 			}
-			if conference.OwnerID != userID || actor.Role != conferences.Owner || !actor.CanParticipate() {
+			if !actor.CanParticipate() {
 				return apperrors.ErrForbidden
+			}
+			if err = requireRecordingAccount(tx, userID); err != nil {
+				return err
 			}
 			if conference.Status != conferences.Active {
 				return apperrors.New(apperrors.ErrConflict, "conference is not active")
@@ -128,23 +133,51 @@ func (r *ConferenceRecordingRepository) Stop(ctx context.Context, userID, confer
 			if err != nil {
 				return membershipError(err)
 			}
-			if conference.OwnerID != userID || actor.Role != conferences.Owner || !actor.CanReadHistory() {
+			if !actor.CanReadHistory() {
 				return apperrors.ErrForbidden
+			}
+			if err = requireRecordingAccount(tx, userID); err != nil {
+				return err
 			}
 			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("uuid = ? AND platform_conference_id = ? AND mode IN ('composite','audio_only','individual_tracks','screen_focus')", recordID, conferenceID).Take(&record).Error; err != nil {
 				return mapNotFound(err)
+			}
+			owner := conference.OwnerID == userID && actor.Role == conferences.Owner
+			if !owner && (record.RequestedBy == nil || *record.RequestedBy != userID) {
+				return apperrors.ErrForbidden
+			}
+			reason := "participant_requested"
+			if owner {
+				reason = "owner_requested"
 			}
 			if records.IsTerminalStatus(record.Status) || record.Status == records.StatusFinalizing || record.Status == records.StatusUploading {
 				return nil
 			}
 			if record.Status != records.StatusStopping {
-				if err = tx.Model(&record).Updates(map[string]any{"status": records.StatusStopping, "stopped_at": time.Now().UTC(), "ended_reason": "owner_requested"}).Error; err != nil {
+				if err = tx.Model(&record).Updates(map[string]any{"status": records.StatusStopping, "stopped_at": time.Now().UTC(), "ended_reason": reason}).Error; err != nil {
 					return err
 				}
 			}
-			return enqueueRecording(tx, record.UUID, "record.stop", "owner_requested")
+			return enqueueRecording(tx, record.UUID, "record.stop", reason)
 		})
 	return record, err
+}
+
+// requireRecordingAccount проверяет постоянный аккаунт в БД: гостевой JWT тоже
+// содержит userID, поэтому одного наличия сессии или членства недостаточно.
+func requireRecordingAccount(tx *gorm.DB, userID string) error {
+	var user users.User
+	err := tx.Select("id", "guest_conference_id").Where("id = ?", userID).Take(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return apperrors.ErrForbidden
+	}
+	if err != nil {
+		return err
+	}
+	if user.GuestConferenceID != nil {
+		return apperrors.ErrForbidden
+	}
+	return nil
 }
 
 // Accessible проверяет связь записи с конференцией и право пользователя читать её.

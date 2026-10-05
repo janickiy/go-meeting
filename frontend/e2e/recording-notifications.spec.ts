@@ -46,11 +46,13 @@ async function notificationFixture(
   {
     records = [],
     role = "participant",
+    guest = false,
     readError = false,
     deferFirstRead = false,
   }: {
     records?: Recording[];
     role?: "owner" | "participant";
+    guest?: boolean;
     readError?: boolean;
     deferFirstRead?: boolean;
   } = {},
@@ -133,7 +135,8 @@ async function notificationFixture(
         user: {
           id: "self",
           displayName: membership.displayName,
-          email: "fixture@example.test",
+          email: guest ? "" : "fixture@example.test",
+          guestConferenceId: guest ? roomId : undefined,
           createdAt: stamp,
           updatedAt: stamp,
         },
@@ -493,3 +496,52 @@ test("запоздавший пустой начальный снимок не �
   expect(fixture.denied).toEqual([]);
   expect(fixture.pageErrors).toEqual([]);
 });
+
+for (const identity of ["participant", "initiator", "guest"] as const) {
+  test(`английский звук воспроизводится один раз: ${identity}`, async ({
+    page,
+    baseURL,
+  }) => {
+    await page.addInitScript(() => {
+      const original = HTMLMediaElement.prototype.play;
+      (window as unknown as { announcements: number }).announcements = 0;
+      HTMLMediaElement.prototype.play = function () {
+        const announcement =
+          this.src.includes("recording-started-en") &&
+          !this.muted &&
+          this.volume > 0;
+        return original.call(this).then(() => {
+          if (announcement)
+            (window as unknown as { announcements: number }).announcements++;
+        });
+      };
+    });
+    const fixture = await notificationFixture(page, new URL(baseURL!).origin, {
+      guest: identity === "guest",
+      records: [recording("starting")],
+    });
+    await openMeeting(page, fixture);
+    // Настоящий жест разрешает звук; сетевые API/WS изолированы, аудиофайл настоящий.
+    await page
+      .getByRole("heading", { name: "Изолированная встреча с записью" })
+      .click();
+    const item = recording(
+      "recording",
+      recordId,
+      identity === "initiator" ? "self" : "organizer",
+    );
+    fixture.setRecords([item]);
+    fixture.emit("recording.started", item);
+    const sounds = () =>
+      page.evaluate(
+        () => (window as unknown as { announcements: number }).announcements,
+      );
+    await expect.poll(sounds).toBe(1);
+    const before = fixture.completedReads();
+    fixture.emit("recording.started", item);
+    await expect.poll(fixture.completedReads).toBeGreaterThan(before);
+    expect(await sounds()).toBe(1);
+    expect(fixture.denied).toEqual([]);
+    expect(fixture.pageErrors).toEqual([]);
+  });
+}

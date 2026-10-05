@@ -371,8 +371,8 @@ export function ConferencePage() {
           )}
           {activeRecording &&
             recordingAccess &&
-            owner &&
-            membership.role === "owner" && (
+            ((owner && membership.role === "owner") ||
+              activeRecording.requestedBy === user?.id) && (
               <button
                 type="button"
                 className="room-header-action room-header-stop-recording"

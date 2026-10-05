@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Circle, X } from "lucide-react";
 import { isAdmitted } from "../collaboration";
+import { playRecordingAnnouncement } from "../recordingAnnouncement";
 import type { ConferenceRecording, Participant, RealtimeEvent } from "../types";
 import "./RecordingNotice.css";
 
@@ -92,6 +93,9 @@ export function RecordingNotice(props: RecordingNoticeProps) {
   latest.current = props;
   const memory = useRef(new Map<string, RememberedRecording>());
   const visible = useRef<Notice | null>(null);
+  const sound = useRef<{ recordingId: string; cancel: () => void } | null>(
+    null,
+  );
   const [notice, setNotice] = useState<Notice | null>(null);
   const eligible =
     !!userId &&
@@ -131,6 +135,10 @@ export function RecordingNotice(props: RecordingNoticeProps) {
    * @return Значение не возвращается; остальные уведомления не изменяются.
    */
   function end(recordingId: string) {
+    if (sound.current?.recordingId === recordingId) {
+      sound.current.cancel();
+      sound.current = null;
+    }
     remember(recordingId, {
       notified: memory.current.get(recordingId)?.notified ?? false,
       ended: true,
@@ -160,6 +168,8 @@ export function RecordingNotice(props: RecordingNoticeProps) {
     const previous = memory.current.get(recordingId);
     if (previous?.notified || previous?.ended) return;
     remember(recordingId, { notified: true, ended: false });
+    sound.current?.cancel();
+    sound.current = { recordingId, cancel: playRecordingAnnouncement() };
     if (
       actorId ? actorId === context.userId : context.ownerId === context.userId
     )
@@ -173,10 +183,16 @@ export function RecordingNotice(props: RecordingNoticeProps) {
     memory.current.clear();
     visible.current = null;
     setNotice(null);
+    return () => {
+      sound.current?.cancel();
+      sound.current = null;
+    };
   }, [conferenceId, userId]);
 
   useEffect(() => {
     if (!eligible) {
+      sound.current?.cancel();
+      sound.current = null;
       visible.current = null;
       setNotice(null);
     }
@@ -256,7 +272,7 @@ export function RecordingNotice(props: RecordingNoticeProps) {
   const text = notice.actorId
     ? name
       ? `Началась запись встречи. Инициатор: ${name}.`
-      : "Организатор начал запись встречи."
+      : "Участник начал запись встречи."
     : "Во встрече идёт запись.";
   return (
     <div
