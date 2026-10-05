@@ -785,3 +785,56 @@ SMTP также недоступен. Это подтверждает отсут
 Snowd-Security-OU / NL; правила Timeweb Cloud нельзя автоматически относить
 к этому VPS. Доказательства без секретов: `smtp-network-continuation.json`
 в прежнем каталоге evidence.
+
+### Два широких видеоокна
+
+Выпуск интерфейса `v1.0.0-meeting.20261005-video-layout.2` установлен на прежнем
+стенде `recorder-staging-meeting`. Snapshot — `3fd1276569ef77e960a3d80801af3ac003fe2a53`,
+source fingerprint — `bea1a68016743a99e7a455b955e99090d4744107b1d66243e3f3dfa817d9af98`.
+Пакет: `/opt/meetrix/releases/v1.0.0-meeting.20261005-video-layout.2/package`;
+manifest `video-layout-patch.json`, SHA-256
+`d857f23add4d433f37109a693dce8f1f2807b98e73f7e12996e3e6831f3a35ea`.
+
+Две видимые камеры или заглушки располагаются вертикально по центру, в пропорциях
+16:9. Ширина учитывает доступную высоту и ограничена 960 px: на обычном экране
+оба окна видны целиком. При очень низкой высоте прокручивается только видеообласть,
+в том числе с клавиатуры; кнопки управления остаются доступны. Демонстрация
+экрана сохраняет прежний приоритет, звук и DOM-привязки участников не прерываются.
+
+Побайтовое сравнение 96 production-файлов с опубликованным invitations snapshot
+подтвердило только два изменения: `RealtimePanel.tsx` и `conference.css`.
+Приглашения, гостевой вход, голосовое уведомление, права записи и остальные
+функции интерфейса сохранены. Draft `video-layout.1` не публиковался.
+
+Пересоздан только frontend (`f95a81133641`), healthy, без перезапусков;
+OCI — `sha256:f7e3c111f7adf3604b1d29bb23ad20fcc1e951c895467f78b8dfb656a3072f8e`.
+API и product-worker остаются на invitations.1, recorder-worker — на
+recording-controls.1. Остальные 18 контейнеров хоста, общий env, отдельные
+SMTP settings, Apache, маршруты и три overlay сохранены побайтно. Миграций,
+drain или перезапуска API, workers и proxy в этой операции нет. Использовать
+новую карту 13 образов вместе с прежними шестью Compose-файлами; откат — только UI.
+
+По явному разрешению пользователя удалён только
+`/opt/meetrix/releases/v1.0.0-meeting.20261004-recording-controls.1/package/images.tar.gz`
+размером 126 331 726 байт. Локальная копия
+`tmp/recording-controls-release-20261004/package/images.tar.gz` сохранена;
+SHA-256 обеих копий перед удалением —
+`041a1f9cfdaf5b91c53aa315d4b48db1b36f286cd27d74b1b088ad11afaea893`.
+Образы Docker, исходники, манифесты, данные и backup не удалялись. Полная проверка
+старого package SHA256SUMS теперь ожидаемо встретит отсутствующий архив;
+это согласованная очистка, а не изменение байтов исторического манифеста.
+После загрузки нового сжатого UI-пакета свободно около 1116 МиБ; резерв 1024 МиБ
+соблюдён. Дополнительный raw `images.tar` на сервере не создавался.
+
+Свежий pinned Trivy и CycloneDX SBOM: HIGH/CRITICAL — 0. Исходники, OCI/config,
+все слои и diff IDs повторно проверены на сервере. Установщик:
+`/opt/meetrix/evidence/video-layout-20261005/install-video-layout-patch.sh`, SHA-256
+`f140e9f23a23fd7f32c188c90ffc6c2da11c7cca29692b32187441f859cf50bf`.
+502 unit-теста, TypeScript/build и форматирование — PASS; 12 локальных Vite
+сценариев и 5 проверок собранного локального Docker UI — PASS. После публикации
+прошли 5 Chromium-проверок геометрии и 10 публичных GET-проверок на реальных
+опубликованных CSS/JS с изолированными API/WS fixtures. Реальные встречи, записи
+и устройства не создавались. Firefox не запустился из-за ошибки временного профиля;
+автоматическая проверка этой верстки в Firefox не подтверждена.
+Результаты: `tmp/two-participants-layout-release-20261005-v2/public-smoke.json`
+и `tmp/two-participants-layout-20261005/remote-chromium-results.json`.
