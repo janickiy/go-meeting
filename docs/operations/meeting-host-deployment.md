@@ -583,3 +583,19 @@ Chromium проверил размещённые статические файл
 fixture; снимок desktop проверен. Свободно около 855 МиБ. Пакет:
 `/opt/meetrix/releases/v1.0.0-meeting.20261005-room-footer.1/`;
 локальные результаты: `tmp/room-footer-20261005/evidence/`.
+
+### Высота области видео
+
+Выпуск frontend `v1.0.0-meeting.20261005-room-height.1`, snapshot
+`3ccbf8c68c179526371d54700147a8faa0f74eef`, растягивает видео по свободной
+высоте комнаты между шапкой и кнопками управления. Прежний расчёт
+`100dvh - 440px` заменён цепочкой flex-контейнеров; минимальная высота плиток
+сохранена для небольших экранов. На проверочном desktop 1440×1000 область
+выросла с 560 до 768 пикселей; на телефоне кнопки остаются видны.
+Frontend: `sha256:46e6b27a7adbe0db5833f14f965d4e59f152bf1932602057e83a29cd468df5ac`.
+TypeScript/build, Trivy HIGH/CRITICAL = 0, четыре локальных и четыре удалённых
+Chrome/Firefox сценария desktop/mobile с изолированным API/WebSocket fixture
+прошли. Снимки проверены. Frontend healthy, public version совпадает;
+остальные 18 контейнеров сохранены, свободно около 835 МиБ.
+Пакет: `/opt/meetrix/releases/v1.0.0-meeting.20261005-room-height.1/`;
+локальные результаты: `tmp/room-height-20261005/evidence/`.
