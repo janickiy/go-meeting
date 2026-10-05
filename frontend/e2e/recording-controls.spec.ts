@@ -303,6 +303,20 @@ for (const viewport of [
     await expect(stop).toBeVisible();
     await expect(stop).toBeEnabled();
     await expectHeaderFits(page, stop);
+    const reconnect = page
+      .locator(".room-header")
+      .getByRole("button", { name: "Переподключиться", exact: true });
+    await expect(reconnect).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Переподключиться", exact: true }),
+    ).toHaveCount(1);
+    await expectHeaderFits(page, reconnect);
+    await expect(
+      page.getByText("Состояние медиасвязи", { exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Реакция / })).toHaveCount(
+      0,
+    );
     await page.screenshot({
       path: info.outputPath("header-stop-available.png"),
       fullPage: true,

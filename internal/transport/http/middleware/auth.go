@@ -2,6 +2,7 @@ package httpmiddleware
 
 import (
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/janickiy/go-recorder/internal/app/httpresponse"
@@ -9,6 +10,26 @@ import (
 )
 
 const authenticatedUserIDKey = "authenticated_user_id"
+
+type SessionVerifier interface {
+	VerifySession(string) (string, string, time.Time, error)
+}
+
+// GuestRequestAllowed keeps guest credentials inside one meeting, including WS.
+// Normal conference admission/role checks still run after this scope check.
+func GuestRequestAllowed(method, path, conferenceID string) bool {
+	if conferenceID == "" {
+		return true
+	}
+	if method == "GET" && (path == "/api/v1/auth/me" || path == "/api/v1/capabilities" || path == "/api/v1/webrtc/config") {
+		return true
+	}
+	if method == "POST" && path == "/api/v1/auth/logout" {
+		return true
+	}
+	base := "/api/v1/conferences/" + conferenceID
+	return path == base || strings.HasPrefix(path, base+"/")
+}
 
 // TokenVerifier задаёт контракт зависимого компонента TokenVerifier в проверке HTTP-авторизации и ограничений запросов; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 //   - Verify: операция Verify с контрактом, описанным у метода.
@@ -42,9 +63,19 @@ func Authenticate(tokens TokenVerifier) gin.HandlerFunc {
 			httpresponse.Fail(c, apperrors.ErrUnauthorized)
 			return
 		}
-		id, err := tokens.Verify(header[1])
+		var id, conferenceID string
+		var err error
+		if scoped, ok := tokens.(SessionVerifier); ok {
+			id, conferenceID, _, err = scoped.VerifySession(header[1])
+		} else {
+			id, err = tokens.Verify(header[1])
+		}
 		if err != nil || id == "" {
 			httpresponse.Fail(c, apperrors.ErrUnauthorized)
+			return
+		}
+		if !GuestRequestAllowed(c.Request.Method, c.Request.URL.Path, conferenceID) {
+			httpresponse.Fail(c, apperrors.ErrForbidden)
 			return
 		}
 		c.Set(authenticatedUserIDKey, id)

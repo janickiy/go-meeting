@@ -6,6 +6,18 @@ export interface DevicePreferences {
   cameraEnabled: boolean;
 }
 
+// A single explicit Connect click may start media after admission. This intent
+// lives only in this tab and is consumed once; reconnect never enables devices.
+const mediaEntries = new Map<string, number>();
+export function queueMediaEntry(conferenceId: string) {
+  mediaEntries.set(conferenceId, Date.now());
+}
+export function consumeMediaEntry(conferenceId: string): boolean {
+  const requestedAt = mediaEntries.get(conferenceId);
+  mediaEntries.delete(conferenceId);
+  return requestedAt !== undefined && Date.now() - requestedAt < 60 * 60 * 1000;
+}
+
 const emptyPreferences: DevicePreferences = {
   audioInputId: "",
   videoInputId: "",

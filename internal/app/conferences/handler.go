@@ -353,6 +353,7 @@ func (h *Handler) Leave(c *gin.Context) {
 // @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) LookupInvite(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	item, err := h.service.LookupInvite(c.Request.Context(), c.Param("code"))
 	if err != nil {
 		httpresponse.Fail(c, err)

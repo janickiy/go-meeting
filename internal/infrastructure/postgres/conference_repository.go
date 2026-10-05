@@ -230,7 +230,8 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 			if err != nil && !missing {
 				return err
 			}
-			if missing && subtle.ConstantTimeCompare([]byte(inviteCode), []byte(conference.InviteCode)) != 1 {
+			hasInvite := inviteCode != "" && subtle.ConstantTimeCompare([]byte(inviteCode), []byte(conference.InviteCode)) == 1
+			if missing && !hasInvite {
 				return apperrors.New(apperrors.ErrForbidden, "inviteCode is required for a new membership")
 			}
 			if !missing && participant.CanParticipate() {
@@ -244,14 +245,28 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 				userID := user.ID
 				participant = conferences.Participant{ID: uuid.NewString(), ConferenceID: id, UserID: &userID,
 					DisplayName: user.ParticipantName(), Role: conferences.ParticipantRole, Status: conferences.Joined, JoinedAt: &now, AdmissionState: conferences.AdmissionAdmitted}
-				if conference.WaitingRoomEnabled {
+				if conference.WaitingRoomEnabled && !hasInvite {
 					participant.Status, participant.AdmissionState, participant.JoinedAt = conferences.Waiting, conferences.AdmissionWaiting, nil
 				} else if conference.Status == conferences.Scheduled {
 					participant.Status, participant.JoinedAt = conferences.Left, nil
 				}
 				return tx.Create(&participant).Error
 			}
-			// Повторные приглашения не меняют допуск; присоединение к запланированной встрече означает запись на неё.
+			// Ссылка даёт немедленный допуск, в том числе участнику из прежнего зала ожидания.
+			// Явные отклонения и исключения проверены выше.
+			if hasInvite && participant.AdmissionState == conferences.AdmissionWaiting {
+				status := conferences.Joined
+				var joinedAt *time.Time = &now
+				if conference.Status == conferences.Scheduled {
+					status, joinedAt = conferences.Left, nil
+				}
+				if err := tx.Model(&participant).Updates(map[string]any{"status": status, "admission_state": conferences.AdmissionAdmitted, "admission_decided_at": now, "admission_version": gorm.Expr("admission_version + 1"), "joined_at": joinedAt, "left_at": nil, "media_policy_version": gorm.Expr("media_policy_version + 1")}).Error; err != nil {
+					return err
+				}
+				participant, err = findMembership(tx, id, user.ID)
+				return err
+			}
+			// Без ссылки сохраняется прежнее состояние допуска.
 			if participant.AdmissionState == conferences.AdmissionWaiting {
 				if participant.Status == conferences.Waiting {
 					return nil

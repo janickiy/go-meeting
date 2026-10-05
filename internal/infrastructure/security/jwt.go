@@ -13,6 +13,11 @@ const AccessTokenTTL = time.Hour
 const tokenIssuer = "go-recorder"
 const tokenAudience = "go-recorder-api"
 
+type sessionClaims struct {
+	jwt.RegisteredClaims
+	GuestConferenceID string `json:"guestConferenceId,omitempty"`
+}
+
 // TokenService выпускает и проверяет JWT учётной записи с настроенным сроком жизни.
 //   - secret: секрет подписи или внутренней авторизации компонента.
 //   - now: операция now с контрактом, описанным у метода.
@@ -45,14 +50,27 @@ func NewTokenService(secret string) (*TokenService, error) {
 //   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *TokenService) Issue(userID string) (string, error) {
+	return s.issue(userID, "")
+}
+
+// IssueGuest grants only the invited meeting; it never grants account access.
+func (s *TokenService) IssueGuest(userID, conferenceID string) (string, error) {
+	id, err := uuid.Parse(conferenceID)
+	if err != nil || id == uuid.Nil {
+		return "", fmt.Errorf("invalid guest conference")
+	}
+	return s.issue(userID, id.String())
+}
+
+func (s *TokenService) issue(userID, conferenceID string) (string, error) {
 	id, err := uuid.Parse(userID)
 	if err != nil || id == uuid.Nil {
 		return "", fmt.Errorf("invalid token subject")
 	}
 	now := s.now().UTC()
-	claims := jwt.RegisteredClaims{Subject: id.String(), Issuer: tokenIssuer,
+	claims := sessionClaims{GuestConferenceID: conferenceID, RegisteredClaims: jwt.RegisteredClaims{Subject: id.String(), Issuer: tokenIssuer,
 		Audience: jwt.ClaimStrings{tokenAudience}, IssuedAt: jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(AccessTokenTTL))}
+		ExpiresAt: jwt.NewNumericDate(now.Add(AccessTokenTTL))}}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
 }
 
@@ -79,10 +97,16 @@ func (s *TokenService) Verify(raw string) (string, error) {
 //   - результат 2 (time.Time): временная отметка результата или окончания действия разрешения.
 //   - результат 3 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *TokenService) VerifyWithExpiry(raw string) (string, time.Time, error) {
+	id, _, expiry, err := s.VerifySession(raw)
+	return id, expiry, err
+}
+
+// VerifySession validates the signature and returns the optional meeting scope.
+func (s *TokenService) VerifySession(raw string) (string, string, time.Time, error) {
 	if len(raw) == 0 || len(raw) > 4096 {
-		return "", time.Time{}, apperrors.ErrUnauthorized
+		return "", "", time.Time{}, apperrors.ErrUnauthorized
 	}
-	claims := &jwt.RegisteredClaims{}
+	claims := &sessionClaims{}
 	token, err := jwt.ParseWithClaims(raw, claims, /* Вложенный обработчик выполняет выделенный шаг обработки в проверке учётных данных и ограниченных разрешений, используя состояние окружающей функции.
 
 		@args
@@ -94,11 +118,17 @@ func (s *TokenService) VerifyWithExpiry(raw string) (string, time.Time, error) {
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(), jwt.WithIssuer(tokenIssuer), jwt.WithAudience(tokenAudience), jwt.WithTimeFunc(s.now))
 	if err != nil || !token.Valid || claims.IssuedAt == nil {
-		return "", time.Time{}, apperrors.ErrUnauthorized
+		return "", "", time.Time{}, apperrors.ErrUnauthorized
 	}
 	id, err := uuid.Parse(claims.Subject)
 	if err != nil || id == uuid.Nil {
-		return "", time.Time{}, apperrors.ErrUnauthorized
+		return "", "", time.Time{}, apperrors.ErrUnauthorized
 	}
-	return id.String(), claims.ExpiresAt.Time, nil
+	if claims.GuestConferenceID != "" {
+		conferenceID, err := uuid.Parse(claims.GuestConferenceID)
+		if err != nil || conferenceID == uuid.Nil || conferenceID.String() != claims.GuestConferenceID {
+			return "", "", time.Time{}, apperrors.ErrUnauthorized
+		}
+	}
+	return id.String(), claims.GuestConferenceID, claims.ExpiresAt.Time, nil
 }

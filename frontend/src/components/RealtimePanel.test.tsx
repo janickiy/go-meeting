@@ -292,32 +292,27 @@ it("explains offline state and offers a reconnect when the network returns", () 
   expect(view.live.reconnect).not.toHaveBeenCalled();
 });
 
-it("shows measured stats and copies only a redacted report", async () => {
-  vi.mocked(mediaRef.current.diagnostics).mockResolvedValue({
-    roundTripTimeMs: 42,
-    route: "relay",
-    sdp: "private-sdp",
-  } as never);
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText },
-  });
-  panel();
-  const details = screen.getByText("Состояние медиасвязи").closest("details")!;
-  details.open = true;
-  fireEvent(details, new Event("toggle"));
-  expect(await screen.findByText("42 мс")).toBeInTheDocument();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Скопировать диагностический отчёт" }),
+it("renders one reconnect action in the header slot and stops media before reconnecting", () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const view = panel();
+  view.rerender(
+    <RealtimePanel
+      conferenceId="room"
+      membership={view.membership}
+      live={view.live}
+      reconnectTarget={host}
+    />,
   );
-  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-  const report = writeText.mock.calls[0][0] as string;
-  expect(JSON.parse(report)).toMatchObject({
-    buildVersion: "1.9.0+stage9",
-    rtc: { roundTripTimeMs: 42, route: "relay" },
-  });
-  expect(report).not.toContain("private-sdp");
+  const button = screen.getByRole("button", { name: "Переподключиться" });
+  expect(host).toContainElement(button);
+  expect(screen.queryByText("Состояние медиасвязи")).toBeNull();
+  expect(mediaRef.current.diagnostics).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  expect(mediaRef.current.stop).toHaveBeenCalledOnce();
+  expect(view.live.reconnect).toHaveBeenCalledOnce();
+  view.unmount();
+  host.remove();
 });
 
 it("показывает настоящих участников без потоков и не выдаёт их за подключённое видео", () => {

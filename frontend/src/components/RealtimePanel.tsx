@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Mic,
   MicOff,
@@ -26,13 +27,9 @@ import {
   hasDevicePreferences,
   readDevicePreferences,
   saveDevicePreferences,
+  consumeMediaEntry,
 } from "../prejoinDevices";
 import { meetingShortcut } from "../conferenceShortcuts";
-import {
-  safeDiagnosticsReport,
-  type RtcDiagnostics,
-} from "../mediaDiagnostics";
-import { useCapabilities } from "../useCapabilities";
 import { initials } from "../utils";
 import { useSpeakingParticipants } from "../useSpeakingParticipants";
 import { onlineParticipants } from "../presence";
@@ -309,6 +306,7 @@ export function RealtimePanel({
   shortcutsEnabled = true,
   participants = [],
   controls,
+  reconnectTarget,
 }: {
   conferenceId: string;
   membership: Participant;
@@ -316,9 +314,9 @@ export function RealtimePanel({
   shortcutsEnabled?: boolean;
   participants?: Participant[];
   controls?: ReactNode;
+  reconnectTarget?: HTMLElement | null;
 }) {
   const { user } = useAuth();
-  const capabilities = useCapabilities();
   const media = useMedia(live, conferenceId, {
     ...membership,
     version: membership.mediaPolicyVersion,
@@ -327,17 +325,22 @@ export function RealtimePanel({
     readDevicePreferences(user?.id || ""),
   );
   const [hasSelection] = useState(() => hasDevicePreferences(user?.id || ""));
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
-  const [devicesOpen, setDevicesOpen] = useState(false);
-  const [diagnostics, setDiagnostics] = useState<RtcDiagnostics | null>(null);
-  const [diagnosticsError, setDiagnosticsError] = useState("");
-  const [copyStatus, setCopyStatus] = useState("");
   useEffect(() => {
-    setDiagnosticsOpen(false);
-    setDiagnostics(null);
-    setCopyStatus("");
-  }, [media.view.mediaPeerId]);
+    if (
+      !live.state?.connectionId ||
+      membership.status !== "joined" ||
+      membership.admissionState !== "admitted"
+    )
+      return;
+    if (consumeMediaEntry(conferenceId)) media.start(true, preferences);
+  }, [
+    conferenceId,
+    live.state?.connectionId,
+    membership.status,
+    membership.admissionState,
+  ]);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [devicesOpen, setDevicesOpen] = useState(false);
   useEffect(
     /**
      * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
@@ -466,45 +469,6 @@ export function RealtimePanel({
       ? (speaking.get(membership.id) ?? 0)
       : 0;
   useEffect(() => {
-    if (!diagnosticsOpen || !media.running || !live.state) {
-      setDiagnostics(null);
-      return;
-    }
-    let active = true;
-    let pending = false;
-    const refresh = () => {
-      if (pending) return;
-      pending = true;
-      void media
-        .diagnostics()
-        .then(
-          (sample) => {
-            if (!active) return;
-            setDiagnostics(sample);
-            setDiagnosticsError("");
-          },
-          () => {
-            if (active)
-              setDiagnosticsError("Статистика соединения недоступна.");
-          },
-        )
-        .finally(() => {
-          pending = false;
-        });
-    };
-    refresh();
-    const timer = window.setInterval(refresh, 5000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [
-    diagnosticsOpen,
-    media.running,
-    media.diagnostics,
-    live.state?.connectionId,
-  ]);
-  useEffect(() => {
     if (!shortcutsEnabled || connectionProblem || !media.running || busy)
       return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -530,6 +494,26 @@ export function RealtimePanel({
     membership.cameraBlocked,
     shortcutsEnabled,
   ]);
+  const reconnectButton = (
+    <Button
+      variant="secondary"
+      className={
+        reconnectTarget
+          ? "room-header-action room-header-reconnect"
+          : "realtime-reconnect"
+      }
+      aria-label="Переподключиться"
+      title="Переподключиться"
+      disabled={!online}
+      onClick={() => {
+        media.stop();
+        live.reconnect();
+      }}
+    >
+      <RefreshCw size={16} aria-hidden="true" />
+      <span>Переподключиться</span>
+    </Button>
+  );
   return (
     <section
       className="content-card realtime-panel"
@@ -540,12 +524,16 @@ export function RealtimePanel({
           <Radio size={20} />
           Связь с участниками
         </h2>
-        <span
-          className={`participant-status ${connectionProblem ? "conference-link-lost" : "conference-link-ready"}`}
-        >
-          {online ? live.status : "Нет сети"}
-        </span>
+        <div className="realtime-header-actions">
+          <span
+            className={`participant-status ${connectionProblem ? "conference-link-lost" : "conference-link-ready"}`}
+          >
+            {online ? live.status : "Нет сети"}
+          </span>
+          {!reconnectTarget && reconnectButton}
+        </div>
       </div>
+      {reconnectTarget && createPortal(reconnectButton, reconnectTarget)}
       <ErrorNotice error={live.error} />
       {connectionProblem && (
         <div className="conference-connection-notice" role="status">
@@ -561,17 +549,6 @@ export function RealtimePanel({
               ? "Звук и видео могут быть временно недоступны. После восстановления проверьте устройства."
               : "Проверьте интернет-соединение. При возврате сети подключение повторится автоматически."}
           </span>
-          <Button
-            variant="secondary"
-            disabled={!online}
-            onClick={() => {
-              media.stop();
-              live.reconnect();
-            }}
-          >
-            <RefreshCw size={16} />
-            Переподключиться
-          </Button>
         </div>
       )}
       {live.state && (
@@ -1050,123 +1027,12 @@ export function RealtimePanel({
               ))}
           </div>
         )}
-        {media.view.mediaPeerId && (
-          <details
-            className="media-diagnostics"
-            onToggle={(event) => setDiagnosticsOpen(event.currentTarget.open)}
-          >
-            <summary>Состояние медиасвязи</summary>
-            <dl>
-              <dt>Media peer</dt>
-              <dd>
-                <code data-testid="media-peer-id">
-                  {media.view.mediaPeerId}
-                </code>
-              </dd>
-              <dt>Worker</dt>
-              <dd>{media.view.workerId}</dd>
-              <dt>PeerConnection</dt>
-              <dd>{media.view.connectionState}</dd>
-              <dt>ICE</dt>
-              <dd>{media.view.iceState}</dd>
-              <dt>Negotiation</dt>
-              <dd>{media.view.negotiationState}</dd>
-              <dt>Удалённые потоки</dt>
-              <dd>{media.view.remoteStreams.length}</dd>
-              {diagnostics?.roundTripTimeMs !== undefined && (
-                <>
-                  <dt>Задержка RTT</dt>
-                  <dd>{diagnostics.roundTripTimeMs} мс</dd>
-                </>
-              )}
-              {diagnostics?.packetLossPercent !== undefined && (
-                <>
-                  <dt>Потери входящих пакетов</dt>
-                  <dd>{diagnostics.packetLossPercent} %</dd>
-                </>
-              )}
-              {diagnostics?.outboundKbps !== undefined && (
-                <>
-                  <dt>Исходящий поток</dt>
-                  <dd>{diagnostics.outboundKbps} кбит/с</dd>
-                </>
-              )}
-              {diagnostics?.inboundKbps !== undefined && (
-                <>
-                  <dt>Входящий поток</dt>
-                  <dd>{diagnostics.inboundKbps} кбит/с</dd>
-                </>
-              )}
-              {diagnostics?.route && (
-                <>
-                  <dt>Маршрут</dt>
-                  <dd>
-                    {diagnostics.route === "relay" ? "TURN relay" : "Прямой"}
-                  </dd>
-                </>
-              )}
-              <dt>Версия сборки</dt>
-              <dd>{capabilities.data?.buildVersion || "Неизвестна"}</dd>
-            </dl>
-            {(!diagnostics || Object.keys(diagnostics).length === 0) &&
-              !diagnosticsError && (
-                <p className="field-hint">
-                  Измерения появятся после обмена медиа.
-                </p>
-              )}
-            {diagnosticsError && <p role="status">{diagnosticsError}</p>}
-            <Button
-              variant="outline"
-              onClick={() => {
-                const report = safeDiagnosticsReport({
-                  buildVersion: capabilities.data?.buildVersion,
-                  realtimeStatus: live.status,
-                  mediaWorkerAvailable: !!media.view.mediaPeerId,
-                  connectionState: media.view.connectionState,
-                  iceState: media.view.iceState,
-                  diagnostics,
-                });
-                if (!navigator.clipboard?.writeText) {
-                  setCopyStatus("Буфер обмена недоступен в этом браузере.");
-                  return;
-                }
-                void navigator.clipboard.writeText(report).then(
-                  () => setCopyStatus("Обезличенный отчёт скопирован."),
-                  () => setCopyStatus("Не удалось скопировать отчёт."),
-                );
-              }}
-            >
-              Скопировать диагностический отчёт
-            </Button>
-            <p className="field-hint">
-              Отчёт содержит только агрегированные показатели и версию сборки,
-              без адресов, SDP и токенов.
-            </p>
-            <p className="field-hint">
-              Потери — накопленная доля входящих RTP-пакетов. Скорость считается
-              по двум замерам; оценка качества не рассчитывается.
-            </p>
-            {copyStatus && <p role="status">{copyStatus}</p>}
-          </details>
-        )}
         <p className="field-hint">
           После переподключения вкладки устройства автоматически не включаются.
           При ошибке ICE проверьте доступность медиа-портов и настройку
           STUN/TURN.
         </p>
       </div>
-      {!connectionProblem && (
-        <Button
-          variant="secondary"
-          onClick={() => {
-            media.stop();
-            live.reconnect();
-          }}
-        >
-          <RefreshCw size={16} />
-          Переподключиться
-        </Button>
-      )}
     </section>
   );
 }

@@ -2,6 +2,7 @@
 .conference-room-page {
   color: var(--room-text);
   background: var(--room-bg);
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -9,6 +10,7 @@
 }
 .room-header {
   min-height: 76px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -100,6 +102,7 @@
 }
 .conference-stage-main {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -108,6 +111,9 @@
 }
 .conference-room-page .realtime-panel {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -128,6 +134,7 @@
   min-height: 24px;
 }
 .conference-room-page .conference-media {
+  flex: 1;
   border: 0;
   margin: 0;
   padding: 0;
@@ -136,13 +143,10 @@
   min-height: 0;
 }
 .conference-room-page .conference-media > .section-heading,
-.conference-room-page .conference-media > .field-hint {
+.conference-room-page .conference-media > .field-hint,
+.conference-room-page .conference-media > [data-testid="media-status"],
+.conference-room-page .conference-presence-details {
   display: none;
-}
-.conference-room-page .conference-media > [data-testid="media-status"] {
-  margin: 0 0 10px;
-  font-size: 12px;
-  color: var(--room-muted);
 }
 .conference-room-page .media-grid {
   order: 1;
@@ -152,8 +156,8 @@
   margin: 0;
   padding: 0;
   border: 0;
-  min-height: 0;
-  height: max(280px, calc(100dvh - 440px));
+  flex: 1 0 280px;
+  min-height: 280px;
   grid-auto-rows: minmax(0, 1fr);
   background: transparent;
 }
@@ -343,6 +347,7 @@
 }
 .conference-room-page .conference-control-bar {
   order: 2;
+  flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
@@ -402,23 +407,6 @@
   color: var(--room-text);
   background: var(--room-surface-raised);
   border-color: var(--room-border);
-}
-.conference-room-page .media-diagnostics {
-  order: 4;
-  background: var(--room-surface);
-  border: 1px solid var(--room-border);
-  color: var(--room-muted);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 12px;
-}
-.conference-room-page .media-diagnostics summary {
-  color: var(--room-muted);
-  cursor: pointer;
-}
-.conference-room-page .media-diagnostics code,
-.conference-room-page .media-diagnostics .field-hint {
-  color: var(--room-muted);
 }
 .conference-room-page .realtime-panel > .button {
   margin-top: 10px;
@@ -735,12 +723,6 @@
   padding: 0 14px;
   line-height: 1.6;
 }
-.conference-shortcuts-hint {
-  color: var(--room-muted);
-  font-size: 10px;
-  margin: 10px 0 0;
-  line-height: 1.6;
-}
 @media (min-width: 1600px) {
   .conference-stage {
     grid-template-columns: minmax(0, 1fr) 380px;
@@ -750,7 +732,7 @@
     padding-right: 24px;
   }
   .conference-room-page .media-grid {
-    height: max(360px, calc(100dvh - 440px));
+    min-height: 360px;
   }
 }
 @media (max-width: 1100px) {
@@ -796,7 +778,7 @@
     display: none;
   }
   .conference-room-page .media-grid {
-    height: max(300px, calc(100dvh - 440px));
+    min-height: 300px;
   }
   .room-recording-status {
     font-size: 10px;
@@ -834,7 +816,7 @@
   .conference-room-page .media-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
-    height: max(280px, calc(100dvh - 440px));
+    min-height: 280px;
   }
   .conference-room-page .media-tile {
     min-height: 130px;
@@ -864,9 +846,6 @@
   .conference-room-page .reactions-panel .collaboration-toolbar {
     align-items: flex-start;
   }
-  .conference-shortcuts-hint {
-    display: none;
-  }
   .room-recording-status {
     max-width: 70px;
   }
@@ -886,4 +865,18 @@
     min-height: 32px;
     padding: 6px;
   }
+}
+
+.realtime-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.room-reconnect-slot {
+  flex-shrink: 0;
+}
+.room-header-reconnect {
+  white-space: nowrap;
 }

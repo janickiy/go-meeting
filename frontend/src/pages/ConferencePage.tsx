@@ -33,10 +33,8 @@ import { onlineParticipants } from "../presence";
 import { useRealtime } from "../realtime";
 import { WaitingRoomPanel } from "../components/WaitingRoomPanel";
 import { ChatPanel } from "../components/ChatPanel";
-import { ReactionsPanel } from "../components/ReactionsPanel";
 import { useCapabilities } from "../useCapabilities";
 import { meetingShortcut } from "../conferenceShortcuts";
-import { PRODUCT_NAME } from "../brand";
 import { EditSchedule } from "../components/ConferenceModals";
 import { formatDate, initials, inviteLink } from "../utils";
 import {
@@ -124,6 +122,9 @@ export function ConferencePage() {
     () => typeof window === "undefined" || window.innerWidth > 900,
   );
   const panelTrigger = useRef<HTMLButtonElement | null>(null);
+  const [reconnectTarget, setReconnectTarget] = useState<HTMLDivElement | null>(
+    null,
+  );
   const [utility, setUtility] = useState<"recording" | "invite" | null>(null);
   const recordingStatus = useQuery({
     queryKey: ["recordings", id],
@@ -291,7 +292,10 @@ export function ConferencePage() {
     return (
       <div className="content-card">
         <ErrorNotice error={query.error || new Error()} />
-        <Link to="/conferences" className="text-link">
+        <Link
+          to={user?.guestConferenceId ? "/" : "/conferences"}
+          className="text-link"
+        >
           <ArrowLeft size={16} />К моим конференциям
         </Link>
       </div>
@@ -342,7 +346,7 @@ export function ConferencePage() {
         <header className="room-header">
           <Link
             className="icon-button room-back"
-            to="/conferences"
+            to={user?.guestConferenceId ? "/" : "/conferences"}
             aria-label="К моим конференциям"
           >
             <ArrowLeft size={19} />
@@ -419,6 +423,7 @@ export function ConferencePage() {
           >
             {initials(membership.displayName)}
           </span>
+          <div className="room-reconnect-slot" ref={setReconnectTarget} />
         </header>
         <RecordingNotice
           conferenceId={id}
@@ -454,6 +459,7 @@ export function ConferencePage() {
               membership={membership}
               live={live}
               participants={people}
+              reconnectTarget={reconnectTarget}
               controls={
                 <>
                   <Button
@@ -492,11 +498,6 @@ export function ConferencePage() {
                   </Button>
                 </>
               }
-            />
-            <ReactionsPanel
-              conferenceId={id}
-              participants={people}
-              live={live}
             />
           </div>
           <aside
@@ -646,10 +647,6 @@ export function ConferencePage() {
             )}
           </aside>
         </section>
-        <p className="conference-shortcuts-hint">
-          Клавиши: M — микрофон, V — камера, C — чат. В полях ввода и диалогах
-          они не действуют.
-        </p>
         {utility && (
           <Modal
             title={
@@ -669,7 +666,7 @@ export function ConferencePage() {
             ) : (
               <>
                 <p className="modal-description">
-                  Отправьте ссылку участникам. Для входа нужен аккаунт.
+                  Отправьте ссылку участникам. Можно подключиться без аккаунта.
                 </p>
                 <CopyLink value={inviteLink(conference.inviteCode)} />
                 <p className="field-hint">
@@ -714,7 +711,10 @@ export function ConferencePage() {
   }
   return (
     <>
-      <Link className="back-link" to="/conferences">
+      <Link
+        className="back-link"
+        to={user?.guestConferenceId ? "/" : "/conferences"}
+      >
         <ArrowLeft size={17} />
         Мои конференции
       </Link>
@@ -779,7 +779,12 @@ export function ConferencePage() {
                      */ () => {
                       if (membership?.status === "joined")
                         mutation.mutate("leave");
-                      else navigate(`/conferences/${id}/join`);
+                      else
+                        navigate(
+                          user?.guestConferenceId
+                            ? `/i/${conference.inviteCode}`
+                            : `/conferences/${id}/join`,
+                        );
                     }
                   }
                   disabled={self.isPending || self.isError}
@@ -915,7 +920,7 @@ export function ConferencePage() {
               <code>{conference.inviteCode}</code>
             </div>
             <p className="field-hint">
-              Для присоединения нужен аккаунт {PRODUCT_NAME}.
+              По ссылке можно присоединиться без аккаунта.
               {closed ? " Эта конференция уже закрыта." : ""}
             </p>
           </aside>

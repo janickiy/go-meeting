@@ -28,6 +28,7 @@ import (
 	mediadomain "github.com/janickiy/go-recorder/internal/domain/media"
 	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
 	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
+	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 	usecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 )
 
@@ -171,6 +172,16 @@ func (h *Handler) identity(r *http.Request) (domain.Identity, error) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 		return domain.Identity{}, apperrors.ErrUnauthorized
+	}
+	if scoped, ok := h.verifier.(httpmiddleware.SessionVerifier); ok {
+		id, conferenceID, expiry, err := scoped.VerifySession(parts[1])
+		if err != nil {
+			return domain.Identity{}, err
+		}
+		if !httpmiddleware.GuestRequestAllowed(r.Method, r.URL.Path, conferenceID) {
+			return domain.Identity{}, apperrors.ErrForbidden
+		}
+		return domain.Identity{UserID: id, ExpiresAt: expiry}, nil
 	}
 	id, expiry, err := h.verifier.VerifyWithExpiry(parts[1])
 	return domain.Identity{UserID: id, ExpiresAt: expiry}, err

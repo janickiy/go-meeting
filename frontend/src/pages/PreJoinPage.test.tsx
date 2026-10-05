@@ -82,7 +82,7 @@ describe("PreJoinPage", () => {
       await screen.findByRole("heading", { name: "Проверка проекта" }),
     ).toBeInTheDocument();
     expect(api.joinInvite).not.toHaveBeenCalled();
-    expect(screen.getByText(/зал ожидания/)).toBeInTheDocument();
+    expect(screen.queryByText(/зал ожидания/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Войти во встречу" }));
     expect(await screen.findByText("Комната встречи")).toBeInTheDocument();
     expect(api.joinInvite).toHaveBeenCalledExactlyOnceWith(code);

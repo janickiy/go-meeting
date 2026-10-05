@@ -172,14 +172,14 @@ func (s *Service) Login(ctx context.Context, request users.LoginRequest) (users.
 		return users.LoginResponse{}, err
 	}
 	hash := user.PasswordHash
-	if missing {
+	if missing || user.GuestConferenceID != nil {
 		hash = s.dummyHash
 	}
 	valid, err := s.passwords.Verify(request.Password, hash)
 	if err != nil {
 		return users.LoginResponse{}, err
 	}
-	if missing || !valid {
+	if missing || user.GuestConferenceID != nil || !valid {
 		return users.LoginResponse{}, invalidCredentials()
 	}
 	if err := ctx.Err(); err != nil {

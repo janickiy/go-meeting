@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth";
 import { Brand, Button, ErrorNotice, Loading } from "./components/ui";
@@ -131,6 +131,17 @@ function Protected() {
         replace
       />
     );
+  if (
+    auth.user.guestConferenceId &&
+    !["/conferences/", "/meetings/"].some(
+      (prefix) =>
+        location.pathname === prefix + auth.user!.guestConferenceId ||
+        location.pathname === prefix + auth.user!.guestConferenceId + "/join",
+    )
+  )
+    return (
+      <Navigate to={`/conferences/${auth.user.guestConferenceId}`} replace />
+    );
   return <Outlet />;
 }
 /**
@@ -168,6 +179,20 @@ export function App() {
       <Route path="/register" element={<AuthPage register />} />
       <Route path="/register/success" element={<RegistrationSuccess />} />
       <Route
+        path="/i/:code"
+        element={
+          <Suspense
+            fallback={
+              <div className="page-center">
+                <Loading />
+              </div>
+            }
+          >
+            <InvitePage />
+          </Suspense>
+        }
+      />
+      <Route
         path="/app/settings/calendar/:provider/callback"
         element={<CalendarCallback />}
       />
@@ -184,7 +209,6 @@ export function App() {
           <Route path="/conferences/new" element={<Dashboard create />} />
           <Route path="/conferences/:id" element={<ConferencePage />} />
           <Route path="/conferences/:id/join" element={<PreJoinPage />} />
-          <Route path="/i/:code" element={<InvitePage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/app/recordings" element={<RecordingsPage />} />

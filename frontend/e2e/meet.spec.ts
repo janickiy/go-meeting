@@ -1,6 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
 import type { Conference, Participant, User } from "../src/types";
 
+// Permission-denied coverage; media-enabled coverage runs against real SFU separately.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      throw new DOMException("Permission denied", "NotAllowedError");
+    };
+  });
+});
+
 const code = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef";
 const now = "2026-10-01T09:00:00Z";
 const user: User = {
@@ -140,6 +149,15 @@ async function mockApi(
           user: current,
         });
       }
+      if (path === `/conference-invites/${code}`)
+        return respond({
+          status: "success",
+          item: {
+            id: conference.id,
+            title: conference.title,
+            status: conference.status,
+          },
+        });
       if (options.expired) return respond({ message: "expired" }, 401);
       if (request.headers()["authorization"] !== "Bearer e2e-jwt")
         return respond({ message: "unauthorized" }, 401);
@@ -244,15 +262,6 @@ async function mockApi(
           items: participants.slice(offset, offset + 100),
         });
       }
-      if (path === `/conference-invites/${code}`)
-        return respond({
-          status: "success",
-          item: {
-            id: conference.id,
-            title: conference.title,
-            status: conference.status,
-          },
-        });
       if (post && /\/(join|leave)$/.test(path)) {
         let own = participants.find(
           /**
@@ -501,7 +510,7 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
   ).toBeNull();
 });
 
-test("an invitation survives login and a participant cannot see owner controls", /**
+test("an account opens the public invitation and cannot see owner controls", /**
  * Проверяет сохранность приглашения после входа и отсутствие элементов владельца у участника.
  *
  * @args
@@ -510,19 +519,14 @@ test("an invitation survives login and a participant cannot see owner controls",
  * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ async ({ page }) => {
   await mockApi(page, { participant: true });
-  await page.goto(`/i/${code}`);
-  await expect(page).toHaveURL(/\/login\?next=/);
+  await page.goto(`/login?next=${encodeURIComponent(`/i/${code}`)}`);
   await page.getByLabel("Email", { exact: true }).fill(user.email);
   await page.getByLabel("Пароль", { exact: true }).fill("correct-password-123");
   await page.getByRole("button", { name: "Войти", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Обсуждение проекта" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Проверить устройства и войти" })
-    .click();
-  await expect(page).toHaveURL(/\/conferences\/conference-1\/join\?invite=/);
-  await page.getByRole("button", { name: "Войти во встречу" }).click();
+  await page.getByRole("button", { name: "Подключиться", exact: true }).click();
   await expect(page).toHaveURL(/\/conferences\/conference-1$/);
   await expect(
     page.getByRole("button", { name: "Покинуть конференцию" }),
@@ -550,7 +554,9 @@ test("finds current membership after the first 100 participants", /**
     page.getByRole("button", { name: "Покинуть конференцию" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Загрузить ещё участников" }).click();
-  await expect(page.getByText("Участники 101")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Загрузить ещё участников" }),
+  ).toHaveCount(0);
 });
 
 test("restores a session, but an expired token redirects safely to login", /**

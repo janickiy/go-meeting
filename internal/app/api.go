@@ -156,6 +156,8 @@ func RunAPI() error {
 	recordingService := recordingsusecase.NewConferenceService(postgresinfra.NewConferenceRecordingRepository(db), service, commandPublisher, conferenceLock, hub)
 	hub.SetDisconnectObserver(realtimeusecase.DisconnectObservers{controlService, mediaController})
 	conferenceService.SetObserver(hub)
+	guestService := &conferenceusecase.GuestService{Repository: postgresinfra.NewGuestRepository(db), Tokens: tokens, Observer: hub}
+	httptransport.RegisterGuestRoutes(router, &conferencesapp.GuestHandler{Service: guestService, Tokens: tokens}, rateLimiter)
 	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(tokens))
 	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(controlService), httpmiddleware.Authenticate(tokens))
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(tokens))
@@ -256,6 +258,7 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 		return httptransport.APIV1Prefix + route
 	}
 	rules := []httpmiddleware.Rule{
+		{Method: "GET", Path: path("/conference-invites/:code"), Scope: "invite_lookup_ip", Limit: 60, Window: window, Key: httpmiddleware.ClientIPKey},
 		{Method: "POST", Path: path("/auth/login"), Scope: "ip", Limit: limit(cfg.RateLimit.AuthLoginIPRPM), Window: window, Key: httpmiddleware.ClientIPKey},
 		{Method: "POST", Path: path("/auth/register"), Scope: "ip", Limit: limit(cfg.RateLimit.AuthRegisterIPRPM), Window: window, Key: httpmiddleware.ClientIPKey},
 		{

@@ -31,7 +31,7 @@ import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
  */
 export function Layout() {
   const { user, logout } = useAuth();
-  useNotificationStream(user?.id);
+  useNotificationStream(user?.guestConferenceId ? undefined : user?.id);
   const capabilities = useCapabilities();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -95,6 +95,19 @@ export function Layout() {
         navigate("/login", { replace: true });
       });
   };
+  if (user?.guestConferenceId)
+    return (
+      <div className="guest-room-shell">
+        <a className="skip-link" href="#workspace-main">
+          Перейти к встрече
+        </a>
+        <main id="workspace-main">
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
+        </main>
+      </div>
+    );
   const items = [
     { to: "/app", label: "Главная", Icon: Home, end: true },
     { to: "/conferences", label: "Встречи", Icon: Video },

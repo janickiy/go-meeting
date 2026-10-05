@@ -13,6 +13,7 @@ export interface User {
   email: string;
   displayName: string | null;
   isAdmin?: boolean;
+  guestConferenceId?: string;
   createdAt: string;
   updatedAt: string;
 }

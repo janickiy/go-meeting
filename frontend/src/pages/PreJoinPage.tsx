@@ -8,8 +8,12 @@ import {
   Mic,
   MicOff,
   ShieldCheck,
+  Settings,
+  X,
+  Pencil,
 } from "lucide-react";
-import { api } from "../api";
+import { api, ApiError } from "../api";
+import type { Invite } from "../types";
 import { useAuth } from "../auth";
 import { isAdmitted } from "../collaboration";
 import { useMembership } from "../queries";
@@ -18,6 +22,7 @@ import {
   captureErrorMessage,
   readDevicePreferences,
   saveDevicePreferences,
+  queueMediaEntry,
 } from "../prejoinDevices";
 import type { DevicePreferences } from "../prejoinDevices";
 import {
@@ -26,6 +31,7 @@ import {
   ErrorNotice,
   Loading,
   StatusBadge,
+  Modal,
 } from "../components/ui";
 import { initials } from "../utils";
 import "./prejoin.css";
@@ -33,15 +39,34 @@ import "./prejoin.css";
 type InputKind = "audio" | "video";
 
 /** Локальный захват служит только предпросмотру. Клиент SFU создаётся после допуска. */
-export function PreJoinPage() {
-  const { id = "" } = useParams();
+export function PreJoinPage({
+  invitation,
+}: { invitation?: { code: string; meeting: Invite } } = {}) {
+  const { id: routeId = "" } = useParams();
+  const id = invitation?.meeting.id || routeId;
   const [params] = useSearchParams();
-  const rawInviteCode = params.get("invite");
+  const rawInviteCode = invitation?.code || params.get("invite");
   const inviteCode =
     rawInviteCode && /^[A-Za-z0-9_-]{32}$/.test(rawInviteCode)
       ? rawInviteCode
       : "";
-  const { user } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    startupError,
+    retry,
+    enterGuest,
+  } = useAuth();
+  const guestMode = !user || !!user.guestConferenceId;
+  const needsMembership =
+    !!user && (!user.guestConferenceId || user.guestConferenceId === id);
+  const [guestName, setGuestName] = useState(
+    user?.guestConferenceId ? user.displayName || "Гость" : "Гость",
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => {
+    if (user?.guestConferenceId) setGuestName(user.displayName || "Гость");
+  }, [user?.id]);
   const navigate = useNavigate();
   const client = useQueryClient();
   const conference = useQuery({
@@ -50,10 +75,13 @@ export function PreJoinPage() {
       inviteCode ? api.invite(inviteCode, signal) : api.conference(id, signal),
     enabled: !!id && (!rawInviteCode || !!inviteCode),
     refetchInterval: 10000,
+    initialData: invitation
+      ? { status: "success", item: invitation.meeting }
+      : undefined,
   });
-  const self = useMembership(id);
+  const self = useMembership(id, 3000, needsMembership);
   const [preferences, setPreferences] = useState<DevicePreferences>(() =>
-    readDevicePreferences(user?.id || ""),
+    readDevicePreferences(user?.id || "guest"),
   );
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
@@ -72,6 +100,7 @@ export function PreJoinPage() {
   }>({ audio: null, video: null });
   const generation = useRef({ audio: 0, video: 0 });
   const mounted = useRef(false);
+  const autoPreviewRequested = useRef("");
 
   const supported =
     typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
@@ -162,7 +191,7 @@ export function PreJoinPage() {
   }, [refreshDevices]);
 
   useEffect(() => {
-    if (user?.id) saveDevicePreferences(user.id, preferences);
+    saveDevicePreferences(user?.id || "guest", preferences);
   }, [user?.id, preferences]);
 
   useEffect(() => {
@@ -361,28 +390,74 @@ export function PreJoinPage() {
     }
   }
 
+  // Request the default preview once per entry. The browser still controls
+  // permission; denial leaves the join button available without devices.
+  useEffect(() => {
+    if (
+      !invitation ||
+      authLoading ||
+      conference.isPending ||
+      (needsMembership && self.isPending) ||
+      conference.data?.item.id !== id ||
+      !["created", "active"].includes(conference.data?.item.status || "")
+    )
+      return;
+    // Scheduling avoids duplicate permission requests in React StrictMode.
+    const timer = window.setTimeout(() => {
+      if (autoPreviewRequested.current === id) return;
+      autoPreviewRequested.current = id;
+      void capture("audio", true, preferences.audioInputId);
+      void capture("video", true, preferences.videoInputId);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [
+    id,
+    authLoading,
+    conference.isPending,
+    conference.data?.item.status,
+    needsMembership,
+    self.isPending,
+  ]);
+
   const join = useMutation({
     mutationFn: async () => {
       if (!conference.data || conference.data.item.id !== id)
         throw new Error("invite_conference_mismatch");
+      if (guestMode) {
+        if (!inviteCode)
+          throw new ApiError(
+            403,
+            "Откройте ссылку-приглашение, чтобы войти гостем.",
+          );
+        const session = await enterGuest(inviteCode, guestName.trim());
+        return { membership: session.item, userId: session.user.id };
+      }
       const current = self.data;
-      if (
-        current &&
-        (current.status === "waiting" ||
-          (current.status === "joined" && isAdmitted(current)))
-      )
-        return current;
-      return inviteCode
-        ? (await api.joinInvite(inviteCode)).item
-        : (await api.membership(id, "join")).item;
+      const membership =
+        current && current.status === "joined" && isAdmitted(current)
+          ? current
+          : inviteCode
+            ? (await api.joinInvite(inviteCode)).item
+            : (await api.membership(id, "join")).item;
+      return { membership, userId: user!.id };
     },
-    onSuccess: (membership) => {
-      if (user?.id) saveDevicePreferences(user.id, preferences);
-      if (user?.id)
-        client.setQueryData(["membership", user.id, id], membership);
+    onSuccess: ({ membership, userId }) => {
+      saveDevicePreferences(
+        userId,
+        invitation
+          ? {
+              ...preferences,
+              microphoneEnabled: microphoneOn,
+              cameraEnabled: cameraOn,
+            }
+          : preferences,
+      );
+      client.setQueryData(["membership", userId, id], membership);
       void client.invalidateQueries({ queryKey: ["membership"] });
       void client.invalidateQueries({ queryKey: ["participants"] });
       void client.invalidateQueries({ queryKey: ["conferences"] });
+      if (invitation && conference.data?.item.status !== "scheduled")
+        queueMediaEntry(id);
       stopInput("audio");
       stopInput("video");
       navigate(`/conferences/${id}`, { replace: true });
@@ -396,7 +471,12 @@ export function PreJoinPage() {
         <p>Проверьте ссылку приглашения.</p>
       </section>
     );
-  if (conference.isPending || self.isPending) return <Loading />;
+  if (
+    authLoading ||
+    conference.isPending ||
+    (needsMembership && self.isPending)
+  )
+    return <Loading />;
   if (conference.isError || !conference.data)
     return (
       <section className="content-card">
@@ -440,6 +520,253 @@ export function PreJoinPage() {
       </>
     );
   };
+
+  if (invitation) {
+    const name = guestMode
+      ? guestName
+      : user?.displayName || user?.email || "Участник";
+    const disabled =
+      !canJoin ||
+      self.isError ||
+      busy.audio ||
+      busy.video ||
+      join.isPending ||
+      !!startupError ||
+      (guestMode && !guestName.trim());
+    return (
+      <main className="invite-entry-page">
+        <form
+          className="invite-entry"
+          aria-label="Проверка перед входом"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!disabled) join.mutate();
+          }}
+        >
+          <div className="invite-entry-preview">
+            {cameraOn ? (
+              <video
+                ref={video}
+                autoPlay
+                muted
+                playsInline
+                aria-label="Предпросмотр камеры"
+              />
+            ) : (
+              <div className="invite-entry-placeholder">
+                <span>{initials(name || "Гость")}</span>
+                <CameraOff size={28} aria-hidden="true" />
+                <p>Камера выключена</p>
+              </div>
+            )}
+          </div>
+          <header className="invite-entry-heading">
+            <h1>{meeting.title}</h1>
+            <StatusBadge status={meeting.status} />
+          </header>
+          <Link
+            className="invite-entry-close"
+            to={user && !user.guestConferenceId ? "/app" : "/"}
+            aria-label="Закрыть подключение"
+          >
+            <X size={30} />
+          </Link>
+          <div className="invite-entry-bottom">
+            <div className="invite-entry-identity">
+              {guestMode ? (
+                <label className="invite-entry-name">
+                  <span className="sr-only">Имя на встрече</span>
+                  <input
+                    aria-label="Имя на встрече"
+                    value={guestName}
+                    maxLength={100}
+                    required
+                    autoComplete="off"
+                    onChange={(event) => setGuestName(event.target.value)}
+                    disabled={join.isPending}
+                  />
+                  <Pencil size={19} aria-hidden="true" />
+                </label>
+              ) : (
+                <h2>{name}</h2>
+              )}
+              <p>
+                {guestMode
+                  ? "Укажите имя, которое увидят участники"
+                  : user?.email}
+              </p>
+            </div>
+            <div className="invite-entry-notices">
+              {meeting.status === "scheduled" && (
+                <p>
+                  Подключение будет доступно, когда организатор начнёт встречу.
+                </p>
+              )}
+              {meeting.status === "scheduled" && !guestMode && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  busy={join.isPending}
+                  disabled={!!startupError || self.isError}
+                  onClick={() => join.mutate()}
+                >
+                  Добавить в мои встречи
+                </Button>
+              )}
+              {closed && <p>Встреча завершена.</p>}
+              {restricted && <p>Организатор ограничил повторный вход.</p>}
+              {!secure && (
+                <p>
+                  Для камеры и микрофона откройте защищённую HTTPS-страницу.
+                </p>
+              )}
+              <ErrorNotice error={self.error || join.error}>
+                {deviceError || null}
+              </ErrorNotice>
+              {startupError && (
+                <p role="alert">
+                  Не удалось проверить сессию.{" "}
+                  <button type="button" onClick={retry}>
+                    Повторить
+                  </button>
+                </p>
+              )}
+              {notice && <p role="status">{notice}</p>}
+              {playbackBlocked && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void video.current
+                      ?.play()
+                      .then(() => setPlaybackBlocked(false))
+                  }
+                >
+                  Запустить предпросмотр
+                </button>
+              )}
+            </div>
+            <div className="invite-entry-controls">
+              <div className="invite-entry-inputs">
+                <button
+                  type="button"
+                  className={`invite-entry-control ${microphoneOn ? "is-on" : ""}`}
+                  aria-label={
+                    microphoneOn ? "Выключить микрофон" : "Включить микрофон"
+                  }
+                  aria-pressed={microphoneOn}
+                  disabled={busy.audio || join.isPending}
+                  onClick={() =>
+                    void capture(
+                      "audio",
+                      !microphoneOn,
+                      preferences.audioInputId,
+                    )
+                  }
+                >
+                  {microphoneOn ? <Mic /> : <MicOff />}
+                </button>
+                <button
+                  type="button"
+                  className={`invite-entry-control ${cameraOn ? "is-on" : ""}`}
+                  aria-label={cameraOn ? "Выключить камеру" : "Включить камеру"}
+                  aria-pressed={cameraOn}
+                  disabled={busy.video || join.isPending}
+                  onClick={() =>
+                    void capture("video", !cameraOn, preferences.videoInputId)
+                  }
+                >
+                  {cameraOn ? <Camera /> : <CameraOff />}
+                </button>
+              </div>
+              <Button
+                type="submit"
+                className="invite-entry-connect"
+                busy={join.isPending}
+                disabled={disabled}
+              >
+                Подключиться
+              </Button>
+              <button
+                type="button"
+                className="invite-entry-control invite-entry-settings"
+                aria-label="Настройки устройств"
+                aria-haspopup="dialog"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings />
+              </button>
+            </div>
+          </div>
+        </form>
+        {settingsOpen && (
+          <Modal
+            title="Настройки устройств"
+            onClose={() => setSettingsOpen(false)}
+          >
+            <div className="prejoin-settings invite-device-settings">
+              <label className="field">
+                Микрофон
+                <select
+                  value={preferences.audioInputId}
+                  disabled={!supported || busy.audio}
+                  onChange={(event) => {
+                    const deviceId = event.target.value;
+                    setPreferences((current) => ({
+                      ...current,
+                      audioInputId: deviceId,
+                    }));
+                    if (microphoneOn) void capture("audio", true, deviceId);
+                  }}
+                >
+                  {inputOptions("audioinput", preferences.audioInputId)}
+                </select>
+              </label>
+              <label className="field">
+                Камера
+                <select
+                  value={preferences.videoInputId}
+                  disabled={!supported || busy.video}
+                  onChange={(event) => {
+                    const deviceId = event.target.value;
+                    setPreferences((current) => ({
+                      ...current,
+                      videoInputId: deviceId,
+                    }));
+                    if (cameraOn) void capture("video", true, deviceId);
+                  }}
+                >
+                  {inputOptions("videoinput", preferences.videoInputId)}
+                </select>
+              </label>
+              {outputSupported && (
+                <label className="field">
+                  Вывод звука
+                  <select
+                    value={preferences.audioOutputId}
+                    onChange={(event) =>
+                      setPreferences((current) => ({
+                        ...current,
+                        audioOutputId: event.target.value,
+                      }))
+                    }
+                  >
+                    {inputOptions("audiooutput", preferences.audioOutputId)}
+                  </select>
+                </label>
+              )}
+              <label className="prejoin-level">
+                Уровень микрофона
+                <meter min={0} max={1} value={microphoneOn ? level : 0} />
+              </label>
+              <p className="field-hint">
+                До подключения камера и микрофон доступны только вам.
+              </p>
+            </div>
+          </Modal>
+        )}
+      </main>
+    );
+  }
 
   return (
     <section className="prejoin-page" aria-label="Проверка перед входом">
@@ -599,7 +926,7 @@ export function PreJoinPage() {
             Выбранные устройства запоминаются только в этом браузере. Если
             устройство исчезнет, будет использовано системное.
           </p>
-          {meeting.waitingRoomEnabled && (
+          {meeting.waitingRoomEnabled && !inviteCode && (
             <p className="prejoin-waiting-note">
               После входа организатор может направить вас в зал ожидания. Медиа
               подключается только после допуска.

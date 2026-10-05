@@ -13,11 +13,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/conferences"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
 	"github.com/janickiy/go-recorder/internal/domain/records"
 	"github.com/janickiy/go-recorder/internal/domain/users"
 	pg "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
+	"gorm.io/gorm"
 )
+
+// seedLegacyWaitingMembership represents a participant saved before direct link admission.
+func seedLegacyWaitingMembership(t *testing.T, db *gorm.DB, id string) {
+	t.Helper()
+	if err := db.Model(&conferences.Participant{}).Where("id = ?", id).Updates(map[string]any{"status": conferences.Waiting, "admission_state": conferences.AdmissionWaiting, "joined_at": nil, "admission_decided_at": nil}).Error; err != nil {
+		t.Fatal(err)
+	}
+}
 
 // TestStageFiveWaitingAdmissionAndProtectedResources проверяет зал ожидания, допуск и защищённые ресурсы.
 //
@@ -35,19 +43,14 @@ func TestStageFiveWaitingAdmissionAndProtectedResources(t *testing.T) {
 	path := "/conferences/" + c.ID
 	api.expect(t, "POST", path+"/join", f.ownerToken, nil, 200, nil)
 	api.expect(t, "POST", path+"/start", f.ownerToken, nil, 200, nil)
-	ownerSocket := f.connect(t, 0, f.ownerToken, c.ID)
 	var pending struct{ Item conferences.ParticipantView }
 	api.expect(t, "POST", "/conference-invites/"+c.InviteCode+"/join", f.memberToken, nil, 200, &pending)
+	seedLegacyWaitingMembership(t, f.db, pending.Item.ID)
+	api.expect(t, "GET", path+"/participants/me", f.memberToken, nil, 200, &pending)
 	if pending.Item.Status != conferences.Waiting || pending.Item.AdmissionState != conferences.AdmissionWaiting || pending.Item.JoinedAt != nil {
 		t.Fatalf("invalid waiting membership: %+v", pending.Item)
 	}
-	ownerSocket.wait(t, /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-		@args
-		  - e (realtime.Envelope): значение e типа realtime.Envelope, используемое согласно назначению этой операции.
-
-		@return:
-		  - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния. */func(e realtime.Envelope) bool { return e.Type == "participant.waiting" })
 	id := pending.Item.ID
 	blocked := true
 	for _, request := range []conferences.ModerationRequest{{Action: "kick"}, {Action: "mute", Blocked: &blocked}, {Action: "role", Role: conferences.CoHost}} {
@@ -131,6 +134,11 @@ func TestStageFiveAdmissionRacesRejectAndCoHost(t *testing.T) {
 		if _, err := repo.Join(ctx, f.conference.ID, u, f.conference.InviteCode); err != nil {
 			t.Fatal(err)
 		}
+		joined, err := repo.Membership(ctx, f.conference.ID, u.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seedLegacyWaitingMembership(t, f.db, joined.ID)
 		return u
 	}
 	u := newWaiter()

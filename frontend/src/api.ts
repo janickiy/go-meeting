@@ -738,7 +738,13 @@ export const api = {
   invite: (code: string, signal?: AbortSignal) =>
     request<Item<Invite>>(`/conference-invites/${encodeURIComponent(code)}`, {
       signal,
+      public: true,
     }),
+  joinGuest: (code: string, displayName: string) =>
+    request<LoginResponse & Item<Participant>>(
+      `/conference-invites/${encodeURIComponent(code)}/guest`,
+      { method: "POST", body: { displayName } },
+    ),
   /**
    * joinInvite запрашивает вход авторизованного пользователя по коду приглашения.
    *

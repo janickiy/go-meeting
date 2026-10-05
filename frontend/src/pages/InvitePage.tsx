@@ -1,120 +1,35 @@
-import { Link, useNavigate, useParams } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LogIn, Video } from "lucide-react";
+import { Link, useParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import { useAuth } from "../auth";
-import { Button, ErrorNotice, Loading, StatusBadge } from "../components/ui";
-import { formatDate } from "../utils";
-import { PRODUCT_NAME } from "../brand";
+import { ErrorNotice, Loading } from "../components/ui";
+import { PreJoinPage } from "./PreJoinPage";
 
-/**
- * InvitePage показывает сведения приглашения и обрабатывает авторизованный вход или включение в будущую встречу.
- *
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
- */
+/** Invitation metadata is public; joining creates a separate, scoped guest session. */
 export function InvitePage() {
   const { code = "" } = useParams();
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const client = useQueryClient();
+  const valid = /^[A-Za-z0-9_-]{32}$/.test(code);
   const query = useQuery({
-    queryKey: ["invite", user?.id, code],
-    /**
-     * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
-     *
-     * @args
-     *   - объект параметров: signal — сигнал отмены запроса или потока.
-     *
-     * @returns вычисленное значение: api.invite(code, signal).
-     */
+    queryKey: ["public-invite", code],
     queryFn: ({ signal }) => api.invite(code, signal),
+    enabled: valid,
+    retry: false,
   });
-  const mutation = useMutation({
-    /**
-     * mutationFn выполняет изменяющий запрос по переданным параметрам действия.
-     *
-     *
-     * @returns вычисленное значение: api.joinInvite(code).
-     */
-    mutationFn: () => api.joinInvite(code),
-    /**
-     * onSuccess обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-     *
-     * @args
-     *   - объект параметров: item — элемент списка, который обрабатывает текущий шаг.
-     *
-     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-     */
-    onSuccess: ({ item }) => {
-      void client.invalidateQueries({ queryKey: ["conferences"] });
-      navigate(`/conferences/${item.conferenceId}`, { replace: true });
-    },
-  });
-  if (query.isPending) return <Loading />;
-  if (query.isError || !query.data)
+  if (valid && query.isPending)
     return (
-      <div className="content-card">
-        <h1>Приглашение недоступно</h1>
-        <ErrorNotice error={query.error} />
-        <Link className="text-link" to="/app">
-          <ArrowLeft size={16} />В мой кабинет
-        </Link>
-      </div>
+      <main className="invite-entry-page">
+        <Loading />
+      </main>
     );
-  const conference = query.data.item;
-  const closed =
-    conference.status === "finished" || conference.status === "cancelled";
-  return (
-    <section className="content-card invite-preview">
-      <span className="meeting-card-symbol">
-        <Video size={36} />
-      </span>
-      <span className="eyebrow">ВАС ПРИГЛАСИЛИ НА ВСТРЕЧУ</span>
-      <h1>{conference.title}</h1>
-      <StatusBadge status={conference.status} />
-      {conference.scheduledAt && (
-        <p>Начало: {formatDate(conference.scheduledAt)}</p>
-      )}
-      {conference.waitingRoomEnabled && (
-        <p className="field-hint">
-          Во встрече включён зал ожидания. Организатор подтвердит вход после
-          начала.
-        </p>
-      )}
-      <p>
-        {closed
-          ? "Организатор уже закрыл эту конференцию."
-          : `Нажмите кнопку ниже, чтобы присоединиться с вашим аккаунтом ${PRODUCT_NAME}.`}
-      </p>
-      <ErrorNotice error={mutation.error} />
-      {!closed && (
-        <Button
-          busy={mutation.isPending}
-          onClick={
-            /**
-             * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-             *
-             *
-             * @returns значение не возвращается; открывает проверку устройств до фактического входа.
-             */ () => {
-              if (conference.status === "scheduled") mutation.mutate();
-              else
-                navigate(
-                  `/conferences/${encodeURIComponent(conference.id)}/join?invite=${encodeURIComponent(code)}`,
-                );
-            }
-          }
-        >
-          <LogIn size={18} />
-          {conference.status === "scheduled"
-            ? "Добавить в мои встречи"
-            : "Проверить устройства и войти"}
-        </Button>
-      )}
-      <Link className="text-link" to="/app">
-        Вернуться в мой кабинет
-      </Link>
-    </section>
-  );
+  if (!valid || query.isError || !query.data)
+    return (
+      <main className="invite-entry-page">
+        <section className="invite-entry-error">
+          <h1>Приглашение недоступно</h1>
+          <p>Проверьте ссылку или попросите организатора прислать новую.</p>
+          <ErrorNotice error={query.error} />
+          <Link to="/">На главную</Link>
+        </section>
+      </main>
+    );
+  return <PreJoinPage invitation={{ code, meeting: query.data.item }} />;
 }

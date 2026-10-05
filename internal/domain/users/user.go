@@ -19,13 +19,14 @@ import (
 //   - CreatedAt: время создания значения.
 //   - UpdatedAt: время последнего сохранённого изменения.
 type User struct {
-	ID           string    `gorm:"type:uuid;primaryKey" json:"-"`
-	Email        string    `json:"-"`
-	PasswordHash string    `gorm:"column:password_hash" json:"-"`
-	DisplayName  *string   `gorm:"column:display_name" json:"-"`
-	IsAdmin      bool      `gorm:"column:is_admin" json:"-"`
-	CreatedAt    time.Time `json:"-"`
-	UpdatedAt    time.Time `json:"-"`
+	ID                string    `gorm:"type:uuid;primaryKey" json:"-"`
+	Email             string    `json:"-"`
+	PasswordHash      string    `gorm:"column:password_hash" json:"-"`
+	DisplayName       *string   `gorm:"column:display_name" json:"-"`
+	IsAdmin           bool      `gorm:"column:is_admin" json:"-"`
+	GuestConferenceID *string   `gorm:"column:guest_conference_id" json:"-"`
+	CreatedAt         time.Time `json:"-"`
+	UpdatedAt         time.Time `json:"-"`
 }
 
 const (
@@ -47,12 +48,13 @@ func (User) TableName() string { return "users" }
 //   - CreatedAt: время создания значения.
 //   - UpdatedAt: время последнего сохранённого изменения.
 type View struct {
-	ID          string    `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName *string   `json:"displayName"`
-	IsAdmin     bool      `json:"isAdmin"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID                string    `json:"id"`
+	Email             string    `json:"email"`
+	DisplayName       *string   `json:"displayName"`
+	IsAdmin           bool      `json:"isAdmin"`
+	GuestConferenceID *string   `json:"guestConferenceId,omitempty"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
 // View собирает публичное представление модели для ответа API.
@@ -60,7 +62,11 @@ type View struct {
 // @return:
 //   - результат 1 (View): значение, подготовленное операцией для вызывающей стороны.
 func (u User) View() View {
-	return View{ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, IsAdmin: u.IsAdmin, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
+	email := u.Email
+	if u.GuestConferenceID != nil {
+		email = ""
+	}
+	return View{ID: u.ID, Email: email, DisplayName: u.DisplayName, IsAdmin: u.IsAdmin, GuestConferenceID: u.GuestConferenceID, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
 }
 
 // ParticipantName выбирает отображаемое имя пользователя для сохранённого членства в конференции.

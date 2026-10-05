@@ -2861,3 +2861,11 @@ textarea:disabled {
     padding: 12px 0;
   }
 }
+
+.guest-room-shell {
+  min-height: 100dvh;
+  background: var(--room-bg);
+}
+.guest-room-shell > main {
+  min-height: 100dvh;
+}

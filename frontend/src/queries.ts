@@ -114,10 +114,12 @@ export function useParticipants(id: string, enabled = true) {
 export function useMembership(
   id: string,
   refetchInterval: number | false = 3000,
+  enabled = true,
 ) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["membership", user?.id, id],
+    enabled: enabled && !!user && !!id,
     /**
      * queryFn загружает данные запроса с его сигналом отмены для кеша React Query.
      *

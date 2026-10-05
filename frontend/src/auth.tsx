@@ -9,7 +9,7 @@ import {
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, configureAuth } from "./api";
-import type { User } from "./types";
+import type { User, LoginResponse, Item, Participant } from "./types";
 import { readSession, saveSession } from "./utils";
 import type { Session } from "./utils";
 
@@ -40,6 +40,10 @@ interface Auth {
    * @returns Promise<void> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
    */ (email: string, password: string) => Promise<void>;
   updateProfile: (displayName: string) => Promise<User>;
+  enterGuest: (
+    code: string,
+    displayName: string,
+  ) => Promise<LoginResponse & Item<Participant>>;
   logout: /**
    * Вложенный обработчик выполняет шаг «Вложенный обработчик» в клиентской авторизации.
    *
@@ -210,6 +214,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   async function login(email: string, password: string) {
     const result = await api.login(email, password);
+    await acceptSession(result);
+  }
+  async function enterGuest(code: string, displayName: string) {
+    const result = await api.joinGuest(code, displayName);
+    await acceptSession(result);
+    return result;
+  }
+  async function acceptSession(result: LoginResponse) {
     await client.cancelQueries();
     client.clear();
     const next = {
@@ -221,6 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     saveSession(next);
     setSession(next);
     setUser(result.user);
+    setLoading(false);
     setExpired(false);
     setStartupError(false);
   }
@@ -256,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         startupError,
         login,
         updateProfile,
+        enterGuest,
         logout,
         /**
          * retry решает, допустим ли повтор запроса с учётом ошибки и числа отказов.

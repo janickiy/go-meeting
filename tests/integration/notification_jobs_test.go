@@ -39,6 +39,7 @@ func TestStageFiveNotificationJobsCaptureEveryDecisionAndDeduplicate(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	seedLegacyWaitingMembership(t, f.db, p.ID)
 	var count int64
 	if err = f.db.Table("notification_jobs").Where("entity_id=?", p.ID).Count(&count).Error; err != nil || count != 0 {
 		t.Fatal("initial waiting generated a decision", count, err)

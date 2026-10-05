@@ -40,9 +40,9 @@ func RegisterPlatformRoutes(router gin.IRouter, auth *authapp.Handler, conferenc
 	router.GET(APIV1Prefix+"/me/conferences", authentication, conference.Timeline)
 
 	// Отдельный префикс предотвращает конфликт шаблонов :id/:inviteCode и открывает только ограниченное представление.
-	invites := router.Group(APIV1Prefix+"/conference-invites", authentication)
+	invites := router.Group(APIV1Prefix + "/conference-invites")
 	invites.GET("/:code", conference.LookupInvite)
-	invites.POST("/:code/join", conference.JoinInvite)
+	invites.POST("/:code/join", authentication, conference.JoinInvite)
 }
 
 // RegisterControlRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.

@@ -382,11 +382,10 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     await rejected.goto(`${base}/i/${created.inviteCode}`);
     await rejected
       .getByRole("button", {
-        name: "Проверить устройства и войти",
+        name: "Подключиться",
         exact: true,
       })
       .click();
-    await rejected.getByRole("button", { name: "Войти во встречу" }).click();
     await expect(rejected.getByTestId("waiting-room")).toBeVisible();
     await owner
       .getByRole("button", { name: "Отклонить: Stage5 rejected" })
