@@ -435,6 +435,18 @@ export function RealtimePanel({
   const showingScreen = Boolean(
     localScreen || visibleRemoteStreams.some((remote) => remote.screen),
   );
+  // Считаем именно отрисованные плитки: камеры, аудиопотоки и заглушки онлайн-участников.
+  // Экран использует прежнюю полноразмерную раскладку, независимо от числа участников.
+  const participantsWithoutStream = present.filter((person) =>
+    person.id === membership.id
+      ? !localStream
+      : !remoteParticipants.has(person.id),
+  );
+  const cameraTileCount =
+    Number(Boolean(localStream)) +
+    visibleRemoteStreams.filter((remote) => !remote.screen).length +
+    participantsWithoutStream.length;
+  const pairedTiles = !showingScreen && cameraTileCount === 2;
   const speaking = useSpeakingParticipants(
     [
       {
@@ -942,7 +954,10 @@ export function RealtimePanel({
           visibleRemoteStreams.length > 0 ||
           present.length > 0) && (
           <div
-            className={`media-grid ${showingScreen ? "media-grid-sharing" : ""}`}
+            className={`media-grid ${showingScreen ? "media-grid-sharing" : pairedTiles ? "media-grid-pair" : ""}`}
+            role={pairedTiles ? "region" : undefined}
+            aria-label={pairedTiles ? "Видео участников" : undefined}
+            tabIndex={pairedTiles ? 0 : undefined}
           >
             {localScreen && (
               <MediaTile local screen stream={localScreen} name="Ваш экран" />
@@ -1003,28 +1018,22 @@ export function RealtimePanel({
                 />
               ),
             )}
-            {present
-              .filter((person) =>
-                person.id === membership.id
-                  ? !localStream
-                  : !remoteParticipants.has(person.id),
-              )
-              .map((person) => (
-                <MediaTile
-                  key={`waiting-${person.id}`}
-                  name={person.displayName || "Участник"}
-                  local={person.id === membership.id}
-                  video={false}
-                  covered={showingScreen}
-                  microphoneEnabled={
-                    person.id === membership.id
-                      ? media.view.microphoneEnabled
-                      : person.microphoneEnabled
-                  }
-                  role={person.role}
-                  reconnecting={connectionProblem}
-                />
-              ))}
+            {participantsWithoutStream.map((person) => (
+              <MediaTile
+                key={`waiting-${person.id}`}
+                name={person.displayName || "Участник"}
+                local={person.id === membership.id}
+                video={false}
+                covered={showingScreen}
+                microphoneEnabled={
+                  person.id === membership.id
+                    ? media.view.microphoneEnabled
+                    : person.microphoneEnabled
+                }
+                role={person.role}
+                reconnecting={connectionProblem}
+              />
+            ))}
           </div>
         )}
         <p className="field-hint">

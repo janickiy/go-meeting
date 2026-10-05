@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import type { Participant } from "../src/types";
+import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
+import type { PresenceParticipant } from "../src/types";
 
 const stamp = "2026-10-03T12:00:00Z";
 const room = {
@@ -38,26 +38,70 @@ const people = [
       online: true,
       connections: 1,
       connectionIds: [`connection-${index}`],
-    }) as Participant,
+    }) as PresenceParticipant,
 );
 
-/** Подменяет только тестовые HTTP/WS ответы; не предоставляет фиктивные медиа production-сборке.
- * @args page — изолированная страница; @return подготовленная комната с настоящими UI-состояниями без физических устройств.
+/** Подменяет HTTP/WS только в тестовом браузере и запрещает неизвестные API-запросы.
+ * @args page — изолированная страница; origin — адрес локального Vite;
+ * count — начальное число участников; canvas — тестовые видеопотоки вместо SFU.
+ * @return Управление авторитетным снимком и журналы отказов/ошибок браузера.
  */
-async function fixture(page: Page) {
-  await page.addInitScript(() =>
+async function fixture(
+  page: Page,
+  origin: string,
+  { count = 4, canvas = false } = {},
+) {
+  const denied: string[] = [];
+  const errors: string[] = [];
+  let current = people.slice(0, count);
+  let socket: WebSocketRoute | undefined;
+  let sequence = 0;
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
     sessionStorage.setItem(
       "meet.session.v1",
       JSON.stringify({
         token: "visual-only-token",
         expiresAt: Date.now() + 1_800_000,
       }),
-    ),
-  );
-  await page.route("**/api/v1/**", async (route) => {
-    const path = new URL(route.request().url()).pathname.replace("/api/v1", "");
+    );
+    const runtime = window as Window & { layoutDeviceCalls?: number };
+    runtime.layoutDeviceCalls = 0;
+    if (navigator.mediaDevices) {
+      Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
+        value: () => {
+          runtime.layoutDeviceCalls = (runtime.layoutDeviceCalls ?? 0) + 1;
+          return Promise.reject(new Error("Устройства запрещены в UI-тесте"));
+        },
+      });
+      Object.defineProperty(navigator.mediaDevices, "getDisplayMedia", {
+        value: () => {
+          runtime.layoutDeviceCalls = (runtime.layoutDeviceCalls ?? 0) + 1;
+          return Promise.reject(new Error("Захват экрана запрещён в UI-тесте"));
+        },
+      });
+      Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
+        value: async () => [],
+      });
+    }
+  });
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    if (url.origin !== origin) {
+      denied.push(`${method} ${url.origin}${url.pathname}`);
+      return route.abort("blockedbyclient");
+    }
+    if (canvas && url.pathname === "/src/useMedia.ts") {
+      return route.fulfill({
+        contentType: "application/javascript",
+        body: 'export { useMedia } from "/e2e/helpers/layout-media-fixture.tsx";',
+      });
+    }
+    if (!url.pathname.startsWith("/api/")) return route.continue();
+    const path = url.pathname.replace(/^\/api\/v1/, "");
     const respond = (data: unknown) => route.fulfill({ json: data });
-    if (path === "/auth/me")
+    if (method === "GET" && path === "/auth/me")
       return respond({
         status: "success",
         user: {
@@ -68,7 +112,7 @@ async function fixture(page: Page) {
           updatedAt: stamp,
         },
       });
-    if (path === "/capabilities")
+    if (method === "GET" && path === "/capabilities")
       return respond({
         status: "success",
         capabilities: {
@@ -80,69 +124,100 @@ async function fixture(page: Page) {
           recordingModes: ["composite"],
         },
       });
-    if (path === "/notifications/events")
+    if (method === "GET" && path === "/notifications/events")
       return route.fulfill({
         contentType: "text/event-stream",
         body: ": visual fixture\n\n",
       });
-    if (path === "/notifications")
+    if (method === "GET" && path === "/notifications")
       return respond({
         status: "success",
         items: [],
         nextCursor: null,
         unreadCount: 0,
       });
-    if (path === `/conferences/${room.id}`)
+    if (method === "GET" && path === `/conferences/${room.id}`)
       return respond({ status: "success", item: room });
-    if (path.endsWith("/participants/me"))
+    if (method === "GET" && path === `/conferences/${room.id}/participants/me`)
       return respond({ status: "success", item: people[0] });
-    if (path.endsWith("/participants"))
-      return respond({ status: "success", items: people });
-    if (path.endsWith("/recordings"))
+    if (
+      method === "PUT" &&
+      path === `/conferences/${room.id}/participants/me/media`
+    )
+      return respond({ status: "success", item: people[0] });
+    if (method === "GET" && path === `/conferences/${room.id}/participants`)
+      return respond({ status: "success", items: current });
+    if (method === "GET" && path === `/conferences/${room.id}/recordings`)
       return respond({ status: "success", items: [] });
-    if (path.endsWith("/messages"))
+    if (method === "GET" && path === `/conferences/${room.id}/messages`)
       return respond({ status: "success", items: [], nextCursor: null });
-    if (path.endsWith("/chat/read"))
+    if (method === "GET" && path === `/conferences/${room.id}/chat/read`)
       return respond({
         status: "success",
         item: { unreadCount: 0, lastReadMessageId: null },
       });
-    if (path.endsWith("/ws-ticket"))
+    if (method === "POST" && path === `/conferences/${room.id}/ws-ticket`)
       return respond({
         ticket: "visual-ticket",
         expiresAt: "2099-01-01T00:00:00Z",
       });
+    denied.push(`${method} ${path}`);
     return route.fulfill({
       status: 404,
       json: { message: "unavailable test route" },
     });
   });
-  await page.routeWebSocket(
-    /\/api\/v1\/conferences\/room-visual\/ws/,
-    (socket) => {
-      socket.send(
-        JSON.stringify({
-          version: 1,
-          id: "initial-state",
-          type: "conference.state",
-          conferenceId: room.id,
-          timestamp: stamp,
-          data: {
-            connectionId: "connection-0",
-            participantId: people[0].id,
-            status: "active",
-            participants: people,
-          },
-        }),
-      );
-    },
-  );
+  /** Передаёт новый состав через тестовый WebSocket, не создавая backend-данных.
+   * @args nextCount — число присутствующих; type — тип доверенного снимка присутствия.
+   */
+  const emit = (nextCount: number, type = "participant.connected") => {
+    current = people.slice(0, nextCount);
+    if (!socket) throw new Error("Тестовый WebSocket ещё не подключён");
+    socket.send(
+      JSON.stringify({
+        version: 1,
+        id: `layout-state-${++sequence}`,
+        type,
+        conferenceId: room.id,
+        timestamp: stamp,
+        data: {
+          connectionId: "connection-0",
+          participantId: people[0].id,
+          status: "active",
+          participants: current,
+        },
+      }),
+    );
+  };
+  await page.routeWebSocket("**/*", (ws) => {
+    const url = new URL(ws.url());
+    if (
+      url.host === new URL(origin).host &&
+      url.pathname === "/" &&
+      ws.protocols().includes("vite-hmr")
+    ) {
+      ws.send(JSON.stringify({ type: "connected" }));
+      return;
+    }
+    if (
+      url.host !== new URL(origin).host ||
+      url.pathname !== `/api/v1/conferences/${room.id}/ws`
+    ) {
+      denied.push(`WS ${url.host}${url.pathname}`);
+      void ws.close({ code: 1008, reason: "Неизвестный тестовый канал" });
+      return;
+    }
+    socket = ws;
+    emit(count, "conference.state");
+  });
+  return { emit, denied, errors };
 }
 
 test("тёмная комната: настоящие пустые плитки, чат и разрешённая модерация", async ({
   page,
+  baseURL,
 }, info) => {
-  await fixture(page);
+  const isolated = await fixture(page, new URL(baseURL!).origin);
   const removedRequests: string[] = [];
   page.on("request", (request) => {
     if (
@@ -159,7 +234,7 @@ test("тёмная комната: настоящие пустые плитки,
   );
   await expect(
     page.getByRole("region", { name: "Реакции", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.keyboard.press("h");
   expect(removedRequests).toEqual([]);
   await expect(page.getByTestId("participant-placeholder")).toHaveCount(4);
@@ -189,13 +264,16 @@ test("тёмная комната: настоящие пустые плитки,
   await expect(
     page.getByRole("button", { name: "Начать запись", exact: true }),
   ).toBeVisible();
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
 });
 
 test("мобильная комната открывает и закрывает панель без горизонтального переполнения", async ({
   page,
+  baseURL,
 }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await fixture(page);
+  const isolated = await fixture(page, new URL(baseURL!).origin);
   await page.goto(`/conferences/${room.id}`);
   await expect(page.getByTestId("participant-placeholder")).toHaveCount(4);
   await expect(
@@ -224,19 +302,15 @@ test("мобильная комната открывает и закрывает
   await expect(
     page.getByRole("tab", { name: "Чат", exact: true }),
   ).toBeHidden();
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
 });
 
 test("предпросмотр не запрашивает устройства до явного действия", async ({
   page,
+  baseURL,
 }, info) => {
-  await fixture(page);
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator.mediaDevices, "getUserMedia", {
-      value: () => {
-        throw new Error("unexpected automatic device access");
-      },
-    });
-  });
+  const isolated = await fixture(page, new URL(baseURL!).origin);
   await page.goto(`/conferences/${room.id}/join`);
   await expect(page.getByRole("heading", { name: room.title })).toBeVisible();
   await expect(
@@ -249,4 +323,258 @@ test("предпросмотр не запрашивает устройства 
     path: info.outputPath("prejoin-desktop.png"),
     fullPage: true,
   });
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
+});
+
+/** Проверяет широкие плитки 16:9, центрирование и отдельную вертикальную прокрутку.
+ * @args page — настоящая страница комнаты с двумя отрисованными участниками;
+ * fullyVisible — требуется ли полная видимость обоих окон без прокрутки.
+ * @return Завершённые проверки геометрии без изменения CSS и разметки приложения.
+ */
+async function expectPairGeometry(page: Page, fullyVisible = true) {
+  const grid = page.getByRole("region", {
+    name: "Видео участников",
+    exact: true,
+  });
+  await expect(grid).toHaveClass(/media-grid-pair/);
+  await expect(grid).toHaveAttribute("tabindex", "0");
+  await expect(grid.locator(".media-tile")).toHaveCount(2);
+  const dimensions = await grid.evaluate((element) => {
+    const gridBox = element.getBoundingClientRect();
+    return {
+      clientWidth: element.clientWidth,
+      clientHeight: element.clientHeight,
+      scrollWidth: element.scrollWidth,
+      scrollHeight: element.scrollHeight,
+      gridX: gridBox.x,
+      gridY: gridBox.y,
+      gap: parseFloat(getComputedStyle(element).rowGap),
+      overflow: getComputedStyle(element).overflowY,
+      tiles: [...element.querySelectorAll(".media-tile")].map((tile) => {
+        const box = tile.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      }),
+    };
+  });
+  expect(dimensions.overflow).toBe("auto");
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  for (const box of dimensions.tiles) {
+    expect(Math.abs(box.width / box.height - 16 / 9)).toBeLessThan(0.015);
+    const fitWidth = Math.min(
+      dimensions.clientWidth,
+      960,
+      Math.max(360, ((dimensions.clientHeight - dimensions.gap) * 8) / 9),
+    );
+    expect(Math.abs(box.width - fitWidth)).toBeLessThan(3);
+    const expectedCenter = dimensions.gridX + dimensions.clientWidth / 2;
+    expect(Math.abs(box.x + box.width / 2 - expectedCenter)).toBeLessThan(3);
+    if (fullyVisible) {
+      expect(box.y).toBeGreaterThanOrEqual(dimensions.gridY - 1);
+      expect(box.y + box.height).toBeLessThanOrEqual(
+        dimensions.gridY + dimensions.clientHeight + 1,
+      );
+    }
+  }
+  expect(Math.abs(dimensions.tiles[0].x - dimensions.tiles[1].x)).toBeLessThan(
+    2,
+  );
+  expect(dimensions.tiles[1].y).toBeGreaterThan(
+    dimensions.tiles[0].y + dimensions.tiles[0].height,
+  );
+  await expectNoOverflow(page);
+  const controls = page.locator(".conference-control-bar");
+  const controlBox = await controls.boundingBox();
+  expect(controlBox).not.toBeNull();
+  expect(controlBox!.y).toBeGreaterThanOrEqual(0);
+  expect(controlBox!.y + controlBox!.height).toBeLessThanOrEqual(
+    page.viewportSize()!.height + 1,
+  );
+}
+
+/** Подтверждает отсутствие горизонтального переполнения страницы и доступа к физическим устройствам.
+ * @args page — проверяемая страница.
+ */
+async function expectNoOverflow(page: Page) {
+  expect(
+    await page.evaluate(() => ({
+      fits: document.documentElement.scrollWidth <= window.innerWidth,
+      calls: (window as Window & { layoutDeviceCalls?: number })
+        .layoutDeviceCalls,
+    })),
+  ).toEqual({ fits: true, calls: 0 });
+}
+
+for (const layout of [
+  { name: "desktop с чатом", width: 1440, height: 1000, chat: true },
+  { name: "desktop без чата", width: 1440, height: 1000, chat: false },
+  { name: "mobile", width: 390, height: 844, chat: false },
+]) {
+  test(`две крупные плитки идут вертикально по центру: ${layout.name}`, async ({
+    page,
+    baseURL,
+  }, info) => {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    const isolated = await fixture(page, new URL(baseURL!).origin, {
+      count: 2,
+    });
+    await page.goto(`/conferences/${room.id}`);
+    await expect(page.getByTestId("participant-placeholder")).toHaveCount(2);
+    if (!layout.chat && layout.width > 900)
+      await page
+        .getByRole("button", { name: "Закрыть панель встречи" })
+        .click();
+    await expectPairGeometry(page);
+    if (layout.chat) {
+      const rail = await page.locator(".conference-stage-rail").boundingBox();
+      const grid = await page.locator(".media-grid-pair").boundingBox();
+      expect(rail!.x).toBeGreaterThanOrEqual(grid!.x + grid!.width);
+    }
+    await page.screenshot({
+      path: info.outputPath("two-participants-centered.png"),
+      fullPage: true,
+    });
+    expect(
+      await page
+        .locator(".media-grid-pair")
+        .evaluate(
+          (element) => element.scrollHeight <= element.clientHeight + 1,
+        ),
+    ).toBe(true);
+    expect(isolated.denied).toEqual([]);
+    expect(isolated.errors).toEqual([]);
+  });
+}
+
+test("короткая видеообласть прокручивается с клавиатуры, не пряча кнопки управления", async ({
+  page,
+  baseURL,
+}, info) => {
+  await page.setViewportSize({ width: 1440, height: 480 });
+  const isolated = await fixture(page, new URL(baseURL!).origin, { count: 2 });
+  await page.goto(`/conferences/${room.id}`);
+  await expect(page.getByTestId("participant-placeholder")).toHaveCount(2);
+  // Низкий viewport проверяет fallback без изменения CSS и ослабления CSP.
+  await expectPairGeometry(page, false);
+  const grid = page.getByRole("region", {
+    name: "Видео участников",
+    exact: true,
+  });
+  expect(
+    await grid.evaluate(
+      (element) => element.scrollHeight > element.clientHeight,
+    ),
+  ).toBe(true);
+  await grid.focus();
+  await page.keyboard.press("End");
+  await expect
+    .poll(() => grid.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await expectPairGeometry(page, false);
+  await page.screenshot({
+    path: info.outputPath("short-pair-keyboard-scroll.png"),
+    fullPage: true,
+  });
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
+});
+
+test("переходы 1→2→3→2 переключают парную раскладку по текущему составу", async ({
+  page,
+  baseURL,
+}) => {
+  const isolated = await fixture(page, new URL(baseURL!).origin, { count: 1 });
+  await page.goto(`/conferences/${room.id}`);
+  await expect(page.getByTestId("participant-placeholder")).toHaveCount(1);
+  await expect(page.locator(".media-grid-pair")).toHaveCount(0);
+  isolated.emit(2);
+  await expect(page.getByTestId("participant-placeholder")).toHaveCount(2);
+  await expectPairGeometry(page);
+  isolated.emit(3);
+  await expect(page.getByTestId("participant-placeholder")).toHaveCount(3);
+  await expect(page.locator(".media-grid-pair")).toHaveCount(0);
+  isolated.emit(2, "participant.disconnected");
+  await expect(page.getByTestId("participant-placeholder")).toHaveCount(2);
+  await expectPairGeometry(page);
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
+});
+
+test("два настоящих тестовых video сохраняют пропорции, а экран полностью заменяет пару", async ({
+  page,
+  baseURL,
+}, info) => {
+  const isolated = await fixture(page, new URL(baseURL!).origin, {
+    count: 2,
+    canvas: true,
+  });
+  await page.goto(`/conferences/${room.id}`);
+  await expect(page.getByTestId("participant-placeholder")).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "Включить камеру и микрофон", exact: true })
+    .click();
+  await expect(page.locator(".media-grid-pair video")).toHaveCount(2);
+  await expectPairGeometry(page);
+  const camera = page.getByTestId("remote-media").locator("video");
+  await expect(camera).toHaveCSS("object-fit", "contain");
+  await camera.evaluate((video: HTMLVideoElement) => {
+    const runtime = window as Window & {
+      layoutVideo?: HTMLVideoElement;
+      layoutStream?: MediaProvider | null;
+    };
+    runtime.layoutVideo = video;
+    runtime.layoutStream = video.srcObject;
+  });
+  await page.screenshot({
+    path: info.outputPath("two-videos-centered.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Показать экран", exact: true })
+    .click();
+  await expect(page.locator(".media-grid-pair")).toHaveCount(0);
+  const sharing = page.locator(".media-grid-sharing");
+  const screen = sharing.locator(".media-tile-screen");
+  await expect(screen).toBeVisible();
+  for (const tile of await sharing
+    .locator(".media-tile:not(.media-tile-screen)")
+    .all())
+    await expect(tile).toBeHidden();
+  const boxes = await sharing.evaluate((grid) => {
+    const frame = grid.getBoundingClientRect();
+    const display = grid
+      .querySelector(".media-tile-screen")!
+      .getBoundingClientRect();
+    return {
+      frame: { width: frame.width, height: frame.height },
+      display: { width: display.width, height: display.height },
+    };
+  });
+  expect(Math.abs(boxes.frame.width - boxes.display.width)).toBeLessThan(2);
+  expect(Math.abs(boxes.frame.height - boxes.display.height)).toBeLessThan(2);
+  await expect(screen.locator("video")).toHaveCSS("object-fit", "contain");
+  expect(
+    await camera.evaluate((video: HTMLVideoElement) => {
+      const runtime = window as Window & {
+        layoutVideo?: HTMLVideoElement;
+        layoutStream?: MediaProvider | null;
+      };
+      return (
+        video === runtime.layoutVideo &&
+        video.srcObject === runtime.layoutStream
+      );
+    }),
+  ).toBe(true);
+  await expectNoOverflow(page);
+  await page.screenshot({
+    path: info.outputPath("shared-screen-dominates-pair.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: "Остановить демонстрацию", exact: true })
+    .click();
+  await expectPairGeometry(page);
+  await expect(camera).toBeVisible();
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
 });
