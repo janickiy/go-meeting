@@ -277,7 +277,7 @@ Conference REST paths/event names, storage tables и object prefix сохран�
 | `v1.0.0-meeting.20261006-personal.2` | Только API | `44bb02651a744d7605faac9de02cd31e3a79e84d` |
 | `v1.0.0-meeting.20261006-personal-ui.2` | Только frontend | `8d5a8b1afa90c3439eab618258a268232f129f04` |
 
-На хосте текущий API — `personal.2`, frontend — `personal-ui.2`, четыре worker
+На момент проверки личных сообщений в 14:16 UTC API — `personal.2`, frontend — `personal-ui.2`, четыре worker
 образа — `personal.1`. Исходники, OCI manifest/config/layers/diff IDs, SBOM,
 контрольные суммы и свежесть Trivy проверены при упаковке и установке.
 Для всех опубликованных образов HIGH/CRITICAL=0. При переключении Go-служб
@@ -329,7 +329,9 @@ Docker healthcheck; их статус не обозначается как Docke
 временный ввод очистки удалены после проверки.
 
 Актуальный помощник Compose на хосте:
-`/opt/meetrix/releases/v1.0.0-meeting.20261006-personal-ui.2/compose-current.py`.
+`/opt/meetrix/releases/v1.0.0-meeting.20261006-profile-menu.1/compose-current.py`.
+После проверки личных сообщений установлен frontend `profile-menu.1`,
+удаляющий выпадающее меню профиля; API и workers сохранены.
 SHA-256: `d9fdb48c8e0533dfe76a1bda0383a575fccaa75a18281ac8ef18128e6591ae22`.
 Он использует текущую карту 13 образов и семь Compose-файлов, включая установленный
 overlay маршрутов. Подробности эксплуатации:
