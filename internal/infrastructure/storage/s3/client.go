@@ -247,17 +247,36 @@ func (c *Client) RemovePrefix(ctx context.Context, prefix string) error {
 	if prefix == "" {
 		return nil
 	}
-	objects := c.minio.ListObjects(ctx, c.bucket, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: true,
-	})
-	for removeErr := range c.minio.RemoveObjects(ctx, c.bucket, objects, minio.RemoveObjectsOptions{}) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	// Synchronous iterators stop with their consumer. The channel SDK APIs can
+	// retain listing/result goroutines when deletion returns its first error.
+	var listingErr error
+	objects := func(yield func(minio.ObjectInfo) bool) {
+		for object := range c.minio.ListObjectsIter(ctx, c.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+			// The bulk-delete iterator does not propagate ObjectInfo.Err itself.
+			if object.Err != nil {
+				listingErr = object.Err
+				return
+			}
+			if !yield(object) {
+				return
+			}
+		}
+	}
+	results, err := c.minio.RemoveObjectsWithIter(ctx, c.bucket, objects, minio.RemoveObjectsOptions{})
+	if err != nil {
+		return fmt.Errorf("remove prefix from minio: %w", err)
+	}
+	for removeErr := range results {
 		if removeErr.Err != nil {
 			return fmt.Errorf("remove %s from minio: %w", removeErr.ObjectName, removeErr.Err)
 		}
 	}
-
-	return nil
+	if listingErr != nil {
+		return fmt.Errorf("list prefix from minio: %w", listingErr)
+	}
+	return ctx.Err()
 }
 
 // ListCompletedRecords возвращает записи, у которых в MinIO есть final.mp4 и preview.jpg.

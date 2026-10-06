@@ -40,7 +40,7 @@ func (c *Client) RemoveRecording(ctx context.Context, record records.Record) err
 	listing, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for _, prefix := range prefixes {
-		for object := range c.minio.ListObjects(listing, c.bucket, minio.ListObjectsOptions{
+		for object := range c.minio.ListObjectsIter(listing, c.bucket, minio.ListObjectsOptions{
 			Prefix: prefix, Recursive: true, WithVersions: true,
 		}) {
 			if object.Err != nil {

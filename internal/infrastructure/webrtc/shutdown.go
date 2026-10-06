@@ -23,7 +23,9 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 	for _, s := range sessions {
 		s.mu.Lock()
 		s.failed = true
+		s.stopping = true
 		pc, process := s.pc, s.process
+		startDone := s.startDone
 		if s.waitTimer != nil {
 			s.waitTimer.Stop()
 			s.waitTimer = nil
@@ -39,6 +41,9 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 				_ = p.Stop(2 * time.Second)
 			}
 			s.cancel()
+			if startDone != nil {
+				<-startDone
+			}
 		}(s, process)
 	}
 	if m.iceConn != nil {

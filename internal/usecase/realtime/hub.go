@@ -251,6 +251,8 @@ type Hub struct {
 	sub                domain.Subscription
 	mu                 sync.Mutex
 	closing            bool
+	unavailable        bool
+	generation         uint64
 	local              map[string]*localSocket
 	sockets            sync.WaitGroup
 	workers            sync.WaitGroup
@@ -285,6 +287,7 @@ func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger
 		return nil, err
 	}
 	h.sub = sub
+	h.generation = 1
 	h.workers.Add(3)
 	go h.receive()
 	go h.receiveLowPriority()
@@ -304,6 +307,20 @@ func NewHub(repo Repository, store Store, ttl time.Duration, logger *slog.Logger
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (h *Hub) Authorize(ctx context.Context, conferenceID, userID string) (conferences.Participant, error) {
 	return h.repo.Authorize(ctx, conferenceID, userID)
+}
+
+// Check includes the live subscription in API readiness; a healthy Redis Ping
+// alone does not establish that this Hub can receive conference events.
+func (h *Hub) Check(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closing || h.unavailable {
+		return apperrors.ErrUnavailable
+	}
+	return nil
 }
 
 // SetDisconnectObserver подключает обработчик завершения физической сессии до запуска обслуживания сокетов.
@@ -354,9 +371,13 @@ func (h *Hub) ValidateSession(ctx context.Context, session domain.Session) error
 func (h *Hub) Prepare(ctx context.Context, conferenceID, userID string) (domain.Session, error) {
 	h.mu.Lock()
 	closing := h.closing
+	unavailable := h.unavailable
 	h.mu.Unlock()
 	if closing {
 		return domain.Session{}, apperrors.ErrConflict
+	}
+	if unavailable {
+		return domain.Session{}, apperrors.ErrUnavailable
 	}
 	p, err := h.repo.Authorize(ctx, conferenceID, userID)
 	if err != nil {
@@ -389,10 +410,14 @@ func (h *Hub) Abort(session domain.Session) {
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (h *Hub) Register(ctx context.Context, session domain.Session, socket Socket) error {
 	h.mu.Lock()
-	if h.closing {
+	if h.closing || h.unavailable {
+		err := apperrors.ErrConflict
+		if h.unavailable && !h.closing {
+			err = apperrors.ErrUnavailable
+		}
 		h.mu.Unlock()
 		h.Abort(session)
-		return apperrors.ErrConflict
+		return err
 	}
 	h.sockets.Add(1)
 	h.local[session.ConnectionID] = &localSocket{session: session, socket: socket}
@@ -661,14 +686,22 @@ func stateAllows(state domain.State, participantID string) bool {
 // receive читает входящие события или пакеты и передаёт их соответствующим обработчикам.
 func (h *Hub) receive() {
 	defer h.workers.Done()
+	sub, generation := h.sub, h.generation // Set before this worker starts.
 	for {
-		bus, err := h.sub.Receive(h.ctx)
+		bus, err := sub.Receive(h.ctx)
 		if err != nil {
-			if h.ctx.Err() == nil {
-				h.logger.Warn("realtime event", "event_type", "broker_unavailable")
-				h.stopSockets("broker_unavailable")
+			if h.ctx.Err() != nil {
+				return
 			}
-			return // При отказе брокера закрываем соединения, не оставляя их незаметно открытыми.
+			h.logger.Warn("realtime event", "event_type", "broker_unavailable")
+			h.breakBroker(generation)
+			_ = sub.Close()
+			var ok bool
+			sub, generation, ok = h.recoverSubscription()
+			if !ok {
+				return
+			}
+			continue
 		}
 		if bus.Kind == "event" && bus.Event != nil && domain.LowPriorityEvent(bus.Event.Type) {
 			select {
@@ -678,6 +711,64 @@ func (h *Hub) receive() {
 		} else {
 			h.deliver(bus)
 		}
+	}
+}
+
+// breakBroker invalidates only the generation whose operation failed. A slow
+// Prune result from an old connection must not close its healthy replacement.
+// Network close and socket notifications run outside the registry lock.
+func (h *Hub) breakBroker(generation uint64) {
+	h.mu.Lock()
+	if h.closing || h.unavailable || h.generation != generation {
+		h.mu.Unlock()
+		return
+	}
+	h.unavailable = true
+	sub := h.sub
+	entries := make([]*localSocket, 0, len(h.local))
+	for _, entry := range h.local {
+		entries = append(entries, entry)
+	}
+	h.mu.Unlock()
+	for _, entry := range entries {
+		entry.socket.Stop("broker_unavailable")
+	}
+	_ = sub.Close() // Interrupt Receive so its sole owner starts recovery.
+}
+
+// recoverSubscription runs in the existing receive worker. Each attempt owns
+// its timeout and the next subscription is acknowledged before admission opens.
+func (h *Hub) recoverSubscription() (domain.Subscription, uint64, bool) {
+	backoff := 100 * time.Millisecond
+	for {
+		timer := time.NewTimer(backoff)
+		select {
+		case <-h.ctx.Done():
+			timer.Stop()
+			return nil, 0, false
+		case <-timer.C:
+		}
+		timer.Stop()
+		ctx, cancel := context.WithTimeout(h.ctx, 5*time.Second)
+		sub, err := h.store.Subscribe(ctx)
+		cancel()
+		if err != nil {
+			backoff = min(backoff*2, 2*time.Second)
+			continue
+		}
+		h.mu.Lock()
+		if h.closing || h.ctx.Err() != nil {
+			h.mu.Unlock()
+			_ = sub.Close()
+			return nil, 0, false
+		}
+		h.sub = sub
+		h.generation++
+		generation := h.generation
+		h.unavailable = false
+		h.mu.Unlock()
+		h.logger.Info("realtime event", "event_type", "broker_recovered")
+		return sub, generation, true
 	}
 }
 
@@ -818,8 +909,11 @@ func (h *Hub) janitor() {
 			return
 		case <-ticker.C:
 			ctx, c := context.WithTimeout(h.ctx, 5*time.Second)
+			h.mu.Lock()
+			generation := h.generation
+			h.mu.Unlock()
 			if err := h.store.Prune(ctx); err != nil {
-				h.stopSockets("broker_unavailable")
+				h.breakBroker(generation)
 			}
 			// Восстанавливаем и сбой между открытием сессии в SQL и регистрацией в Redis.
 			rows, err := h.repo.Stale(ctx, time.Now().Add(-2*h.ttl), cursor)
@@ -875,9 +969,12 @@ func (h *Hub) ShutdownContext(ctx context.Context) error {
 		go func() {
 			defer close(h.shutdownDone)
 			h.stopSockets("server_shutdown")
-			h.sockets.Wait()
 			h.cancel()
-			_ = h.sub.Close()
+			h.mu.Lock()
+			sub := h.sub
+			h.mu.Unlock()
+			_ = sub.Close()
+			h.sockets.Wait()
 			h.workers.Wait()
 		}()
 	})

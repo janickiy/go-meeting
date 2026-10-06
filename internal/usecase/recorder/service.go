@@ -657,6 +657,14 @@ func (s *WorkerService) handleStart(ctx context.Context, command records.Command
 		}
 	}
 	if err := s.repository.AddEvent(ctx, command.RecordID, "record.worker.ready", "worker", "info", "worker prepared WebRTC ingest", s.workerID); err != nil {
+		// Rabbit may quarantine a repeated error instead of retrying again.
+		// Roll back the local allocation before returning that error so an
+		// unstarted recording cannot permanently occupy an ingest slot.
+		if s.ingest != nil {
+			if stopErr := s.ingest.Stop(command.RecordID); stopErr != nil && !errors.Is(stopErr, webrtcingest.ErrNoMedia) {
+				return errors.Join(err, stopErr)
+			}
+		}
 		return err
 	}
 

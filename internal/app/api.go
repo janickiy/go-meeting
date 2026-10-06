@@ -137,6 +137,7 @@ func RunAPI() error {
 		return err
 	}
 	defer hub.Shutdown()
+	ops.Checks["realtime"] = hub.Check
 	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hub)
 	notificationBus := redisinfra.NewNotificationBus(redisClient, realtimeConfig.Namespace)
 	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db).DisableLegacyReminders(), notificationBus)

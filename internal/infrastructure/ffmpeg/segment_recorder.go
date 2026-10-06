@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -50,12 +51,14 @@ type SegmentRecorder struct {
 //   - stdin: значение stdin типа io.WriteCloser, используемое согласно назначению этой операции.
 //   - logger: значение logger типа *log.Logger, используемое согласно назначению этой операции.
 type SegmentProcess struct {
-	cmd    *exec.Cmd
-	cancel context.CancelFunc
-	done   chan error
-	stderr logTail
-	stdin  io.WriteCloser
-	logger *log.Logger
+	cmd      *exec.Cmd
+	cancel   context.CancelFunc
+	done     chan struct{}
+	waitErr  error
+	stopOnce sync.Once
+	stderr   logTail
+	stdin    io.WriteCloser
+	logger   *log.Logger
 }
 
 // NewSegmentRecorder создаёт компонент записи сегментов FFmpeg.
@@ -134,7 +137,7 @@ func (r *SegmentRecorder) Start(ctx context.Context, recordID string, tracks []R
 	process := &SegmentProcess{
 		cmd:    cmd,
 		cancel: cancel,
-		done:   make(chan error, 1),
+		done:   make(chan struct{}),
 		stdin:  stdin,
 		logger: r.logger,
 	}
@@ -146,20 +149,24 @@ func (r *SegmentRecorder) Start(ctx context.Context, recordID string, tracks []R
 	go /* Вложенный обработчик выполняет выделенный шаг обработки в сборке и проверке аудио- и видеозаписи, используя состояние окружающей функции.
 
 	 */func() {
-		process.done <- cmd.Wait()
+		process.waitErr = cmd.Wait()
+		close(process.done)
 	}()
 
 	timer := time.NewTimer(250 * time.Millisecond)
 	defer timer.Stop()
 	select {
-	case err := <-process.done:
+	case <-process.done:
 		cancel()
-		return nil, fmt.Errorf("ffmpeg exited during startup: %w; stderr=%s", err, process.Stderr())
+		return nil, fmt.Errorf("ffmpeg exited during startup: %v; stderr=%s", process.waitErr, process.Stderr())
 	case <-timer.C:
 		r.logger.Printf("record %s ffmpeg segment recorder started", recordID)
 		return process, nil
 	case <-ctx.Done():
 		cancel()
+		// Startup owns the child until it hands a process to the session. Join
+		// Wait here so a cancelled startup cannot outlive Stop/Shutdown.
+		<-process.done
 		return nil, ctx.Err()
 	}
 }
@@ -175,6 +182,17 @@ func (p *SegmentProcess) Stop(timeout time.Duration) error {
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
+	p.stopOnce.Do(func() { p.stop(timeout) })
+	return nil
+}
+
+func (p *SegmentProcess) stop(timeout time.Duration) {
+	defer p.cancel()
+	select {
+	case <-p.done:
+		return
+	default:
+	}
 	if p.stdin != nil {
 		_, _ = io.WriteString(p.stdin, "q\n")
 		_ = p.stdin.Close()
@@ -184,27 +202,25 @@ func (p *SegmentProcess) Stop(timeout time.Duration) error {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	select {
-	case err := <-p.done:
-		p.cancel()
-		if err != nil && p.logger != nil {
-			p.logger.Printf("ffmpeg stopped with error: %v; stderr=%s", err, p.Stderr())
+	case <-p.done:
+		if p.waitErr != nil && p.logger != nil {
+			p.logger.Printf("ffmpeg stopped with error: %v; stderr=%s", p.waitErr, p.Stderr())
 		}
-		return nil
+		return
 	case <-timer.C:
 		_ = p.cmd.Process.Signal(syscall.SIGTERM)
 		select {
-		case err := <-p.done:
-			p.cancel()
-			if err != nil && p.logger != nil {
-				p.logger.Printf("ffmpeg stopped after SIGTERM: %v; stderr=%s", err, p.Stderr())
+		case <-p.done:
+			if p.waitErr != nil && p.logger != nil {
+				p.logger.Printf("ffmpeg stopped after SIGTERM: %v; stderr=%s", p.waitErr, p.Stderr())
 			}
 		case <-time.After(2 * time.Second):
 			_ = p.cmd.Process.Kill()
 			p.cancel()
 			select {
-			case err := <-p.done:
-				if err != nil && p.logger != nil {
-					p.logger.Printf("ffmpeg killed after stop timeout: %v; stderr=%s", err, p.Stderr())
+			case <-p.done:
+				if p.waitErr != nil && p.logger != nil {
+					p.logger.Printf("ffmpeg killed after stop timeout: %v; stderr=%s", p.waitErr, p.Stderr())
 				}
 			case <-time.After(2 * time.Second):
 				if p.logger != nil {
@@ -212,9 +228,15 @@ func (p *SegmentProcess) Stop(timeout time.Duration) error {
 				}
 			}
 		}
-		return nil
+		return
 	}
 }
+
+// Done broadcasts completion after cmd.Wait has reaped the process and closed its pipes.
+func (p *SegmentProcess) Done() <-chan struct{} { return p.done }
+
+// WaitErr returns the process result; callers must first observe Done.
+func (p *SegmentProcess) WaitErr() error { return p.waitErr }
 
 // Stderr возвращает поток ошибок stderr процесса FFmpeg.
 // @args нет.

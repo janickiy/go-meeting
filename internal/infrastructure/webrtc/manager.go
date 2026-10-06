@@ -304,18 +304,21 @@ type session struct {
 	tempDir            string
 	segmentDurationSec int
 
-	mu           sync.Mutex
-	pc           *pionwebrtc.PeerConnection
-	process      *ffmpeg.SegmentProcess
-	tracks       []ffmpeg.RTPTrack
-	expected     map[string]int
-	received     map[string]int
-	processSince time.Time
-	waitTimer    *time.Timer
-	processReady chan struct{}
-	startOnce    sync.Once
-	failOnce     sync.Once
-	failed       bool
+	mu            sync.Mutex
+	pc            *pionwebrtc.PeerConnection
+	process       *ffmpeg.SegmentProcess
+	tracks        []ffmpeg.RTPTrack
+	expected      map[string]int
+	received      map[string]int
+	processSince  time.Time
+	waitTimer     *time.Timer
+	processReady  chan struct{}
+	startDone     chan struct{}
+	startOnce     sync.Once
+	failOnce      sync.Once
+	failed        bool
+	stopping      bool
+	stopRequested bool
 }
 
 // handleOffer устанавливает удалённое SDP-описание и формирует ответ текущей WebRTC-сессии записи.
@@ -345,18 +348,19 @@ func (s *session) handleOffer(ctx context.Context, request records.WebRTCOfferRe
 	}
 
 	s.mu.Lock()
-	if s.failed {
+	if s.failed || s.stopRequested || s.stopping || s.ctx.Err() != nil {
 		s.mu.Unlock()
 		_ = pc.Close()
 		return records.WebRTCAnswerResponse{}, fmt.Errorf("WebRTC session has failed")
 	}
-	if s.pc != nil {
-		_ = s.pc.Close()
-	}
+	previous := s.pc
 	s.pc = pc
 	s.expected = expected
 	s.received = make(map[string]int, len(expected))
 	s.mu.Unlock()
+	if previous != nil {
+		_ = previous.Close()
+	}
 
 	pc.OnTrack( /* Вложенный обработчик выполняет выделенный шаг обработки в WebRTC-приёме медиа для записи, используя состояние окружающей функции.
 
@@ -364,7 +368,7 @@ func (s *session) handleOffer(ctx context.Context, request records.WebRTCOfferRe
 		  - track (*pionwebrtc.TrackRemote): медиа-дорожка, которую обрабатывает или подписывает компонент.
 		  - _ (*pionwebrtc.RTPReceiver): неиспользуемый аргумент, сохранённый для совместимости с контрактом вызова.
 		*/func(track *pionwebrtc.TrackRemote, _ *pionwebrtc.RTPReceiver) {
-			s.handleTrack(track)
+			s.handleTrack(pc, track)
 		})
 	pc.OnConnectionStateChange( /* Вложенный обработчик выполняет выделенный шаг обработки в WebRTC-приёме медиа для записи, используя состояние окружающей функции.
 
@@ -373,7 +377,12 @@ func (s *session) handleOffer(ctx context.Context, request records.WebRTCOfferRe
 		*/func(state pionwebrtc.PeerConnectionState) {
 			s.manager.logger.Printf("record %s WebRTC state: %s", s.recordID, state.String())
 			if state == pionwebrtc.PeerConnectionStateFailed {
-				s.fail(fmt.Errorf("webrtc connection failed"))
+				s.mu.Lock()
+				current := s.pc == pc
+				s.mu.Unlock()
+				if current {
+					s.fail(fmt.Errorf("webrtc connection failed"))
+				}
 			}
 		})
 
@@ -399,6 +408,16 @@ func (s *session) handleOffer(ctx context.Context, request records.WebRTCOfferRe
 	case <-ctx.Done():
 		_ = pc.Close()
 		return records.WebRTCAnswerResponse{}, ctx.Err()
+	case <-s.ctx.Done():
+		_ = pc.Close()
+		return records.WebRTCAnswerResponse{}, s.ctx.Err()
+	}
+	s.mu.Lock()
+	active := !s.failed && !s.stopRequested && !s.stopping && s.ctx.Err() == nil && s.pc == pc
+	s.mu.Unlock()
+	if !active {
+		_ = pc.Close()
+		return records.WebRTCAnswerResponse{}, fmt.Errorf("WebRTC session stopped during offer")
 	}
 	local := pc.LocalDescription()
 	if local == nil {
@@ -414,7 +433,7 @@ func (s *session) handleOffer(ctx context.Context, request records.WebRTCOfferRe
 //
 // @args
 //   - track (*pionwebrtc.TrackRemote): медиа-дорожка, которую обрабатывает или подписывает компонент.
-func (s *session) handleTrack(track *pionwebrtc.TrackRemote) {
+func (s *session) handleTrack(pc *pionwebrtc.PeerConnection, track *pionwebrtc.TrackRemote) {
 	port, err := reserveUDPPort()
 	if err != nil {
 		s.fail(fmt.Errorf("reserve RTP port: %w", err))
@@ -432,7 +451,7 @@ func (s *session) handleTrack(track *pionwebrtc.TrackRemote) {
 	}
 
 	s.mu.Lock()
-	if s.failed {
+	if s.failed || s.stopping || s.ctx.Err() != nil || s.pc != pc {
 		s.mu.Unlock()
 		return
 	}
@@ -466,7 +485,7 @@ func (s *session) handleTrack(track *pionwebrtc.TrackRemote) {
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *session) startFFmpeg() error {
 	s.mu.Lock()
-	if s.failed {
+	if s.failed || s.stopping || s.ctx.Err() != nil {
 		s.mu.Unlock()
 		return fmt.Errorf("WebRTC session has failed")
 	}
@@ -479,16 +498,20 @@ func (s *session) startFFmpeg() error {
 		s.waitTimer = nil
 	}
 	tracks := append([]ffmpeg.RTPTrack(nil), s.tracks...)
+	s.startDone = make(chan struct{})
+	startDone := s.startDone
 	s.mu.Unlock()
 
 	process, err := s.manager.recorder.Start(s.ctx, s.recordID, tracks, s.tempDir, s.recordDir, s.segmentDurationSec)
 	if err != nil {
+		close(startDone)
 		return err
 	}
 	s.mu.Lock()
-	if s.failed {
+	if s.failed || s.stopping || s.ctx.Err() != nil {
 		s.mu.Unlock()
 		_ = process.Stop(time.Second)
+		close(startDone)
 		return fmt.Errorf("WebRTC session has failed")
 	}
 	s.process = process
@@ -497,10 +520,21 @@ func (s *session) startFFmpeg() error {
 	if processReady != nil {
 		close(processReady)
 	}
-	if s.manager.onStarted != nil {
-		s.manager.onStarted(context.Background(), s.recordID)
-	}
+	close(startDone)
 	s.mu.Unlock()
+	go func() {
+		<-process.Done()
+		err := process.WaitErr()
+		if err == nil {
+			err = fmt.Errorf("FFmpeg exited before recording stop")
+		}
+		s.fail(fmt.Errorf("ffmpeg recording terminated: %w; stderr=%s", err, process.Stderr()))
+	}()
+	if s.manager.onStarted != nil {
+		ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
+		defer cancel()
+		s.manager.onStarted(ctx, s.recordID)
+	}
 
 	return nil
 }
@@ -635,36 +669,6 @@ func (s *session) waitBeforeStop(startedAt time.Time) {
 	}
 }
 
-// waitForProcessBeforeStop ожидает появления процесса записи в пределах заданного времени.
-// Синхронизирует доступ к разделяемому состоянию блокировкой.
-//
-// @args
-//   - timeout (time.Duration): максимальное время ожидания операции.
-//
-// @return:
-//   - результат 1 (*ffmpeg.SegmentProcess): значение, подготовленное операцией для вызывающей стороны.
-//   - результат 2 (time.Time): временная отметка результата или окончания действия разрешения.
-func (s *session) waitForProcessBeforeStop(timeout time.Duration) (*ffmpeg.SegmentProcess, time.Time) {
-	if timeout <= 0 {
-		return nil, time.Time{}
-	}
-	s.manager.logger.Printf("record %s stop requested before FFmpeg media process; waiting %s for tracks", s.recordID, timeout)
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	select {
-	case <-s.processReady:
-		s.mu.Lock()
-		process := s.process
-		processSince := s.processSince
-		s.mu.Unlock()
-		return process, processSince
-	case <-timer.C:
-		return nil, time.Time{}
-	case <-s.ctx.Done():
-		return nil, time.Time{}
-	}
-}
-
 // stop останавливает активную обработку ресурсов компонента и освобождает связанные ресурсы.
 // Синхронизирует доступ к разделяемому состоянию блокировкой.
 //
@@ -672,22 +676,40 @@ func (s *session) waitForProcessBeforeStop(timeout time.Duration) (*ffmpeg.Segme
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (s *session) stop() error {
 	s.mu.Lock()
-	pc := s.pc
-	process := s.process
-	processSince := s.processSince
+	s.stopRequested = true
+	hasProcess := s.process != nil
+	if hasProcess {
+		s.stopping = true
+	}
 	if s.waitTimer != nil {
 		s.waitTimer.Stop()
 		s.waitTimer = nil
 	}
 	s.mu.Unlock()
-	if process == nil {
-		process, processSince = s.waitForProcessBeforeStop(s.minStopDelay())
+	if !hasProcess {
+		// An already accepted PeerConnection may still deliver its first track.
+		// Fence new offers while preserving the original bounded media grace.
+		timer := time.NewTimer(s.minStopDelay())
+		select {
+		case <-s.processReady:
+		case <-timer.C:
+		case <-s.ctx.Done():
+		}
+		timer.Stop()
 	}
+	s.mu.Lock()
+	s.stopping = true
+	pc, process, processSince, startDone := s.pc, s.process, s.processSince, s.startDone
+	s.mu.Unlock()
 	if process == nil {
+		s.cancel()
+		// Startup owns an unregistered child until its completion is joined.
+		if startDone != nil {
+			<-startDone
+		}
 		if pc != nil {
 			_ = pc.Close()
 		}
-		s.cancel()
 		return ErrNoMedia
 	}
 	s.waitBeforeStop(processSince)
@@ -717,8 +739,14 @@ func (s *session) fail(err error) {
 
 		*/func() {
 			s.mu.Lock()
+			if s.failed || s.stopping || s.ctx.Err() != nil {
+				s.mu.Unlock()
+				return
+			}
 			s.failed = true
 			pc := s.pc
+			process := s.process
+			startDone := s.startDone
 			if s.waitTimer != nil {
 				s.waitTimer.Stop()
 				s.waitTimer = nil
@@ -729,6 +757,11 @@ func (s *session) fail(err error) {
 			if pc != nil {
 				_ = pc.Close()
 			}
+			if process != nil {
+				_ = process.Stop(time.Second)
+			} else if startDone != nil {
+				<-startDone
+			}
 			s.manager.mu.Lock()
 			if s.manager.sessions[s.recordID] == s {
 				delete(s.manager.sessions, s.recordID)
@@ -736,7 +769,9 @@ func (s *session) fail(err error) {
 			s.manager.mu.Unlock()
 			s.manager.logger.Printf("record %s ingest failed: %v", s.recordID, err)
 			if s.manager.onFailed != nil {
-				s.manager.onFailed(context.Background(), s.recordID, err)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				s.manager.onFailed(ctx, s.recordID, err)
 			}
 		})
 }
@@ -748,7 +783,7 @@ func (s *session) fail(err error) {
 //   - timeout (time.Duration): максимальное время ожидания операции.
 func (s *session) armTrackWaitTimeout(timeout time.Duration) {
 	s.mu.Lock()
-	if s.waitTimer != nil || s.process != nil {
+	if s.failed || s.stopRequested || s.stopping || s.ctx.Err() != nil || s.waitTimer != nil || s.process != nil {
 		s.mu.Unlock()
 		return
 	}

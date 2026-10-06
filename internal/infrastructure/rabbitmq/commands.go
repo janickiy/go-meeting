@@ -55,7 +55,8 @@ type Publisher struct {
 	options    Options
 	mu         sync.Mutex
 	alive      atomic.Bool
-	closed     bool
+	closed     atomic.Bool
+	current    atomic.Pointer[amqp.Connection]
 }
 
 // Consumer задаёт согласованное представление данных «Consumer» для доставке внутренних команд воркеру записи.
@@ -97,9 +98,8 @@ func NewPublisher(ctx context.Context, options Options) (*Publisher, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := channel.Confirm(false); err != nil {
-		_ = channel.Close()
-		_ = conn.Close()
+	if err := boundedAMQPRPC(ctx, conn, func() error { return channel.Confirm(false) }); err != nil {
+		closeAMQP(conn)
 		return nil, fmt.Errorf("rabbitmq publisher confirms: %w", err)
 	}
 
@@ -149,16 +149,16 @@ func (p *Publisher) Close() {
 	if p == nil {
 		return
 	}
+	if p.closed.Swap(true) {
+		return
+	}
+	p.alive.Store(false)
+	// Closing the socket before taking the publish mutex also interrupts a
+	// blocked write; Channel.Close itself waits for the library's write lock.
+	closeAMQP(p.current.Load())
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.closed = true
-	p.alive.Store(false)
-	if p.channel != nil {
-		_ = p.channel.Close()
-	}
-	if p.conn != nil {
-		_ = p.conn.Close()
-	}
+	closeAMQP(p.conn)
 }
 
 // publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
@@ -182,7 +182,7 @@ func (p *Publisher) publish(ctx context.Context, command records.Command) error 
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.closed {
+	if p.closed.Load() {
 		return fmt.Errorf("rabbitmq publisher closed")
 	}
 
@@ -209,6 +209,8 @@ func (p *Publisher) publishLocked(ctx context.Context, body []byte, commandType 
 	if p.channel == nil {
 		return fmt.Errorf("rabbitmq channel is not configured")
 	}
+	stop := cancelConnectionIO(ctx, p.conn)
+	defer stop()
 
 	confirmation, err := p.channel.PublishWithDeferredConfirmWithContext(ctx, p.exchange, p.routingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
@@ -237,12 +239,15 @@ func (p *Publisher) publishLocked(ctx context.Context, body []byte, commandType 
 // Check проверяет действующее соединение издателя без блокировки отправки.
 // ctx задаёт дедлайн health-пробы; метод не создаёт новую очередь или публикацию.
 func (p *Publisher) Check(ctx context.Context) error {
+	if p.closed.Load() {
+		return fmt.Errorf("publisher closed")
+	}
 	if !p.alive.Load() {
 		if !p.mu.TryLock() {
 			return fmt.Errorf("broker reconnect in progress")
 		}
 		defer p.mu.Unlock()
-		if p.closed {
+		if p.closed.Load() {
 			return fmt.Errorf("publisher closed")
 		}
 		return p.reconnectLocked(ctx)
@@ -258,22 +263,25 @@ func (p *Publisher) Check(ctx context.Context) error {
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (p *Publisher) reconnectLocked(ctx context.Context) error {
-	if p.channel != nil {
-		_ = p.channel.Close()
-		p.channel = nil
+	closeAMQP(p.conn)
+	p.channel, p.conn = nil, nil
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	if p.conn != nil {
-		_ = p.conn.Close()
-		p.conn = nil
+	if p.closed.Load() {
+		return fmt.Errorf("rabbitmq publisher closed")
 	}
 	conn, channel, err := openDeclaredChannel(ctx, p.options)
 	if err != nil {
 		return err
 	}
-	if err := channel.Confirm(false); err != nil {
-		_ = channel.Close()
-		_ = conn.Close()
+	if err := boundedAMQPRPC(ctx, conn, func() error { return channel.Confirm(false) }); err != nil {
+		closeAMQP(conn)
 		return fmt.Errorf("rabbitmq publisher confirms: %w", err)
+	}
+	if p.closed.Load() {
+		closeAMQP(conn)
+		return fmt.Errorf("rabbitmq publisher closed")
 	}
 	p.conn = conn
 	p.channel = channel
@@ -286,6 +294,7 @@ func (p *Publisher) reconnectLocked(ctx context.Context) error {
 // watch наблюдает закрытие конкретного соединения. conn — новое соединение AMQP;
 // закрытие старого connection не переводит новый publisher в failed.
 func (p *Publisher) watch(conn *amqp.Connection) {
+	p.current.Store(conn)
 	p.alive.Store(true)
 	go func() {
 		<-conn.NotifyClose(make(chan *amqp.Error, 1))
@@ -308,13 +317,13 @@ func NewConsumer(ctx context.Context, options Options) (*Consumer, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := channel.Qos(1, 0, false); err != nil {
-		_ = channel.Close()
-		_ = conn.Close()
-		return nil, fmt.Errorf("rabbitmq qos: %w", err)
-	}
-	if err := channel.Confirm(false); err != nil {
-		_ = conn.Close()
+	if err := boundedAMQPRPC(ctx, conn, func() error {
+		if err := channel.Qos(1, 0, false); err != nil {
+			return fmt.Errorf("rabbitmq qos: %w", err)
+		}
+		return channel.Confirm(false)
+	}); err != nil {
+		closeAMQP(conn)
 		return nil, err
 	}
 
@@ -341,6 +350,7 @@ func (c *Consumer) Consume(ctx context.Context, handler CommandHandler) error {
 	for ctx.Err() == nil {
 		c.mu.Lock()
 		channel := c.channel
+		conn := c.conn
 		closed := c.closed
 		c.mu.Unlock()
 		if closed {
@@ -351,7 +361,11 @@ func (c *Consumer) Consume(ctx context.Context, handler CommandHandler) error {
 		if channel == nil {
 			err = fmt.Errorf("broker disconnected")
 		} else {
-			deliveries, err = channel.Consume(c.queue, c.consumerTag, false, false, false, false, nil)
+			err = boundedAMQPRPC(ctx, conn, func() error {
+				var callErr error
+				deliveries, callErr = channel.Consume(c.queue, c.consumerTag, false, false, false, false, nil)
+				return callErr
+			})
 		}
 		if err == nil {
 			c.alive.Store(true)
@@ -399,14 +413,14 @@ func (c *Consumer) reconnect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = errors.Join(ch.Qos(1, 0, false), ch.Confirm(false)); err != nil {
-		_ = conn.Close()
+	if err = boundedAMQPRPC(ctx, conn, func() error { return errors.Join(ch.Qos(1, 0, false), ch.Confirm(false)) }); err != nil {
+		closeAMQP(conn)
 		return err
 	}
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()
-		_ = conn.Close()
+		closeAMQP(conn)
 		return context.Canceled
 	}
 	old := c.conn
@@ -414,7 +428,7 @@ func (c *Consumer) reconnect(ctx context.Context) error {
 	c.channel = ch
 	c.mu.Unlock()
 	if old != nil {
-		_ = old.Close()
+		closeAMQP(old)
 	}
 	operations.Event("rabbitmq_reconnect")
 	return nil
@@ -433,7 +447,7 @@ func (c *Consumer) Close() {
 	conn := c.conn
 	c.mu.Unlock()
 	if conn != nil {
-		_ = conn.Close()
+		closeAMQP(conn)
 	}
 }
 
@@ -466,7 +480,7 @@ func (c *Consumer) handleDelivery(ctx context.Context, delivery amqp.Delivery, h
 	c.drainMu.Unlock()
 	if deferred {
 		// Возврат не считается ошибкой задания и не отправляет повтор в карантин.
-		_ = delivery.Nack(false, true)
+		c.acknowledge(ctx, delivery, false)
 		select {
 		case <-ctx.Done():
 		case <-time.After(250 * time.Millisecond):
@@ -487,10 +501,22 @@ func (c *Consumer) handleDelivery(ctx context.Context, delivery amqp.Delivery, h
 			c.quarantine(ctx, delivery)
 			return
 		}
-		_ = delivery.Nack(false, true)
+		c.acknowledge(ctx, delivery, false)
 		return
 	}
-	_ = delivery.Ack(false)
+	c.acknowledge(ctx, delivery, true)
+}
+
+func (c *Consumer) acknowledge(ctx context.Context, d amqp.Delivery, ack bool) {
+	c.mu.Lock()
+	conn := c.conn
+	c.mu.Unlock()
+	_ = boundedAMQPRPC(ctx, conn, func() error {
+		if ack {
+			return d.Ack(false)
+		}
+		return d.Nack(false, true)
+	})
 }
 
 // quarantine сохраняет некорректное или повторно сбойное сообщение в отдельной постоянной
@@ -501,11 +527,14 @@ func (c *Consumer) quarantine(ctx context.Context, d amqp.Delivery) {
 	defer cancel()
 	c.mu.Lock()
 	ch := c.channel
+	conn := c.conn
 	c.mu.Unlock()
 	if ch == nil {
-		_ = d.Nack(false, true)
+		c.acknowledge(ctx, d, false)
 		return
 	}
+	stop := cancelConnectionIO(ctx, conn)
+	defer stop()
 	body := d.Body
 	if len(body) > 65536 {
 		body = body[:65536]
@@ -515,13 +544,13 @@ func (c *Consumer) quarantine(ctx context.Context, d amqp.Delivery) {
 		var ack bool
 		ack, err = confirm.WaitContext(ctx)
 		if ack && err == nil {
-			_ = d.Ack(false)
+			c.acknowledge(ctx, d, true)
 			operations.Event("rabbitmq_dead_letter")
 			slog.Warn("recording command quarantined", "event_type", "rabbitmq.dead_letter")
 			return
 		}
 	}
-	_ = d.Nack(false, true)
+	c.acknowledge(ctx, d, false)
 }
 
 // logf записывает ограниченную диагностику компонента с указанными параметрами.
@@ -546,22 +575,60 @@ func (c *Consumer) logf(format string, args ...any) {
 //   - результат 2 (*amqp.Channel): значение, подготовленное операцией для вызывающей стороны.
 //   - результат 3 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func openDeclaredChannel(ctx context.Context, options Options) (*amqp.Connection, *amqp.Channel, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	conn, err := dial(ctx, options.URL)
 	if err != nil {
 		return nil, nil, err
 	}
+	stop := cancelConnectionIO(ctx, conn)
+	defer stop()
 	channel, err := conn.Channel()
 	if err != nil {
-		_ = conn.Close()
+		closeAMQP(conn)
 		return nil, nil, fmt.Errorf("rabbitmq channel: %w", err)
 	}
 	if err := declareTopology(channel, options); err != nil {
-		_ = channel.Close()
-		_ = conn.Close()
+		closeAMQP(conn)
 		return nil, nil, err
 	}
 
 	return conn, channel, nil
+}
+
+// amqp091-go checks publish contexts before writing but cannot interrupt a
+// socket write. Cancellation closes this uncertain connection with an I/O
+// deadline, releasing both the write and the library's shutdown locks.
+func cancelConnectionIO(ctx context.Context, conn *amqp.Connection) func() {
+	done := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(done)
+		if conn != nil {
+			_ = conn.CloseDeadline(time.Now())
+		}
+	})
+	return func() {
+		if !stop() {
+			<-done
+		}
+	}
+}
+
+func closeAMQP(conn *amqp.Connection) {
+	if conn != nil {
+		_ = conn.CloseDeadline(time.Now().Add(time.Second))
+	}
+}
+
+func boundedAMQPRPC(ctx context.Context, conn *amqp.Connection, call func() error) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	stop := cancelConnectionIO(ctx, conn)
+	defer stop()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return call()
 }
 
 // declareTopology объявляет обменники, очереди и привязки доставки команд записи.
@@ -604,6 +671,12 @@ func dial(ctx context.Context, url string) (*amqp.Connection, error) {
 		ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 	}
+	var stopHandshake func()
+	defer func() {
+		if stopHandshake != nil {
+			stopHandshake()
+		}
+	}()
 	conn, err := amqp.DialConfig(url, amqp.Config{Heartbeat: 5 * time.Second, Dial: func(network, address string) (net.Conn, error) {
 		d := net.Dialer{Timeout: 5 * time.Second}
 		socket, err := d.DialContext(ctx, network, address)
@@ -612,10 +685,24 @@ func dial(ctx context.Context, url string) (*amqp.Connection, error) {
 		}
 		deadline, _ := ctx.Deadline()
 		_ = socket.SetDeadline(deadline)
+		done := make(chan struct{})
+		stop := context.AfterFunc(ctx, func() {
+			defer close(done)
+			_ = socket.Close()
+		})
+		stopHandshake = func() {
+			if !stop() {
+				<-done
+			}
+		}
 		return socket, nil
 	}})
 	if err != nil {
 		return nil, fmt.Errorf("rabbitmq connect failed")
+	}
+	if ctx.Err() != nil {
+		closeAMQP(conn)
+		return nil, ctx.Err()
 	}
 	return conn, nil
 }
