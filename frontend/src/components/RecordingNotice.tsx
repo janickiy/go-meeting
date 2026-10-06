@@ -150,7 +150,7 @@ export function RecordingNotice(props: RecordingNoticeProps) {
   }
 
   /**
-   * Показывает одно объявление на UUID, исключая инициатора и повторы после ручного закрытия.
+   * Проигрывает звук всем допущенным участникам один раз на UUID; текстовую плашку показывает остальным.
    * @args recordingId — подтверждённая активная запись; actorId — инициатор события, без него используется опрос.
    * @return Значение не возвращается; недоступное либо уже показанное объявление игнорируется.
    */
@@ -170,6 +170,7 @@ export function RecordingNotice(props: RecordingNoticeProps) {
     remember(recordingId, { notified: true, ended: false });
     sound.current?.cancel();
     sound.current = { recordingId, cancel: playRecordingAnnouncement() };
+    // Инициатор тоже слышит звук; собственная текстовая плашка ему не нужна.
     if (
       actorId ? actorId === context.userId : context.ownerId === context.userId
     )

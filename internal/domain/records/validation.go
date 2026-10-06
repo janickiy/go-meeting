@@ -68,10 +68,7 @@ func ValidateConferenceIDs(conferenceIDs []string) string {
 // - status: статус записи из query-параметра.
 // @return текст ошибки для failed response или пустую строку.
 func ValidateRecordStatusFilter(status string) string {
-	if status == "" {
-		return ""
-	}
-	if IsSupportedRecordStatus(status) {
+	if status == "" || IsSupportedRecordStatus(status) {
 		return ""
 	}
 

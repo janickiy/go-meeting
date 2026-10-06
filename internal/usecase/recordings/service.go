@@ -17,32 +17,15 @@ type Repository interface {
 	List(context.Context, string, string, int, int) ([]records.Record, error)
 }
 
-// Reader задаёт контракт зависимого компонента Reader в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-//   - ReadComposite: операция чтение общая запись с контрактом, описанным у метода.
+// Reader loads recording cards after the repository has checked access.
 type Reader interface {
-	// ReadComposite читает карточку общей записи после проверки доступа на уровне сценария конференции.
-	//
-	// @args
-	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
-	//   - аргумент 2 (string): идентификатор обрабатываемого ресурса.
-	//
-	// @return:
-	//   - результат 1 (records.RecordCard): значение, подготовленное операцией для вызывающей стороны.
-	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+	// ReadComposite loads one recording and its artifacts.
 	ReadComposite(context.Context, string) (records.RecordCard, error)
 }
 
-// Events задаёт контракт зависимого компонента Events в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
-//   - Broadcast: операция Broadcast с контрактом, описанным у метода.
+// Events publishes recording changes to conference participants.
 type Events interface {
-	// Broadcast публикует доверенное событие для разрешённых получателей конференции.
-	//
-	// @args
-	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
-	//   - аргумент 2 (realtime.Envelope): конверт входящего или публикуемого события.
-	//
-	// @return:
-	//   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+	// Broadcast publishes a trusted conference event.
 	Broadcast(context.Context, realtime.Envelope) error
 }
 
@@ -58,17 +41,7 @@ func NewConferenceService(repo Repository, reader Reader, events Events) *Servic
 	return &Service{repo: repo, reader: reader, events: events}
 }
 
-// Start запускает обработку задач записи и связанных артефактов и подготавливает связанные ресурсы.
-//
-// @args
-//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - userID (string): идентификатор пользователя, для которого выполняется операция.
-//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
-//   - request (records.ConferenceStartRequest): входные параметры соответствующего прикладного запроса.
-//
-// @return:
-//   - результат 1 (records.RecordCard): значение, подготовленное операцией для вызывающей стороны.
-//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+// Start commits a recording request; the dispatcher delivers its durable command.
 func (s *Service) Start(ctx context.Context, userID, conferenceID string, request records.ConferenceStartRequest) (records.RecordCard, error) {
 	if request.Mode == "" {
 		request.Mode = records.ModeComposite
@@ -76,11 +49,11 @@ func (s *Service) Start(ctx context.Context, userID, conferenceID string, reques
 	if !records.ValidConferenceMode(request.Mode) {
 		return records.RecordCard{}, apperrors.ErrInvalidInput
 	}
-	seconds := request.SegmentDurationSec
-	if seconds == 0 {
-		seconds = 5
+	segmentDurationSec := request.SegmentDurationSec
+	if segmentDurationSec == 0 {
+		segmentDurationSec = 5
 	}
-	if seconds < 2 || seconds > 30 {
+	if segmentDurationSec < 2 || segmentDurationSec > 30 {
 		return records.RecordCard{}, apperrors.New(apperrors.ErrInvalidInput, "segmentDurationSec must be between 2 and 30")
 	}
 	var record records.Record
@@ -89,9 +62,9 @@ func (s *Service) Start(ctx context.Context, userID, conferenceID string, reques
 	if modes, ok := s.repo.(interface {
 		StartMode(context.Context, string, string, int, string) (records.Record, bool, error)
 	}); ok {
-		record, created, err = modes.StartMode(ctx, userID, conferenceID, seconds, request.Mode)
+		record, created, err = modes.StartMode(ctx, userID, conferenceID, segmentDurationSec, request.Mode)
 	} else if request.Mode == records.ModeComposite {
-		record, created, err = s.repo.Start(ctx, userID, conferenceID, seconds)
+		record, created, err = s.repo.Start(ctx, userID, conferenceID, segmentDurationSec)
 	} else {
 		return records.RecordCard{}, apperrors.ErrInvalidInput
 	}
@@ -104,17 +77,7 @@ func (s *Service) Start(ctx context.Context, userID, conferenceID string, reques
 	return s.card(ctx, record.UUID)
 }
 
-// Stop останавливает активную обработку задач записи и связанных артефактов и освобождает связанные ресурсы.
-//
-// @args
-//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - userID (string): идентификатор пользователя, для которого выполняется операция.
-//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
-//   - recordID (string): внешний UUID задачи записи.
-//
-// @return:
-//   - результат 1 (records.RecordCard): значение, подготовленное операцией для вызывающей стороны.
-//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+// Stop requests a stop; the capture worker releases the recording resources.
 func (s *Service) Stop(ctx context.Context, userID, conferenceID, recordID string) (records.RecordCard, error) {
 	record, err := s.repo.Stop(ctx, userID, conferenceID, recordID)
 	if err != nil {
@@ -126,17 +89,7 @@ func (s *Service) Stop(ctx context.Context, userID, conferenceID, recordID strin
 	return s.card(ctx, record.UUID)
 }
 
-// Read читает состояние задач записи и связанных артефактов для дальнейшей обработки или ответа.
-//
-// @args
-//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - userID (string): идентификатор пользователя, для которого выполняется операция.
-//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
-//   - recordID (string): внешний UUID задачи записи.
-//
-// @return:
-//   - результат 1 (records.RecordCard): значение, подготовленное операцией для вызывающей стороны.
-//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+// Read checks access before loading the recording card.
 func (s *Service) Read(ctx context.Context, userID, conferenceID, recordID string) (records.RecordCard, error) {
 	record, err := s.repo.Accessible(ctx, userID, conferenceID, recordID)
 	if err != nil {
@@ -145,18 +98,7 @@ func (s *Service) Read(ctx context.Context, userID, conferenceID, recordID strin
 	return s.card(ctx, record.UUID)
 }
 
-// List возвращает ограниченный список задач записи и связанных артефактов с принятыми в данном слое фильтрами.
-//
-// @args
-//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - userID (string): идентификатор пользователя, для которого выполняется операция.
-//   - conferenceID (string): идентификатор конференции, ограничивающий область операции.
-//   - limit (int): максимальное число элементов страницы или порции обработки.
-//   - offset (int): число элементов, пропускаемых перед началом страницы.
-//
-// @return:
-//   - результат 1 ([]records.RecordCard): собранные элементы результата; состав ограничивается параметрами операции.
-//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+// List checks access and uses batched reads when the reader supports them.
 func (s *Service) List(ctx context.Context, userID, conferenceID string, limit, offset int) ([]records.RecordCard, error) {
 	rows, err := s.repo.List(ctx, userID, conferenceID, limit, offset)
 	if err != nil {
@@ -189,29 +131,16 @@ func (s *Service) List(ctx context.Context, userID, conferenceID string, limit, 
 	return items, nil
 }
 
-// card читает и собирает разрешённую карточку записи конференции.
-//
-// @args
-//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - id (string): идентификатор обрабатываемого ресурса.
-//
-// @return:
-//   - результат 1 (records.RecordCard): значение, подготовленное операцией для вызывающей стороны.
-//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
-func (s *Service) card(ctx context.Context, id string) (records.RecordCard, error) {
-	card, err := s.reader.ReadComposite(ctx, id)
+// card maps internal finalization states to the public recording status.
+func (s *Service) card(ctx context.Context, recordID string) (records.RecordCard, error) {
+	card, err := s.reader.ReadComposite(ctx, recordID)
 	card.Status = records.PublicStatus(card.Status)
 	return card, err
 }
 
-// publish передаёт сохранённое изменение через транспорт событий или внутренних команд.
-//
-// @args
-//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - record (records.Record): задача записи с её сохранённым состоянием.
-//   - kind (string): тип события, ошибки или медиа, определяющий ветку обработки.
-func publish(events Events, ctx context.Context, record records.Record, kind string) {
+// publish sends a best-effort notification; delivery failure does not undo the request.
+func publish(events Events, ctx context.Context, record records.Record, eventType string) {
 	if events != nil {
-		_ = events.Broadcast(ctx, realtime.Event(kind, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": records.PublicStatus(record.Status), "mode": record.Mode, "requestedBy": record.RequestedBy}))
+		_ = events.Broadcast(ctx, realtime.Event(eventType, record.ConferenceID, map[string]any{"recordingId": record.UUID, "conferenceId": record.ConferenceID, "status": records.PublicStatus(record.Status), "mode": record.Mode, "requestedBy": record.RequestedBy}))
 	}
 }

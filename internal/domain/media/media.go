@@ -12,14 +12,7 @@ import (
 const MaxSDPBytes = 49152
 const MaxICEBytes = 4096
 
-// Binding связывает медиа с проверенной WebSocket-сессией; идентификаторы не берутся из полей браузерного сообщения.
-// @params
-//   - ConferenceID: идентификатор конференции, ограничивающий область операции.
-//   - ParticipantID: идентификатор членства участника внутри конференции.
-//   - SessionID: идентификатор одной физической сессии подключения.
-//   - ConnectionID: идентификатор физического медиа-соединения.
-//   - UserID: идентификатор пользователя, для которого выполняется операция.
-//   - AuthorizationExpiresAt: временная отметка AuthorizationExpiresAt; указатель допускает отсутствие значения.
+// Binding links a media peer to a verified WebSocket session. Browser payloads cannot supply this identity.
 type Binding struct {
 	ConferenceID           string    `json:"conferenceId"`
 	ParticipantID          string    `json:"participantId"`
@@ -94,11 +87,7 @@ type Track struct {
 	Source        Source `json:"source"`
 }
 
-// Publication связывает стабильный SDP MID с семантическим источником; идентификатор браузерной дорожки может измениться.
-// @params
-//   - MID: идентификатор связанного ресурса, заданного параметром MID.
-//   - Source: семантический источник медиа либо входной источник данных.
-//   - TrackID: идентификатор связанного ресурса, заданного параметром TrackID.
+// Publication maps SDP MID to a source. TrackID identifies a browser capture generation, not a server track.
 type Publication struct {
 	MID     string `json:"mid"`
 	Source  Source `json:"source"`
