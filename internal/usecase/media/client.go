@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/janickiy/go-recorder/internal/config"
+	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	domain "github.com/janickiy/go-recorder/internal/domain/media"
 )
 
@@ -76,11 +77,14 @@ func (c *HTTPClient) Call(ctx context.Context, action string, command domain.Com
 	req.Header.Set("X-Request-ID", command.RequestID)
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return domain.Result{}, domain.ErrUnavailable
+		return domain.Result{}, apperrors.Wrap(domain.ErrUnavailable, err, domain.ErrorCode(domain.ErrUnavailable))
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 262145))
-	if err != nil || len(body) > 262144 {
+	if err != nil {
+		return domain.Result{}, apperrors.Wrap(domain.ErrUnavailable, err, domain.ErrorCode(domain.ErrUnavailable))
+	}
+	if len(body) > 262144 {
 		return domain.Result{}, domain.ErrUnavailable
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -90,15 +94,11 @@ func (c *HTTPClient) Call(ctx context.Context, action string, command domain.Com
 		}
 		_ = json.Unmarshal(body, &failure)
 		code := failure.Code
+		// Older workers used the error field for the same machine code.
 		if code == "" {
 			code = failure.Error
 		}
-		for _, safe := range []error{domain.ErrInvalid, domain.ErrUnauthorized, domain.ErrOwnership, domain.ErrLimit, domain.ErrPeerNotFound, domain.ErrNegotiation, domain.ErrScreenConflict, domain.ErrPolicy} {
-			if code == safe.Error() {
-				return domain.Result{}, safe
-			}
-		}
-		return domain.Result{}, domain.ErrUnavailable
+		return domain.Result{}, domain.ErrorFromCode(code)
 	}
 	var result domain.Result
 	if len(body) > 0 && json.Unmarshal(body, &result) != nil {

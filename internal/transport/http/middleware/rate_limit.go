@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/janickiy/go-recorder/internal/app/httpresponse"
+	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
 )
 
@@ -259,7 +261,7 @@ func abortRateLimitExceeded(c *gin.Context, result ratelimit.Result) {
 	if result.RetryAfter > 0 {
 		c.Header("Retry-After", strconv.FormatInt(int64(result.RetryAfter.Seconds()), 10))
 	}
-	abortRateLimitError(c, http.StatusTooManyRequests, "rate limit exceeded")
+	httpresponse.Fail(c, apperrors.ErrRateLimited)
 }
 
 // abortRateLimitError возвращает безопасную ошибку проверки ограничения частоты.

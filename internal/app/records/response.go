@@ -1,7 +1,10 @@
 package recordsapp
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
+	"github.com/janickiy/go-recorder/internal/app/httpresponse"
 	"github.com/janickiy/go-recorder/internal/domain/records"
 )
 
@@ -12,5 +15,8 @@ import (
 //   - status (int): состояние ресурса, ответа или фильтра выборки.
 //   - message (string): сообщение чата или безопасный текст ответа согласно указанному типу.
 func failed(c *gin.Context, status int, message string) {
+	if status >= http.StatusInternalServerError {
+		message = httpresponse.InternalErrorMessage
+	}
 	c.JSON(status, records.Response{Status: "failed", Message: message})
 }

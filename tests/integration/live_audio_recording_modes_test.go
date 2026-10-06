@@ -66,7 +66,7 @@ func TestStageEightOpusToLiveCaptions(t *testing.T) {
 	var samples, active int
 	err = (ffmpeg.LiveAudio{Binary: binary}).Decode(ctx, media.EgressTrack{MimeType: "audio/opus", ClockRate: 48000, Channels: 2}, packets, func(pcm []byte) error {
 		samples += len(pcm) / 2
-		if ffmpeg.AudioActive(pcm) {
+		if captions.AudioActive(pcm) {
 			active++
 		}
 		return session.WriteAudio(ctx, pcm)
@@ -90,7 +90,7 @@ func TestStageEightOpusToLiveCaptions(t *testing.T) {
 	if partial < 1 || final < 2 {
 		t.Fatalf("partial=%d final=%d", partial, final)
 	}
-	if ffmpeg.AudioActive(make([]byte, 640)) {
+	if captions.AudioActive(make([]byte, 640)) {
 		t.Fatal("silence counted")
 	}
 }

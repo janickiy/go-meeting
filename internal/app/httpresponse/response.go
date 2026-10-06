@@ -11,25 +11,32 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 )
 
+// InternalErrorMessage is shared with legacy responses that retain their status.
+const InternalErrorMessage = "internal server error"
+
 // Fail сопоставляет прикладную ошибку с HTTP-статусом и безопасным JSON-ответом.
 //
 // @args
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 //   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
 func Fail(c *gin.Context, err error) {
-	status, message := http.StatusInternalServerError, "internal server error"
-	switch {
-	case errors.Is(err, apperrors.ErrInvalidInput):
+	status, message := http.StatusInternalServerError, InternalErrorMessage
+	switch apperrors.Classify(err) {
+	case apperrors.Validation:
 		status, message = http.StatusUnprocessableEntity, "invalid input"
-	case errors.Is(err, apperrors.ErrUnauthorized):
+	case apperrors.Unauthenticated:
 		status, message = http.StatusUnauthorized, "authentication required or token invalid"
-	case errors.Is(err, apperrors.ErrForbidden):
+	case apperrors.Forbidden:
 		status, message = http.StatusForbidden, "access denied"
-	case errors.Is(err, apperrors.ErrNotFound):
+	case apperrors.NotFound:
 		status, message = http.StatusNotFound, "not found"
-	case errors.Is(err, apperrors.ErrConflict):
+	case apperrors.Conflict:
 		status, message = http.StatusConflict, "conflict"
-	case errors.Is(err, apperrors.ErrUnavailable):
+	case apperrors.RateLimited:
+		status, message = http.StatusTooManyRequests, "rate limit exceeded"
+	case apperrors.Timeout:
+		status, message = http.StatusGatewayTimeout, "operation timed out"
+	case apperrors.Unavailable:
 		status, message = http.StatusServiceUnavailable, "service temporarily unavailable"
 	}
 	var applicationError *apperrors.Error

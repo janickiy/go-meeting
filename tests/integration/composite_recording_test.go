@@ -175,11 +175,13 @@ func TestStageFourCompositeRecording(t *testing.T) {
 			})
 	}()
 	reader := recorder.NewService(repository, publisher, storage, lock)
-	orchestration := recordingusecase.NewConferenceService(pg.NewConferenceRecordingRepository(f.db), reader, publisher, lock, f.hubs[0])
+	recordingRepo := pg.NewConferenceRecordingRepository(f.db)
+	orchestration := recordingusecase.NewConferenceService(recordingRepo, reader, f.hubs[0])
+	commands := recordingusecase.NewCommandDispatcher(recordingRepo, publisher, lock, f.hubs[0])
 	outboxDone := make(chan struct{})
 	go /* Вложенный обработчик выполняет выделенный шаг обработки в проверках поведения приложения, используя состояние окружающей функции.
 
-	 */func() { defer close(outboxDone); orchestration.Run(ctx) }()
+	 */func() { defer close(outboxDone); commands.Run(ctx) }()
 	router := gin.New()
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(orchestration), httpmiddleware.Authenticate(f.tokens))
 	api := httptest.NewServer(router)

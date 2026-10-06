@@ -149,7 +149,7 @@ func (s *ControlService) Moderate(ctx context.Context, userID, conferenceID, par
 	}
 	slog.Info("conference moderation", "conference_id", conferenceID, "actor_user_id", userID, "participant_id", participantID, "action", request.Action, "policy_version", p.MediaPolicyVersion)
 	if s.media != nil {
-		if err = s.media.SetParticipantPolicy(ctx, conferenceID, participantID, policy(p)); err != nil {
+		if err = s.media.SetParticipantPolicy(ctx, conferenceID, participantID, media.PolicyForParticipant(p)); err != nil {
 			return p.View(), apperrors.New(apperrors.ErrUnavailable, "moderation saved; media enforcement is retrying")
 		}
 	}
@@ -196,17 +196,6 @@ func (s *ControlService) Disconnected(ctx context.Context, session realtime.Sess
 	}
 }
 
-// policy получает серверные ограничения медиа участника из сохранённой модели.
-//
-// @args
-//   - p (domain.Participant): байты, переданные по контракту io.Writer.
-//
-// @return:
-//   - результат 1 (media.ParticipantPolicy): значение, подготовленное операцией для вызывающей стороны.
-func policy(p domain.Participant) media.ParticipantPolicy {
-	return media.ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: !p.CanParticipate()}
-}
-
 // Run выполняет основной цикл компонента до завершения работы или отмены контекста.
 //
 // @args
@@ -245,7 +234,7 @@ func (s *ControlService) Run(ctx context.Context) {
 				defer workers.Done()
 				for p := range jobs {
 					op, done := context.WithTimeout(ctx, 2*time.Second)
-					_ = s.media.SetParticipantPolicy(op, p.ConferenceID, p.ID, policy(p))
+					_ = s.media.SetParticipantPolicy(op, p.ConferenceID, p.ID, media.PolicyForParticipant(p))
 					done()
 				}
 			}()

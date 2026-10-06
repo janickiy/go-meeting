@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/janickiy/go-recorder/internal/app/httpresponse"
+	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
 
 	"github.com/gin-gonic/gin"
@@ -51,10 +53,7 @@ func RegisterDebugRoutes(router gin.IRouter, completedRecords CompletedRecordsLi
 			noStore(c)
 			items, err := completedRecords.ListCompletedRecords(c.Request.Context(), debugLimit(c, 50))
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"status":  "failed",
-					"message": err.Error(),
-				})
+				httpresponse.Fail(c, apperrors.ErrInternal)
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{

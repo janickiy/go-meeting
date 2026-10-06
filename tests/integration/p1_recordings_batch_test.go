@@ -42,7 +42,7 @@ func TestP1RecordingBatchPreservesPage(t *testing.T) {
 	}
 	reader := recorder.NewService(rr, nil, nil, nil)
 	repo := pg.NewConferenceRecordingRepository(db)
-	svc := recordings.NewConferenceService(repo, reader, nil, nil, nil)
+	svc := recordings.NewConferenceService(repo, reader, nil)
 	rows, err := repo.List(ctx, uid, cid, 20, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func TestP1RecordingBatchPreservesPage(t *testing.T) {
 			if e := db.Exec("UPDATE record SET "+change+" WHERE uuid=?", rid).Error; e != nil {
 				t.Fatal(e)
 			}
-		}}, reader, nil, nil, nil)
+		}}, reader, nil)
 		if items, e := fenced.List(ctx, uid, cid, 20, 0); !errors.Is(e, gorm.ErrRecordNotFound) || items != nil {
 			t.Fatalf("availability recheck %s: rows=%d err=%v", change, len(items), e)
 		}

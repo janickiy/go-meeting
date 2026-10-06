@@ -71,7 +71,7 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	recordingRepo := pg.NewConferenceRecordingRepository(f.db)
 	probe := &policyProbe{}
 	control := conferenceusecase.NewControlService(conferenceRepo, probe, f.hubs[0])
-	recordingService := recordings.NewConferenceService(recordingRepo, recorder.NewService(recordRepo, nil, nil, nil), nil, nil, f.hubs[0])
+	recordingService := recordings.NewConferenceService(recordingRepo, recorder.NewService(recordRepo, nil, nil, nil), f.hubs[0])
 	router := gin.New()
 	auth := httpmiddleware.Authenticate(f.tokens)
 	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(control), auth)
@@ -124,7 +124,6 @@ func TestStageFourControlPermissionsAndRecordingTransactions(t *testing.T) {
 	api.expect(t, "PUT", path+"/participants/me/media", f.memberToken, mediaUpdate(map[string]any{"screenSharing": true}), 200, nil)
 	api.expect(t, "POST", path+"/participants/"+member.ID+"/moderation", f.ownerToken, map[string]any{"action": "role", "role": "co_host"}, 200, &updated)
 	api.expect(t, "POST", path+"/participants/"+owner.ID+"/moderation", f.memberToken, map[string]any{"action": "kick"}, 403, nil)
-	api.expect(t, "POST", path+"/recordings", f.memberToken, nil, 403, nil)
 	api.expect(t, "POST", path+"/recordings", "", nil, 401, nil)
 
 	// Блокировка строки конференции и частичный уникальный индекс разрешают только одну активную запись
@@ -219,7 +218,7 @@ func TestStageFourKickSurvivesRejoinAndFailedEnforcement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	readService := recordings.NewConferenceService(recordingRepo, recorder.NewService(pg.NewRecordRepository(f.db), nil, nil, nil), nil, nil, f.hubs[0])
+	readService := recordings.NewConferenceService(recordingRepo, recorder.NewService(pg.NewRecordRepository(f.db), nil, nil, nil), f.hubs[0])
 	router := gin.New()
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(readService), httpmiddleware.Authenticate(f.tokens))
 	api := stageOneAPI{router: router}
@@ -646,5 +645,28 @@ func TestStageFourSessionMediaCloseVersusUpdate(t *testing.T) {
 		if p.MicrophoneEnabled || p.CameraEnabled || p.ScreenSharing {
 			t.Fatal("close/update race retained closed-session media")
 		}
+	}
+}
+
+// Any admitted account may start a recording; a scoped guest account may not.
+func TestRecordingStartAccountBoundary(t *testing.T) {
+	f := stageTwo(t)
+	ctx := context.Background()
+	repo := pg.NewConferenceRecordingRepository(f.db)
+	if err := f.db.Model(&users.User{}).Where("id = ?", f.member.ID).Update("guest_conference_id", f.conference.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := repo.Start(ctx, f.member.ID, f.conference.ID, 2); !errors.Is(err, apperrors.ErrForbidden) {
+		t.Fatalf("guest start: %v", err)
+	}
+	if err := f.db.Model(&users.User{}).Where("id = ?", f.member.ID).Update("guest_conference_id", nil).Error; err != nil {
+		t.Fatal(err)
+	}
+	record, created, err := repo.Start(ctx, f.member.ID, f.conference.ID, 2)
+	if err != nil || !created || record.RequestedBy == nil || *record.RequestedBy != f.member.ID {
+		t.Fatalf("member start: created=%v record=%+v err=%v", created, record, err)
+	}
+	if _, err := repo.Stop(ctx, f.member.ID, f.conference.ID, record.UUID); err != nil {
+		t.Fatalf("requester stop: %v", err)
 	}
 }

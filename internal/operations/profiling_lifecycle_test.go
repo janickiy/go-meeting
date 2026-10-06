@@ -1,12 +1,16 @@
 package operations
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"net"
 	"net/http"
+	"runtime"
+	runtimepprof "runtime/pprof"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,5 +72,34 @@ func TestProfilingEndpointsAndShutdown(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("profiling listener did not close on cancellation")
+	}
+}
+
+// A failed bind must not retain a waiter until the process context is cancelled.
+func TestProfilingBindFailureReleasesCancellationWaiter(t *testing.T) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r := &Runtime{Config: config.OperationsConfig{PprofPort: listener.Addr().(*net.TCPAddr).Port}}
+	waiters := func() int {
+		var stacks bytes.Buffer
+		if err := runtimepprof.Lookup("goroutine").WriteTo(&stacks, 2); err != nil {
+			t.Fatal(err)
+		}
+		return strings.Count(stacks.String(), "operations.(*Runtime).Profiling.func1()")
+	}
+	before := waiters()
+	for range 20 {
+		if err := r.Profiling(ctx); err == nil {
+			t.Fatal("bind unexpectedly succeeded")
+		}
+	}
+	runtime.Gosched()
+	if after := waiters(); after != before {
+		t.Fatalf("failed bind retained %d profiling cancellation goroutines", after-before)
 	}
 }

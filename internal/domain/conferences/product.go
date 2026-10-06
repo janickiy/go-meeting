@@ -239,3 +239,13 @@ type HistoryView struct {
 	ChatAvailable         bool              `json:"chatAvailable"`
 	ChatReadOnly          bool              `json:"chatReadOnly"`
 }
+
+// CanParticipate applies the same membership policy to a realtime/public view.
+func (p ParticipantView) CanParticipate() bool {
+	return Participant{Status: p.Status, AdmissionState: p.AdmissionState}.CanParticipate()
+}
+
+// CanReadHistory includes admitted former participants, unlike live participation.
+func (p ParticipantView) CanReadHistory() bool {
+	return Participant{Status: p.Status, AdmissionState: p.AdmissionState}.CanReadHistory()
+}

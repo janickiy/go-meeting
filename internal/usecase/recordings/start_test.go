@@ -98,7 +98,7 @@ func (p *startProbe) Broadcast(_ context.Context, event realtime.Envelope) error
 // @args t — исполнитель теста с проверкой побочных эффектов.
 func TestStartConflictDoesNotReturnCardOrPublish(t *testing.T) {
 	p := &startProbe{owner: uuid.NewString()}
-	service := recordings.NewConferenceService(p, p, nil, nil, p)
+	service := recordings.NewConferenceService(p, p, p)
 	conference := uuid.NewString()
 	card, err := service.Start(context.Background(), p.owner, conference, records.ConferenceStartRequest{})
 	if err != nil || card.UUID == "" || card.Mode != records.ModeComposite || card.SegmentDurationSec != 5 {
@@ -151,7 +151,7 @@ func (identityVerifier) Verify(token string) (string, error) {
 // @args t — исполнитель теста конкурентных HTTP-запросов.
 func TestConcurrentStartHTTPHasOneAcceptance(t *testing.T) {
 	p := &startProbe{owner: uuid.NewString()}
-	service := recordings.NewConferenceService(p, p, nil, nil, p)
+	service := recordings.NewConferenceService(p, p, p)
 	router := gin.New()
 	router.POST("/conferences/:id/recordings", httpmiddleware.Authenticate(identityVerifier{}), recordingsapp.NewHandler(service).Start)
 	path := "/conferences/" + uuid.NewString() + "/recordings"

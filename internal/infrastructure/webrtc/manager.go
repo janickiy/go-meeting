@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/janickiy/go-recorder/internal/domain/records"
@@ -616,13 +618,13 @@ func (s *session) forwardRTP(track *pionwebrtc.TrackRemote, port int) {
 	for {
 		packet, _, err := track.ReadRTP()
 		if err != nil {
-			if !errors.Is(err, context.Canceled) && !strings.Contains(err.Error(), "closed") {
+			if !errors.Is(err, context.Canceled) && !errors.Is(err, net.ErrClosed) && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrClosedPipe) {
 				s.manager.logger.Printf("record %s track read stopped: %v", s.recordID, err)
 			}
 			return
 		}
 		if err := writeRTPPacket(conn, packet); err != nil {
-			if strings.Contains(err.Error(), "connection refused") {
+			if errors.Is(err, syscall.ECONNREFUSED) {
 				time.Sleep(50 * time.Millisecond)
 				continue
 			}

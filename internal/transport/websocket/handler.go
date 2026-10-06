@@ -15,7 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unicode/utf8"
 
 	"github.com/janickiy/go-recorder/internal/operations"
 
@@ -25,7 +24,6 @@ import (
 	"github.com/janickiy/go-recorder/internal/app/httpresponse"
 	"github.com/janickiy/go-recorder/internal/config"
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	mediadomain "github.com/janickiy/go-recorder/internal/domain/media"
 	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
 	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
@@ -730,75 +728,8 @@ func (c *client) read() {
 			c.Stop("text_messages_only")
 			return
 		}
-		var event domain.Envelope
-		if !utf8.Valid(raw) || strictJSON(raw, &event) != nil {
-			c.failure("", "invalid_message")
-			continue
-		}
-		if parsed, err := uuid.Parse(event.ID); err != nil || parsed == uuid.Nil || event.Version != 1 || event.ConferenceID != c.session.ConferenceID || event.Timestamp.IsZero() || event.ReplyTo != "" {
-			c.failure(event.ID, "invalid_envelope")
-			continue
-		}
-		if c.authorize() != nil {
+		if !c.handleMessage(raw) {
 			return
-		}
-		operations.WSMessage(event.Type)
-		if strings.HasPrefix(event.Type, "media.") {
-			if c.handler.media == nil {
-				c.failure(event.ID, "media_unavailable")
-				continue
-			}
-			ctx, cancel := context.WithTimeout(operations.WithID(context.Background(), event.ID), 10*time.Second)
-			err := c.handler.media.Handle(ctx, c.session, c.expiresAt, event)
-			cancel()
-			if err != nil {
-				c.failure(event.ID, mediadomain.ErrorCode(err))
-			}
-			continue
-		}
-		if event.Type != "webrtc.offer" && event.Type != "webrtc.answer" && event.Type != "webrtc.ice" {
-			c.failure(event.ID, "unsupported_event")
-			continue
-		}
-		var signal domain.Signal
-		if strictJSON(event.Data, &signal) != nil || signal.SenderConnectionID != "" || signal.SenderParticipantID != "" {
-			c.failure(event.ID, "invalid_signal")
-			continue
-		}
-		target, err := uuid.Parse(signal.TargetConnectionID)
-		if err != nil || target == uuid.Nil || target.String() == c.session.ConnectionID {
-			c.failure(event.ID, "invalid_target")
-			continue
-		}
-		signal.TargetConnectionID = target.String()
-		if event.Type == "webrtc.ice" {
-			var candidate map[string]json.RawMessage
-			if signal.SDP != "" || len(signal.Candidate) == 0 || len(signal.Candidate) > cfg.ICEBytes || json.Unmarshal(signal.Candidate, &candidate) != nil || candidate == nil {
-				c.failure(event.ID, "invalid_ice")
-				continue
-			}
-		} else if len(signal.Candidate) != 0 || len(signal.SDP) == 0 || len(signal.SDP) > cfg.SDPBytes {
-			c.failure(event.ID, "invalid_sdp")
-			continue
-		}
-		signal.SenderConnectionID = c.session.ConnectionID
-		signal.SenderParticipantID = c.session.ParticipantID
-		forward := domain.Event(event.Type, c.session.ConferenceID, signal)
-		forward.ReplyTo = event.ID
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		err = c.handler.hub.SendToConnection(ctx, c.session, target.String(), forward)
-		cancel()
-		if err != nil {
-			if errors.Is(err, apperrors.ErrForbidden) || errors.Is(err, apperrors.ErrNotFound) || errors.Is(err, apperrors.ErrConflict) {
-				c.failure(event.ID, "target_unavailable")
-			} else {
-				c.Stop("broker_unavailable")
-				return
-			}
-		} else {
-			ack := domain.Event("ack", c.session.ConferenceID, map[string]string{"type": event.Type})
-			ack.ReplyTo = event.ID
-			c.Offer(ack)
 		}
 	}
 }

@@ -657,7 +657,7 @@ func stateFor(state domain.State, session domain.Session) domain.State {
 	if !moderator {
 		visible := make([]domain.Presence, 0, len(state.Participants))
 		for _, p := range state.Participants {
-			if (p.AdmissionState == conferences.AdmissionAdmitted || p.AdmissionState == "") && (p.Status == conferences.Joined || p.Status == conferences.Left) {
+			if p.CanReadHistory() {
 				visible = append(visible, p)
 			}
 		}
@@ -680,7 +680,7 @@ func stateAllows(state domain.State, participantID string) bool {
 	}
 	for _, p := range state.Participants {
 		if p.ID == participantID {
-			return p.Status == conferences.Joined && (p.AdmissionState == conferences.AdmissionAdmitted || p.AdmissionState == "")
+			return p.CanParticipate()
 		}
 	}
 	return false
@@ -877,7 +877,7 @@ func (h *Hub) deliver(bus domain.Bus) {
 	}
 	joined := map[string]bool{}
 	for _, p := range state.Participants {
-		joined[p.ID] = p.Status == conferences.Joined && (p.AdmissionState == conferences.AdmissionAdmitted || p.AdmissionState == "")
+		joined[p.ID] = p.CanParticipate()
 	}
 	for _, entry := range entries {
 		if state.Status == conferences.Finished || state.Status == conferences.Cancelled || !joined[entry.session.ParticipantID] {

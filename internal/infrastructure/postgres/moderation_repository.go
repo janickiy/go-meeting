@@ -239,22 +239,11 @@ func (r *ConferenceRepository) MediaPolicy(ctx context.Context, conferenceID, pa
 	if err != nil {
 		return media.ParticipantPolicy{}, err
 	}
-	policy := ParticipantPolicy(participant)
+	policy := media.PolicyForParticipant(participant)
 	if conference.Status != conferences.Active && conference.Status != conferences.Created {
 		policy.Kicked = true
 	}
 	return policy, nil
-}
-
-// ParticipantPolicy возвращает актуальную политику конкретного участника для проверки медиа.
-//
-// @args
-//   - p (conferences.Participant): байты, переданные по контракту io.Writer.
-//
-// @return:
-//   - результат 1 (media.ParticipantPolicy): значение, подготовленное операцией для вызывающей стороны.
-func ParticipantPolicy(p conferences.Participant) media.ParticipantPolicy {
-	return media.ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: !p.CanParticipate()}
 }
 
 // ReconcileParticipants выбирает участников, чью сохранённую политику необходимо повторно применить к медиа.

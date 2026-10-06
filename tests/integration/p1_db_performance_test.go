@@ -97,7 +97,7 @@ func TestP1DBWorkloads(t *testing.T) {
 	cr := pg.NewConferenceRepository(db)
 	cs := conferenceusecase.NewService(cr, pg.NewUserRepository(db), nil)
 	rr := pg.NewRecordRepository(db)
-	rs := recordings.NewConferenceService(pg.NewConferenceRecordingRepository(db), recorder.NewService(rr, nil, nil, nil), nil, nil, nil)
+	rs := recordings.NewConferenceService(pg.NewConferenceRecordingRepository(db), recorder.NewService(rr, nil, nil, nil), nil)
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(func(c *gin.Context) { c.Set("authenticated_user_id", uid) })

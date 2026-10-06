@@ -97,3 +97,22 @@ func TestHTTPMediaClientRedirectTimeoutAndBoundedResponse(t *testing.T) {
 		t.Fatal("oversized response accepted")
 	}
 }
+
+func TestHTTPMediaClientPreservesCauseAndLegacyCode(t *testing.T) {
+	client := NewHTTPClient(strings.Repeat("i", 32), time.Second)
+	defer client.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := client.Call(ctx, "join", domain.Command{Route: domain.Route{Endpoint: "http://127.0.0.1:12345"}})
+	if !errors.Is(err, context.Canceled) || !errors.Is(err, domain.ErrUnavailable) || err.Error() != "media_unavailable" {
+		t.Fatalf("cause or safe code lost: %v", err)
+	}
+	for _, body := range []string{`{"error":"screen_sharing_conflict"}`, `{"code":"screen_sharing_conflict","error":"SQL private"}`} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(409); _, _ = w.Write([]byte(body)) }))
+		_, err := client.Call(context.Background(), "offer", domain.Command{Route: domain.Route{Endpoint: server.URL}})
+		server.Close()
+		if !errors.Is(err, domain.ErrScreenConflict) {
+			t.Fatalf("legacy/new wire code: %v", err)
+		}
+	}
+}

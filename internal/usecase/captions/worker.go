@@ -16,7 +16,6 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/captions"
 	"github.com/janickiy/go-recorder/internal/domain/media"
 	"github.com/janickiy/go-recorder/internal/domain/realtime"
-	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
 	"github.com/janickiy/go-recorder/internal/operations"
 )
 
@@ -338,7 +337,7 @@ func (w *Worker) track(ctx context.Context, lease Lease, track media.EgressTrack
 		ms := int64(len(pcm)) * 1000 / 32000
 		elapsed := samples * 1000 / 16000
 		if w.Config.AnalyticsEnabled {
-			s, o := meter.observe(track.ParticipantID, origin+elapsed, origin+elapsed+ms, ffmpeg.AudioActive(pcm))
+			s, o := meter.observe(track.ParticipantID, origin+elapsed, origin+elapsed+ms, domain.AudioActive(pcm))
 			observed += o
 			speech += s
 		}

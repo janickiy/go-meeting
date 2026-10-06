@@ -2,9 +2,9 @@ package media
 
 import (
 	"encoding/json"
-	"errors"
 	"time"
 
+	"github.com/janickiy/go-recorder/internal/domain/conferences"
 	"github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
@@ -247,30 +247,8 @@ type Signal struct {
 	Publications  []Publication   `json:"publications,omitempty"`
 }
 
-var (
-	ErrUnavailable    = errors.New("media_unavailable")
-	ErrInvalid        = errors.New("invalid_media_signal")
-	ErrUnauthorized   = errors.New("media_unauthorized")
-	ErrOwnership      = errors.New("media_ownership_lost")
-	ErrLimit          = errors.New("media_limit_exceeded")
-	ErrPeerNotFound   = errors.New("media_peer_not_found")
-	ErrNegotiation    = errors.New("media_negotiation_conflict")
-	ErrScreenConflict = errors.New("screen_sharing_conflict")
-	ErrPolicy         = errors.New("media_policy_blocked")
-)
-
-// ErrorCode сопоставляет ошибку медиа с безопасным кодом для внешнего ответа.
-//
-// @args
-//   - err (error): ошибка, которую необходимо классифицировать, сохранить или вернуть клиенту.
-//
-// @return:
-//   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
-func ErrorCode(err error) string {
-	for _, known := range []error{ErrUnavailable, ErrInvalid, ErrUnauthorized, ErrOwnership, ErrLimit, ErrPeerNotFound, ErrNegotiation, ErrScreenConflict, ErrPolicy} {
-		if errors.Is(err, known) {
-			return known.Error()
-		}
-	}
-	return ErrUnavailable.Error()
+// PolicyForParticipant projects authoritative membership into versioned media
+// permissions. Conference availability is enforced separately by its owner.
+func PolicyForParticipant(p conferences.Participant) ParticipantPolicy {
+	return ParticipantPolicy{Version: p.MediaPolicyVersion, MicrophoneBlocked: p.MicrophoneBlocked, CameraBlocked: p.CameraBlocked, ScreenBlocked: p.ScreenBlocked, Kicked: !p.CanParticipate()}
 }

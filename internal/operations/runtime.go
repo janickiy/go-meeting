@@ -374,7 +374,10 @@ func (r *Runtime) Profiling(ctx context.Context) error {
 	mux.Handle("/debug/pprof/mutex", pprof.Handler("mutex"))
 	mux.Handle("/debug/pprof/block", pprof.Handler("block"))
 	server := &http.Server{Addr: "127.0.0.1:" + strconv.Itoa(r.Config.PprofPort), Handler: boundedProfile(mux), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 65 * time.Second, IdleTimeout: 10 * time.Second}
-	go func() { <-ctx.Done(); _ = server.Close() }()
+	// Unregister on bind failure or normal return; do not retain a waiter for
+	// the rest of the process lifetime when this server never started.
+	stop := context.AfterFunc(ctx, func() { _ = server.Close() })
+	defer stop()
 	return server.ListenAndServe()
 }
 
