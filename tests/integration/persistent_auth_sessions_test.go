@@ -100,7 +100,7 @@ func TestPersistentAuthSurvivesJWTExpiryIdleAndAPIRecreation(t *testing.T) {
 	db, service, tokens, account, router := persistentFixture(t)
 	login, cookie := persistentLogin(t, router)
 	_, _, sid, expiry, err := tokens.VerifyAuthorization(login.AccessToken)
-	if err != nil || sid == "" || expiry.Sub(time.Now()) > time.Hour || login.ExpiresIn != 3600 {
+	if err != nil || sid == "" || time.Until(expiry) > time.Hour || login.ExpiresIn != 3600 {
 		t.Fatal("access token must stay short-lived and session-bound", err)
 	}
 	if err := db.Model(&users.AuthSession{}).Where("id = ?", sid).Update("created_at", time.Now().AddDate(-10, 0, 0)).Error; err != nil {

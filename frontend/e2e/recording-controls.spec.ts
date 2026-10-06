@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { ConferenceRecording, Participant } from "../src/types";
 
@@ -87,6 +88,7 @@ async function recordingFixture(
     }
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     const respond = (json: unknown, code = 200) =>
       route.fulfill({ status: code, json });
     if (["/auth/session", "/auth/refresh"].includes(path))

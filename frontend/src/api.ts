@@ -1,3 +1,4 @@
+import type { PersonalPage, PersonalConversation, PersonalPeer } from "./types";
 import type {
   Conference,
   ConferenceStatus,
@@ -846,139 +847,33 @@ export const api = {
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
    */
-  messages: (id: string, before?: string, signal?: AbortSignal) =>
-    request<ChatPage>(
-      `/conferences/${encodeURIComponent(id)}/messages?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+  ...createChatAPI("conferences"),
+  personalConversations: (before?: string, signal?: AbortSignal, limit = 50) =>
+    request<PersonalPage>(
+      `/conversations?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ""}`,
       { signal },
     ),
-  /**
-   * sendMessage отправляет сообщение с ключом повторной операции, ответом и подготовленными вложениями.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - body ({ clientRequestId: string; text: string; replyTo?: string; attachmentIds?: string[]; }) — типизированное тело запроса.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  sendMessage: (
-    id: string,
-    body: {
-      clientRequestId: string;
-      text: string;
-      replyTo?: string;
-      attachmentIds?: string[];
-    },
-  ) =>
-    request<Item<ChatMessage>>(
-      `/conferences/${encodeURIComponent(id)}/messages`,
-      { method: "POST", body },
-    ),
-  /**
-   * editMessage изменяет текст собственного сообщения.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - messageId (string) — идентификатор сообщения в этой конференции.
-   *   - text (string) — обычный текст сообщения.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  editMessage: (id: string, messageId: string, text: string) =>
-    request<Item<ChatMessage>>(
-      `/conferences/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}`,
-      { method: "PATCH", body: { text } },
-    ),
-  /**
-   * deleteMessage запрашивает мягкое удаление разрешённого сообщения.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - messageId (string) — идентификатор сообщения в этой конференции.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  deleteMessage: (id: string, messageId: string) =>
-    request<Item<ChatMessage>>(
-      `/conferences/${encodeURIComponent(id)}/messages/${encodeURIComponent(messageId)}`,
-      { method: "DELETE" },
-    ),
-  /**
-   * chatRead читает сохранённую границу прочтения и число непрочитанных.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - signal (AbortSignal) — сигнал отмены запроса или потока (необязательный параметр).
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  chatRead: (id: string, signal?: AbortSignal) =>
-    request<Item<ChatReadState>>(
-      `/conferences/${encodeURIComponent(id)}/chat/read`,
+  personalConversation: (id: string, signal?: AbortSignal) =>
+    request<Item<PersonalConversation>>(
+      `/conversations/${encodeURIComponent(id)}`,
       { signal },
     ),
-  /**
-   * markChatRead продвигает серверную отметку прочтения до указанного сообщения.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - messageId (string) — идентификатор сообщения в этой конференции.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  markChatRead: (id: string, messageId: string) =>
-    request<Item<ChatReadState>>(
-      `/conferences/${encodeURIComponent(id)}/chat/read`,
-      { method: "PUT", body: { messageId } },
+  createPersonalConversation: (userId: string) =>
+    request<Item<PersonalConversation>>("/conversations/direct", {
+      method: "POST",
+      body: { userId },
+    }),
+  searchPersonalUsers: (search: string, signal?: AbortSignal) =>
+    request<{ items: PersonalPeer[] }>(
+      `/users?search=${encodeURIComponent(search)}`,
+      { signal },
     ),
-  /**
-   * initAttachment регистрирует метаданные файла до передачи его байтов.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - body ({ clientRequestId: string; filename: string; size: number; mimeType: string; }) — типизированное тело запроса.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  initAttachment: (
-    id: string,
-    body: {
-      clientRequestId: string;
-      filename: string;
-      size: number;
-      mimeType: string;
-    },
-  ) =>
-    request<Item<ChatAttachment> & { uploadUrl: string }>(
-      `/conferences/${encodeURIComponent(id)}/attachments/init`,
-      { method: "POST", body },
-    ),
-  /**
-   * finalizeAttachment подтверждает завершённую загрузку файла перед отправкой сообщения.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - attachmentId (string) — идентификатор подготовленного или прикреплённого вложения.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  finalizeAttachment: (id: string, attachmentId: string) =>
-    request<Item<ChatAttachment>>(
-      `/conferences/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}/finalize`,
-      { method: "POST", body: {} },
-    ),
-  /**
-   * attachmentDownload запрашивает временную ссылку разрешённого скачивания вложения.
-   *
-   * @args
-   *   - id (string) — идентификатор ресурса или конференции данного запроса.
-   *   - attachmentId (string) — идентификатор подготовленного или прикреплённого вложения.
-   *
-   * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
-   */
-  attachmentDownload: (id: string, attachmentId: string) =>
-    request<{ url: string; expiresAt: string }>(
-      `/conferences/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}/download`,
-    ),
+  userWSTicket: (signal?: AbortSignal) =>
+    request<{ ticket: string; expiresAt: string }>("/ws-ticket", {
+      method: "POST",
+      body: {},
+      signal,
+    }),
   /**
    * reaction отправляет одну временную реакцию из разрешённого набора.
    *
@@ -1091,7 +986,7 @@ export function uploadAttachment(
   const target = new URL(url, window.location.origin);
   if (
     target.origin !== window.location.origin ||
-    !/^\/api\/v1\/conferences\/[^/]+\/attachments\/[^/]+\/content$/.test(
+    !/^\/api\/v1\/(conferences|conversations)\/[^/]+\/attachments\/[^/]+\/content$/.test(
       target.pathname,
     ) ||
     target.search ||
@@ -1205,3 +1100,74 @@ export const statusLabels: Record<ConferenceStatus, string> = {
   finished: "Завершена",
   cancelled: "Отменена",
 };
+
+// Both scopes use the same contracts and authenticated request/retry layer.
+export function createChatAPI(namespace: "conferences" | "conversations") {
+  const base = (id: string) => `/${namespace}/${encodeURIComponent(id)}`;
+  return {
+    messages: (id: string, before?: string, signal?: AbortSignal) =>
+      request<ChatPage>(
+        `${base(id)}/messages?limit=50${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+        { signal },
+      ),
+    sendMessage: (
+      id: string,
+      body: {
+        clientRequestId: string;
+        text: string;
+        replyTo?: string;
+        attachmentIds?: string[];
+      },
+    ) =>
+      request<Item<ChatMessage>>(`${base(id)}/messages`, {
+        method: "POST",
+        body,
+      }),
+    editMessage: (id: string, messageId: string, text: string) =>
+      request<Item<ChatMessage>>(
+        `${base(id)}/messages/${encodeURIComponent(messageId)}`,
+        { method: "PATCH", body: { text } },
+      ),
+    deleteMessage: (id: string, messageId: string) =>
+      request<Item<ChatMessage>>(
+        `${base(id)}/messages/${encodeURIComponent(messageId)}`,
+        { method: "DELETE" },
+      ),
+    chatRead: (id: string, signal?: AbortSignal) =>
+      request<Item<ChatReadState>>(`${base(id)}/chat/read`, { signal }),
+    markChatRead: (id: string, messageId: string) =>
+      request<Item<ChatReadState>>(
+        namespace === "conversations"
+          ? `${base(id)}/read`
+          : `${base(id)}/chat/read`,
+        {
+          method: namespace === "conversations" ? "POST" : "PUT",
+          body: { messageId },
+        },
+      ),
+    initAttachment: (
+      id: string,
+      body: {
+        clientRequestId: string;
+        filename: string;
+        mimeType: string;
+        size: number;
+      },
+    ) =>
+      request<Item<ChatAttachment> & { uploadUrl: string }>(
+        `${base(id)}/attachments/init`,
+        { method: "POST", body },
+      ),
+    finalizeAttachment: (id: string, attachmentId: string) =>
+      request<Item<ChatAttachment>>(
+        `${base(id)}/attachments/${encodeURIComponent(attachmentId)}/finalize`,
+        { method: "POST", body: {} },
+      ),
+    attachmentDownload: (id: string, attachmentId: string) =>
+      request<{ url: string; expiresAt: string }>(
+        `${base(id)}/attachments/${encodeURIComponent(attachmentId)}/download`,
+      ),
+  };
+}
+export type ChatTransport = ReturnType<typeof createChatAPI>;
+export const personalChatAPI = createChatAPI("conversations");

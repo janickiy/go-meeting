@@ -600,69 +600,52 @@ func (h *Hub) ConferenceChanged(ctx context.Context, conferenceID string) {
 	}
 }
 
-// state собирает канонический снимок конференции и участников.
-//
-// @args
-//   - ctx (context.Context): контекст отмены, дедлайна и времени жизни операции.
-//   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
-//
-// @return:
-//   - результат 1 (domain.State): значение, подготовленное операцией для вызывающей стороны.
-//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
+// state aggregates physical connections by persisted participant membership.
 func (h *Hub) state(ctx context.Context, session domain.Session) (domain.State, error) {
 	status, roster, err := h.repo.Roster(ctx, session.ConferenceID)
 	if err != nil {
 		return domain.State{}, err
 	}
-	active, err := h.store.Active(ctx, session.ConferenceID)
+	activeSessions, err := h.store.Active(ctx, session.ConferenceID)
 	if err != nil {
 		return domain.State{}, err
 	}
-	byParticipant := map[string][]string{}
-	for _, s := range active {
-		byParticipant[s.ParticipantID] = append(byParticipant[s.ParticipantID], s.ConnectionID)
+	connectionsByParticipant := map[string][]string{}
+	for _, activeSession := range activeSessions {
+		connectionsByParticipant[activeSession.ParticipantID] = append(connectionsByParticipant[activeSession.ParticipantID], activeSession.ConnectionID)
 	}
 	state := domain.State{ConnectionID: session.ConnectionID, ParticipantID: session.ParticipantID, Status: status, Participants: make([]domain.Presence, 0, len(roster))}
-	for _, p := range roster {
-		ids := byParticipant[p.ID]
-		if !p.CanParticipate() {
-			ids = nil
+	for _, participant := range roster {
+		connectionIDs := connectionsByParticipant[participant.ID]
+		if !participant.CanParticipate() || connectionIDs == nil {
+			connectionIDs = []string{}
 		}
-		if ids == nil {
-			ids = []string{}
-		}
-		sort.Strings(ids)
-		state.Participants = append(state.Participants, domain.Presence{ParticipantView: p.View(), Online: len(ids) > 0, Connections: len(ids), ConnectionIDs: ids})
+		sort.Strings(connectionIDs)
+		state.Participants = append(state.Participants, domain.Presence{ParticipantView: participant.View(), Online: len(connectionIDs) > 0, Connections: len(connectionIDs), ConnectionIDs: connectionIDs})
 	}
 	return state, nil
 }
 
-// stateFor фильтрует общий снимок под конкретного получателя, скрывая очередь ожидания от обычных участников.
-//
-// @args
-//   - state (domain.State): значение state типа domain.State, используемое согласно назначению этой операции.
-//   - session (domain.Session): историческая физическая сессия или состояние текущего соединения.
-//
-// @return:
-//   - результат 1 (domain.State): значение, подготовленное операцией для вызывающей стороны.
+// stateFor hides the waiting roster from non-moderators and sets the recipient identity.
 func stateFor(state domain.State, session domain.Session) domain.State {
 	state.ConnectionID, state.ParticipantID = session.ConnectionID, session.ParticipantID
-	moderator := false
-	for _, p := range state.Participants {
-		if p.ID == session.ParticipantID {
-			moderator = p.Role == conferences.Owner || p.Role == conferences.CoHost
+	isModerator := false
+	for _, participant := range state.Participants {
+		if participant.ID == session.ParticipantID {
+			isModerator = participant.Role == conferences.Owner || participant.Role == conferences.CoHost
 			break
 		}
 	}
-	if !moderator {
-		visible := make([]domain.Presence, 0, len(state.Participants))
-		for _, p := range state.Participants {
-			if p.CanReadHistory() {
-				visible = append(visible, p)
-			}
-		}
-		state.Participants = visible
+	if isModerator {
+		return state
 	}
+	visible := make([]domain.Presence, 0, len(state.Participants))
+	for _, participant := range state.Participants {
+		if participant.CanReadHistory() {
+			visible = append(visible, participant)
+		}
+	}
+	state.Participants = visible
 	return state
 }
 

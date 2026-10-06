@@ -1,3 +1,6 @@
+import { MessageCircle } from "lucide-react";
+import { usePersonalRealtime } from "../personalRealtime";
+import "../pages/personal.css";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
@@ -35,6 +38,9 @@ import { AccountSettingsContext } from "./AccountSettingsContext";
 export function Layout() {
   const { user, logout } = useAuth();
   useNotificationStream(user?.guestConferenceId ? undefined : user?.id);
+  const personal = usePersonalRealtime(
+    user?.guestConferenceId ? undefined : user?.id,
+  );
   const capabilities = useCapabilities();
   const navigate = useNavigate();
   const location = useLocation();
@@ -157,6 +163,7 @@ export function Layout() {
   const items = [
     { to: "/app", label: "Главная", Icon: Home, end: true },
     { to: "/conferences", label: "Встречи", Icon: Video },
+    { to: "/personal", label: "Личные", Icon: MessageCircle },
     { to: "/calendar", label: "Календарь", Icon: CalendarDays },
     { to: "/recordings", label: "Записи", Icon: CirclePlay },
     { to: "/history", label: "История", Icon: History },
@@ -174,6 +181,24 @@ export function Layout() {
   ];
   return (
     <AccountSettingsContext.Provider value={showAccountSettings}>
+      {personal.notice && (
+        <div className="personal-notice" role="status">
+          <Link
+            to={`/personal/${personal.notice.id}`}
+            onClick={personal.dismiss}
+          >
+            <strong>{personal.notice.name}</strong>
+            <span>{personal.notice.text}</span>
+          </Link>
+          <button
+            className="icon-button"
+            aria-label="Закрыть уведомление о сообщении"
+            onClick={personal.dismiss}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
       <div className="app-shell" inert={settingsOpen || settingsRouteOpen}>
         <a className="skip-link" href="#workspace-main">
           Перейти к содержимому
@@ -212,6 +237,14 @@ export function Layout() {
               >
                 <Icon size={18} aria-hidden="true" />
                 {label}
+                {to === "/personal" && personal.unread > 0 && (
+                  <span
+                    className="count-badge"
+                    aria-label={`${personal.unread} непрочитанных личных сообщений`}
+                  >
+                    {personal.unread}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -331,6 +364,13 @@ export function Layout() {
             <NavLink to="/app" end aria-label="Главная — быстрая навигация">
               <Home size={20} />
               Главная
+            </NavLink>
+            <NavLink
+              to="/personal"
+              aria-label={`Личные — быстрая навигация${personal.unread ? `, непрочитанных: ${personal.unread}` : ""}`}
+            >
+              <MessageCircle size={20} />
+              Личные
             </NavLink>
             <NavLink to="/calendar" aria-label="Календарь — быстрая навигация">
               <CalendarDays size={20} />

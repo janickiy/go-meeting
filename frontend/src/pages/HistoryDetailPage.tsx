@@ -15,11 +15,6 @@ const AnalyticsPanel = lazy(() =>
     default: module.AnalyticsPanel,
   })),
 );
-const ChatPanel = lazy(() =>
-  import("../components/ChatPanel").then((module) => ({
-    default: module.ChatPanel,
-  })),
-);
 const RecordingPanel = lazy(() =>
   import("../components/RecordingPanel").then((module) => ({
     default: module.RecordingPanel,
@@ -31,7 +26,6 @@ const sections = [
   ["recording", "Запись"],
   ["transcript", "Расшифровка"],
   ["summary", "Итоги ИИ"],
-  ["chat", "Чат"],
   ["analytics", "Аналитика"],
 ] as const;
 type Section = (typeof sections)[number][0];
@@ -58,7 +52,6 @@ export function HistoryDetailPage() {
     if (value === "transcript") return features?.transcription === true;
     if (value === "summary") return features?.aiSummary === true;
     if (value === "analytics") return features?.meetingAnalytics === true;
-    if (value === "chat") return history.data?.item.chatAvailable === true;
     return true;
   });
   const section: Section = visibleSections.some(
@@ -128,6 +121,11 @@ export function HistoryDetailPage() {
             </span>
           </p>
         </div>
+        {item.chatAvailable && (
+          <Link className="button button-secondary" to={`/conferences/${id}`}>
+            Открыть чат в конференции
+          </Link>
+        )}
       </section>
       <div
         className="insight-tabs history-tabs"
@@ -236,16 +234,6 @@ export function HistoryDetailPage() {
               membership={membership.data || undefined}
               showInsights
             />
-          )}
-          {section === "chat" && item.chatAvailable && membership.data && (
-            <ChatPanel
-              conferenceId={id}
-              membership={membership.data}
-              readOnly
-            />
-          )}
-          {section === "chat" && !item.chatAvailable && (
-            <p className="content-card">Чат для этой встречи недоступен.</p>
           )}
           {section === "analytics" && (
             <AnalyticsPanel conferenceId={id} active={false} />

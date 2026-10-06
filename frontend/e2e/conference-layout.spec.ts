@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import type { PresenceParticipant } from "../src/types";
 
@@ -111,6 +112,7 @@ async function fixture(
     }
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     const respond = (data: unknown) => route.fulfill({ json: data });
     if (
       (method === "GET" && path === "/auth/me") ||

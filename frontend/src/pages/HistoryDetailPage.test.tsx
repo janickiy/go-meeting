@@ -103,13 +103,10 @@ describe("история встречи", () => {
     expect(
       await screen.findByText("Материалы записи загружены"),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Чат" }));
+    expect(screen.queryByRole("tab", { name: "Чат" })).toBeNull();
     expect(
-      await screen.findByText("История чата загружена"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Материалы записи загружены"),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Открыть чат в конференции" }),
+    ).toHaveAttribute("href", "/conferences/room");
   });
 
   it("не открывает выключенные вкладки из глубокой ссылки", async () => {

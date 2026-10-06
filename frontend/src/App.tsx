@@ -16,6 +16,12 @@ import { Link } from "react-router";
 import { CalendarCallback } from "./components/IntegrationsSettings";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
 
+const PersonalPage = lazy(() =>
+  import("./pages/PersonalPage").then((module) => ({
+    default: module.PersonalPage,
+  })),
+);
+
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
 );
@@ -218,6 +224,8 @@ export function App() {
       <Route element={<Protected />}>
         <Route element={<Layout />}>
           <Route path="/app" element={<Dashboard />} />
+          <Route path="/personal" element={<PersonalPage />} />
+          <Route path="/personal/:id" element={<PersonalPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/meetings" element={<Dashboard all />} />

@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import type { ConferenceRecording, PresenceParticipant } from "../src/types";
 
@@ -127,6 +128,7 @@ async function notificationFixture(
     }
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     const respond = (json: unknown, status = 200) =>
       route.fulfill({ status, json });
     if (["/auth/session", "/auth/refresh"].includes(path))

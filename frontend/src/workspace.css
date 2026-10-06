@@ -664,7 +664,8 @@ body {
     place-items: center;
     gap: 4px;
     min-height: 44px;
-    min-width: 64px;
+    min-width: 0;
+    flex: 1;
     font: inherit;
     font-size: calc(10px * var(--text-scale));
   }

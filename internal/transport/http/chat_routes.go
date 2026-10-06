@@ -17,6 +17,10 @@ import (
 //   - authentication (gin.HandlerFunc): значение authentication типа gin.HandlerFunc, используемое согласно назначению этой операции.
 //   - limiter (httpmiddleware.Limiter): ограничитель частоты запросов, общий для экземпляров API.
 func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentication gin.HandlerFunc, limiter httpmiddleware.Limiter) {
+	registerMessageRoutes(router, handler, authentication, limiter, "conferences")
+}
+
+func registerMessageRoutes(router gin.IRouter, handler *chatapp.Handler, authentication gin.HandlerFunc, limiter httpmiddleware.Limiter, namespace string, checks ...gin.HandlerFunc) {
 	// Вложенный обработчик выполняет выделенный шаг обработки в постоянном чате и приватных вложениях, используя состояние окружающей функции.
 	//
 	// @args
@@ -31,7 +35,7 @@ func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentica
 		}
 		return httpmiddleware.UserID(c) + ":" + id.String()
 	}
-	path := APIV1Prefix + "/conferences/:id"
+	path := APIV1Prefix + "/" + namespace + "/:id"
 	rules := []httpmiddleware.Rule{}
 	for _, rule := range []struct {
 		method, suffix, scope string
@@ -41,7 +45,7 @@ func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentica
 		{"GET", "/chat/read", "chat_read_state", 120}, {"PUT", "/chat/read", "chat_mark_read", 30},
 		{"POST", "/attachments/init", "chat_upload_init", 10}, {"PUT", "/attachments/:attachmentId/content", "chat_upload", 10}, {"POST", "/attachments/:attachmentId/finalize", "chat_upload_finalize", 20}, {"GET", "/attachments/:attachmentId/download", "chat_download", 60},
 	} {
-		rules = append(rules, httpmiddleware.Rule{Method: rule.method, Path: path + rule.suffix, Scope: rule.scope, Limit: rule.limit, Window: time.Minute, Key: key})
+		rules = append(rules, httpmiddleware.Rule{Method: rule.method, Path: path + rule.suffix, Scope: namespace + ":" + rule.scope, Limit: rule.limit, Window: time.Minute, Key: key})
 	}
 	// Вложенный обработчик выполняет выделенный шаг обработки в постоянном чате и приватных вложениях, используя состояние окружающей функции.
 	//
@@ -52,7 +56,10 @@ func RegisterChatRoutes(router gin.IRouter, handler *chatapp.Handler, authentica
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Next()
 	}
-	routes := router.Group(APIV1Prefix+"/conferences", private, authentication, httpmiddleware.RateLimit(limiter, httpmiddleware.RateLimitConfig{Enabled: limiter != nil, Rules: rules}))
+	handlers := []gin.HandlerFunc{private, authentication}
+	handlers = append(handlers, checks...)
+	handlers = append(handlers, httpmiddleware.RateLimit(limiter, httpmiddleware.RateLimitConfig{Enabled: limiter != nil, Rules: rules}))
+	routes := router.Group(APIV1Prefix+"/"+namespace, handlers...)
 	routes.GET("/:id/messages", handler.List)
 	routes.POST("/:id/messages", handler.Send)
 	routes.PATCH("/:id/messages/:messageId", handler.Edit)

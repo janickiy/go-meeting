@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
 import type {
   ChatMessage,
@@ -115,6 +116,7 @@ async function fixture(page: Page) {
   });
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace("/api/v1", "");
+    if (await personalBackground(route, path)) return;
     const respond = (data: unknown) => route.fulfill({ json: data });
     if (["/auth/session", "/auth/refresh"].includes(path))
       return respond({

@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import axe from "axe-core";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { NotificationPreferences, User } from "../src/types";
@@ -85,6 +86,7 @@ async function accountFixture(page: Page): Promise<FixtureState> {
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     const method = request.method();
     const entry = `${method} ${path}`;
     state.requests.push(entry);

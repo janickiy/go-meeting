@@ -20,6 +20,7 @@ import (
 	engagementapp "github.com/janickiy/go-recorder/internal/app/engagement"
 	integrationsapp "github.com/janickiy/go-recorder/internal/app/integrations"
 	notificationsapp "github.com/janickiy/go-recorder/internal/app/notifications"
+	personalapp "github.com/janickiy/go-recorder/internal/app/personal"
 	platformapp "github.com/janickiy/go-recorder/internal/app/platform"
 	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
@@ -41,6 +42,7 @@ import (
 	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
 	mediausecase "github.com/janickiy/go-recorder/internal/usecase/media"
 	notificationsusecase "github.com/janickiy/go-recorder/internal/usecase/notifications"
+	personalusecase "github.com/janickiy/go-recorder/internal/usecase/personal"
 	platformusecase "github.com/janickiy/go-recorder/internal/usecase/platform"
 	realtimeusecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
 	"github.com/janickiy/go-recorder/internal/usecase/recorder"
@@ -145,6 +147,16 @@ func RunAPI() error {
 	if err != nil {
 		return fmt.Errorf("chat initialization: %w", err)
 	}
+	personalRepository := postgresinfra.NewPersonalRepository(db)
+	personalEvents := &personalusecase.Events{Members: personalRepository, Bus: notificationBus}
+	personalChat, err := chatusecase.NewService(context.Background(), postgresinfra.NewDirectChatRepository(db), s3Client, personalEvents)
+	if err != nil {
+		return fmt.Errorf("personal chat initialization: %w", err)
+	}
+	globalWS := wstransport.NewUserHandler(authService, redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace+":user-ws"), rateLimiter, realtimeConfig, notificationBus, redisinfra.NewUserPresence(redisClient, realtimeConfig.Namespace, realtimeConfig.SessionTTL), personalRepository)
+	defer globalWS.Shutdown()
+	globalWS.RegisterRoutes(router)
+	httptransport.RegisterPersonalRoutes(router, &personalapp.Handler{Repo: personalRepository, Events: personalEvents}, chatapp.NewHandler(personalChat).ForConversations(), httpmiddleware.Authenticate(authService), rateLimiter)
 	mediaTickets, err := security.NewMediaTickets(mediaConfig.TicketSecret, mediaConfig.TicketTTL)
 	if err != nil {
 		return err
@@ -166,7 +178,7 @@ func RunAPI() error {
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(authService))
 	httptransport.RegisterChatRoutes(router, chatapp.NewHandler(chatService), httpmiddleware.Authenticate(authService), rateLimiter)
 	notificationHandler := notificationsapp.NewHandler(notificationService, notificationBus, authService, rateLimiter, realtimeConfig.Namespace)
-	ops.ConfigureDrain(notificationHandler.BeginDrain, hub.LocalCount)
+	ops.ConfigureDrain(func() { notificationHandler.BeginDrain(); globalWS.BeginDrain(true) }, func() int { return hub.LocalCount() + globalWS.LocalCount() })
 	httptransport.RegisterNotificationRoutes(router, notificationHandler, httpmiddleware.Authenticate(authService))
 	httptransport.RegisterEngagementRoutes(router, engagementapp.NewHandler(engagementService, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(authService))
 	product, err := newProductServices(cfg, db, s3Client)
@@ -193,6 +205,7 @@ func RunAPI() error {
 	go recordingCommands.Run(ctx)
 	go recorder.RunRetention(ctx, repository, s3Client)
 	go chatService.Run(ctx)
+	go personalChat.Run(ctx)
 	go notificationService.Run(ctx)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.APIPort))
 	if err != nil {

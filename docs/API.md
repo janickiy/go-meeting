@@ -12,6 +12,7 @@
 | --- | --- | --- |
 | Аккаунты, JWT, встречи, приглашения | [auth-conferences-api.md](auth-conferences-api.md) | [platform_routes.go](../internal/transport/http/platform_routes.go) |
 | Присутствие, WS tickets, конверт событий и reconnect | [realtime.md](realtime.md) | [WebSocket transport](../internal/transport/websocket), [realtime config](../internal/config/realtime.go) |
+| Личные сообщения, поиск собеседников, account WS | [PERSONAL_MESSAGES.md](PERSONAL_MESSAGES.md) | [personal routes](../internal/transport/http/personal_routes.go), [account WS](../internal/transport/websocket/user_handler.go) |
 | SFU, `media.*`, ICE/TURN, внутреннее управление | [media-sfu.md](media-sfu.md) | [mediaworker transport](../internal/transport/mediaworker), [TURN config](../internal/config/turn.go) |
 | Запись, модерация, экран, recorder egress | [conference-recording.md](conference-recording.md) | [recording routes](../internal/transport/http/conference_recording_routes.go), [record models](../internal/domain/records/models.go) |
 | Зал ожидания, расписание, чат, вложения, реакции, история, уведомления | [collaboration.md](collaboration.md) | [HTTP routes](../internal/transport/http), [chat routes и лимиты](../internal/transport/http/chat_routes.go) |
@@ -32,7 +33,11 @@ WebSocket: клиент получает одноразовый билет дл�
 открывает `/api/v1/conferences/{id}/ws`; небраузерный клиент может использовать
 Bearer-заголовок. Нельзя журналировать query с билетом. При reconnect клиент
 получает свежий снимок, поскольку Redis Pub/Sub не обеспечивает историю доставки.
-Уведомления используют авторизованный fetch-SSE `/api/v1/notifications/events`.
+Личные сообщения получают отдельный account ticket через `POST /api/v1/ws-ticket`
+и `/api/v1/ws?ticket=…`; постоянный JWT не передаётся в URL.
+Уведомления используют авторизованный fetch-SSE `/api/v1/notifications/events`;
+account WS также подписан на общий персональный канал, но frontend оставляет
+обработку уведомлений в SSE, чтобы не создавать второй toast.
 
 Низкоуровневый legacy recorder `/api/v1/records*` не является контрактом записи
 платформенной встречи и не даёт доступа к её строкам/артефактам. Для интерфейса

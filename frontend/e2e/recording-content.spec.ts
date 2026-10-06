@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Page } from "@playwright/test";
 
 const now = "2026-10-02T09:00:00Z";
@@ -68,6 +69,7 @@ async function mockStageSeven(page: Page, disabled = false) {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.replace("/api/v1", "");
+    if (await personalBackground(route, path)) return;
     const reply = (body: unknown) =>
       route.fulfill({
         status: 200,

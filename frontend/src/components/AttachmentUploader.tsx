@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { Paperclip, X } from "lucide-react";
-import { api, errorMessage, uploadAttachment } from "../api";
+import {
+  api,
+  errorMessage,
+  uploadAttachment,
+  type ChatTransport,
+} from "../api";
 import { formatBytes } from "../collaboration";
 import type { ChatAttachment } from "../types";
 import { Button, ErrorNotice } from "./ui";
@@ -54,6 +59,7 @@ interface UploadRow {
  */
 export function AttachmentUploader({
   conferenceId,
+  transport = api,
   value,
   onChange,
   onBusy,
@@ -62,6 +68,7 @@ export function AttachmentUploader({
   detailsTarget,
 }: {
   conferenceId: string;
+  transport?: ChatTransport;
   value: ChatAttachment[];
   onChange: Dispatch<SetStateAction<ChatAttachment[]>>;
   onBusy: /**
@@ -172,7 +179,7 @@ export function AttachmentUploader({
     controllers.current.set(row.key, controller);
     update(row.key, { state: "uploading", progress: 0, error: undefined });
     try {
-      const result = await api.initAttachment(conferenceId, {
+      const result = await transport.initAttachment(conferenceId, {
         clientRequestId: row.key,
         filename: row.file.name,
         size: row.file.size,
@@ -195,7 +202,7 @@ export function AttachmentUploader({
           controller.signal,
         );
       if (controller.signal.aborted) return;
-      const finalized = await api.finalizeAttachment(
+      const finalized = await transport.finalizeAttachment(
         conferenceId,
         result.item.id,
       );

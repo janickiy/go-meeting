@@ -197,3 +197,13 @@ Stage 1 PostgreSQL suite проверил прежние REST permissions, тр�
 Следующая отдельная работа — media-worker, Pion Room Manager, server-side PeerConnections и track routing, сначала для двух пользователей, затем multi-user SFU. Hub и connection identity уже могут служить signaling transport, но media-worker должен иметь собственные lifecycle и permissions, не переиспользовать browser recorder session как room.
 
 До production также нужны TURN deployment с временными credentials, reconnect/recovery брокера и health/readiness realtime, целевые media load tests и coalescing/delta presence при больших конференциях. Третий этап не выполняется автоматически.
+
+## Account WebSocket личных сообщений
+
+Дополнительно к conference WS есть независимый `POST /api/v1/ws-ticket` →
+`GET /api/v1/ws?ticket=…`. Он разрешён зарегистрированным аккаунтам, подписан
+на персональный Redis channel и передаёт `message.*`, `conversation.*`,
+`user.presence`, а также существующие notification events. Presence учитывает
+каждую физическую вкладку с TTL и временем Redis. Конференционное presence,
+signaling и Pion остаются в conference WS. Контракт билета, событий, cleanup
+и постоянной сессии: [PERSONAL_MESSAGES.md](PERSONAL_MESSAGES.md).

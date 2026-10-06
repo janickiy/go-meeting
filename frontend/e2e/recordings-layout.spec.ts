@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -134,8 +135,13 @@ async function recordingsFixture(
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     requests.push(path);
-    if (request.method() !== "GET") mutations.push(path);
+    if (
+      request.method() !== "GET" &&
+      !["/auth/session", "/auth/refresh"].includes(path)
+    )
+      mutations.push(path);
     const respond = (data: unknown, status = 200) =>
       route.fulfill({ status, json: data });
     if (

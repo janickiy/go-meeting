@@ -409,7 +409,8 @@ export interface ChatAttachment {
 export interface ChatMessage {
   id: string;
   sequence: string;
-  conferenceId: string;
+  conferenceId?: string;
+  conversationId?: string;
   senderId: string;
   senderName: string;
   text: string;
@@ -688,4 +689,22 @@ export interface AdminSummary {
   mediaWorkerReady: boolean;
   dependencies: Record<string, boolean>;
   recentFailures: { kind: string; code: string; at: string }[];
+}
+
+export interface PersonalPeer {
+  id: string;
+  displayName: string;
+}
+export interface PersonalConversation {
+  id: string;
+  type: "direct";
+  peer: PersonalPeer;
+  createdAt: string;
+  lastMessageAt: string | null;
+  lastMessageId: string | null;
+  preview: string;
+  unreadCount: number;
+}
+export interface PersonalPage extends CursorItems<PersonalConversation> {
+  unreadCount: number;
 }

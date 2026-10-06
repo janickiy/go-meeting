@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const person = {
@@ -31,6 +32,7 @@ async function fixture(context: BrowserContext, baseURL: string) {
   await context.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     const method = request.method();
     state.requests.push(`${method} ${path}`);
     const reply = (

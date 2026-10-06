@@ -15,7 +15,10 @@ import (
 
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.
 //   - service: значение service типа *chatusecase.Service, используемое согласно назначению этой операции.
-type Handler struct{ service *chatusecase.Service }
+type Handler struct {
+	service   *chatusecase.Service
+	namespace string
+}
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в постоянном чате и приватных вложениях.
 //
@@ -24,7 +27,9 @@ type Handler struct{ service *chatusecase.Service }
 //
 // @return:
 //   - результат 1 (*Handler): созданный компонент с переданными зависимостями.
-func NewHandler(service *chatusecase.Service) *Handler { return &Handler{service: service} }
+func NewHandler(service *chatusecase.Service) *Handler {
+	return &Handler{service: service, namespace: "conferences"}
+}
 
 // parameter проверяет обязательный параметр HTTP-маршрута перед прикладной операцией.
 //
@@ -201,7 +206,7 @@ func (h *Handler) InitAttachment(c *gin.Context) {
 	if created {
 		status = http.StatusCreated
 	}
-	c.JSON(status, gin.H{"status": "success", "item": item, "uploadUrl": "/api/v1/conferences/" + id + "/attachments/" + item.ID + "/content"})
+	c.JSON(status, gin.H{"status": "success", "item": item, "uploadUrl": "/api/v1/" + h.namespace + "/" + id + "/attachments/" + item.ID + "/content"})
 }
 
 // Upload принимает ограниченное тело загрузки, проверяет содержимое и сохраняет объект действующей попытки.
@@ -276,3 +281,6 @@ func (h *Handler) Download(c *gin.Context) {
 	c.Header("Cache-Control", "private, no-store")
 	c.JSON(http.StatusOK, gin.H{"status": "success", "url": url, "expiresAt": expires})
 }
+
+// ForConversations preserves the shared HTTP/file flow with a distinct public scope.
+func (h *Handler) ForConversations() *Handler { h.namespace = "conversations"; return h }

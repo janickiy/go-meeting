@@ -113,7 +113,7 @@ func (c *Client) AttachmentDownloadURL(ctx context.Context, key, filename string
 // @return:
 //   - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (c *Client) CleanAttachmentObjects(ctx context.Context, prefix, keep string) error {
-	parts := strings.Split(strings.TrimSuffix(prefix, "/"), "/")
+	parts := attachmentParts(strings.TrimSuffix(prefix, "/"))
 	if len(parts) != 3 || parts[0] != "attachments" || !attachmentID(parts[1]) || !attachmentID(parts[2]) || !strings.HasSuffix(prefix, "/") || (keep != "" && (!attachmentKey(keep) || !strings.HasPrefix(keep, prefix))) {
 		return fmt.Errorf("invalid attachment cleanup prefix")
 	}
@@ -151,6 +151,15 @@ func attachmentID(value string) bool {
 // @return:
 //   - результат 1 (bool): признак выполнения проверяемого условия или изменения состояния.
 func attachmentKey(key string) bool {
-	parts := strings.Split(key, "/")
+	parts := attachmentParts(key)
 	return len(parts) == 4 && parts[0] == "attachments" && attachmentID(parts[1]) && attachmentID(parts[2]) && attachmentID(parts[3])
+}
+
+// Direct files have a distinct prefix; both scopes still require canonical UUIDs.
+func attachmentParts(key string) []string {
+	parts := strings.Split(key, "/")
+	if len(parts) > 1 && parts[1] == "direct" {
+		parts = append(parts[:1], parts[2:]...)
+	}
+	return parts
 }

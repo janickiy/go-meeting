@@ -207,10 +207,8 @@ func (s *Service) Logout(ctx context.Context, raw, access string) error {
 		if err == nil && sessionID != "" {
 			return s.sessions.RevokeByID(ctx, sessionID, userID)
 		}
-		if err == nil {
-			if scope == "" {
-				return s.sessions.RevokeLegacy(ctx, sessionHash(access), userID)
-			}
+		if err == nil && scope == "" {
+			return s.sessions.RevokeLegacy(ctx, sessionHash(access), userID)
 		}
 	}
 	return nil

@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Page } from "@playwright/test";
 import type { Conference } from "../src/types";
 
@@ -75,6 +76,7 @@ async function installCalendarFixture(page: Page, owner = true) {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.replace("/api/v1", "");
+    if (await personalBackground(route, path)) return;
     requests.push(`${request.method()} ${path}`);
     const respond = (body: unknown, status = 200) =>
       route.fulfill({

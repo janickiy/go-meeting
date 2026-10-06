@@ -9,7 +9,8 @@ TanStack Query, Lucide и локальные шрифты Inter. Новых runt
 `main.tsx` устанавливает провайдеры авторизации, QueryClient, Router и общий
 ErrorBoundary. `App.tsx` содержит маршруты и ленивые импорты страниц.
 `components/Layout.tsx` отвечает только за общую навигацию, поиск, профиль и
-уведомления; не создаёт дополнительный WebSocket или медиасоединение.
+уведомления; создаёт account WebSocket личных сообщений через
+`usePersonalRealtime`, не создавая медиасоединение.
 
 Иерархия комнаты: `ConferencePage` → `RealtimePanel` → memoized `MediaTile`,
 `ParticipantsPanel`, ленивые `ChatPanel`/`RecordingPanel`, диалоги приглашения и
@@ -23,6 +24,7 @@ ErrorBoundary. `App.tsx` содержит маршруты и ленивые и�
 | --- | --- |
 | `/`, `/login`, `/register`, `/register/success` | Приветствие и email/password авторизация |
 | `/app`, `/meetings`, `/conferences` | Главная и фильтрованный список встреч |
+| `/personal`, `/personal/:id` | Личные переписки; общий MessageThread/AttachmentUploader |
 | `/calendar` | Предстоящие запланированные встречи: неделя, месяц, мобильный список |
 | `/conferences/new`, `/meetings/new`; диалог на главной | Создание/планирование и переход по ссылке |
 | `/i/:code` | Приглашение с сохранением назначения после входа |
@@ -59,6 +61,9 @@ ErrorBoundary. `App.tsx` содержит маршруты и ленивые и�
   у владельца media lifecycle.
 - Prejoin получает устройства только после явного действия, освобождает preview
   при выходе. Native `getDisplayMedia` показывает системный выбор окна/экрана.
+- `personalRealtime.ts` создаёт account WS с одноразовым билетом, восстановлением
+  истории при reconnect, ограниченным окном дедупликации и очисткой при logout.
+  Контракты: [PERSONAL_MESSAGES.md](PERSONAL_MESSAGES.md).
 - `useNotificationStream` создаёт одну SSE-подписку оболочки. Тяжёлые room/history
   панели загружаются по требованию; transcript/segments/summary не запрашиваются
   заранее, если соответствующая вкладка не открыта.

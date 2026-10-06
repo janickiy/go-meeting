@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Page } from "@playwright/test";
 
 const createdAt = "2026-10-02T10:00:00Z";
@@ -61,6 +62,7 @@ async function visualFixture(page: Page) {
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     const reply = (value: unknown, status = 200) =>
       route.fulfill({
         status,

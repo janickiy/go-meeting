@@ -46,7 +46,8 @@ const (
 type Message struct {
 	ID                 string        `json:"id" gorm:"type:uuid;primaryKey"`
 	Sequence           int64         `json:"sequence,string" gorm:"autoIncrement"`
-	ConferenceID       string        `json:"conferenceId"`
+	ConferenceID       string        `json:"conferenceId,omitempty"`
+	ConversationID     string        `json:"conversationId,omitempty"`
 	SenderID           string        `json:"senderId" gorm:"column:sender_user_id"`
 	SenderName         string        `json:"senderName" gorm:"->;-:migration"`
 	ClientRequestID    string        `json:"clientRequestId"`
@@ -102,7 +103,8 @@ type ReplyPreview struct {
 //	 - ExpiresAt: момент окончания действия сессии, токена или аренды.
 type Attachment struct {
 	ID               string     `json:"id" gorm:"type:uuid;primaryKey"`
-	ConferenceID     string     `json:"conferenceId"`
+	ConferenceID     string     `json:"conferenceId,omitempty"`
+	ConversationID   string     `json:"conversationId,omitempty"`
 	OwnerID          string     `json:"ownerId" gorm:"column:owner_user_id"`
 	ClientRequestID  string     `json:"clientRequestId"`
 	Filename         string     `json:"filename"`
@@ -131,7 +133,12 @@ func (Attachment) TableName() string { return "chat_attachments" }
 //
 // @return:
 //   - результат 1 (string): значение, подготовленное операцией для вызывающей стороны.
-func (a Attachment) Prefix() string { return "attachments/" + a.ConferenceID + "/" + a.ID + "/" }
+func (a Attachment) Prefix() string {
+	if a.ConversationID != "" {
+		return "attachments/direct/" + a.ConversationID + "/" + a.ID + "/"
+	}
+	return "attachments/" + a.ConferenceID + "/" + a.ID + "/"
+}
 
 // SendRequest передаёт текст, ссылку ответа и идентификаторы вложений вместе с ключом повторной отправки.
 // @params:

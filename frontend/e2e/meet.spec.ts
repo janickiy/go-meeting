@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { test, expect, type Page } from "@playwright/test";
 import type { Conference, Participant, User } from "../src/types";
 
@@ -120,6 +121,7 @@ async function mockApi(
       const request = route.request();
       const url = new URL(request.url());
       const path = url.pathname.replace("/api/v1", "");
+      if (await personalBackground(route, path)) return;
       const post = request.method() === "POST";
       /**
        * respond возвращает подготовленный ответ перехваченному запросу теста.
@@ -397,18 +399,20 @@ test("landing, login, registration and success match the reference at desktop si
   ).toBeVisible();
   const hero = page.getByRole("img");
   await expect(hero).toBeVisible();
-  expect(
-    await hero.evaluate(
-      /**
-       * Обработчик hero.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
-       *
-       * @args
-       *   - node — DOM-элемент, к которому привязывается медиапоток.
-       *
-       * @returns вычисленное значение: (node as HTMLImageElement).naturalWidth.
-       */ (node) => (node as HTMLImageElement).naturalWidth,
-    ),
-  ).toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      hero.evaluate(
+        /**
+         * Обработчик hero.evaluate выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
+         *
+         * @args
+         *   - node — DOM-элемент, к которому привязывается медиапоток.
+         *
+         * @returns вычисленное значение: (node as HTMLImageElement).naturalWidth.
+         */ (node) => (node as HTMLImageElement).naturalWidth,
+      ),
+    )
+    .toBeGreaterThan(0);
   await noOverflow(page);
   await page.screenshot({
     path: info.outputPath("01-landing.png"),

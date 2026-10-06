@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api, errorMessage } from "../api";
+import { api, errorMessage, type ChatTransport } from "../api";
 import { useAuth } from "../auth";
 import { mergeChatPages, formatBytes } from "../collaboration";
 import {
@@ -47,6 +47,34 @@ export function ChatPanel({
   readOnly: boolean;
   readOnlyReason?: string;
 }) {
+  return (
+    <MessageThread
+      scopeId={conferenceId}
+      transport={api}
+      mayModerate={["owner", "co_host"].includes(membership.role)}
+      readOnly={readOnly}
+      readOnlyReason={readOnlyReason}
+    />
+  );
+}
+
+export function MessageThread({
+  scopeId,
+  transport,
+  mayModerate = false,
+  readOnly = false,
+  readOnlyReason,
+  personal = false,
+}: {
+  scopeId: string;
+  transport: ChatTransport;
+  mayModerate?: boolean;
+  readOnly?: boolean;
+  readOnlyReason?: string;
+  personal?: boolean;
+}) {
+  const historyKey = personal ? "personal-chat" : "chat";
+  const readKey = personal ? "personal-chat-read" : "chat-read";
   const { user } = useAuth();
   const client = useQueryClient();
   const [open, setOpen] = useState(true);
@@ -75,6 +103,9 @@ export function ChatPanel({
   const lastMarker = useRef<HTMLSpanElement>(null);
   const markerVisible = useRef(false);
   const initialScroll = useRef(false);
+  const previousLatest = useRef<string | undefined>(undefined);
+  const olderAnchor = useRef<{ height: number; top: number } | null>(null);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
   const newestVisible = useRef(false);
   const [readCandidate, setReadCandidate] = useState<string | null>(null);
   const lastRead = useRef<string | null>(null);
@@ -90,16 +121,16 @@ export function ChatPanel({
   }, [download]);
 
   const query = useInfiniteQuery({
-    queryKey: ["chat", conferenceId, user?.id],
+    queryKey: [historyKey, scopeId, user?.id],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      api.messages(conferenceId, pageParam, signal),
+      transport.messages(scopeId, pageParam, signal),
     getNextPageParam: (last) => last.nextCursor || undefined,
     refetchInterval: 15000,
   });
   const read = useQuery({
-    queryKey: ["chat-read", conferenceId, user?.id],
-    queryFn: ({ signal }) => api.chatRead(conferenceId, signal),
+    queryKey: [readKey, scopeId, user?.id],
+    queryFn: ({ signal }) => transport.chatRead(scopeId, signal),
     refetchInterval: 15000,
   });
   const messages = mergeChatPages(query.data?.pages || []);
@@ -107,8 +138,8 @@ export function ChatPanel({
 
   /** Обновляет историю и счётчик непрочитанных сообщений после изменения на сервере. */
   const invalidate = () => {
-    void client.invalidateQueries({ queryKey: ["chat", conferenceId] });
-    void client.invalidateQueries({ queryKey: ["chat-read", conferenceId] });
+    void client.invalidateQueries({ queryKey: [historyKey, scopeId] });
+    void client.invalidateQueries({ queryKey: [readKey, scopeId] });
   };
   const send = useMutation({
     mutationFn: () => {
@@ -121,12 +152,13 @@ export function ChatPanel({
       // Неизменённое сообщение при повторе получает прежний ключ, поэтому сбой сети не создаёт дубль.
       if (retryRequest.current?.signature !== signature)
         retryRequest.current = { signature, id: crypto.randomUUID() };
-      return api.sendMessage(conferenceId, {
+      return transport.sendMessage(scopeId, {
         ...body,
         clientRequestId: retryRequest.current.id,
       });
     },
     onSuccess: () => {
+      newestVisible.current = true;
       setText("");
       setReply(null);
       setAttachments([]);
@@ -138,7 +170,7 @@ export function ChatPanel({
   });
   const edit = useMutation({
     mutationFn: () =>
-      api.editMessage(conferenceId, editing!.id, editText.trim()),
+      transport.editMessage(scopeId, editing!.id, editText.trim()),
     onSuccess: () => {
       setEditing(null);
       invalidate();
@@ -146,7 +178,7 @@ export function ChatPanel({
     onError: invalidate,
   });
   const remove = useMutation({
-    mutationFn: () => api.deleteMessage(conferenceId, deleting!.id),
+    mutationFn: () => transport.deleteMessage(scopeId, deleting!.id),
     onSuccess: () => {
       setDeleting(null);
       invalidate();
@@ -192,8 +224,18 @@ export function ChatPanel({
           : null,
       );
     };
-    if (!initialScroll.current || newestVisible.current)
+    if (olderAnchor.current && !query.isFetchingNextPage) {
+      element.scrollTop =
+        olderAnchor.current.top +
+        element.scrollHeight -
+        olderAnchor.current.height;
+      olderAnchor.current = null;
+    } else if (!initialScroll.current || newestVisible.current) {
       element.scrollTop = element.scrollHeight;
+      setHasNewMessages(false);
+    } else if (previousLatest.current && previousLatest.current !== latest)
+      setHasNewMessages(true);
+    previousLatest.current = latest;
     initialScroll.current = true;
     const observer =
       typeof IntersectionObserver === "undefined"
@@ -216,7 +258,7 @@ export function ChatPanel({
       document.removeEventListener("visibilitychange", observe);
       observer?.disconnect();
     };
-  }, [open, latest, messages.length]);
+  }, [open, latest, messages.length, query.isFetchingNextPage]);
 
   useEffect(() => {
     if (
@@ -249,12 +291,16 @@ export function ChatPanel({
         list.scrollHeight - list.scrollTop - list.clientHeight >= 40
       )
         return;
-      void api
-        .markChatRead(conferenceId, readCandidate)
+      void transport
+        .markChatRead(scopeId, readCandidate)
         .then(() => {
           lastRead.current = readCandidate;
+          if (personal) {
+            void client.invalidateQueries({ queryKey: ["personal-list"] });
+            void client.invalidateQueries({ queryKey: ["personal-summary"] });
+          }
           void client.invalidateQueries({
-            queryKey: ["chat-read", conferenceId],
+            queryKey: [readKey, scopeId],
           });
         })
         .catch(() => {});
@@ -264,8 +310,11 @@ export function ChatPanel({
     open,
     readCandidate,
     read.data?.item.lastReadMessageId,
-    conferenceId,
+    scopeId,
     client,
+    transport,
+    readKey,
+    personal,
   ]);
 
   /** Сохраняет выделение до перевода фокуса с редактора на кнопку палитры. */
@@ -326,7 +375,7 @@ export function ChatPanel({
   const prepareDownload = async (file: ChatAttachment) => {
     setDownloadError("");
     try {
-      const result = await api.attachmentDownload(conferenceId, file.id);
+      const result = await transport.attachmentDownload(scopeId, file.id);
       const url = new URL(result.url, window.location.origin);
       if (!["http:", "https:"].includes(url.protocol))
         throw new Error("invalid_download_url");
@@ -342,10 +391,12 @@ export function ChatPanel({
 
   const unread =
     read.data?.item.unreadCount ?? query.data?.pages[0]?.unreadCount ?? 0;
-  const mayModerate = ["owner", "co_host"].includes(membership.role);
   return (
-    <section className="content-card chat-panel" aria-label="Чат конференции">
-      <div className="section-heading chat-panel-heading">
+    <section
+      className={`content-card chat-panel ${personal ? "personal-thread" : ""}`}
+      aria-label={personal ? "Личная переписка" : "Чат конференции"}
+    >
+      <div className="section-heading chat-panel-heading" hidden={personal}>
         <h2>
           <MessageCircle size={20} />
           Чат{" "}
@@ -383,14 +434,26 @@ export function ChatPanel({
             ref={viewport}
             className="chat-messages"
             role="log"
-            aria-label="Сообщения встречи"
+            aria-label={personal ? "Личные сообщения" : "Сообщения встречи"}
             aria-live="polite"
           >
             {query.hasNextPage && (
               <Button
                 variant="outline"
                 busy={query.isFetchingNextPage}
-                onClick={() => void query.fetchNextPage()}
+                onClick={() => {
+                  const list = viewport.current;
+                  if (list) {
+                    olderAnchor.current = {
+                      height: list.scrollHeight,
+                      top: list.scrollTop,
+                    };
+                    newestVisible.current = false;
+                  }
+                  void query.fetchNextPage().catch(() => {
+                    olderAnchor.current = null;
+                  });
+                }}
               >
                 Предыдущие сообщения
               </Button>
@@ -548,6 +611,18 @@ export function ChatPanel({
             />
           </div>
         )}
+        {hasNewMessages && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              const list = viewport.current;
+              if (list) list.scrollTop = list.scrollHeight;
+              setHasNewMessages(false);
+            }}
+          >
+            Новые сообщения ↓
+          </Button>
+        )}
         <ErrorNotice error={downloadError || null} />
         {!readOnly && (
           <form
@@ -584,7 +659,8 @@ export function ChatPanel({
             <div className="chat-compose-row">
               <AttachmentUploader
                 key={composerGeneration}
-                conferenceId={conferenceId}
+                conferenceId={scopeId}
+                transport={transport}
                 value={attachments}
                 onChange={setAttachments}
                 onBusy={setUploadBusy}
@@ -594,13 +670,13 @@ export function ChatPanel({
               />
               <label
                 className="chat-compose-field"
-                htmlFor={`chat-text-${conferenceId}`}
+                htmlFor={`chat-text-${scopeId}`}
               >
                 <span className="sr-only">Сообщение</span>
                 <textarea
                   ref={composer}
                   aria-label="Сообщение"
-                  id={`chat-text-${conferenceId}`}
+                  id={`chat-text-${scopeId}`}
                   value={text}
                   rows={1}
                   placeholder="Напишите сообщение…"

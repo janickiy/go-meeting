@@ -113,7 +113,7 @@ try:
       'postgres':['docker','exec',names['postgres'],'pg_isready','-U','p1audit','-d','p1audit'],
       'redis':['docker','exec',names['pod'],'redis-cli','ping'],
       'minio':['docker','exec',names['pod'],'wget','-q','-O','/dev/null','http://127.0.0.1:9000/minio/health/live'],
-      'rabbit':['docker','exec','--user','rabbitmq',names['rabbit'],'rabbitmq-diagnostics','-q','ping'],
+      'rabbit':['docker','exec','--user','rabbitmq',names['rabbit'],'rabbitmq-diagnostics','-q','check_port_connectivity'],
     }
     limit=time.monotonic()+75
     while probes and time.monotonic()<limit:

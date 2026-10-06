@@ -30,6 +30,9 @@ vi.mock("../auth", () => ({
   }),
 }));
 vi.mock("../notifications", () => ({ useNotificationStream: vi.fn() }));
+vi.mock("../personalRealtime", () => ({
+  usePersonalRealtime: () => ({ unread: 2, notice: null, dismiss: vi.fn() }),
+}));
 vi.mock("../useCapabilities", () => ({
   useCapabilities: () => ({
     data: { capabilities: { meetingAnalytics: adminState.analytics } },
@@ -90,6 +93,11 @@ describe("навигация приложения", () => {
     expect(
       screen.getByRole("link", { name: "Перейти к содержимому" }),
     ).toHaveAttribute("href", "#workspace-main");
+    expect(screen.getAllByRole("link", { name: /Личные/ })[0]).toHaveAttribute(
+      "href",
+      "/personal",
+    );
+    expect(screen.queryByRole("link", { name: "Чаты" })).toBeNull();
     expect(screen.getByRole("main")).toHaveAttribute("id", "workspace-main");
     expect(screen.getByRole("link", { name: "История" })).toHaveAttribute(
       "href",

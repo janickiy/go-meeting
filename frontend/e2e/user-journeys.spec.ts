@@ -1,3 +1,4 @@
+import { personalBackground } from "./helpers/personal-background";
 import { expect, test, type Page } from "@playwright/test";
 import type {
   Conference,
@@ -99,6 +100,7 @@ async function mockStage9(page: Page, options: MockOptions = {}) {
   await page.route("**/api/v1/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace(/^\/api\/v1/, "");
+    if (await personalBackground(route, path)) return;
     const method = request.method();
     requested.push(`${method} ${path}`);
     const respond = (body: unknown, status = 200) =>
