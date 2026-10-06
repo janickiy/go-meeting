@@ -173,7 +173,8 @@ func (r *ConferenceRepository) Timeline(ctx context.Context, userID string, quer
 	}
 	q := r.db.WithContext(ctx).Model(&conferences.Conference{}).
 		Joins("JOIN conference_participants p ON p.conference_id = conferences.id AND p.user_id = ?", userID).
-		Where("p.admission_state IN ('admitted','waiting')")
+		Where("p.admission_state IN ('admitted','waiting')").
+		Where("NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=conferences.id AND cp.user_id=? AND cp.left_at IS NOT NULL)", userID)
 	switch query.View {
 	case "upcoming":
 		q = q.Where("conferences.status IN ('created','scheduled')")

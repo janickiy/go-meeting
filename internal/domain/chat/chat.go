@@ -60,6 +60,7 @@ type Message struct {
 	UpdatedAt          time.Time     `json:"updatedAt"`
 	DeletedAt          *time.Time    `json:"deletedAt"`
 	Attachments        []Attachment  `json:"attachments" gorm:"-"`
+	Important          bool          `json:"important,omitempty" gorm:"-"`
 }
 
 // TableName возвращает точное имя таблицы для GORM, чтобы модель не зависела от автоматического образования имени.

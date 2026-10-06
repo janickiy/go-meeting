@@ -147,9 +147,11 @@ export function useNotificationStream(userId?: string) {
                 const notice = event.data.notification;
                 if (
                   event.type === "notification.created" &&
-                  ["conference.invited", "conference.soon"].includes(
-                    notice?.type || "",
-                  ) &&
+                  [
+                    "conference.invited",
+                    "conference.soon",
+                    "chat.message",
+                  ].includes(notice?.type || "") &&
                   Date.parse(notice?.createdAt || "") >= mountedAt - 5000
                 ) {
                   stopTone?.();
@@ -161,6 +163,15 @@ export function useNotificationStream(userId?: string) {
                 const conferenceId =
                   event.data.notification?.payload?.conferenceId;
                 if (typeof conferenceId === "string") {
+                  if (notice?.type === "chat.message") {
+                    void client.invalidateQueries({
+                      queryKey: ["chat", conferenceId],
+                    });
+                    void client.invalidateQueries({
+                      queryKey: ["chat-read", conferenceId],
+                    });
+                    continue;
+                  }
                   void client.invalidateQueries({
                     queryKey: ["membership", userId, conferenceId],
                   });

@@ -288,22 +288,13 @@ async function mockStageSeven(page: Page, disabled = false) {
   return writes;
 }
 
-test("Stage7: поиск открывает нужную запись, вкладки и временную метку", async ({
+test("Stage7: ссылка открывает нужную запись, вкладки и временную метку", async ({
   page,
 }, info) => {
   await mockStageSeven(page);
-  await page.goto("/app/search");
-  await page.getByLabel("Поисковый запрос").fill("выпуск");
-  await page.getByLabel("Где искать").selectOption("transcript");
-  await page.getByRole("button", { name: "Найти", exact: true }).click();
-  await expect(
-    page.getByText("Обсудили план выпуска и проверку качества."),
-  ).toBeVisible();
-  await page.screenshot({
-    path: info.outputPath("search.png"),
-    fullPage: true,
-  });
-  await page.getByRole("link", { name: "Открыть фрагмент записи" }).click();
+  await page.goto(
+    "/history/room?recording=record&tab=transcript&section=transcript&t=42500&segment=segment",
+  );
   await expect(page).toHaveURL(/\/history\/room\?/);
   const target = new URL(page.url());
   expect(Object.fromEntries(target.searchParams)).toMatchObject({

@@ -12,6 +12,7 @@ import {
   Pencil,
   Reply,
   Send,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -41,11 +42,15 @@ export function ChatPanel({
   membership,
   readOnly,
   readOnlyReason,
+  focusMessageId,
+  onLatest,
 }: {
   conferenceId: string;
   membership: Participant;
   readOnly: boolean;
   readOnlyReason?: string;
+  focusMessageId?: string;
+  onLatest?: () => void;
 }) {
   return (
     <MessageThread
@@ -54,6 +59,8 @@ export function ChatPanel({
       mayModerate={["owner", "co_host"].includes(membership.role)}
       readOnly={readOnly}
       readOnlyReason={readOnlyReason}
+      focusMessageId={focusMessageId}
+      onLatest={onLatest}
     />
   );
 }
@@ -65,6 +72,8 @@ export function MessageThread({
   readOnly = false,
   readOnlyReason,
   personal = false,
+  focusMessageId,
+  onLatest,
 }: {
   scopeId: string;
   transport: ChatTransport;
@@ -72,10 +81,14 @@ export function MessageThread({
   readOnly?: boolean;
   readOnlyReason?: string;
   personal?: boolean;
+  focusMessageId?: string;
+  onLatest?: () => void;
 }) {
   const historyKey = personal ? "personal-chat" : "chat";
   const readKey = personal ? "personal-chat-read" : "chat-read";
   const { user } = useAuth();
+  const mayBookmark = !personal && !!user && !user.guestConferenceId;
+  const focused = !personal && focusMessageId ? focusMessageId : undefined;
   const client = useQueryClient();
   const [open, setOpen] = useState(true);
   const [text, setText] = useState("");
@@ -121,10 +134,14 @@ export function MessageThread({
   }, [download]);
 
   const query = useInfiniteQuery({
-    queryKey: [historyKey, scopeId, user?.id],
+    queryKey: focused
+      ? [historyKey, scopeId, user?.id, "context", focused]
+      : [historyKey, scopeId, user?.id],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      transport.messages(scopeId, pageParam, signal),
+      focused && !pageParam
+        ? api.conferenceChatMessageContext(scopeId, focused, signal)
+        : transport.messages(scopeId, pageParam, signal),
     getNextPageParam: (last) => last.nextCursor || undefined,
     refetchInterval: 15000,
   });
@@ -166,6 +183,7 @@ export function MessageThread({
       selection.current = { start: 0, end: 0 };
       retryRequest.current = null;
       invalidate();
+      if (focused) onLatest?.();
     },
   });
   const edit = useMutation({
@@ -184,6 +202,16 @@ export function MessageThread({
       invalidate();
     },
     onError: invalidate,
+  });
+  const bookmark = useMutation({
+    mutationFn: (value: { messageId: string; important: boolean }) =>
+      api.setConferenceChatImportant(scopeId, value.messageId, value.important),
+    onSuccess: () => {
+      invalidate();
+      void client.invalidateQueries({
+        queryKey: ["conference-chat-pins", scopeId],
+      });
+    },
   });
 
   useEffect(() => {
@@ -230,6 +258,12 @@ export function MessageThread({
         element.scrollHeight -
         olderAnchor.current.height;
       olderAnchor.current = null;
+    } else if (!initialScroll.current && focused) {
+      const target = Array.from(
+        element.querySelectorAll<HTMLElement>("[data-testid]"),
+      ).find((node) => node.dataset.testid === `chat-message-${focused}`);
+      target?.scrollIntoView?.({ block: "center" });
+      target?.focus({ preventScroll: true });
     } else if (!initialScroll.current || newestVisible.current) {
       element.scrollTop = element.scrollHeight;
       setHasNewMessages(false);
@@ -258,7 +292,7 @@ export function MessageThread({
       document.removeEventListener("visibilitychange", observe);
       observer?.disconnect();
     };
-  }, [open, latest, messages.length, query.isFetchingNextPage]);
+  }, [open, latest, messages.length, query.isFetchingNextPage, focused]);
 
   useEffect(() => {
     if (
@@ -415,6 +449,12 @@ export function MessageThread({
         </Button>
       </div>
       <div className="chat-panel-body" hidden={!open}>
+        {focused && onLatest && (
+          <Button variant="outline" onClick={onLatest}>
+            К последним сообщениям
+          </Button>
+        )}
+        <ErrorNotice error={bookmark.error} />
         {readOnly && (
           <p className="field-hint chat-readonly-note">
             {readOnlyReason ||
@@ -476,8 +516,10 @@ export function MessageThread({
                       </div>
                     )}
                   <article
-                    className={`chat-message ${own ? "chat-message-own" : ""}`}
+                    className={`chat-message ${own ? "chat-message-own" : ""} ${message.id === focused ? "chat-message-focused" : ""}`}
                     data-testid={`chat-message-${message.id}`}
+                    tabIndex={message.id === focused ? -1 : undefined}
+                    aria-current={message.id === focused ? "true" : undefined}
                   >
                     {!own && (
                       <span className="chat-message-avatar" aria-hidden="true">
@@ -559,43 +601,70 @@ export function MessageThread({
                           </time>
                         </footer>
                       </div>
-                      {!readOnly && !message.deletedAt && (
+                      {!message.deletedAt && (!readOnly || mayBookmark) && (
                         <div className="chat-message-actions">
-                          <button
-                            type="button"
-                            disabled={send.isPending}
-                            onClick={() => {
-                              setReply(message);
-                              composer.current?.focus();
-                            }}
-                          >
-                            <Reply size={13} />
-                            Ответить
-                          </button>
-                          {own && (
+                          {mayBookmark && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditing(message);
-                                setEditText(message.text);
-                                edit.reset();
-                              }}
+                              aria-pressed={!!message.important}
+                              disabled={bookmark.isPending}
+                              onClick={() =>
+                                bookmark.mutate({
+                                  messageId: message.id,
+                                  important: !message.important,
+                                })
+                              }
                             >
-                              <Pencil size={13} />
-                              Изменить
+                              <Star
+                                size={13}
+                                fill={
+                                  message.important ? "currentColor" : "none"
+                                }
+                              />
+                              {message.important
+                                ? "Убрать из важных"
+                                : "В важные"}
                             </button>
                           )}
-                          {(own || mayModerate) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeleting(message);
-                                remove.reset();
-                              }}
-                            >
-                              <Trash2 size={13} />
-                              Удалить
-                            </button>
+                          {!readOnly && (
+                            <>
+                              <button
+                                type="button"
+                                disabled={send.isPending}
+                                onClick={() => {
+                                  setReply(message);
+                                  composer.current?.focus();
+                                }}
+                              >
+                                <Reply size={13} />
+                                Ответить
+                              </button>
+                              {own && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditing(message);
+                                    setEditText(message.text);
+                                    edit.reset();
+                                  }}
+                                >
+                                  <Pencil size={13} />
+                                  Изменить
+                                </button>
+                              )}
+                              {(own || mayModerate) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleting(message);
+                                    remove.reset();
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                  Удалить
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       )}

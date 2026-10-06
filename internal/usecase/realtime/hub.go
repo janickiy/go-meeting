@@ -663,7 +663,7 @@ func stateAllows(state domain.State, participantID string) bool {
 	}
 	for _, p := range state.Participants {
 		if p.ID == participantID {
-			return p.CanParticipate()
+			return p.CanParticipate() && !p.ChatLeft
 		}
 	}
 	return false
@@ -824,7 +824,7 @@ func (h *Hub) deliver(bus domain.Bus) {
 				return
 			}
 			for _, p := range roster {
-				ok := p.CanParticipate()
+				ok := p.CanParticipate() && !p.ChatLeft
 				if status == conferences.Finished || status == conferences.Cancelled {
 					ok = false
 				}
@@ -860,7 +860,7 @@ func (h *Hub) deliver(bus domain.Bus) {
 	}
 	joined := map[string]bool{}
 	for _, p := range state.Participants {
-		joined[p.ID] = p.CanParticipate()
+		joined[p.ID] = p.CanParticipate() && !p.ChatLeft
 	}
 	for _, entry := range entries {
 		if state.Status == conferences.Finished || state.Status == conferences.Cancelled || !joined[entry.session.ParticipantID] {

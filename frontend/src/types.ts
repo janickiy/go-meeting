@@ -29,7 +29,7 @@ export interface ConferenceInvitation {
   id: string;
   email: string;
   userId?: string | null;
-  status: "queued" | "already_invited";
+  status: "queued" | "already_invited" | "left_chat";
 }
 /**
  * ConferenceStatus ограничивает допустимые серверные состояния встречи.
@@ -426,6 +426,28 @@ export interface ChatMessage {
   deletedAt: string | null;
   version: number;
   attachments: ChatAttachment[];
+  /** Personal bookmark, projected only into the acting member's REST reads. */
+  important?: boolean;
+}
+
+export interface ConferenceChatPreferences {
+  notificationsEnabled: boolean;
+}
+
+export interface ConferenceChatInfo extends ConferenceChatPreferences {
+  conferenceId: string;
+  title: string;
+  description: string;
+  inviteUrl: string;
+  participantCount: number;
+  canEdit: boolean;
+  canInvite: boolean;
+}
+
+export interface ConferenceChatMaterial {
+  message: ChatMessage;
+  attachment?: ChatAttachment;
+  url?: string;
 }
 /**
  * ChatPage добавляет непрочитанные и границу прочтения к странице чата.
@@ -473,6 +495,7 @@ export interface Notification {
   version: 1;
   payload: {
     conferenceId: string;
+    messageId?: string;
     recordingId?: string;
     transcriptId?: string;
     summaryId?: string;

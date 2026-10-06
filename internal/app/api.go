@@ -143,7 +143,8 @@ func RunAPI() error {
 	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hub)
 	notificationBus := redisinfra.NewNotificationBus(redisClient, realtimeConfig.Namespace)
 	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db).DisableLegacyReminders(), notificationBus)
-	chatService, err := chatusecase.NewService(context.Background(), postgresinfra.NewChatRepository(db), s3Client, hub)
+	conferenceChatRepository := postgresinfra.NewChatRepository(db)
+	chatService, err := chatusecase.NewService(context.Background(), conferenceChatRepository, s3Client, hub)
 	if err != nil {
 		return fmt.Errorf("chat initialization: %w", err)
 	}
@@ -177,6 +178,7 @@ func RunAPI() error {
 	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(controlService), httpmiddleware.Authenticate(authService))
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(authService))
 	httptransport.RegisterChatRoutes(router, chatapp.NewHandler(chatService), httpmiddleware.Authenticate(authService), rateLimiter)
+	httptransport.RegisterChatActionRoutes(router, &chatapp.ActionHandler{Service: chatusecase.NewActionService(conferenceChatRepository, hub)}, httpmiddleware.Authenticate(authService), rateLimiter)
 	notificationHandler := notificationsapp.NewHandler(notificationService, notificationBus, authService, rateLimiter, realtimeConfig.Namespace)
 	ops.ConfigureDrain(func() { notificationHandler.BeginDrain(); globalWS.BeginDrain(true) }, func() int { return hub.LocalCount() + globalWS.LocalCount() })
 	httptransport.RegisterNotificationRoutes(router, notificationHandler, httpmiddleware.Authenticate(authService))

@@ -364,6 +364,7 @@ func (r *IntegrationRepository) Fanout(ctx context.Context, job jobs.Job, event 
 			UserID string
 		}
 		q := tx.Table("conference_participants p").Select("p.id,p.user_id").Where("p.conference_id=? AND p.user_id IS NOT NULL AND p.status NOT IN ('kicked','rejected')", job.ConferenceID)
+		q = q.Where("NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))")
 		if event == "conference.invited" {
 			q = q.Where("NOT EXISTS(SELECT 1 FROM conference_invitations i WHERE i.conference_id=p.conference_id AND i.user_id=p.user_id)")
 		}
@@ -424,6 +425,7 @@ func (r *IntegrationRepository) Fanout(ctx context.Context, job jobs.Job, event 
 			if preference != "" {
 				live += " AND COALESCE((SELECT pref." + preference + " FROM notification_preferences pref WHERE pref.user_id=p.user_id),TRUE)"
 			}
+			live += " AND NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))"
 			args := []any{kind, string(encoded), key, userID, job.ConferenceID}
 			if isSchedule {
 				args = append(args, job.Version)
@@ -534,6 +536,7 @@ func (r *IntegrationRepository) Delivery(ctx context.Context, job jobs.Job) (u.D
 	}
 	var count int64
 	q := r.db.WithContext(ctx).Table("conference_participants").Where("user_id=? AND conference_id=? AND status NOT IN ('kicked','rejected')", *job.UserID, job.ConferenceID)
+	q = q.Where("NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=conference_participants.conference_id AND cp.user_id=conference_participants.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))")
 	if result.Notification.Type == "conference.invited" || result.Notification.Type == "conference.rescheduled" || result.Notification.Type == "conference.cancelled" || result.Notification.Type == "conference.soon" {
 		q = q.Where("admission_state IN ('admitted','waiting')")
 	} else if result.Notification.Type == "admission.decided" {

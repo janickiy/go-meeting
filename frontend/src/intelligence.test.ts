@@ -71,4 +71,16 @@ describe("ссылки на материалы", () => {
       notificationLabel({ ...notification, type: "transcript.failed" }),
     ).toBe("Не удалось подготовить расшифровку");
   });
+  it("уведомление чата открывает конкретное сообщение в конференции", () => {
+    const notification = {
+      type: "chat.message",
+      payload: { conferenceId: "room/a", messageId: "message&1" },
+    } as Notification;
+    expect(notificationLabel(notification)).toBe(
+      "Новое сообщение в чате встречи",
+    );
+    expect(notificationLink(notification)).toBe(
+      "/meetings/room%2Fa?chat=1&message=message%261",
+    );
+  });
 });

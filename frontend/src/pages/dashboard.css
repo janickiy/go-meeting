@@ -71,6 +71,21 @@
 .dashboard-page .dashboard-meeting-active {
   border-inline-start: 3px solid var(--primary);
 }
+.dashboard-meeting-with-actions {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.dashboard-meeting-with-actions > .dashboard-meeting-row {
+  flex: 1;
+  min-width: 0;
+}
+.dashboard-meeting-with-actions .conference-chat-actions-trigger {
+  width: 38px;
+  height: 38px;
+}
 .dashboard-meeting-time {
   min-width: 62px;
   padding-inline-end: 17px;

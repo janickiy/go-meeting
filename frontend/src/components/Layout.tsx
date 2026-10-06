@@ -6,14 +6,12 @@ import type { MouseEvent } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import {
   BarChart3,
-  Bell,
   CalendarDays,
   Home,
   History,
   LogOut,
   Menu,
   CirclePlay,
-  Search,
   Settings,
   ShieldCheck,
   Video,
@@ -50,7 +48,6 @@ export function Layout() {
     location.pathname,
   );
   const [leaving, setLeaving] = useState(false);
-  const [search, setSearch] = useState("");
   const sidebar = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const bottomButton = useRef<HTMLButtonElement>(null);
@@ -169,8 +166,6 @@ export function Layout() {
     capabilities.data.capabilities.meetingAnalytics
       ? [{ to: "/analytics", label: "Аналитика", Icon: BarChart3 }]
       : []),
-    { to: "/notifications", label: "Уведомления", Icon: Bell },
-    { to: "/app/search", label: "Поиск", Icon: Search },
     { to: "/app/settings", label: "Настройки", Icon: Settings },
     ...(user?.isAdmin
       ? [{ to: "/admin", label: "Администрирование", Icon: ShieldCheck }]
@@ -295,33 +290,6 @@ export function Layout() {
             >
               <Menu aria-hidden="true" />
             </button>
-            <form
-              className="workspace-search"
-              role="search"
-              aria-label="Поиск по встречам и материалам"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (search.trim().length >= 2)
-                  navigate(`/search?q=${encodeURIComponent(search.trim())}`);
-              }}
-            >
-              <Search size={17} aria-hidden="true" />
-              <input
-                aria-label="Найти в пространстве"
-                placeholder="Поиск по встречам и материалам"
-                minLength={2}
-                maxLength={500}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-              <button
-                type="submit"
-                className="search-submit"
-                aria-label="Выполнить поиск"
-              >
-                ↵
-              </button>
-            </form>
             <div className="workspace-account">
               <NotificationBell />
               <div className="topbar-profile">

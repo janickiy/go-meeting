@@ -60,11 +60,6 @@ const RecordingDetailPage = lazy(() =>
     default: module.RecordingDetailPage,
   })),
 );
-const SearchPage = lazy(() =>
-  import("./pages/SearchPage").then((module) => ({
-    default: module.SearchPage,
-  })),
-);
 const HistoryDetailPage = lazy(() =>
   import("./pages/HistoryDetailPage").then((module) => ({
     default: module.HistoryDetailPage,
@@ -244,8 +239,8 @@ export function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/history/:id" element={<HistoryDetailPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/app/search" element={<SearchPage />} />
-          <Route path="/search" element={<SearchPage />} />
+          <Route path="/app/search" element={<Navigate to="/app" replace />} />
+          <Route path="/search" element={<Navigate to="/app" replace />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Route>

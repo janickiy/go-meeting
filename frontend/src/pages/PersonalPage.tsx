@@ -1,18 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate, useParams } from "react-router";
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { ArrowLeft, MessageCircle, Plus, Search } from "lucide-react";
+import { Link, NavLink, useParams } from "react-router";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { ArrowLeft, MessageCircle, Search } from "lucide-react";
 import { api, personalChatAPI } from "../api";
 import { useAuth } from "../auth";
 import { initials } from "../utils";
 import { chatTime } from "../chatPresentation";
 import { MessageThread } from "../components/ChatPanel";
-import { Button, ErrorNotice, Loading, Modal } from "../components/ui";
+import { Button, ErrorNotice, Loading } from "../components/ui";
 import "./personal.css";
 
 export function PersonalPage() {
@@ -46,10 +41,7 @@ export function PersonalPage() {
     };
   }, [id]);
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const client = useQueryClient();
   const [search, setSearch] = useState("");
-  const [newMessage, setNewMessage] = useState(false);
   const list = useInfiniteQuery({
     queryKey: ["personal-list", user?.id],
     initialPageParam: undefined as string | undefined,
@@ -79,13 +71,6 @@ export function PersonalPage() {
       <aside className="personal-sidebar">
         <div className="section-heading">
           <h1>Личные</h1>
-          <Button
-            onClick={() => setNewMessage(true)}
-            aria-label="Новое сообщение"
-          >
-            <Plus size={18} />
-            <span>Новое сообщение</span>
-          </Button>
         </div>
         <label className="personal-search">
           <Search size={18} />
@@ -129,9 +114,7 @@ export function PersonalPage() {
           ))}
           {!list.isPending && !list.isError && !conversations.length && (
             <p className="compact-empty muted">
-              {search
-                ? "Переписки не найдены"
-                : "Выберите пользователя, чтобы написать первое сообщение."}
+              {search ? "Переписки не найдены" : "Пока нет личных переписок."}
             </p>
           )}
         </nav>
@@ -150,7 +133,7 @@ export function PersonalPage() {
           <div className="personal-placeholder">
             <MessageCircle size={48} />
             <h2>Личная переписка</h2>
-            <p>Выберите собеседника или создайте новое сообщение.</p>
+            <p>Выберите собеседника из списка переписок.</p>
           </div>
         ) : (
           <>
@@ -178,85 +161,6 @@ export function PersonalPage() {
           </>
         )}
       </div>
-      {newMessage && (
-        <NewMessage
-          onClose={() => setNewMessage(false)}
-          onOpen={(id) => {
-            setNewMessage(false);
-            void client.invalidateQueries({ queryKey: ["personal-list"] });
-            navigate(`/personal/${id}`);
-          }}
-        />
-      )}
     </section>
-  );
-}
-function NewMessage({
-  onClose,
-  onOpen,
-}: {
-  onClose: () => void;
-  onOpen: (id: string) => void;
-}) {
-  const [text, setText] = useState("");
-  const [search, setSearch] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => setSearch(text.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [text]);
-  const query = useQuery({
-    queryKey: ["personal-users", search],
-    queryFn: ({ signal }) => api.searchPersonalUsers(search, signal),
-    enabled: Array.from(search).length >= 2 && Array.from(search).length <= 100,
-  });
-  const create = useMutation({
-    mutationFn: api.createPersonalConversation,
-    onSuccess: (r) => onOpen(r.item.id),
-  });
-  return (
-    <Modal
-      title="Новое сообщение"
-      onClose={() => {
-        if (!create.isPending) onClose();
-      }}
-    >
-      <label className="field">
-        Имя пользователя
-        <input
-          data-autofocus
-          aria-label="Имя пользователя"
-          value={text}
-          maxLength={100}
-          placeholder="Введите минимум 2 символа"
-          onChange={(e) => setText(e.target.value)}
-        />
-      </label>
-      <ErrorNotice error={query.error || create.error} />
-      {search.length < 2 ? (
-        <p className="field-hint">Найдите собеседника по имени.</p>
-      ) : query.isFetching ? (
-        <Loading />
-      ) : (
-        <div className="personal-user-results">
-          {query.data?.items.map((peer) => (
-            <Button
-              key={peer.id}
-              variant="outline"
-              busy={create.isPending && create.variables === peer.id}
-              disabled={create.isPending}
-              onClick={() => create.mutate(peer.id)}
-            >
-              <span className="personal-avatar">
-                {initials(peer.displayName)}
-              </span>
-              {peer.displayName}
-            </Button>
-          ))}
-          {query.isSuccess && !query.data.items.length && (
-            <p>Пользователи не найдены.</p>
-          )}
-        </div>
-      )}
-    </Modal>
   );
 }

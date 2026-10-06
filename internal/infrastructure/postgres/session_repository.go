@@ -53,6 +53,13 @@ func authorizeSession(db *gorm.DB, conferenceID, userID string, locked bool) (co
 	if !p.CanParticipate() {
 		return p, apperrors.New(apperrors.ErrForbidden, "join the conference before connecting")
 	}
+	var left int64
+	if err := db.Table("conference_chat_preferences").Where("conference_id=? AND user_id=? AND left_at IS NOT NULL", conferenceID, userID).Count(&left).Error; err != nil {
+		return p, err
+	}
+	if left > 0 {
+		return p, apperrors.ErrForbidden
+	}
 	return p, nil
 }
 
@@ -169,6 +176,9 @@ func (r *SessionRepository) Roster(ctx context.Context, conferenceID string) (co
 		return "", nil, err
 	}
 	rows := []conferences.Participant{}
-	err = r.db.WithContext(ctx).Where("conference_id = ?", conferenceID).Order("created_at, id").Find(&rows).Error
+	err = r.db.WithContext(ctx).Table("conference_participants p").Select(`p.*, EXISTS (
+		SELECT 1 FROM conference_chat_preferences cp
+		WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND cp.left_at IS NOT NULL
+	) AS chat_left`).Where("p.conference_id = ?", conferenceID).Order("p.created_at, p.id").Scan(&rows).Error
 	return c.Status, rows, err
 }

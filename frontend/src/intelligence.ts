@@ -43,6 +43,12 @@ export function searchResultLink(result: SearchResult): string {
  * @return Безопасный внутренний маршрут.
  */
 export function notificationLink(notification: Notification): string {
+  if (notification.type === "chat.message") {
+    const params = new URLSearchParams({ chat: "1" });
+    if (notification.payload.messageId)
+      params.set("message", notification.payload.messageId);
+    return `/meetings/${encodeURIComponent(notification.payload.conferenceId)}?${params}`;
+  }
   const link = searchResultLink({
     type:
       notification.type.includes("summary") || notification.payload.summaryId

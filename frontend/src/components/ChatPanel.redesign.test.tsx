@@ -46,7 +46,11 @@ const clients: QueryClient[] = [];
  * @args readOnly — разрешён ли только просмотр истории.
  * @return результат монтирования для проверки структуры панели.
  */
-function showChat(readOnly = false) {
+function showChat(
+  readOnly = false,
+  focusMessageId?: string,
+  onLatest?: () => void,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -58,6 +62,8 @@ function showChat(readOnly = false) {
           conferenceId="room"
           membership={member}
           readOnly={readOnly}
+          focusMessageId={focusMessageId}
+          onLatest={onLatest}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -228,6 +234,88 @@ describe("обновлённая панель чата", () => {
     expect(screen.queryByRole("button", { name: "Ответить" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Изменить" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Удалить" })).toBeNull();
+  });
+
+  it("сохраняет личную отметку важного сообщения и в завершённой встрече", async () => {
+    const save = vi
+      .spyOn(api, "setConferenceChatImportant")
+      .mockImplementation(async () => {
+        vi.mocked(api.messages).mockResolvedValue({
+          status: "success",
+          items: [{ ...message, important: true }],
+          nextCursor: null,
+          unreadCount: 0,
+          lastReadMessageId: null,
+        });
+        return { status: "success" };
+      });
+    showChat(true);
+    fireEvent.click(await screen.findByRole("button", { name: "В важные" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith("room", message.id, true),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Убрать из важных" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Удалить" })).toBeNull();
+  });
+
+  it("показывает ошибку сохранения отметки, сохраняя подтверждённое состояние", async () => {
+    vi.spyOn(api, "setConferenceChatImportant").mockRejectedValue(
+      new Error("Не удалось сохранить отметку"),
+    );
+    showChat();
+    fireEvent.click(await screen.findByRole("button", { name: "В важные" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Не удалось связаться с сервером",
+    );
+    expect(screen.getByRole("button", { name: "В важные" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("открывает точный контекст сообщения без обхода страниц всей истории", async () => {
+    const context = vi
+      .spyOn(api, "conferenceChatMessageContext")
+      .mockResolvedValue({
+        status: "success",
+        items: [message],
+        nextCursor: "older-cursor",
+        unreadCount: 0,
+        lastReadMessageId: null,
+      });
+    showChat(true, message.id);
+    expect(
+      await screen.findByTestId(`chat-message-${message.id}`),
+    ).toHaveAttribute("aria-current", "true");
+    expect(context).toHaveBeenCalledWith(
+      "room",
+      message.id,
+      expect.any(AbortSignal),
+    );
+    expect(api.messages).not.toHaveBeenCalled();
+  });
+  it("после отправки из старого контекста открывает последние сообщения", async () => {
+    vi.spyOn(api, "conferenceChatMessageContext").mockResolvedValue({
+      status: "success",
+      items: [message],
+      nextCursor: null,
+      unreadCount: 0,
+      lastReadMessageId: null,
+    });
+    vi.spyOn(api, "sendMessage").mockResolvedValue({
+      status: "success",
+      item: message,
+    });
+    const onLatest = vi.fn();
+    showChat(false, message.id, onLatest);
+    await screen.findByTestId(`chat-message-${message.id}`);
+    fireEvent.change(screen.getByRole("textbox", { name: "Сообщение" }), {
+      target: { value: "Новое сообщение" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    await waitFor(() => expect(onLatest).toHaveBeenCalledOnce());
   });
 
   it("разделяет локальные дни, отличает свои пузыри и выводит время HH:mm", async () => {

@@ -22,6 +22,7 @@ import { Button, ErrorNotice, Loading, Modal } from "./ui";
  * @returns string — вычисленное значение: "Запись встречи готова"; "Скоро начнётся встреча"; "Вас пригласили войти во встречу"; "Запрос на вход отклонён"; "Вы исключены из встречи"; "Обновление вашей конференции".
  */
 export function notificationLabel(item: Notification): string {
+  if (item.type === "chat.message") return "Новое сообщение в чате встречи";
   if (item.type === "transcript.failed")
     return "Не удалось подготовить расшифровку";
   if (item.type === "summary.failed")

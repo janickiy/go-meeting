@@ -40,6 +40,9 @@ import type {
   AdminSummary,
   InvitationUser,
   ConferenceInvitation,
+  ConferenceChatInfo,
+  ConferenceChatPreferences,
+  ConferenceChatMaterial,
 } from "./types";
 
 let accessToken: string | null = null;
@@ -487,6 +490,11 @@ export const api = {
       `/conferences/${encodeURIComponent(id)}/participants?limit=100&offset=${offset}`,
       { signal },
     ),
+  conferenceChatMembers: (id: string, after?: string, signal?: AbortSignal) =>
+    request<CursorItems<Participant>>(
+      `/conferences/${encodeURIComponent(id)}/chat/members?limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`,
+      { signal },
+    ),
   /**
    * setMediaState сохраняет фактические признаки источников медиа конкретного физического подключения.
    *
@@ -848,6 +856,76 @@ export const api = {
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
    */
   ...createChatAPI("conferences"),
+  conferenceChatInfo: (id: string, signal?: AbortSignal) =>
+    request<Item<ConferenceChatInfo>>(
+      `/conferences/${encodeURIComponent(id)}/chat/info`,
+      { signal },
+    ),
+  updateConferenceChatInfo: (
+    id: string,
+    body: { title?: string; description?: string },
+  ) =>
+    request<Item<ConferenceChatInfo>>(
+      `/conferences/${encodeURIComponent(id)}/chat/info`,
+      { method: "PATCH", body },
+    ),
+  conferenceChatPreferences: (id: string, signal?: AbortSignal) =>
+    request<Item<ConferenceChatPreferences>>(
+      `/conferences/${encodeURIComponent(id)}/chat/preferences`,
+      { signal },
+    ),
+  setConferenceChatNotifications: (id: string, notificationsEnabled: boolean) =>
+    request<Item<ConferenceChatPreferences>>(
+      `/conferences/${encodeURIComponent(id)}/chat/preferences`,
+      { method: "PUT", body: { notificationsEnabled } },
+    ),
+  leaveConferenceChat: (id: string) =>
+    request(`/conferences/${encodeURIComponent(id)}/chat/membership`, {
+      method: "DELETE",
+    }),
+  searchConferenceChat: (
+    id: string,
+    q: string,
+    before?: string,
+    signal?: AbortSignal,
+  ) =>
+    request<CursorItems<ChatMessage>>(
+      `/conferences/${encodeURIComponent(id)}/chat/messages/search?${new URLSearchParams({ q, limit: "20", ...(before ? { before } : {}) })}`,
+      { signal },
+    ),
+  conferenceChatMaterials: (
+    id: string,
+    kind: "image" | "file" | "link",
+    before?: string,
+    signal?: AbortSignal,
+  ) =>
+    request<CursorItems<ConferenceChatMaterial>>(
+      `/conferences/${encodeURIComponent(id)}/chat/materials?${new URLSearchParams({ kind, limit: "20", ...(before ? { before } : {}) })}`,
+      { signal },
+    ),
+  conferenceChatPins: (id: string, before?: string, signal?: AbortSignal) =>
+    request<CursorItems<ChatMessage>>(
+      `/conferences/${encodeURIComponent(id)}/chat/pins?${new URLSearchParams({ limit: "20", ...(before ? { before } : {}) })}`,
+      { signal },
+    ),
+  setConferenceChatImportant: (
+    id: string,
+    messageId: string,
+    important: boolean,
+  ) =>
+    request(
+      `/conferences/${encodeURIComponent(id)}/chat/pins/${encodeURIComponent(messageId)}`,
+      { method: important ? "PUT" : "DELETE" },
+    ),
+  conferenceChatMessageContext: (
+    id: string,
+    messageId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<ChatPage>(
+      `/conferences/${encodeURIComponent(id)}/chat/messages/${encodeURIComponent(messageId)}/context`,
+      { signal },
+    ),
   personalConversations: (before?: string, signal?: AbortSignal, limit = 50) =>
     request<PersonalPage>(
       `/conversations?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ""}`,

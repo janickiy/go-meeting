@@ -128,6 +128,7 @@ type Participant struct {
 	AdmissionState     AdmissionState `gorm:"default:admitted"`
 	AdmissionDecidedAt *time.Time
 	AdmissionVersion   int64 `gorm:"default:1"`
+	ChatLeft           bool  `json:"-" gorm:"column:chat_left;->;-:migration"`
 }
 
 // TableName возвращает точное имя таблицы для GORM, чтобы модель не зависела от автоматического образования имени.
@@ -237,6 +238,7 @@ type ParticipantView struct {
 	AdmissionState     AdmissionState    `json:"admissionState"`
 	AdmissionDecidedAt *time.Time        `json:"admissionDecidedAt"`
 	AdmissionVersion   int64             `json:"admissionVersion"`
+	ChatLeft           bool              `json:"-"`
 }
 
 // View собирает публичное представление модели для ответа API.

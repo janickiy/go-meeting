@@ -19,6 +19,7 @@ type Payload struct {
 	ConferenceID   string     `json:"conferenceId"`
 	InvitationID   string     `json:"invitationId,omitempty"`
 	RecordingID    string     `json:"recordingId,omitempty"`
+	MessageID      string     `json:"messageId,omitempty"`
 	ScheduledAt    *time.Time `json:"scheduledAt,omitempty"`
 	AdmissionState string     `json:"admissionState,omitempty"`
 	TranscriptID   string     `json:"transcriptId,omitempty"`

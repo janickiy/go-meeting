@@ -102,7 +102,9 @@ func (r *ConferenceRepository) ListForUser(ctx context.Context, userID string, l
 	items := []conferences.Conference{}
 	err := r.db.WithContext(ctx).Model(&conferences.Conference{}).
 		Joins("JOIN conference_participants p ON p.conference_id = conferences.id").
-		Where("p.user_id = ? AND p.admission_state IN ('admitted','waiting')", userID).Order("conferences.created_at DESC, conferences.id").
+		Where("p.user_id = ? AND p.admission_state IN ('admitted','waiting')", userID).
+		Where("NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=conferences.id AND cp.user_id=? AND cp.left_at IS NOT NULL)", userID).
+		Order("conferences.created_at DESC, conferences.id").
 		Limit(limit).Offset(offset).Find(&items).Error
 	return items, err
 }
@@ -234,11 +236,16 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 			if missing && !hasInvite {
 				return apperrors.New(apperrors.ErrForbidden, "inviteCode is required for a new membership")
 			}
-			if !missing && participant.CanParticipate() {
-				return nil
-			}
 			if !missing && (participant.Status == conferences.Kicked || participant.Status == conferences.Rejected || participant.AdmissionState == conferences.AdmissionKicked || participant.AdmissionState == conferences.AdmissionRejected) {
 				return apperrors.New(apperrors.ErrForbidden, "this membership cannot rejoin the conference")
+			}
+			if !missing {
+				if err := tx.Exec("UPDATE conference_chat_preferences SET left_at=NULL,updated_at=clock_timestamp() WHERE conference_id=? AND user_id=? AND left_at IS NOT NULL", id, user.ID).Error; err != nil {
+					return err
+				}
+			}
+			if !missing && participant.CanParticipate() {
+				return nil
 			}
 			now := time.Now().UTC()
 			if missing {

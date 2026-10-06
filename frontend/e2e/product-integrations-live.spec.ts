@@ -323,17 +323,8 @@ test("Stage7 isolated Docker: calendar → SFU MP4 → mock STT/AI → authorize
     expect(segments.items.length).toBeGreaterThan(0);
     const timestamp = segments.items[0].startMs;
     await participantPage.goto(
-      `${uiURL}/app/search?q=${encodeURIComponent("проекта")}&source=transcript&conferenceId=${conferenceId}`,
+      `${uiURL}/history/${conferenceId}?recording=${recordingId}&tab=transcript&section=transcript&t=${timestamp}&segment=${segments.items[0].id}`,
     );
-    await expect(
-      participantPage
-        .getByRole("link", { name: "Открыть фрагмент записи" })
-        .first(),
-    ).toBeVisible({ timeout: 30_000 });
-    await participantPage
-      .getByRole("link", { name: "Открыть фрагмент записи" })
-      .first()
-      .click();
     await expect(participantPage).toHaveURL(
       new RegExp(`recording=${recordingId}.*t=${timestamp}`),
     );

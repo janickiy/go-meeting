@@ -23,26 +23,34 @@ async function login(page: Page, actor: Actor) {
     page.getByRole("heading", { name: "Личные", exact: true }),
   ).toBeVisible();
 }
-test("two accounts: search, one pair, realtime, replies, edits, files, unread, reconnect and mobile", async ({
+test("two accounts: existing pair, realtime, replies, edits, files, unread, reconnect and mobile", async ({
   browser,
   page,
 }, info) => {
   test.setTimeout(90000);
   const alice = fixture!.alice,
     bob = fixture!.bob;
+  const seeded = await page.request.post(
+    `${fixture!.url}/api/v1/conversations/direct`,
+    {
+      headers: { Authorization: `Bearer ${alice.token}` },
+      data: { userId: bob.id },
+    },
+  );
+  expect(seeded.ok()).toBeTruthy();
+  const conversationId = (await seeded.json()).item.id as string;
   const other = await browser.newContext();
   const bobPage = await other.newPage();
   await login(page, alice);
   await login(bobPage, bob);
   await page
-    .getByRole("button", { name: "Новое сообщение", exact: true })
+    .locator(".personal-conversation")
+    .filter({ hasText: "Bob" })
     .click();
-  await page.getByRole("textbox", { name: "Имя пользователя" }).fill("Bo");
-  await page.getByRole("button", { name: "B Bob" }).click();
   await expect(
     page.getByRole("log", { name: "Личные сообщения" }),
   ).toBeVisible();
-  const conversationId = new URL(page.url()).pathname.split("/").at(-1)!;
+  await expect(page).toHaveURL(new RegExp(`/personal/${conversationId}$`));
   const send = page.getByRole("textbox", { name: "Сообщение", exact: true });
   await send.fill("Первое личное сообщение");
   await page.getByRole("button", { name: "Отправить", exact: true }).click();
@@ -102,10 +110,9 @@ test("two accounts: search, one pair, realtime, replies, edits, files, unread, r
   await expect(bobPage.locator(".chat-message")).toHaveCount(3);
   await page.goto("/personal");
   await page
-    .getByRole("button", { name: "Новое сообщение", exact: true })
+    .locator(".personal-conversation")
+    .filter({ hasText: "Bob" })
     .click();
-  await page.getByRole("textbox", { name: "Имя пользователя" }).fill("Bob");
-  await page.getByRole("button", { name: "B Bob" }).click();
   await expect(page).toHaveURL(new RegExp(`/personal/${conversationId}$`));
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".personal-sidebar")).toBeHidden();

@@ -40,6 +40,13 @@ func authorizeChat(tx *gorm.DB, userID, conferenceID string, locked, write bool)
 	if !p.CanReadHistory() {
 		return p, apperrors.ErrForbidden
 	}
+	var left int64
+	if err := tx.Table("conference_chat_preferences").Where("conference_id=? AND user_id=? AND left_at IS NOT NULL", conferenceID, userID).Count(&left).Error; err != nil {
+		return p, err
+	}
+	if left > 0 {
+		return p, apperrors.ErrForbidden
+	}
 	if write && (c.Status != conferences.Active || !p.CanParticipate()) {
 		return p, apperrors.New(apperrors.ErrConflict, "chat is read-only unless the conference is active and you have joined")
 	}
@@ -170,12 +177,39 @@ func (r *ChatRepository) List(ctx context.Context, userID, conferenceID, cursor 
 		if err := r.decorateMessages(tx, page.Items); err != nil {
 			return err
 		}
+		if err := r.markImportant(tx, userID, conferenceID, page.Items); err != nil {
+			return err
+		}
 		state, err := r.readState(tx, userID, conferenceID)
 		page.UnreadCount = state.UnreadCount
 		page.LastReadMessageID = state.LastReadMessageID
 		return err
 	})
 	return page, err
+}
+
+// markImportant projects personal bookmarks only into authenticated REST reads.
+// Conference broadcasts and stored messages never carry another member's marker.
+func (r *ChatRepository) markImportant(tx *gorm.DB, userID, conferenceID string, items []chat.Message) error {
+	if r.direct || len(items) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	var pinned []string
+	if err := tx.Table("conference_chat_pins").Where("conference_id=? AND user_id=? AND message_id IN ?", conferenceID, userID, ids).Pluck("message_id", &pinned).Error; err != nil {
+		return err
+	}
+	set := make(map[string]bool, len(pinned))
+	for _, id := range pinned {
+		set[id] = true
+	}
+	for i := range items {
+		items[i].Important = set[items[i].ID] && items[i].DeletedAt == nil
+	}
+	return nil
 }
 func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, request chat.SendRequest, fingerprint string) (chat.Message, bool, error) {
 	var message chat.Message
@@ -226,6 +260,12 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 		r.setMessageScope(&message, conferenceID)
 		if err := r.messages(tx).Create(&message).Error; err != nil {
 			return err
+		}
+		if !r.direct {
+			if err := tx.Exec(`INSERT INTO chat_notification_jobs(message_id,conference_id)
+				VALUES(?::uuid,?::uuid) ON CONFLICT DO NOTHING`, message.ID, conferenceID).Error; err != nil {
+				return err
+			}
 		}
 		if len(attachments) > 0 {
 			if err := r.attachments(tx).Where("id IN ?", request.AttachmentIDs).Updates(map[string]any{"status": "attached", "message_id": message.ID, "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {

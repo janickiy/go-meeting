@@ -103,10 +103,7 @@ describe("навигация приложения", () => {
       "href",
       "/history",
     );
-    expect(screen.getByRole("link", { name: "Уведомления" })).toHaveAttribute(
-      "href",
-      "/notifications",
-    );
+    expect(screen.queryByRole("link", { name: "Уведомления" })).toBeNull();
     expect(
       screen.queryByRole("link", { name: "Администрирование" }),
     ).toBeNull();

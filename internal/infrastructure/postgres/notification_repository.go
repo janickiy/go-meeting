@@ -55,7 +55,10 @@ func (r *NotificationRepository) List(ctx context.Context, userID, cursor string
 	if err != nil {
 		return page, err
 	}
-	q := r.db.WithContext(ctx).Where("user_id = ?", userID)
+	q := r.db.WithContext(ctx).Where("user_id = ?", userID).
+		Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp
+			WHERE cp.user_id=notifications.user_id AND cp.conference_id::text=notifications.payload->>'conferenceId'
+			AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`)
 	if c != nil {
 		q = q.Where("(created_at, id) < (?, ?::uuid)", c.At, c.ID)
 	}
@@ -67,7 +70,10 @@ func (r *NotificationRepository) List(ctx context.Context, userID, cursor string
 		next := domain.EncodeCursor(page.Items[limit-1])
 		page.NextCursor = &next
 	}
-	err = r.db.WithContext(ctx).Model(&domain.Notification{}).Where("user_id = ? AND read_at IS NULL", userID).Count(&page.UnreadCount).Error
+	err = r.db.WithContext(ctx).Model(&domain.Notification{}).Where("user_id = ? AND read_at IS NULL", userID).
+		Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp
+			WHERE cp.user_id=notifications.user_id AND cp.conference_id::text=notifications.payload->>'conferenceId'
+			AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Count(&page.UnreadCount).Error
 	return page, err
 }
 
@@ -108,7 +114,8 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
               jsonb_build_object('conferenceId',c.id,'scheduledAt',c.scheduled_at) AS payload
             FROM conferences c JOIN conference_participants p ON p.conference_id=c.id
             WHERE c.status='scheduled' AND c.scheduled_at > now() AND c.scheduled_at <= now()+interval '15 minutes'
-              AND p.user_id IS NOT NULL AND p.admission_state IN ('admitted','waiting') AND p.status NOT IN ('kicked','rejected')
+			  AND p.user_id IS NOT NULL AND p.admission_state IN ('admitted','waiting') AND p.status NOT IN ('kicked','rejected')
+			  AND NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=c.id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))
               AND NOT EXISTS(SELECT 1 FROM notifications n WHERE n.user_id=p.user_id AND n.dedup_key='soon:' || c.id::text || ':' || (extract(epoch from c.scheduled_at)*1000000)::bigint::text)
             ORDER BY c.scheduled_at,c.id,p.id LIMIT 100)
           INSERT INTO notifications(id,user_id,type,payload,dedup_key) SELECT gen_random_uuid(),user_id,'conference.soon',payload,dedup_key FROM candidates ON CONFLICT(user_id,dedup_key) DO NOTHING`
@@ -133,7 +140,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 		CursorParticipantID *string
 		CreatedAt           time.Time
 	}
-	return r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
+	err := r.db.WithContext(ctx).Transaction( /* Вложенный обработчик выполняет часть операции в текущей транзакции базы данных, сохраняя её общий результат.
 
 		@args
 		  - tx (*gorm.DB): подключение или текущая транзакция GORM, задающая контекст доступа к базе.
@@ -155,7 +162,8 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 					if err := tx.Exec(`INSERT INTO notifications(id,user_id,type,payload,dedup_key,created_at)
                     SELECT gen_random_uuid(),user_id,kind,jsonb_build_object('conferenceId',conference_id,'admissionState',admission_state),
                       'admission:' || entity_id::text || ':' || entity_version::text,created_at
-                    FROM notification_jobs WHERE id=? ON CONFLICT(user_id,dedup_key) DO NOTHING`, item.ID).Error; err != nil {
+                    FROM notification_jobs j WHERE id=? AND NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=j.conference_id AND cp.user_id=j.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))
+					ON CONFLICT(user_id,dedup_key) DO NOTHING`, item.ID).Error; err != nil {
 						return err
 					}
 					budget--
@@ -165,6 +173,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 					q := tx.Table("conference_participants p").Joins("JOIN record r ON r.uuid = ? AND r.platform_conference_id = p.conference_id AND r.mode IN ('composite','audio_only','individual_tracks','screen_focus') AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL", item.RecordingID).
 						Where("p.conference_id = ? AND p.user_id IS NOT NULL AND p.admission_state='admitted' AND p.status IN ('joined','left')", item.ConferenceID).
 						Where("COALESCE((SELECT pref.recording FROM notification_preferences pref WHERE pref.user_id=p.user_id),TRUE)").
+						Where("NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))").
 						Where("p.created_at <= ? AND (p.admission_decided_at IS NULL OR p.admission_decided_at <= ?)", item.CreatedAt, item.CreatedAt)
 					if item.CursorParticipantID != nil {
 						q = q.Where("p.id > ?", *item.CursorParticipantID)
@@ -184,6 +193,7 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
                           AND p.created_at <= j.created_at AND (p.admission_decided_at IS NULL OR p.admission_decided_at <= j.created_at)
                           AND r.mode IN ('composite','audio_only','individual_tracks','screen_focus') AND r.status IN ('ready','partial_ready') AND r.deleted_at IS NULL
                           AND COALESCE((SELECT pref.recording FROM notification_preferences pref WHERE pref.user_id=p.user_id),TRUE)
+						  AND NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))
                         ON CONFLICT(user_id,dedup_key) DO NOTHING`, item.ID, ids).Error; err != nil {
 							return err
 						}
@@ -203,6 +213,60 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 			}
 			return nil
 		})
+	if err != nil {
+		return err
+	}
+	return r.generateChat(ctx)
+}
+
+// generateChat fans out one saved message at a time in bounded, resumable batches.
+func (r *NotificationRepository) generateChat(ctx context.Context) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		type chatJob struct {
+			MessageID           string
+			ConferenceID        string
+			CursorParticipantID *string
+		}
+		jobs := []chatJob{}
+		if err := tx.Raw(`SELECT message_id,conference_id,cursor_participant_id FROM chat_notification_jobs
+			WHERE completed_at IS NULL ORDER BY created_at,message_id LIMIT 10 FOR UPDATE SKIP LOCKED`).Scan(&jobs).Error; err != nil {
+			return err
+		}
+		for _, job := range jobs {
+			ids := []string{}
+			q := tx.Table("conference_participants p").Joins("JOIN chat_messages m ON m.conference_id=p.conference_id AND m.id=? AND m.deleted_at IS NULL", job.MessageID).
+				Joins("JOIN users u ON u.id=p.user_id AND u.guest_conference_id IS NULL").
+				Where("p.conference_id=? AND p.user_id IS NOT NULL AND p.user_id<>m.sender_user_id AND p.admission_state='admitted' AND p.status IN ('joined','left')", job.ConferenceID).
+				Where("NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))")
+			if job.CursorParticipantID != nil {
+				q = q.Where("p.id>?", *job.CursorParticipantID)
+			}
+			if err := q.Order("p.id").Limit(100).Pluck("p.id", &ids).Error; err != nil {
+				return err
+			}
+			if len(ids) > 0 {
+				if err := tx.Exec(`INSERT INTO notifications(id,user_id,type,payload,dedup_key,created_at)
+					SELECT gen_random_uuid(),p.user_id,'chat.message',jsonb_build_object('conferenceId',m.conference_id,'messageId',m.id),
+					'chat:'||m.id::text,m.created_at
+					FROM chat_messages m JOIN conference_participants p ON p.conference_id=m.conference_id
+					JOIN users u ON u.id=p.user_id AND u.guest_conference_id IS NULL
+					WHERE m.id=? AND m.deleted_at IS NULL AND p.id IN ? AND p.user_id IS NOT NULL AND p.user_id<>m.sender_user_id
+					AND p.admission_state='admitted' AND p.status IN ('joined','left')
+					AND NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))
+					ON CONFLICT(user_id,dedup_key) DO NOTHING`, job.MessageID, ids).Error; err != nil {
+					return err
+				}
+			}
+			if len(ids) < 100 {
+				if err := tx.Table("chat_notification_jobs").Where("message_id=?", job.MessageID).Update("completed_at", time.Now().UTC()).Error; err != nil {
+					return err
+				}
+			} else if err := tx.Table("chat_notification_jobs").Where("message_id=?", job.MessageID).Update("cursor_participant_id", ids[len(ids)-1]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // Pending возвращает порцию сохранённых уведомлений, ещё не отмеченных как опубликованные.
@@ -215,8 +279,26 @@ func (r *NotificationRepository) Generate(ctx context.Context) error {
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *NotificationRepository) Pending(ctx context.Context) ([]domain.Notification, error) {
 	items := []domain.Notification{}
-	err := r.db.WithContext(ctx).Where("published_at IS NULL").Order("created_at,id").Limit(100).Find(&items).Error
+	if err := r.db.WithContext(ctx).Exec(`UPDATE notifications n SET published_at=clock_timestamp()
+		WHERE published_at IS NULL AND EXISTS(SELECT 1 FROM conference_chat_preferences cp
+		WHERE cp.user_id=n.user_id AND cp.conference_id::text=n.payload->>'conferenceId'
+		AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Error; err != nil {
+		return nil, err
+	}
+	err := r.db.WithContext(ctx).Where("published_at IS NULL").Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp
+		WHERE cp.user_id=notifications.user_id AND cp.conference_id::text=notifications.payload->>'conferenceId'
+		AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Order("created_at,id").Limit(100).Find(&items).Error
 	return items, err
+}
+
+// Publishable checks current room preferences immediately before the SSE event.
+func (r *NotificationRepository) Publishable(ctx context.Context, id string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Table("notifications n").Where("n.id=? AND n.published_at IS NULL", id).
+		Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp WHERE cp.user_id=n.user_id
+			AND cp.conference_id::text=n.payload->>'conferenceId'
+			AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Count(&count).Error
+	return count > 0, err
 }
 
 // Published фиксирует успешную публикацию уведомления, сохраняя возможность безопасного повторения после сбоя.

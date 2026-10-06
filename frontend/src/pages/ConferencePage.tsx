@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -77,6 +77,19 @@ function MeetingClock({ startedAt }: { startedAt?: string | null }) {
  */
 export function ConferencePage() {
   const { id = "" } = useParams();
+  const [params, setParams] = useSearchParams();
+  const focusMessageId = params.get("message") || undefined;
+  const showChat = params.get("chat") === "1";
+  const latestMessages = () => {
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("message");
+        return next;
+      },
+      { replace: true },
+    );
+  };
   const navigate = useNavigate();
   const { user } = useAuth();
   const client = useQueryClient();
@@ -120,8 +133,14 @@ export function ConferencePage() {
     "chat" | "participants" | "captions"
   >("chat");
   const [panelOpen, setPanelOpen] = useState(
-    () => typeof window === "undefined" || window.innerWidth > 900,
+    () => showChat || typeof window === "undefined" || window.innerWidth > 900,
   );
+  useEffect(() => {
+    if (showChat) {
+      setPanelOpen(true);
+      setStagePanel("chat");
+    }
+  }, [showChat, focusMessageId]);
   const panelTrigger = useRef<HTMLButtonElement | null>(null);
   const [reconnectTarget, setReconnectTarget] = useState<HTMLDivElement | null>(
     null,
@@ -586,9 +605,12 @@ export function ConferencePage() {
               hidden={stagePanel !== "chat"}
             >
               <ChatPanel
+                key={`${id}:${focusMessageId || "latest"}`}
                 conferenceId={id}
                 membership={membership}
                 readOnly={false}
+                focusMessageId={focusMessageId}
+                onLatest={latestMessages}
               />
             </div>
             <div
@@ -1021,8 +1043,11 @@ export function ConferencePage() {
         )}
       {admitted && membership && !activeMeeting && (
         <ChatPanel
+          key={`${id}:${focusMessageId || "latest"}`}
           conferenceId={id}
           membership={membership}
+          focusMessageId={focusMessageId}
+          onLatest={latestMessages}
           readOnly={
             conference.status !== "active" || membership.status !== "joined"
           }

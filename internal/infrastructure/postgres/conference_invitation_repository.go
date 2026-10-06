@@ -145,6 +145,17 @@ func (r *ConferenceInvitationRepository) Invite(ctx context.Context, actor, conf
 					}
 				}
 			}
+			if userID != nil {
+				var left int64
+				if err := tx.Table("conference_chat_preferences").Where("conference_id=? AND user_id=? AND left_at IS NOT NULL", conference, *userID).Count(&left).Error; err != nil {
+					return err
+				}
+				if left > 0 {
+					// Only the former member may restore chat access via explicit Join.
+					items = append(items, d.InvitationResult{Email: email, UserID: userID, Status: "left_chat"})
+					continue
+				}
+			}
 			invitation := d.Invitation{ID: uuid.NewString(), ConferenceID: conference, RequestedBy: actor, Email: email, UserID: userID, Status: "queued"}
 			result := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "conference_id"}, {Name: "email"}}, DoNothing: true}).Create(&invitation)
 			if result.Error != nil {
@@ -174,7 +185,10 @@ func (r *ConferenceInvitationRepository) Invite(ctx context.Context, actor, conf
 					return err
 				}
 				if userID != nil {
-					if err := tx.Exec(`INSERT INTO notifications(id,user_id,type,payload,dedup_key) VALUES(gen_random_uuid(),?,'conference.invited',jsonb_build_object('conferenceId',?::uuid,'invitationId',?::uuid,'scheduledAt',(SELECT scheduled_at FROM conferences WHERE id=?)),?) ON CONFLICT(user_id,dedup_key) DO NOTHING`, *userID, conference, invitation.ID, conference, "meeting-invitation:"+invitation.ID).Error; err != nil {
+					if err := tx.Exec(`INSERT INTO notifications(id,user_id,type,payload,dedup_key)
+						SELECT gen_random_uuid(),?,'conference.invited',jsonb_build_object('conferenceId',?::uuid,'invitationId',?::uuid,'scheduledAt',(SELECT scheduled_at FROM conferences WHERE id=?)),?
+						WHERE NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=?::uuid AND cp.user_id=?::uuid AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))
+						ON CONFLICT(user_id,dedup_key) DO NOTHING`, *userID, conference, invitation.ID, conference, "meeting-invitation:"+invitation.ID, conference, *userID).Error; err != nil {
 						return err
 					}
 				}
@@ -207,7 +221,8 @@ func (r *IntegrationRepository) InvitationDelivery(ctx context.Context, job jobs
 		}
 		if delivery.Invitation.UserID != nil {
 			var allowed int64
-			if err := tx.Table("conference_participants p").Joins("JOIN users u ON u.id=p.user_id AND u.guest_conference_id IS NULL").Where("p.conference_id=? AND p.user_id=? AND p.status NOT IN ('kicked','rejected') AND p.admission_state IN ('admitted','waiting')", job.ConferenceID, *delivery.Invitation.UserID).Count(&allowed).Error; err != nil {
+			if err := tx.Table("conference_participants p").Joins("JOIN users u ON u.id=p.user_id AND u.guest_conference_id IS NULL").Where("p.conference_id=? AND p.user_id=? AND p.status NOT IN ('kicked','rejected') AND p.admission_state IN ('admitted','waiting')", job.ConferenceID, *delivery.Invitation.UserID).
+				Where("NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))").Count(&allowed).Error; err != nil {
 				return err
 			}
 			if allowed == 0 {

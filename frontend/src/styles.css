@@ -261,6 +261,13 @@
   background: #d9edef;
   border-radius: 18px 18px 3px;
 }
+.chat-message-focused .chat-message-bubble {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.chat-message-focused:focus {
+  outline: none;
+}
 .chat-message header {
   display: flex;
   align-items: baseline;

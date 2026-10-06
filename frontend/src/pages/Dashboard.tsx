@@ -15,6 +15,7 @@ import { useConferences } from "../queries";
 import { formatDate } from "../utils";
 import { Button, ErrorNotice, StatusBadge } from "../components/ui";
 import { CreateConference, JoinByLink } from "../components/ConferenceModals";
+import { ConferenceChatActions } from "../components/ConferenceChatActions";
 import type { Conference, ConferenceFilters } from "../types";
 import { localDayEnd, localSchedule } from "../collaboration";
 import "./dashboard.css";
@@ -52,7 +53,13 @@ function MeetingSkeleton() {
  * @args conference — запись сервера с проверенным доступом текущего пользователя.
  * @return Ссылка на комнату либо материалы завершённой встречи.
  */
-function MeetingRow({ conference }: { conference: Conference }) {
+function MeetingRow({
+  conference,
+  actions = false,
+}: {
+  conference: Conference;
+  actions?: boolean;
+}) {
   const past = ["finished", "cancelled"].includes(conference.status);
   const timestamp =
     conference.finishedAt ||
@@ -61,39 +68,42 @@ function MeetingRow({ conference }: { conference: Conference }) {
     conference.createdAt;
   const date = new Date(timestamp);
   return (
-    <Link
-      className={`conference-row dashboard-meeting-row ${conference.status === "active" ? "dashboard-meeting-active" : ""}`}
-      to={past ? `/history/${conference.id}` : `/meetings/${conference.id}`}
-    >
-      <span className="dashboard-meeting-time" aria-hidden="true">
-        {Number.isFinite(date.getTime())
-          ? date.toLocaleTimeString("ru-RU", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "—"}
-        <small>
+    <div className={actions ? "dashboard-meeting-with-actions" : undefined}>
+      <Link
+        className={`conference-row dashboard-meeting-row ${conference.status === "active" ? "dashboard-meeting-active" : ""}`}
+        to={past ? `/history/${conference.id}` : `/meetings/${conference.id}`}
+      >
+        <span className="dashboard-meeting-time" aria-hidden="true">
           {Number.isFinite(date.getTime())
-            ? date.toLocaleDateString("ru-RU", {
-                day: "numeric",
-                month: "short",
+            ? date.toLocaleTimeString("ru-RU", {
+                hour: "2-digit",
+                minute: "2-digit",
               })
-            : ""}
-        </small>
-      </span>
-      <div className="conference-row-copy">
-        <h3>{conference.title}</h3>
-        <p>
-          {conference.status === "created" ? "Создана: " : ""}
-          {formatDate(timestamp)}
-          {conference.plannedDurationMin
-            ? ` · ${conference.plannedDurationMin} мин`
-            : ""}
-        </p>
-      </div>
-      <StatusBadge status={conference.status} />
-      <ArrowRight className="row-arrow" size={17} aria-hidden="true" />
-    </Link>
+            : "—"}
+          <small>
+            {Number.isFinite(date.getTime())
+              ? date.toLocaleDateString("ru-RU", {
+                  day: "numeric",
+                  month: "short",
+                })
+              : ""}
+          </small>
+        </span>
+        <div className="conference-row-copy">
+          <h3>{conference.title}</h3>
+          <p>
+            {conference.status === "created" ? "Создана: " : ""}
+            {formatDate(timestamp)}
+            {conference.plannedDurationMin
+              ? ` · ${conference.plannedDurationMin} мин`
+              : ""}
+          </p>
+        </div>
+        <StatusBadge status={conference.status} />
+        <ArrowRight className="row-arrow" size={17} aria-hidden="true" />
+      </Link>
+      {actions && <ConferenceChatActions conference={conference} />}
+    </div>
   );
 }
 
@@ -378,7 +388,7 @@ export function Dashboard({
           ) : visible.length ? (
             <div className="conference-list">
               {visible.map((item) => (
-                <MeetingRow key={item.id} conference={item} />
+                <MeetingRow key={item.id} conference={item} actions={all} />
               ))}
             </div>
           ) : (
