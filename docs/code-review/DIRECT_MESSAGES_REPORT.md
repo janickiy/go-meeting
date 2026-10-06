@@ -1,7 +1,9 @@
 # Личные сообщения: отчёт реализации
 
-Дата: 6 октября 2026. Основа: `2618053`. Реализация и проверка выполнены локально;
-на `meeting.janickiy.com` этот выпуск в рамках текущей задачи не устанавливался.
+Дата: 6 октября 2026. Основа реализации: `2618053`. Локальные проверки завершены;
+6 октября выпуск установлен на `meeting.janickiy.com` в проекте
+`recorder-staging-meeting`. Версии, исправления при публикации и результаты
+проверки работающего сайта приведены в разделе 18.
 
 Требование пользователя заменяет IA исходного промпта: самостоятельный раздел
 **«Личные»**, без «Чаты» и вкладок «Личные / Встречи». Чаты встреч доступны только
@@ -227,6 +229,8 @@ Backend ownership/membership и DB constraints авторитетны; UI не �
 - `frontend/src/personalRealtime.test.ts`
 - `frontend/src/personalRealtime.ts`
 - `frontend/src/types.ts`
+- `frontend/src/utils.ts`
+- `frontend/src/utils.test.ts`
 - `frontend/src/workspace.css`
 - `internal/app/api.go`
 - `internal/app/chat/handler.go`
@@ -240,6 +244,8 @@ Backend ownership/membership и DB constraints авторитетны; UI не �
 - `internal/infrastructure/redis/user_presence.go`
 - `internal/infrastructure/storage/s3/attachments.go`
 - `internal/infrastructure/storage/s3/personal_attachments_test.go`
+- `internal/operations/runtime.go`
+- `internal/operations/runtime_test.go`
 - `internal/transport/http/chat_routes.go`
 - `internal/transport/http/personal_routes.go`
 - `internal/transport/websocket/user_handler.go`
@@ -255,11 +261,83 @@ Conference REST paths/event names, storage tables и object prefix сохран�
 Есть отдельный direct scope, поэтому guest/public meeting access не открывает DM.
 История/SSE уведомления и постоянная авторизация сохраняют свои контракты.
 
-Релиз требует обычного применения миграции 28 при старте API, сборки frontend
-и обновления Nginx конфигурации. Миграция проверена в disposable test DB;
-рабочая локальная и удалённая БД не изменялись. Коммит и публикация не выполнялись.
+При установке 6 октября миграции 26–28 применены отдельным migration job.
+Приложения работают с `AUTO_MIGRATE=false`: запуск API проверяет журнал
+миграций и не выполняет DDL. Перед применением полный `pg_dump` рабочей БД
+восстановлен в отдельную БД на том же хосте; миграции проверены на этой копии,
+контрольные суммы старых данных сохранены, временная БД удалена. Восстановление
+поверх рабочей БД не выполнялось. Установлены шесть образов приложений
+и overlay маршрутов Nginx для account WS и загрузки личных вложений.
 
-## 18. Ограничения
+## 18. Публикация и проверка работающего сайта 6 октября
+
+| Установленный выпуск | Область | Чистый source snapshot |
+| --- | --- | --- |
+| `v1.0.0-meeting.20261006-personal.1` | API, media-worker, worker, product-worker, live-worker, frontend | `050ee2e44ec6172fe16acceb3550b7ebf71d282e` |
+| `v1.0.0-meeting.20261006-personal.2` | Только API | `44bb02651a744d7605faac9de02cd31e3a79e84d` |
+| `v1.0.0-meeting.20261006-personal-ui.2` | Только frontend | `8d5a8b1afa90c3439eab618258a268232f129f04` |
+
+На хосте текущий API — `personal.2`, frontend — `personal-ui.2`, четыре worker
+образа — `personal.1`. Исходники, OCI manifest/config/layers/diff IDs, SBOM,
+контрольные суммы и свежесть Trivy проверены при упаковке и установке.
+Для всех опубликованных образов HIGH/CRITICAL=0. При переключении Go-служб
+использовались drain и SIGTERM; SIGKILL не применялся. Общий env, отдельные SMTP
+settings, Apache, инфраструктурные образы и посторонние контейнеры, включая VPN,
+сохранены. Два последующих исправления не запускали миграции и не меняли proxy.
+Установщики проверили сохранение дискового резерва не менее 1 ГиБ. Финальная
+проверка 6 октября в 14:16:07 UTC: свободно 1 360 441 344 байта, резерв соблюдён.
+
+Реальная проверка сайта обнаружила две ошибки, отсутствовавшие в первоначальной
+локальной проверке:
+
+- PUT личного файла размером 1 МиБ + 1 КиБ получал 413: общий JSON body limit
+  ошибочно применялся к загрузке. В `internal/operations/runtime.go` исключение
+  задано по точному Gin `FullPath` и методу PUT для content-маршрутов обоих scope:
+  `conferences` и `conversations`. Отдельный лимит вложения 10 МиБ сохранён.
+- После входа маршрут `/personal` отбрасывался `safeNext`. В
+  `frontend/src/utils.ts` разрешены маршруты самостоятельного раздела «Личные»;
+  проверки допустимых адресов перехода сохранены.
+
+Оба исправления имеют отдельные тесты и опубликованы указанными выше выпусками.
+Первоначальные неуспешные попытки QA сохранены в evidence; они не представлены
+как успешные проверки.
+
+| Проверка опубликованного приложения | Результат |
+| --- | --- |
+| REST/account WS, 10 проверок с двумя реальными QA аккаунтами | PASS: существующая пара, история, доставка, идемпотентность, read/reconnect, собственное удаление, запрет чужого удаления, cookie refresh/logout |
+| Файл 1 МиБ + 1 КиБ через публичный upload route | PASS: upload/finalize/send, signed download и SHA-256; без подписи S3 возвращает 403 |
+| Реальный Chromium UI, 1440/390/320 px | PASS: «Личные», отправка и доставка через WS, unread/read, мобильный возврат; горизонтального переполнения нет |
+| Постоянная авторизация и перезагрузка UI | PASS: восстановление cookie без sessionStorage, reload сохраняет вход и сообщения; pageErrors=0 |
+| Очистка QA | PASS: удалены ровно два созданных аккаунта, одна их переписка и один точный S3 object; remaining users/conversations/authSessions=0, отсутствие объекта проверено |
+| Финальная проверка хоста и публичных маршрутов | PASS: 13 контейнеров running, 10 объявленных Docker health checks healthy, 11 публичных проверок; nginx -t для proxy/frontend успешен |
+
+QA отправлял сообщения только между двумя созданными аккаунтами; реальные
+конференции и пользовательские переписки не изменялись. Локальные журналы
+публикации: `tmp/direct-messages-deploy-20261006/evidence/`,
+`tmp/direct-messages-deploy-20261006-api-hotfix/evidence/` и
+`tmp/direct-messages-deploy-20261006-frontend-hotfix/evidence/`.
+Ключевые результаты: `backup-evidence.json`, `cleanup-evidence.json`,
+`live-ui/checks.json`, `final-host-check.json`, `final-public-probe.json` первого
+каталога и `live-smoke-hotfix.json` каталога API. После очистки все семь старых
+таблиц имеют ровно прежние контрольные суммы и количество строк: users=57,
+conferences=32, conference_participants=58, record=17, chat_messages=32,
+chat_attachments=13, chat_read_states=27. ID и StartedAt шести инфраструктурных
+контейнеров и шести VPN-контейнеров совпадают с исходным снимком. Временная БД
+восстановления отсутствует. Proxy, Prometheus и coturn не имеют объявленного
+Docker healthcheck; их статус не обозначается как Docker healthy.
+Пароли, cookies, токены и QA IDs в отчёт не включены. Приватный QA state и
+временный ввод очистки удалены после проверки.
+
+Актуальный помощник Compose на хосте:
+`/opt/meetrix/releases/v1.0.0-meeting.20261006-personal-ui.2/compose-current.py`.
+SHA-256: `d9fdb48c8e0533dfe76a1bda0383a575fccaa75a18281ac8ef18128e6591ae22`.
+Он использует текущую карту 13 образов и семь Compose-файлов, включая установленный
+overlay маршрутов. Подробности эксплуатации:
+[meeting-host-deployment.md](../operations/meeting-host-deployment.md).
+Эта публикация и функциональные QA не являются нагрузочной проверкой или
+подтверждением production capacity.
+
+## 19. Ограничения
 
 Redis Pub/Sub — best effort, без outbox/replay и exactly-once. История PostgreSQL
 восстанавливается при reconnect; fallback polling составляет 15 с для открытых
@@ -273,7 +351,7 @@ Soft delete не является физическим удалением из �
 Проверены desktop браузер и мобильные viewport; native iOS keyboard не проверялся.
 Производственный rolling rollout/большой load test этой задачей не подтверждены.
 
-## 19. Дальнейшие работы
+## 20. Дальнейшие работы
 
 При отдельной задаче: блокировка пользователей и preferences DM;
 при подтверждённой необходимости — typing/delivery receipts, outbox/replay,

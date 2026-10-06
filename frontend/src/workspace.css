@@ -263,19 +263,11 @@ body {
   margin-right: 0;
   min-height: 40px;
 }
-.profile-dropdown {
-  position: relative;
-}
-.profile-dropdown summary {
+.topbar-profile {
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
-  list-style: none;
   min-height: 44px;
-}
-.profile-dropdown summary::-webkit-details-marker {
-  display: none;
 }
 .topbar-profile-text {
   display: grid;
@@ -294,38 +286,6 @@ body {
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.profile-dropdown-content {
-  position: absolute;
-  z-index: var(--z-nav);
-  right: 0;
-  top: calc(100% + 10px);
-  width: 230px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  padding: 8px;
-  box-shadow: var(--shadow-float);
-}
-.profile-dropdown-content a,
-.profile-dropdown-content button {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  padding: 12px;
-  color: var(--text);
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-size: var(--text-xs);
-  text-align: left;
-  cursor: pointer;
-}
-.profile-dropdown-content a:hover,
-.profile-dropdown-content button:hover {
-  background: var(--surface-soft);
 }
 .workspace-main {
   width: 100%;
@@ -634,8 +594,7 @@ body {
   .workspace-account {
     gap: 8px;
   }
-  .topbar-profile-text,
-  .profile-dropdown summary > svg {
+  .topbar-profile-text {
     display: none;
   }
   .workspace-main {

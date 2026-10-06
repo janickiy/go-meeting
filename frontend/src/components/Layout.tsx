@@ -8,7 +8,6 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
-  ChevronDown,
   Home,
   History,
   LogOut,
@@ -69,7 +68,7 @@ export function Layout() {
   );
 
   /** Открывает диалог обычным кликом, сохраняя текущую страницу и стандартное открытие ссылок в новой вкладке.
-   * @args event — нажатие ссылки настроек в навигации или меню профиля.
+   * @args event — нажатие ссылки настроек в навигации.
    * @return Значение не возвращается; диалог получает фокус, мобильное меню закрывается.
    */
   function openSettings(event: MouseEvent<HTMLAnchorElement>) {
@@ -82,11 +81,9 @@ export function Layout() {
     )
       return;
     event.preventDefault();
-    const details = event.currentTarget.closest("details");
     settingsOpener.current = open
       ? opener.current || menuButton.current
-      : details?.querySelector<HTMLElement>("summary") || event.currentTarget;
-    if (details) details.open = false;
+      : event.currentTarget;
     setOpen(false);
     showAccountSettings(settingsOpener.current!);
   }
@@ -327,28 +324,15 @@ export function Layout() {
             </form>
             <div className="workspace-account">
               <NotificationBell />
-              <details className="profile-dropdown">
-                <summary aria-label="Меню профиля">
-                  <span className="avatar avatar-small">
-                    {initials(user?.displayName || user?.email || "")}
-                  </span>
-                  <span className="topbar-profile-text">
-                    <strong>{user?.displayName || "Мой аккаунт"}</strong>
-                    <small>{user?.email}</small>
-                  </span>
-                  <ChevronDown size={15} />
-                </summary>
-                <div className="profile-dropdown-content">
-                  <Link to="/app/settings" onClick={openSettings}>
-                    <Settings size={16} />
-                    Настройки профиля
-                  </Link>
-                  <button disabled={leaving} onClick={leaveAccount}>
-                    <LogOut size={16} />
-                    Завершить сеанс
-                  </button>
-                </div>
-              </details>
+              <div className="topbar-profile">
+                <span className="avatar avatar-small">
+                  {initials(user?.displayName || user?.email || "")}
+                </span>
+                <span className="topbar-profile-text">
+                  <strong>{user?.displayName || "Мой аккаунт"}</strong>
+                  <small>{user?.email}</small>
+                </span>
+              </div>
             </div>
           </header>
           <main id="workspace-main" className="workspace-main" tabIndex={-1}>

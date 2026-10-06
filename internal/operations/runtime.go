@@ -255,7 +255,7 @@ func (r *Runtime) Middleware() gin.HandlerFunc {
 			c.AbortWithStatus(503)
 			return
 		}
-		if c.Request.Body != nil && !stringsHasUploadSuffix(route) {
+		if c.Request.Body != nil && !(c.Request.Method == http.MethodPut && stringsHasUploadSuffix(route)) {
 			if c.Request.ContentLength > r.Config.HTTPBodyBytes {
 				c.AbortWithStatus(413)
 				return
@@ -266,10 +266,11 @@ func (r *Runtime) Middleware() gin.HandlerFunc {
 	}
 }
 
-// stringsHasUploadSuffix распознаёт только зарегистрированный шаблон upload,
-// не пользовательский URL; аргумент route получен из Gin FullPath.
+// stringsHasUploadSuffix распознаёт только зарегистрированные шаблоны upload
+// встречи и личной переписки, не пользовательский URL; route получен из Gin FullPath.
 func stringsHasUploadSuffix(route string) bool {
-	return route == "/api/v1/conferences/:id/attachments/:attachmentId/content"
+	return route == "/api/v1/conferences/:id/attachments/:attachmentId/content" ||
+		route == "/api/v1/conversations/:id/attachments/:attachmentId/content"
 }
 
 // WithID переносит ID корреляции в контекст. id принимается только как UUID;

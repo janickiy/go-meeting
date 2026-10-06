@@ -124,6 +124,28 @@ describe("navigation and invitations", /**
       "/recordings?conference=room",
     );
   });
+  it.each([
+    "/personal",
+    "/personal?from=notification",
+    "/personal/45144e4e-c3d7-4eed-863e-2edc7ceec5b4",
+    "/personal/45144E4E-C3D7-4EED-863E-2EDC7CEEC5B4?from=notification",
+  ])("preserves a personal destination through authorization: %s", (value) => {
+    expect(safeNext(value)).toBe(value);
+  });
+  it.each([
+    "https://evil.test/personal",
+    "//evil.test/personal",
+    "/\\evil.test/personal",
+    "/personal\n",
+    "/personal-notes",
+    "/personal/not-a-conversation",
+    "/personal/45144e4e-c3d7-4eed-863e-2edc7ceec5b4/messages",
+    "/personal/45144e4e-c3d7-4eed-863e-2edc7ceec5b4%2fmessages",
+    "/personal//evil.test",
+    "/personal/../login",
+  ])("rejects an unsafe or unsupported personal destination: %s", (value) => {
+    expect(safeNext(value)).toBe("/app");
+  });
   it("accepts only codes and invitation URLs from the current origin", /**
    * Проверяет приём только кодов и ссылок приглашения с текущего источника.
    *

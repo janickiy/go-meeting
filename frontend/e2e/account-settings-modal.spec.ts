@@ -285,17 +285,12 @@ test("settings links open an account modal over the current route and return foc
   await expect(sidebarLink).toBeFocused();
   expect(page.url()).toBe(originalURL);
 
-  await page.getByLabel("Меню профиля", { exact: true }).click();
-  const profileLink = page.getByRole("link", {
-    name: "Настройки профиля",
-    exact: true,
-  });
-  await profileLink.click();
+  await sidebarLink.click();
   await expect(dialog).toBeVisible();
   expect(page.url()).toBe(originalURL);
   await page.locator(".modal-backdrop").click({ position: { x: 2, y: 2 } });
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByLabel("Меню профиля", { exact: true })).toBeFocused();
+  await expect(sidebarLink).toBeFocused();
   expect(fixture.unexpected).toEqual([]);
 });
 

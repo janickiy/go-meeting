@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/janickiy/go-recorder/internal/config"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -134,6 +135,79 @@ func TestMiddlewareCardinalityAndBody(t *testing.T) {
 	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/items/any", nil))
 	if w.Code != 503 {
 		t.Fatal(w.Code)
+	}
+}
+
+// TestMiddlewareAttachmentBodies проверяет реальные чтения тела через Gin:
+// только PUT content обоих чатов проходит JSON-лимит, в том числе без Content-Length.
+// JSON, другие методы и похожий шаблон пути остаются ограничены тем же пределом.
+func TestMiddlewareAttachmentBodies(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	const limit int64 = 1 << 20
+	payload := `{"text":"` + strings.Repeat("x", int(limit)+1024) + `"}`
+	r := New("test", "test", config.OperationsConfig{HTTPBodyBytes: limit}, nil)
+	for _, scope := range []string{"conferences", "conversations"} {
+		for _, method := range []string{http.MethodPut, http.MethodPost} {
+			for _, knownLength := range []bool{true, false} {
+				t.Run(fmt.Sprintf("%s/%s/known-length-%v", scope, method, knownLength), func(t *testing.T) {
+					testMiddlewareBody(t, r, method,
+						"/api/v1/"+scope+"/:id/attachments/:attachmentId/content",
+						"/api/v1/"+scope+"/conversation/attachments/attachment/content",
+						payload, knownLength, method == http.MethodPut, limit)
+				})
+			}
+		}
+	}
+	for _, endpoint := range []struct {
+		name, method, route, path string
+	}{
+		{"json", http.MethodPost, "/api/v1/conversations/direct", "/api/v1/conversations/direct"},
+		{"similar-content-route", http.MethodPut, "/api/v1/other/:id/attachments/:attachmentId/content", "/api/v1/other/conversation/attachments/attachment/content"},
+	} {
+		for _, knownLength := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/known-length-%v", endpoint.name, knownLength), func(t *testing.T) {
+				testMiddlewareBody(t, r, endpoint.method, endpoint.route, endpoint.path, payload, knownLength, false, limit)
+			})
+		}
+	}
+}
+
+func testMiddlewareBody(t *testing.T, r *Runtime, method, route, path, payload string, knownLength, allowed bool, limit int64) {
+	t.Helper()
+	router := gin.New()
+	router.Use(r.Middleware())
+	called := false
+	var readBytes int64
+	router.Handle(method, route, func(c *gin.Context) {
+		called = true
+		var err error
+		readBytes, err = io.Copy(io.Discard, c.Request.Body)
+		if err != nil {
+			var tooLarge *http.MaxBytesError
+			if !errors.As(err, &tooLarge) {
+				t.Errorf("unexpected body error: %v", err)
+			}
+			c.Status(http.StatusRequestEntityTooLarge)
+			return
+		}
+		c.Status(http.StatusNoContent)
+	})
+	req := httptest.NewRequest(method, path, strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	if !knownLength {
+		req.ContentLength = -1
+		req.TransferEncoding = []string{"chunked"}
+	}
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if allowed {
+		if w.Code != http.StatusNoContent || !called || readBytes != int64(len(payload)) {
+			t.Fatalf("upload body truncated or rejected: status=%d called=%v bytes=%d want=%d", w.Code, called, readBytes, len(payload))
+		}
+		return
+	}
+	if w.Code != http.StatusRequestEntityTooLarge || readBytes > limit || called == knownLength {
+		t.Fatalf("body limit bypassed: status=%d called=%v bytes=%d limit=%d knownLength=%v", w.Code, called, readBytes, limit, knownLength)
 	}
 }
 
