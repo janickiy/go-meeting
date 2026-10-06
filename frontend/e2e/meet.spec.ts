@@ -106,6 +106,7 @@ async function mockApi(
   }
   let list: Conference[] = options.empty ? [] : [conference];
   const writes: { path: string; body: unknown }[] = [];
+  let persistentSession = false;
   await page.route(
     "**/api/v1/**",
     /**
@@ -135,12 +136,24 @@ async function mockApi(
           contentType: "application/json",
           body: JSON.stringify(body),
         });
-      if (post) writes.push({ path, body: request.postDataJSON() });
+      if (post && !["/auth/session", "/auth/refresh"].includes(path))
+        writes.push({ path, body: request.postDataJSON() });
+      if (path === "/auth/refresh") {
+        if (!persistentSession || options.expired)
+          return respond({ message: "unauthorized" }, 401);
+        return respond({
+          status: "success",
+          accessToken: "e2e-jwt",
+          expiresIn: 3600,
+          user: current,
+        });
+      }
       if (path === "/auth/register")
         return respond({ status: "success", user: current }, 201);
       if (path === "/auth/login") {
         if (options.failLogin || options.failRegistrationLogin)
           return respond({ message: "invalid email or password" }, 401);
+        persistentSession = true;
         return respond({
           status: "success",
           accessToken: "e2e-jwt",
@@ -161,9 +174,21 @@ async function mockApi(
       if (options.expired) return respond({ message: "expired" }, 401);
       if (request.headers()["authorization"] !== "Bearer e2e-jwt")
         return respond({ message: "unauthorized" }, 401);
+      if (path === "/auth/session") {
+        persistentSession = true;
+        return respond({
+          status: "success",
+          accessToken: "e2e-jwt",
+          expiresIn: 3600,
+          user: current,
+        });
+      }
       if (path === "/auth/me")
         return respond({ status: "success", user: current });
-      if (path === "/auth/logout") return respond({ status: "success" });
+      if (path === "/auth/logout") {
+        persistentSession = false;
+        return respond({ status: "success" });
+      }
       if (path === "/conferences" && post) {
         const body = request.postDataJSON();
         if (
@@ -559,8 +584,8 @@ test("finds current membership after the first 100 participants", /**
   ).toHaveCount(0);
 });
 
-test("restores a session, but an expired token redirects safely to login", /**
- * Проверяет восстановление сессии и безопасный переход ко входу при истёкшем токене.
+test("restores a session and redirects only after the server confirms revocation", /**
+ * Проверяет восстановление сессии и переход ко входу после серверного отзыва сессии.
  *
  * @args
  *   - объект параметров: page — изолированная страница Playwright.
@@ -574,7 +599,7 @@ test("restores a session, but an expired token redirects safely to login", /**
     page.getByRole("heading", { name: "Добро пожаловать, Александр!" }),
   ).toBeVisible();
   await page.route(
-    "**/api/v1/auth/me",
+    "**/api/v1/auth/{me,refresh}",
     /**
      * Обработчик page.route выполняет браузерную часть проверяемого сценария в изолированном тестовом контексте.
      *

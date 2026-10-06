@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -86,6 +87,8 @@ type Handler struct {
 	streams   atomic.Int64
 	counts    syncCounts
 	namespace string
+	drain     chan struct{}
+	drainOnce sync.Once
 }
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в личных уведомлениях и их фоновой доставке.
@@ -100,7 +103,21 @@ type Handler struct {
 // @return
 //   - результат 1 (*Handler): созданный компонент с переданными зависимостями.
 func NewHandler(service *usecase.Service, bus Subscriber, tokens Verifier, limiter Limiter, namespace string) *Handler {
-	return &Handler{service: service, bus: bus, tokens: tokens, limiter: limiter, namespace: namespace, counts: syncCounts{values: map[string]int{}}}
+	return &Handler{service: service, bus: bus, tokens: tokens, limiter: limiter, namespace: namespace, counts: syncCounts{values: map[string]int{}}, drain: make(chan struct{})}
+}
+
+// BeginDrain releases SSE requests so a graceful API deployment can finish.
+func (h *Handler) BeginDrain() {
+	h.drainOnce.Do(func() {
+		if h.drain != nil {
+			close(h.drain)
+		}
+	})
+}
+
+type persistentVerifier interface {
+	VerifyAuthorization(context.Context, string) (string, string, string, time.Time, error)
+	AuthorizeSession(context.Context, string, string) error
 }
 
 // List возвращает ограниченный список личных уведомлений пользователя с принятыми в данном слое фильтрами.
@@ -158,8 +175,21 @@ func (h *Handler) Events(c *gin.Context) {
 		httpresponse.Fail(c, apperrors.ErrUnauthorized)
 		return
 	}
-	userID, expiry, err := h.tokens.VerifyWithExpiry(fields[1])
-	if err != nil || userID != httpmiddleware.UserID(c) {
+	var userID, sessionID string
+	var expiry time.Time
+	var err error
+	if persistent, ok := h.tokens.(persistentVerifier); ok {
+		verifyContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		userID, _, sessionID, expiry, err = persistent.VerifyAuthorization(verifyContext, fields[1])
+		cancel()
+	} else {
+		userID, expiry, err = h.tokens.VerifyWithExpiry(fields[1])
+	}
+	if err != nil {
+		httpresponse.Fail(c, err)
+		return
+	}
+	if userID != httpmiddleware.UserID(c) {
 		httpresponse.Fail(c, apperrors.ErrUnauthorized)
 		return
 	}
@@ -225,18 +255,32 @@ func (h *Handler) Events(c *gin.Context) {
 	if !write(": connected\n\n") {
 		return
 	}
+	active := func() bool {
+		if sessionID == "" {
+			return true
+		}
+		persistent := h.tokens.(persistentVerifier)
+		checkContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		return persistent.AuthorizeSession(checkContext, userID, sessionID) == nil
+	}
 	keepalive := time.NewTicker(15 * time.Second)
 	defer keepalive.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-h.drain:
+			return
 		case <-keepalive.C:
+			if !active() {
+				return
+			}
 			if !write(": keepalive\n\n") {
 				return
 			}
 		case message, ok := <-messages:
-			if !ok {
+			if !ok || !active() {
 				return
 			}
 			var event domain.Envelope

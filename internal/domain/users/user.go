@@ -133,6 +133,8 @@ type LoginResponse struct {
 	TokenType   string `json:"tokenType"`
 	ExpiresIn   int    `json:"expiresIn"`
 	User        View   `json:"user"`
+	// SessionToken is delivered only as an HttpOnly cookie, never in JSON.
+	SessionToken string `json:"-"`
 }
 
 // NormalizeEmail обрезает пробелы и приводит адрес электронной почты к нижнему регистру.

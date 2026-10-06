@@ -89,6 +89,20 @@ async function recordingFixture(
     const path = url.pathname.replace(/^\/api\/v1/, "");
     const respond = (json: unknown, code = 200) =>
       route.fulfill({ status: code, json });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return respond({
+        accessToken: "isolated-recording-controls-token",
+        expiresIn: 3600,
+        status: "success",
+        user: {
+          id: "self",
+          displayName: membership.displayName,
+          email: guest ? "" : "fixture@example.test",
+          guestConferenceId: guest ? roomId : undefined,
+          createdAt: stamp,
+          updatedAt: stamp,
+        },
+      });
     if (method === "GET" && path === "/auth/me")
       return respond({
         status: "success",

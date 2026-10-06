@@ -58,6 +58,17 @@ async function fixture(page: Page, account = false, closed = false) {
   await page.route("**/api/v1/**", async (route) => {
     const req = route.request(),
       path = new URL(req.url()).pathname.replace("/api/v1", "");
+    if (path === "/auth/refresh")
+      return route.fulfill({ status: 401, json: { message: "unauthorized" } });
+    if (path === "/auth/session")
+      return route.fulfill({
+        json: {
+          status: "success",
+          accessToken: "account-token",
+          expiresIn: 3600,
+          user,
+        },
+      });
     if (req.method() !== "GET") writes.push(path);
     let json: unknown = { status: "success", items: [] };
     if (path === `/conference-invites/${code}`)

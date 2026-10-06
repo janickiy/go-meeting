@@ -82,6 +82,13 @@ async function installCalendarFixture(page: Page, owner = true) {
         contentType: "application/json",
         body: JSON.stringify(body),
       });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return respond({
+        status: "success",
+        accessToken: "calendar-visual-fixture",
+        expiresIn: 3600,
+        user: { ...user, id: owner ? user.id : "calendar-member" },
+      });
     if (path === "/auth/me")
       return respond({
         user: { ...user, id: owner ? user.id : "calendar-member" },

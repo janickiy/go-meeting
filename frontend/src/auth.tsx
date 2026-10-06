@@ -10,82 +10,64 @@ import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, configureAuth } from "./api";
 import type { User, LoginResponse, Item, Participant } from "./types";
-import { readSession, saveSession } from "./utils";
+import {
+  clearLogoutMarker,
+  hasLogoutMarker,
+  LOGOUT_KEY,
+  markLogout,
+  readSession,
+  saveSession,
+} from "./utils";
 import type { Session } from "./utils";
 
-/**
- * Auth описывает пользователя, восстановление сессии и действия React-авторизации.
- *
- * @params:
- *   - user — публичные сведения пользователя.
- *   - loading — признак незавершённого действия, ограничивающий повторную отправку.
- *   - expired — поле или операция этого контракта.
- *   - startupError — поле или операция этого контракта.
- *   - login — поле или операция этого контракта.
- *   - logout — поле или операция этого контракта.
- *   - retry — номер повторной попытки операции.
- */
 interface Auth {
   user: User | null;
   loading: boolean;
   expired: boolean;
   startupError: boolean;
-  login: /**
-   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в клиентской авторизации.
-   *
-   * @args
-   *   - email (string) — адрес электронной почты.
-   *   - password (string) — пароль из формы; не предназначен для журналирования.
-   *
-   * @returns Promise<void> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
-   */ (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   updateProfile: (displayName: string) => Promise<User>;
   enterGuest: (
     code: string,
     displayName: string,
   ) => Promise<LoginResponse & Item<Participant>>;
-  logout: /**
-   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в клиентской авторизации.
-   *
-   *
-   * @returns Promise<void> — Promise с результатом описанной асинхронной операции; отказ передаётся через отклонение Promise.
-   */ () => Promise<void>;
-  retry: /**
-   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в клиентской авторизации.
-   *
-   *
-   * @returns void — значение не возвращается; функция выполняет описанные действия.
-   */ () => void;
+  logout: () => Promise<void>;
+  retry: () => void;
 }
+
 const Context = createContext<Auth | null>(null);
-/**
- * AuthProvider восстанавливает клиентскую сессию, проверяет пользователя и предоставляет операции авторизации через React-контекст.
- *
- * @args
- *   - объект параметров: children — вложенное содержимое компонента или диалога.
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
- */
+const RENEW_BEFORE_MS = 60_000;
+const RETRY_MS = 30_000;
+
+/** The account persists on the server; an expiring JWT only limits one access token. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const client = useQueryClient();
   const [session, setSession] = useState<Session | null>(readSession);
   const sessionRef = useRef(session);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(!!session);
+  const [user, setUser] = useState<User | null>(session?.user ?? null);
+  const userRef = useRef(user);
+  const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
   const [startupError, setStartupError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const generation = useRef(0);
+  const loggedOut = useRef(hasLogoutMarker());
+  const renewal = useRef<Promise<boolean> | null>(null);
+  const renewalController = useRef<AbortController | null>(null);
+  const identityController = useRef<AbortController | null>(null);
+  const restoreAllowed = useRef(true);
+  const migrationNeeded = useRef(!!session);
+  const startupComplete = useRef(false);
+  const renewRef = useRef<(usedToken?: string) => Promise<boolean>>(
+    async () => false,
+  );
+
   const clear = useCallback(
-    /**
-     * Обработчик useCallback выполняет действие с текущими зависимостями React-компонента.
-     *
-     * @args
-     *   - isExpired — признак истечения срока текущей сессии (по умолчанию false).
-     *
-     * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-     */
     (isExpired = false) => {
       sessionRef.current = null;
+      userRef.current = null;
+      restoreAllowed.current = false;
+      startupComplete.current = true;
       configureAuth(null);
       saveSession(null);
       void client.cancelQueries();
@@ -98,168 +80,300 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [client],
   );
-  useEffect(
-    /**
-     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
-     *
-     *
-     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
-     */ () => {
-      const current = sessionRef.current;
-      configureAuth(
-        current?.token || null,
-        /**
-         * Обработчик configureAuth выполняет переданный шаг вызова configureAuth в клиентской авторизации.
-         *
-         * @args
-         *   - usedToken — токен конкретного запроса, который получил отказ авторизации.
-         *
-         * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-         */ (usedToken) => {
-          if (usedToken === sessionRef.current?.token) clear(true);
-        },
-      );
-      if (!current) return;
-      const controller = new AbortController();
-      setLoading(true);
+
+  /** A renewal never resets queries, loading, or the mounted conference. */
+  const applySession = useCallback(
+    (result: LoginResponse, expected: number) => {
+      if (generation.current !== expected || loggedOut.current) return false;
+      if (
+        !result.accessToken ||
+        !result.user?.id ||
+        !Number.isFinite(result.expiresIn) ||
+        result.expiresIn <= 0
+      )
+        throw new ApiError(502, "Сервер вернул некорректный ответ.");
+      const next: Session = {
+        token: result.accessToken,
+        expiresAt: Date.now() + Math.min(result.expiresIn, 3600) * 1000,
+        user: result.user,
+      };
+      sessionRef.current = next;
+      userRef.current = result.user;
+      restoreAllowed.current = true;
+      migrationNeeded.current = false;
+      configureAuth(next.token);
+      saveSession(next);
+      setSession(next);
+      setUser(result.user);
+      setExpired(false);
       setStartupError(false);
-      api
-        .me(controller.signal)
-        .then(
-          /**
-           * Обработчик then выполняет переданный шаг вызова then в клиентской авторизации.
-           *
-           * @args
-           *   - объект параметров: user — публичные сведения пользователя.
-           *
-           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-           */ ({ user }) => {
-            if (
-              !controller.signal.aborted &&
-              sessionRef.current?.token === current.token
-            )
-              setUser(user);
-          },
-        )
-        .catch(
-          /**
-           * Обработчик catch выполняет переданный шаг вызова catch в клиентской авторизации.
-           *
-           * @args
-           *   - error (unknown) — пойманная ошибка API или сети.
-           *
-           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-           */ (error: unknown) => {
-            if (controller.signal.aborted) return;
-            if (error instanceof ApiError && error.status === 401) clear(true);
-            else setStartupError(true);
-          },
-        )
-        .finally(
-          /**
-           * Обработчик finally выполняет переданный шаг вызова finally в клиентской авторизации.
-           *
-           *
-           * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-           */ () => {
-            if (!controller.signal.aborted) setLoading(false);
-          },
-        );
-      /**
-       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
-       *
-       *
-       * @returns вычисленное значение: controller.abort().
-       */
-      return () => controller.abort();
+      return true;
     },
-    [session?.token, attempt, clear],
+    [],
   );
-  useEffect(
-    /**
-     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
-     *
-     *
-     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
-     */ () => {
-      if (!session) return;
-      const timer = window.setTimeout(
-        /**
-         * Обработчик window.setTimeout выполняет отложенную либо периодическую часть операции.
-         *
-         *
-         * @returns вычисленное значение: clear(true).
-         */
-        () => clear(true),
-        Math.max(0, session.expiresAt - Date.now()),
-      );
-      /**
-       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
-       *
-       *
-       * @returns вычисленное значение: window.clearTimeout(timer).
-       */
-      return () => window.clearTimeout(timer);
+
+  const renew = useCallback(
+    (usedToken?: string): Promise<boolean> => {
+      if (loggedOut.current) return Promise.resolve(false);
+      if (usedToken && sessionRef.current?.token !== usedToken)
+        return Promise.resolve(!!sessionRef.current);
+      if (userRef.current?.guestConferenceId) {
+        clear(true);
+        return Promise.resolve(false);
+      }
+      if (renewal.current) return renewal.current;
+      const expected = generation.current;
+      const controller = new AbortController();
+      renewalController.current = controller;
+      const current = sessionRef.current;
+      const response =
+        migrationNeeded.current &&
+        userRef.current &&
+        current &&
+        current.expiresAt > Date.now()
+          ? api.establishSession(controller.signal).catch((error: unknown) => {
+              if (error instanceof ApiError && error.status === 401)
+                return api.refreshSession(controller.signal);
+              throw error;
+            })
+          : api.refreshSession(controller.signal);
+      const pending = response
+        .then((result) => applySession(result, expected))
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || generation.current !== expected)
+            return false;
+          if (error instanceof ApiError && error.status === 401) {
+            clear(!!sessionRef.current);
+          } else if (!userRef.current) {
+            setStartupError(true);
+          }
+          // A transport failure cannot invalidate an account or its cached token.
+          return false;
+        })
+        .finally(() => {
+          if (renewal.current === pending) renewal.current = null;
+          if (renewalController.current === controller)
+            renewalController.current = null;
+        });
+      renewal.current = pending;
+      return pending;
     },
-    [session, clear],
+    [applySession, clear],
   );
-  /**
-   * login отправляет учётные данные и получает токен и сведения пользователя.
-   *
-   * @args
-   *   - email (string) — адрес электронной почты.
-   *   - password (string) — пароль из формы; не предназначен для журналирования.
-   *
-   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-   */
-  async function login(email: string, password: string) {
-    const result = await api.login(email, password);
-    await acceptSession(result);
-  }
-  async function enterGuest(code: string, displayName: string) {
-    const result = await api.joinGuest(code, displayName);
-    await acceptSession(result);
-    return result;
-  }
-  async function acceptSession(result: LoginResponse) {
-    await client.cancelQueries();
-    client.clear();
-    const next = {
-      token: result.accessToken,
-      expiresAt: Date.now() + Math.min(result.expiresIn, 3600) * 1000,
+  renewRef.current = renew;
+
+  useEffect(() => {
+    const expected = generation.current;
+    const controller = new AbortController();
+    configureAuth(sessionRef.current?.token ?? null, (usedToken) =>
+      renewRef.current(usedToken),
+    );
+    const start = async () => {
+      if (!userRef.current) setLoading(true);
+      setStartupError(false);
+      if (loggedOut.current) {
+        clear();
+        // Retry an offline logout before ever attempting cookie restoration.
+        await api.logout().catch(() => {});
+        return;
+      }
+      const cached = sessionRef.current;
+      if (cached && cached.expiresAt > Date.now()) {
+        try {
+          const result = await api.me(controller.signal);
+          if (controller.signal.aborted || generation.current !== expected)
+            return;
+          userRef.current = result.user;
+          setUser(result.user);
+          if (result.user.guestConferenceId) {
+            const next = { ...cached, user: result.user };
+            sessionRef.current = next;
+            saveSession(next);
+            setSession(next);
+          } else {
+            // Migrate users already signed in before persistent cookies existed.
+            const account = await api.establishSession(controller.signal);
+            applySession(account, expected);
+          }
+        } catch (error) {
+          if (controller.signal.aborted || generation.current !== expected)
+            return;
+          if (
+            error instanceof ApiError &&
+            error.status === 401 &&
+            restoreAllowed.current
+          )
+            await renewRef.current();
+          else if (!userRef.current) setStartupError(true);
+        }
+      } else {
+        await renewRef.current();
+      }
     };
-    sessionRef.current = next;
-    configureAuth(next.token);
-    saveSession(next);
-    setSession(next);
-    setUser(result.user);
-    setLoading(false);
-    setExpired(false);
-    setStartupError(false);
-  }
-  /** Обновляет профиль в рамках действующей сессии без выдачи нового токена. */
-  async function updateProfile(displayName: string): Promise<User> {
-    const token = sessionRef.current?.token;
-    if (!token) throw new ApiError(401, "Войдите в аккаунт.");
-    const result = await api.updateProfile(displayName);
-    if (sessionRef.current?.token !== token)
-      throw new ApiError(409, "Сессия изменилась. Повторите действие.");
-    setUser(result.user);
-    return result.user;
-  }
-  /**
-   * logout отправляет запрос завершения авторизации.
-   *
-   *
-   * @returns Promise, который после завершения операции возвращает: значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-   */
-  async function logout() {
-    try {
-      await api.logout();
-    } finally {
+    void start().finally(() => {
+      if (!controller.signal.aborted && generation.current === expected) {
+        startupComplete.current = true;
+        setLoading(false);
+      }
+    });
+    return () => controller.abort();
+  }, [attempt, applySession, clear]);
+
+  useEffect(() => {
+    const check = () => {
+      if (!startupComplete.current) return;
+      if (loggedOut.current) {
+        if (hasLogoutMarker()) void api.logout().catch(() => {});
+        return;
+      }
+      const current = sessionRef.current;
+      if (userRef.current?.guestConferenceId) {
+        if (current && current.expiresAt <= Date.now()) clear(true);
+        return;
+      }
+      if (
+        restoreAllowed.current &&
+        (migrationNeeded.current ||
+          !current ||
+          current.expiresAt <= Date.now() + RENEW_BEFORE_MS)
+      )
+        void renewRef.current();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== LOGOUT_KEY || event.newValue === null) return;
+      loggedOut.current = true;
+      generation.current++;
+      renewalController.current?.abort();
+      identityController.current?.abort();
+      renewal.current = null;
       clear();
+    };
+    const interval = window.setInterval(check, RETRY_MS);
+    window.addEventListener("focus", check);
+    window.addEventListener("online", check);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", check);
+      window.removeEventListener("online", check);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [clear]);
+
+  useEffect(() => {
+    if (!session) return;
+    const isGuest = !!session.user?.guestConferenceId;
+    const timer = window.setTimeout(
+      () => {
+        if (!startupComplete.current) return;
+        if (
+          sessionRef.current?.token !== session.token ||
+          sessionRef.current.expiresAt !== session.expiresAt
+        )
+          return;
+        if (isGuest) clear(true);
+        else void renewRef.current();
+      },
+      Math.max(
+        0,
+        session.expiresAt - Date.now() - (isGuest ? 0 : RENEW_BEFORE_MS),
+      ),
+    );
+    return () => window.clearTimeout(timer);
+  }, [session, clear]);
+
+  useEffect(
+    () => () => {
+      generation.current++;
+      renewalController.current?.abort();
+      identityController.current?.abort();
+      renewal.current = null;
+    },
+    [],
+  );
+
+  async function acceptSession(result: LoginResponse, expected: number) {
+    if (generation.current !== expected) return;
+    await client.cancelQueries();
+    if (generation.current !== expected) return;
+    client.clear();
+    // A new identity fences retries belonging to the previous account.
+    configureAuth(null);
+    loggedOut.current = false;
+    if (!result.user.guestConferenceId) clearLogoutMarker();
+    applySession(result, expected);
+    startupComplete.current = true;
+    setLoading(false);
+  }
+
+  async function login(email: string, password: string) {
+    const expected = ++generation.current;
+    identityController.current?.abort();
+    const controller = new AbortController();
+    identityController.current = controller;
+    renewalController.current?.abort();
+    renewal.current = null;
+    try {
+      const result = await api.login(email, password, controller.signal);
+      await acceptSession(result, expected);
+    } finally {
+      if (identityController.current === controller)
+        identityController.current = null;
+      if (generation.current === expected) setLoading(false);
     }
   }
+
+  async function enterGuest(code: string, displayName: string) {
+    const expected = ++generation.current;
+    identityController.current?.abort();
+    const controller = new AbortController();
+    identityController.current = controller;
+    renewalController.current?.abort();
+    renewal.current = null;
+    try {
+      const result = await api.joinGuest(code, displayName, controller.signal);
+      await acceptSession(result, expected);
+      return result;
+    } finally {
+      if (identityController.current === controller)
+        identityController.current = null;
+    }
+  }
+
+  async function updateProfile(displayName: string): Promise<User> {
+    const expected = generation.current;
+    if (!sessionRef.current?.token)
+      throw new ApiError(401, "Войдите в аккаунт.");
+    const result = await api.updateProfile(displayName);
+    if (generation.current !== expected || !sessionRef.current)
+      throw new ApiError(409, "Сессия изменилась. Повторите действие.");
+    userRef.current = result.user;
+    setUser(result.user);
+    const next = { ...sessionRef.current, user: result.user };
+    sessionRef.current = next;
+    saveSession(next);
+    setSession(next);
+    return result.user;
+  }
+
+  async function logout() {
+    const token = sessionRef.current?.token ?? null;
+    loggedOut.current = true;
+    generation.current++;
+    renewalController.current?.abort();
+    identityController.current?.abort();
+    renewal.current = null;
+    markLogout();
+    clear();
+    // The tombstone survives a failed request and a browser restart.
+    await api.logout(token).catch(() => {});
+  }
+
   return (
     <Context.Provider
       value={{
@@ -271,35 +385,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         enterGuest,
         logout,
-        /**
-         * retry решает, допустим ли повтор запроса с учётом ошибки и числа отказов.
-         *
-         *
-         * @returns вычисленное значение: setAttempt( (value) => value + 1, ).
-         */
-        retry: () =>
-          setAttempt(
-            /**
-             * Обработчик setAttempt вычисляет следующее React-состояние из предыдущего значения.
-             *
-             * @args
-             *   - value — значение для проверки, преобразования или отображения.
-             *
-             * @returns следующее состояние, рассчитанное из предыдущего значения.
-             */ (value) => value + 1,
-          ),
+        retry: () => setAttempt((value) => value + 1),
       }}
     >
       {children}
     </Context.Provider>
   );
 }
-/**
- * useAuth возвращает авторизацию текущего React-контекста и сообщает об использовании вне провайдера.
- *
- *
- * @returns состояние, данные или действия React-хука; ресурсы освобождаются при изменении зависимостей.
- */
+
 export function useAuth() {
   const value = useContext(Context);
   if (!value) throw new Error("AuthProvider is missing");

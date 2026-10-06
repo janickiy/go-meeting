@@ -47,6 +47,17 @@ type Verifier interface {
 	VerifyWithExpiry(string) (string, time.Time, error)
 }
 
+// PersistentVerifier binds an access token to a revocable account session.
+// Guest and legacy tokens retain their original expiration deadline.
+type PersistentVerifier interface {
+	VerifyAuthorization(context.Context, string) (string, string, string, time.Time, error)
+	AuthorizeSession(context.Context, string, string) error
+}
+
+// Durable media bindings remain stable while the WebSocket checks the backing
+// session on every heartbeat and command. Access JWT rotation cannot change a peer.
+var durableAuthorizationUntil = time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC)
+
 // Tickets задаёт контракт зависимого компонента Tickets в присутствии участников и доставке realtime-событий; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.
 //   - SaveTicket: операция сохранение билет с контрактом, описанным у метода.
 //   - ConsumeTicket: операция Consume билет с контрактом, описанным у метода.
@@ -172,6 +183,18 @@ func (h *Handler) identity(r *http.Request) (domain.Identity, error) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 		return domain.Identity{}, apperrors.ErrUnauthorized
+	}
+	if persistent, ok := h.verifier.(PersistentVerifier); ok {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		id, scope, sessionID, expiry, err := persistent.VerifyAuthorization(ctx, parts[1])
+		if err != nil {
+			return domain.Identity{}, err
+		}
+		if !httpmiddleware.GuestRequestAllowed(r.Method, r.URL.Path, scope) {
+			return domain.Identity{}, apperrors.ErrForbidden
+		}
+		return domain.Identity{UserID: id, ExpiresAt: expiry, AuthSessionID: sessionID}, nil
 	}
 	if scoped, ok := h.verifier.(httpmiddleware.SessionVerifier); ok {
 		id, conferenceID, expiry, err := scoped.VerifySession(parts[1])
@@ -346,6 +369,17 @@ func (h *Handler) Connect(c *gin.Context) {
 		httpresponse.Fail(c, err)
 		return
 	}
+	if identity.AuthSessionID != "" {
+		persistent, ok := h.verifier.(PersistentVerifier)
+		if !ok {
+			httpresponse.Fail(c, apperrors.ErrUnauthorized)
+			return
+		}
+		if err = persistent.AuthorizeSession(ctx, identity.UserID, identity.AuthSessionID); err != nil {
+			httpresponse.Fail(c, err)
+			return
+		}
+	}
 	session, err := h.hub.Prepare(ctx, id, identity.UserID)
 	if err != nil {
 		httpresponse.Fail(c, err)
@@ -363,6 +397,10 @@ func (h *Handler) Connect(c *gin.Context) {
 		return
 	}
 	client := newClient(conn, h, session, identity.ExpiresAt)
+	client.authSessionID = identity.AuthSessionID
+	if client.authSessionID != "" {
+		client.expiresAt = durableAuthorizationUntil
+	}
 	registration, cancelRegistration := context.WithTimeout(context.Background(), 5*time.Second)
 	err = h.hub.Register(registration, session, client)
 	cancelRegistration()
@@ -402,16 +440,17 @@ type control struct {
 //   - once: значение once типа sync.Once, используемое согласно назначению этой операции.
 //   - reason: причина завершения, отказа или изменения состояния.
 type client struct {
-	conn      *ws.Conn
-	handler   *Handler
-	session   domain.Session
-	expiresAt time.Time
-	out       chan domain.Envelope
-	low       chan domain.Envelope
-	controls  chan control
-	done      chan struct{}
-	once      sync.Once
-	reason    string
+	conn          *ws.Conn
+	handler       *Handler
+	session       domain.Session
+	expiresAt     time.Time
+	authSessionID string
+	out           chan domain.Envelope
+	low           chan domain.Envelope
+	controls      chan control
+	done          chan struct{}
+	once          sync.Once
+	reason        string
 }
 
 // newClient создаёт состояние сокета с единственным писателем и ограниченными очередями событий.
@@ -490,8 +529,12 @@ func (c *client) write() {
 	defer c.conn.Close()
 	ticker := time.NewTicker(c.handler.cfg.PingInterval)
 	defer ticker.Stop()
-	expiry := time.NewTimer(max(time.Until(c.expiresAt), time.Nanosecond))
-	defer expiry.Stop()
+	var expiryChannel <-chan time.Time
+	if c.authSessionID == "" {
+		expiry := time.NewTimer(max(time.Until(c.expiresAt), time.Nanosecond))
+		defer expiry.Stop()
+		expiryChannel = expiry.C
+	}
 	// Вложенный обработчик выполняет выделенный шаг обработки в присутствии участников и доставке realtime-событий, используя состояние окружающей функции.
 	//
 	// @args
@@ -515,7 +558,7 @@ func (c *client) write() {
 			}
 			_ = write(ws.CloseMessage, ws.FormatCloseMessage(code, c.reason))
 			return
-		case <-expiry.C:
+		case <-expiryChannel:
 			c.Stop("authentication_expired")
 		case <-ticker.C:
 			if !write(ws.PingMessage, []byte(c.session.ConnectionID)) {
@@ -576,6 +619,33 @@ func (b *bucket) allow() bool {
 	return true
 }
 
+// authorize keeps durable sessions revocable without tying media to a JWT timer.
+func (c *client) authorize() error {
+	if c.authSessionID == "" {
+		if c.expiresAt.After(time.Now()) {
+			return nil
+		}
+		c.Stop("authentication_expired")
+		return apperrors.ErrUnauthorized
+	}
+	persistent, ok := c.handler.verifier.(PersistentVerifier)
+	if !ok {
+		c.Stop("authentication_revoked")
+		return apperrors.ErrUnauthorized
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := persistent.AuthorizeSession(ctx, c.session.UserID, c.authSessionID)
+	if err != nil {
+		if errors.Is(err, apperrors.ErrUnauthorized) || errors.Is(err, apperrors.ErrNotFound) {
+			c.Stop("authentication_revoked")
+		} else {
+			c.Stop("authentication_unavailable")
+		}
+	}
+	return err
+}
+
 // read читает состояние физических сессий и событий комнаты для дальнейшей обработки или ответа.
 func (c *client) read() {
 	cfg := c.handler.cfg
@@ -594,17 +664,17 @@ func (c *client) read() {
 
 		@return:
 		  - результат 1 (error): ошибка проверки или выполнения; nil означает успешное завершение. */func(value string) error {
-			if !c.expiresAt.After(time.Now()) {
-				c.Stop("authentication_expired")
-				return errors.New("authentication expired")
-			}
 			if !rate.allow() {
 				return errors.New("control rate exceeded")
 			}
 			if value != c.session.ConnectionID || time.Since(lastPong) < cfg.PingInterval/2 {
 				return nil
 			}
-			lastPong = time.Now()
+			confirmedAt := time.Now()
+			if err := c.authorize(); err != nil {
+				return err
+			}
+			lastPong = confirmedAt
 			c.session.LastSeenAt = lastPong.UTC()
 			deadline := lastPong.Add(cfg.PingInterval + cfg.PongTimeout)
 			// Отсчёт идёт от приёма pong, а не от завершения обращения к хранилищу.
@@ -652,10 +722,6 @@ func (c *client) read() {
 			}
 			return
 		}
-		if !c.expiresAt.After(time.Now()) {
-			c.Stop("authentication_expired")
-			return
-		}
 		if !rate.allow() {
 			c.Stop("rate_limited")
 			return
@@ -672,6 +738,9 @@ func (c *client) read() {
 		if parsed, err := uuid.Parse(event.ID); err != nil || parsed == uuid.Nil || event.Version != 1 || event.ConferenceID != c.session.ConferenceID || event.Timestamp.IsZero() || event.ReplyTo != "" {
 			c.failure(event.ID, "invalid_envelope")
 			continue
+		}
+		if c.authorize() != nil {
+			return
 		}
 		operations.WSMessage(event.Type)
 		if strings.HasPrefix(event.Type, "media.") {

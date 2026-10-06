@@ -41,6 +41,21 @@ export function useMedia(live: ReturnType<typeof useRealtime>) {
   const roster = live.state?.participants ?? [];
   const rosterKey = roster.map((person) => person.id).join(",");
   useEffect(() => {
+    // Только e2e: позволяет проверить сохранение медиасессии при открытии диалога.
+    const runtime = window as Window & {
+      layoutMediaState?: {
+        peerId: string | undefined;
+        microphoneEnabled: boolean;
+        cameraEnabled: boolean;
+      };
+    };
+    runtime.layoutMediaState = {
+      peerId: view.mediaPeerId,
+      microphoneEnabled: view.microphoneEnabled,
+      cameraEnabled: view.cameraEnabled,
+    };
+  }, [view]);
+  useEffect(() => {
     if (!running) return;
     setView((old) => ({
       ...old,

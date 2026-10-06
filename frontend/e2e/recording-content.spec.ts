@@ -74,6 +74,13 @@ async function mockStageSeven(page: Page, disabled = false) {
         contentType: "application/json",
         body: JSON.stringify(body),
       });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return reply({
+        status: "success",
+        accessToken: "stage7-ui",
+        expiresIn: 3600,
+        user: user,
+      });
     if (path === "/auth/me") return reply({ status: "success", user });
     if (path === "/capabilities")
       return reply({

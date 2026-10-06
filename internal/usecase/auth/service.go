@@ -101,6 +101,7 @@ type Service struct {
 	repository userRepository
 	passwords  passwordHasher
 	tokens     tokenIssuer
+	sessions   SessionRepository
 	dummyHash  string
 }
 
@@ -185,11 +186,7 @@ func (s *Service) Login(ctx context.Context, request users.LoginRequest) (users.
 	if err := ctx.Err(); err != nil {
 		return users.LoginResponse{}, err
 	}
-	token, err := s.tokens.Issue(user.ID)
-	if err != nil {
-		return users.LoginResponse{}, err
-	}
-	return users.LoginResponse{Status: "success", AccessToken: token, TokenType: "Bearer", ExpiresIn: 3600, User: user.View()}, nil
+	return s.signIn(ctx, user)
 }
 
 // Me читает публичные сведения текущего авторизованного пользователя.

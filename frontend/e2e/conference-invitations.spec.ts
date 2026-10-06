@@ -72,6 +72,13 @@ async function fixture(
     const path = url.pathname.replace("/api/v1", "");
     const respond = (json: unknown, status = 200) =>
       route.fulfill({ status, json });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return respond({
+        status: "success",
+        accessToken: "invitation-browser-fixture",
+        expiresIn: 3600,
+        user: self,
+      });
     if (path === "/auth/me") return respond({ user: self });
     if (path === "/capabilities")
       return respond({

@@ -23,11 +23,11 @@ import { useMedia } from "../useMedia";
 import { Button, ErrorNotice } from "./ui";
 import type { Participant } from "../types";
 import { useAuth } from "../auth";
+import { useAccountSettings } from "./AccountSettingsContext";
 import {
   subscribeDevicePreferences,
   hasDevicePreferences,
   readDevicePreferences,
-  saveDevicePreferences,
   consumeMediaEntry,
 } from "../prejoinDevices";
 import { meetingShortcut } from "../conferenceShortcuts";
@@ -318,6 +318,7 @@ export function RealtimePanel({
   reconnectTarget?: HTMLElement | null;
 }) {
   const { user } = useAuth();
+  const openSettings = useAccountSettings();
   const media = useMedia(live, conferenceId, {
     ...membership,
     version: membership.mediaPolicyVersion,
@@ -354,65 +355,6 @@ export function RealtimePanel({
     membership.admissionState,
   ]);
   const hasSelection = hasDevicePreferences(user?.id || "guest");
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [devicesOpen, setDevicesOpen] = useState(false);
-  useEffect(
-    /**
-     * Обработчик useEffect связывает внешние ресурсы с временем жизни React-компонента и возвращает необходимую очистку.
-     *
-     *
-     * @returns функция освобождения созданных ресурсов, если эффект её объявляет; иначе значение не возвращается.
-     */ () => {
-      if (!media.running) {
-        setDevices([]);
-        return;
-      }
-      let active = true;
-      /**
-       * refresh обновляет устройства или данные текущего компонента.
-       *
-       *
-       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-       */
-      const refresh = () => {
-        void navigator.mediaDevices
-          ?.enumerateDevices()
-          .then(
-            /**
-             * Обработчик then выполняет переданный шаг вызова then в интерфейсе Meet.
-             *
-             * @args
-             *   - items — элементы результата для объединения или отображения.
-             *
-             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-             */ (items) => {
-              if (active) setDevices(items);
-            },
-          )
-          .catch(
-            /**
-             * Обработчик catch выполняет переданный шаг вызова catch в интерфейсе Meet.
-             *
-             *
-             * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-             */ () => {},
-          );
-      };
-      refresh();
-      navigator.mediaDevices?.addEventListener("devicechange", refresh);
-      /**
-       * Освобождение ресурсов завершает ресурсы предыдущего эффекта перед повторным выполнением либо удалением компонента.
-       *
-       *
-       * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-       */
-      return () => {
-        active = false;
-        navigator.mediaDevices?.removeEventListener("devicechange", refresh);
-      };
-    },
-    [media.running, media.view.microphoneEnabled, media.view.cameraEnabled],
-  );
   const [online, setOnline] = useState(() => navigator.onLine);
   useEffect(() => {
     const refresh = () => setOnline(navigator.onLine);
@@ -762,25 +704,16 @@ export function RealtimePanel({
                 <MonitorUp size={17} />
                 {media.view.screenSharing ? "Остановить экран" : "Экран"}
               </Button>
-              <Button
-                variant="secondary"
-                onClick={media.stop}
-                aria-label="Отключить медиа"
-              >
-                <VideoOff size={17} />
-                Отключиться
-              </Button>
             </>
           )}
-          {media.running && (
+          {openSettings && (
             <Button
               variant="secondary"
-              aria-expanded={devicesOpen}
-              aria-controls="meeting-device-selectors"
-              onClick={() => setDevicesOpen((value) => !value)}
+              aria-haspopup="dialog"
+              onClick={(event) => openSettings(event.currentTarget)}
             >
               <Settings size={17} />
-              Устройства
+              Настройки
             </Button>
           )}
           {controls}
@@ -799,158 +732,6 @@ export function RealtimePanel({
               .join(", ")}
             . Разрешение не включает устройства автоматически.
           </p>
-        )}
-        {media.running && devices.length > 0 && (
-          <div
-            className="media-devices"
-            id="meeting-device-selectors"
-            hidden={!devicesOpen}
-          >
-            {(["audioinput", "videoinput"] as const).map(
-              /**
-               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
-               *
-               * @args
-               *   - kind — вид устройства, медиаисточника или события, определяющий действие.
-               *
-               * @returns преобразованное значение текущего элемента для результирующего набора.
-               */ (kind) => (
-                <label key={kind}>
-                  {kind === "audioinput" ? "Микрофон" : "Камера"}
-                  <select
-                    aria-label={
-                      kind === "audioinput" ? "Выбор микрофона" : "Выбор камеры"
-                    }
-                    value={
-                      kind === "audioinput"
-                        ? preferences.audioInputId
-                        : preferences.videoInputId
-                    }
-                    disabled={
-                      busy ||
-                      (kind === "audioinput"
-                        ? membership.microphoneBlocked
-                        : membership.cameraBlocked)
-                    }
-                    onChange={
-                      /**
-                       * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                       *
-                       * @args
-                       *   - event — проверенный конверт события комнаты.
-                       *
-                       * @returns вычисленные данные текущего шага, которые использует вызывающая операция.
-                       */ (event) => {
-                        const selected = event.target.value;
-                        const next = {
-                          ...preferences,
-                          [kind === "audioinput"
-                            ? "audioInputId"
-                            : "videoInputId"]: selected,
-                        };
-                        setPreferences(next);
-                        saveDevicePreferences(user?.id || "", next);
-                        void (kind === "audioinput"
-                          ? media.microphone(true, selected)
-                          : media.camera(true, selected));
-                      }
-                    }
-                  >
-                    <option value="">Системное устройство</option>
-                    {(kind === "audioinput"
-                      ? preferences.audioInputId
-                      : preferences.videoInputId) &&
-                      !devices.some(
-                        (device) =>
-                          device.kind === kind &&
-                          device.deviceId ===
-                            (kind === "audioinput"
-                              ? preferences.audioInputId
-                              : preferences.videoInputId),
-                      ) && (
-                        <option
-                          value={
-                            kind === "audioinput"
-                              ? preferences.audioInputId
-                              : preferences.videoInputId
-                          }
-                        >
-                          Сохранённое устройство
-                        </option>
-                      )}
-                    {devices
-                      .filter(
-                        /**
-                         * Обработчик devices.filter проверяет, должен ли элемент войти в отфильтрованный набор.
-                         *
-                         * @args
-                         *   - device — сведения браузера об одном доступном устройстве.
-                         *
-                         * @returns логический признак соответствия элемента условию.
-                         */ (device) => device.kind === kind,
-                      )
-                      .map(
-                        /**
-                         * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
-                         *
-                         * @args
-                         *   - device — сведения браузера об одном доступном устройстве.
-                         *   - i — индекс элемента в текущем наборе.
-                         *
-                         * @returns преобразованное значение текущего элемента для результирующего набора.
-                         */ (device, i) => (
-                          <option
-                            key={device.deviceId || i}
-                            value={device.deviceId}
-                          >
-                            {device.label || `Устройство ${i + 1}`}
-                          </option>
-                        ),
-                      )}
-                  </select>
-                </label>
-              ),
-            )}
-            {typeof HTMLMediaElement !== "undefined" &&
-              "setSinkId" in HTMLMediaElement.prototype && (
-                <label>
-                  Вывод звука
-                  <select
-                    value={preferences.audioOutputId}
-                    onChange={(event) => {
-                      const next = {
-                        ...preferences,
-                        audioOutputId: event.target.value,
-                      };
-                      setPreferences(next);
-                      saveDevicePreferences(user?.id || "", next);
-                    }}
-                  >
-                    <option value="">Системный динамик</option>
-                    {preferences.audioOutputId &&
-                      !devices.some(
-                        (device) =>
-                          device.kind === "audiooutput" &&
-                          device.deviceId === preferences.audioOutputId,
-                      ) && (
-                        <option value={preferences.audioOutputId}>
-                          Сохранённый динамик
-                        </option>
-                      )}
-                    {devices
-                      .filter((device) => device.kind === "audiooutput")
-                      .map((device, index) => (
-                        <option
-                          key={device.deviceId || index}
-                          value={device.deviceId}
-                        >
-                          {device.label || `Динамик ${index + 1}`}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              )}
-          </div>
         )}
         {!localStream &&
           !localScreen &&

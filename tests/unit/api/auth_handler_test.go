@@ -274,6 +274,7 @@ func TestLoginRateLimitCannotBeBypassedWithForwardedIP(t *testing.T) {
 	router, _ := authRouter(t, limiter)
 	for attempt := range 3 {
 		request := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(`{"email":"unknown@example.com","password":"wrong-password"}`))
+		request.Header.Set("Content-Type", "application/json")
 		request.RemoteAddr = "192.0.2.1:12345"
 		request.Header.Set("X-Forwarded-For", []string{"198.51.100.1", "198.51.100.2", "198.51.100.3"}[attempt])
 		response := httptest.NewRecorder()

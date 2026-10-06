@@ -1,6 +1,7 @@
 package httpmiddleware
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -13,6 +14,11 @@ const authenticatedUserIDKey = "authenticated_user_id"
 
 type SessionVerifier interface {
 	VerifySession(string) (string, string, time.Time, error)
+}
+
+// AuthorizationVerifier checks a persistent session using the request deadline.
+type AuthorizationVerifier interface {
+	VerifyAuthorization(context.Context, string) (string, string, string, time.Time, error)
 }
 
 // GuestRequestAllowed keeps guest credentials inside one meeting, including WS.
@@ -65,12 +71,18 @@ func Authenticate(tokens TokenVerifier) gin.HandlerFunc {
 		}
 		var id, conferenceID string
 		var err error
-		if scoped, ok := tokens.(SessionVerifier); ok {
+		if durable, ok := tokens.(AuthorizationVerifier); ok {
+			id, conferenceID, _, _, err = durable.VerifyAuthorization(c.Request.Context(), header[1])
+		} else if scoped, ok := tokens.(SessionVerifier); ok {
 			id, conferenceID, _, err = scoped.VerifySession(header[1])
 		} else {
 			id, err = tokens.Verify(header[1])
 		}
-		if err != nil || id == "" {
+		if err != nil {
+			httpresponse.Fail(c, err)
+			return
+		}
+		if id == "" {
 			httpresponse.Fail(c, apperrors.ErrUnauthorized)
 			return
 		}

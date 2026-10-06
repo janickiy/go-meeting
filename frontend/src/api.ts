@@ -42,20 +42,37 @@ import type {
 } from "./types";
 
 let accessToken: string | null = null;
-/**
- * invalidSession обрабатывает отказ запроса с использованным токеном, не завершая более новую авторизацию.
- *
- *
- * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
- */
-let invalidSession: /**
- * Вложенный обработчик выполняет шаг «Вложенный обработчик» в типизированных HTTP-запросах.
- *
- * @args
- *   - usedToken (string) — токен конкретного запроса, который получил отказ авторизации.
- *
- * @returns void — значение не возвращается; функция выполняет описанные действия.
- */ (usedToken: string) => void = () => {};
+let identityVersion = 0;
+type SessionRecovery = (
+  usedToken: string,
+) => boolean | void | Promise<boolean | void>;
+let invalidSession: SessionRecovery = () => false;
+const tokenListeners = new Set<() => void>();
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+/** Token renewal is independent of the mounted account and conference. */
+export function subscribeAccessToken(listener: () => void): () => void {
+  tokenListeners.add(listener);
+  return () => tokenListeners.delete(listener);
+}
+
+/** Returns false when the account changed while the old request was pending. */
+async function recoverSession(
+  usedToken: string,
+  version: number,
+): Promise<boolean> {
+  const recovered = await invalidSession(usedToken);
+  return recovered === true && !!accessToken && version === identityVersion;
+}
+
+export function refreshAccessToken(): Promise<boolean> {
+  return accessToken
+    ? recoverSession(accessToken, identityVersion)
+    : Promise.resolve(false);
+}
 /**
  * configureAuth сохраняет текущий токен и обработчик ответа 401; обработчик получает именно токен, использованный неудачным запросом.
  *
@@ -67,17 +84,13 @@ let invalidSession: /**
  */
 export function configureAuth(
   token: string | null,
-  onInvalid?: /**
-   * Вложенный обработчик выполняет шаг «Вложенный обработчик» в типизированных HTTP-запросах.
-   *
-   * @args
-   *   - usedToken (string) — токен конкретного запроса, который получил отказ авторизации.
-   *
-   * @returns void — значение не возвращается; функция выполняет описанные действия.
-   */ (usedToken: string) => void,
+  onInvalid?: SessionRecovery,
 ) {
+  if (token === null) identityVersion++;
+  const changed = accessToken !== token;
   accessToken = token;
   if (onInvalid) invalidSession = onInvalid;
+  if (changed) tokenListeners.forEach((listener) => listener());
 }
 /**
  * ApiError связывает HTTP-статус с понятным пользователю сообщением ошибки API.
@@ -158,9 +171,19 @@ async function request<T>(
     method?: string;
     signal?: AbortSignal;
     public?: boolean;
+    sessionCookie?: boolean;
+    recover?: boolean;
+    token?: string | null;
   } = {},
+  retry = true,
 ): Promise<T> {
-  const usedToken = options.public ? null : accessToken;
+  const usedToken =
+    options.token !== undefined
+      ? options.token
+      : options.public
+        ? null
+        : accessToken;
+  const version = identityVersion;
   const headers = new Headers({ Accept: "application/json" });
   if (options.body !== undefined)
     headers.set("Content-Type", "application/json");
@@ -170,7 +193,7 @@ async function request<T>(
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.signal,
-    credentials: "omit",
+    credentials: options.sessionCookie ? "same-origin" : "omit",
   });
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(
@@ -182,7 +205,17 @@ async function request<T>(
      */ () => null,
   );
   if (!response.ok) {
-    if (response.status === 401 && usedToken) invalidSession(usedToken);
+    if (
+      response.status === 401 &&
+      usedToken &&
+      retry &&
+      options.recover !== false
+    ) {
+      if (await recoverSession(usedToken, version)) {
+        options.signal?.throwIfAborted();
+        return request<T>(path, options, false);
+      }
+    }
     const message =
       data &&
       typeof data === "object" &&
@@ -356,11 +389,32 @@ export const api = {
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
    */
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, signal?: AbortSignal) =>
     request<LoginResponse>("/auth/login", {
       method: "POST",
       body: { email, password },
       public: true,
+      sessionCookie: true,
+      signal,
+    }),
+  /** Restores an account using its persistent HttpOnly cookie. */
+  refreshSession: (signal?: AbortSignal) =>
+    request<LoginResponse>("/auth/refresh", {
+      method: "POST",
+      body: {},
+      public: true,
+      sessionCookie: true,
+      recover: false,
+      signal,
+    }),
+  /** Upgrades a still-valid pre-existing account token to a persistent session. */
+  establishSession: (signal?: AbortSignal) =>
+    request<LoginResponse>("/auth/session", {
+      method: "POST",
+      body: {},
+      sessionCookie: true,
+      recover: false,
+      signal,
     }),
   /**
    * me читает публичные сведения текущей авторизованной учётной записи.
@@ -383,7 +437,14 @@ export const api = {
    *
    * @returns Promise с проверенным ответом API; сетевые ошибки и отказ сервера отклоняют Promise.
    */
-  logout: () => request("/auth/logout", { method: "POST" }),
+  logout: (token: string | null = accessToken) =>
+    request("/auth/logout", {
+      method: "POST",
+      body: {},
+      token,
+      sessionCookie: true,
+      recover: false,
+    }),
   /**
    * conferences читает ограниченную страницу доступных конференций.
    *
@@ -757,10 +818,10 @@ export const api = {
       signal,
       public: true,
     }),
-  joinGuest: (code: string, displayName: string) =>
+  joinGuest: (code: string, displayName: string, signal?: AbortSignal) =>
     request<LoginResponse & Item<Participant>>(
       `/conference-invites/${encodeURIComponent(code)}/guest`,
-      { method: "POST", body: { displayName } },
+      { method: "POST", body: { displayName }, signal },
     ),
   /**
    * joinInvite запрашивает вход авторизованного пользователя по коду приглашения.
@@ -969,16 +1030,26 @@ export const api = {
    */
   notificationEvents: async (signal: AbortSignal) => {
     const usedToken = accessToken;
-    const response = await fetch("/api/v1/notifications/events", {
-      headers: {
-        Accept: "text/event-stream",
-        ...(usedToken ? { Authorization: `Bearer ${usedToken}` } : {}),
-      },
-      credentials: "omit",
-      signal,
-    });
+    const version = identityVersion;
+    const open = () =>
+      fetch("/api/v1/notifications/events", {
+        headers: {
+          Accept: "text/event-stream",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        credentials: "omit",
+        signal,
+      });
+    let response = await open();
+    if (
+      response.status === 401 &&
+      usedToken &&
+      (await recoverSession(usedToken, version))
+    ) {
+      signal.throwIfAborted();
+      response = await open();
+    }
     if (!response.ok) {
-      if (response.status === 401 && usedToken) invalidSession(usedToken);
       throw new ApiError(
         response.status,
         statuses[response.status] || "Уведомления временно недоступны.",
@@ -1015,6 +1086,7 @@ export function uploadAttachment(
    * @returns void — значение не возвращается; функция выполняет описанные действия.
    */ (percent: number) => void,
   signal: AbortSignal,
+  retry = true,
 ): Promise<void> {
   const target = new URL(url, window.location.origin);
   if (
@@ -1037,6 +1109,7 @@ export function uploadAttachment(
      * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
      */ (resolve, reject) => {
       const usedToken = accessToken;
+      const version = identityVersion;
       const xhr = new XMLHttpRequest();
       /**
        * abort отменяет передачу или ожидание текущей операции.
@@ -1071,8 +1144,20 @@ export function uploadAttachment(
          *
          *
          * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
-         */ () => {
-          if (xhr.status === 401 && usedToken) invalidSession(usedToken);
+         */ async () => {
+          if (xhr.status === 401 && usedToken && retry) {
+            try {
+              if (await recoverSession(usedToken, version)) {
+                signal.throwIfAborted();
+                await uploadAttachment(url, file, onProgress, signal, false);
+                resolve();
+                return;
+              }
+            } catch (error) {
+              reject(error);
+              return;
+            }
+          }
           if (xhr.status >= 200 && xhr.status < 300) resolve();
           else
             reject(

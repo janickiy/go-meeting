@@ -43,19 +43,30 @@ const people = [
 
 /** Подменяет HTTP/WS только в тестовом браузере и запрещает неизвестные API-запросы.
  * @args page — изолированная страница; origin — адрес локального Vite;
- * count — начальное число участников; canvas — тестовые видеопотоки вместо SFU.
- * @return Управление авторитетным снимком и журналы отказов/ошибок браузера.
+ * count — начальное число участников; canvas — тестовые видеопотоки вместо SFU;
+ * guest — ограниченная сессия гостя текущей конференции.
+ * @return Управление снимком, счётчик соединений и журналы ошибок браузера.
  */
 async function fixture(
   page: Page,
   origin: string,
-  { count = 4, canvas = false } = {},
+  { count = 4, canvas = false, guest = false } = {},
 ) {
   const denied: string[] = [];
   const errors: string[] = [];
-  let current = people.slice(0, count);
+  const localPerson: PresenceParticipant = guest
+    ? {
+        ...people[0],
+        userId: "guest",
+        displayName: "Гость",
+        role: "guest",
+      }
+    : people[0];
+  const participants = [localPerson, ...people.slice(1)];
+  let current = participants.slice(0, count);
   let socket: WebSocketRoute | undefined;
   let sequence = 0;
+  let connections = 0;
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => {
     sessionStorage.setItem(
@@ -101,13 +112,20 @@ async function fixture(
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname.replace(/^\/api\/v1/, "");
     const respond = (data: unknown) => route.fulfill({ json: data });
-    if (method === "GET" && path === "/auth/me")
+    if (
+      (method === "GET" && path === "/auth/me") ||
+      (method === "POST" && ["/auth/session", "/auth/refresh"].includes(path))
+    )
       return respond({
         status: "success",
+        ...(method === "POST"
+          ? { accessToken: "visual-only-token", expiresIn: 3600 }
+          : {}),
         user: {
-          id: "owner",
-          email: "owner@example.test",
-          displayName: "Алексей Петров",
+          id: localPerson.userId,
+          email: guest ? "" : "owner@example.test",
+          displayName: localPerson.displayName,
+          ...(guest ? { guestConferenceId: room.id } : {}),
           createdAt: stamp,
           updatedAt: stamp,
         },
@@ -139,12 +157,12 @@ async function fixture(
     if (method === "GET" && path === `/conferences/${room.id}`)
       return respond({ status: "success", item: room });
     if (method === "GET" && path === `/conferences/${room.id}/participants/me`)
-      return respond({ status: "success", item: people[0] });
+      return respond({ status: "success", item: localPerson });
     if (
       method === "PUT" &&
       path === `/conferences/${room.id}/participants/me/media`
     )
-      return respond({ status: "success", item: people[0] });
+      return respond({ status: "success", item: localPerson });
     if (method === "GET" && path === `/conferences/${room.id}/participants`)
       return respond({ status: "success", items: current });
     if (method === "GET" && path === `/conferences/${room.id}/recordings`)
@@ -171,7 +189,7 @@ async function fixture(
    * @args nextCount — число присутствующих; type — тип доверенного снимка присутствия.
    */
   const emit = (nextCount: number, type = "participant.connected") => {
-    current = people.slice(0, nextCount);
+    current = participants.slice(0, nextCount);
     if (!socket) throw new Error("Тестовый WebSocket ещё не подключён");
     socket.send(
       JSON.stringify({
@@ -182,7 +200,7 @@ async function fixture(
         timestamp: stamp,
         data: {
           connectionId: "connection-0",
-          participantId: people[0].id,
+          participantId: localPerson.id,
           status: "active",
           participants: current,
         },
@@ -207,10 +225,11 @@ async function fixture(
       void ws.close({ code: 1008, reason: "Неизвестный тестовый канал" });
       return;
     }
+    connections++;
     socket = ws;
     emit(count, "conference.state");
   });
-  return { emit, denied, errors };
+  return { emit, denied, errors, connections: () => connections };
 }
 
 test("тёмная комната: настоящие пустые плитки, чат и разрешённая модерация", async ({
@@ -575,6 +594,164 @@ test("два настоящих тестовых video сохраняют про
     .click();
   await expectPairGeometry(page);
   await expect(camera).toBeVisible();
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
+});
+
+test("настройки аккаунта из конференции сохраняют видео, медиасессию и фокус", async ({
+  page,
+  baseURL,
+}, info) => {
+  const isolated = await fixture(page, new URL(baseURL!).origin, {
+    count: 2,
+    canvas: true,
+  });
+  await page.goto(`/conferences/${room.id}`);
+  await page
+    .getByRole("button", { name: "Включить камеру и микрофон", exact: true })
+    .click();
+  const video = page.getByTestId("local-media").locator("video");
+  await expect(video).toBeVisible();
+  await expect
+    .poll(() => video.evaluate((node: HTMLVideoElement) => node.currentTime))
+    .toBeGreaterThan(0);
+  await video.evaluate((node: HTMLVideoElement) => {
+    const runtime = window as Window & {
+      layoutSettingsVideo?: HTMLVideoElement;
+      layoutSettingsStream?: MediaProvider | null;
+      layoutSettingsTrack?: MediaStreamTrack;
+    };
+    runtime.layoutSettingsVideo = node;
+    runtime.layoutSettingsStream = node.srcObject;
+    runtime.layoutSettingsTrack = (
+      node.srcObject as MediaStream
+    ).getVideoTracks()[0];
+  });
+  const mediaState = () =>
+    page.evaluate(
+      () =>
+        (
+          window as Window & {
+            layoutMediaState?: {
+              peerId: string | undefined;
+              microphoneEnabled: boolean;
+              cameraEnabled: boolean;
+            };
+          }
+        ).layoutMediaState,
+    );
+  await expect.poll(mediaState).toMatchObject({ peerId: "layout-local-peer" });
+  const beforeMedia = await mediaState();
+  const beforeURL = page.url();
+  const beforeFrames = await video.evaluate(
+    (node: HTMLVideoElement) => node.currentTime,
+  );
+  const rail = page.locator(".conference-stage-rail");
+  const beforeChat = await rail.isVisible();
+  const settings = page.getByRole("button", { name: "Настройки", exact: true });
+  await expect(
+    page.getByRole("button", { name: "Отключить медиа", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Устройства", exact: true }),
+  ).toHaveCount(0);
+  await settings.click();
+  const dialog = page.getByRole("dialog", {
+    name: "Настройки аккаунта",
+    exact: true,
+  });
+  await expect(dialog).toBeVisible();
+  for (const name of ["Профиль", "Аудио", "Видео", "Уведомления", "Оформление"])
+    await expect(dialog.getByRole("tab", { name, exact: true })).toBeVisible();
+  await expect(page.locator(".app-shell")).toHaveAttribute("inert", "");
+  await dialog.getByRole("tab", { name: "Профиль", exact: true }).focus();
+  for (const key of ["m", "v", "c"]) await page.keyboard.press(key);
+  expect(await mediaState()).toEqual(beforeMedia);
+  expect(await rail.isVisible()).toBe(beforeChat);
+  expect(page.url()).toBe(beforeURL);
+  expect(isolated.connections()).toBe(1);
+  await expect
+    .poll(() => video.evaluate((node: HTMLVideoElement) => node.currentTime))
+    .toBeGreaterThan(beforeFrames);
+  await page.screenshot({
+    path: info.outputPath("conference-account-settings.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(settings).toBeFocused();
+  expect(page.url()).toBe(beforeURL);
+  expect(await mediaState()).toEqual(beforeMedia);
+  expect(isolated.connections()).toBe(1);
+  expect(
+    await video.evaluate((node: HTMLVideoElement) => {
+      const runtime = window as Window & {
+        layoutSettingsVideo?: HTMLVideoElement;
+        layoutSettingsStream?: MediaProvider | null;
+        layoutSettingsTrack?: MediaStreamTrack;
+      };
+      return (
+        node === runtime.layoutSettingsVideo &&
+        node.srcObject === runtime.layoutSettingsStream &&
+        (node.srcObject as MediaStream).getVideoTracks()[0] ===
+          runtime.layoutSettingsTrack &&
+        runtime.layoutSettingsTrack.readyState === "live"
+      );
+    }),
+  ).toBe(true);
+  const resumedFrames = await video.evaluate(
+    (node: HTMLVideoElement) => node.currentTime,
+  );
+  await expect
+    .poll(() => video.evaluate((node: HTMLVideoElement) => node.currentTime))
+    .toBeGreaterThan(resumedFrames);
+  await expectNoOverflow(page);
+  expect(isolated.denied).toEqual([]);
+  expect(isolated.errors).toEqual([]);
+});
+
+test("мобильный гость открывает общие настройки до подключения медиа без разделов аккаунта", async ({
+  page,
+  baseURL,
+}, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const isolated = await fixture(page, new URL(baseURL!).origin, {
+    count: 1,
+    guest: true,
+  });
+  await page.goto(`/conferences/${room.id}`);
+  const beforeURL = page.url();
+  const settings = page.getByRole("button", { name: "Настройки", exact: true });
+  await expect(settings).toBeEnabled();
+  await settings.click();
+  const dialog = page.getByRole("dialog", {
+    name: "Настройки аккаунта",
+    exact: true,
+  });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("tab")).toHaveText([
+    "Аудио",
+    "Видео",
+    "Оформление",
+  ]);
+  await expect(
+    dialog.getByRole("tab", { name: "Аудио", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".guest-room-shell")).toHaveAttribute("inert", "");
+  await dialog.getByRole("tab", { name: "Оформление", exact: true }).click();
+  await expect(
+    dialog.getByRole("tabpanel", { name: "Оформление", exact: true }),
+  ).toBeVisible();
+  await expectNoOverflow(page);
+  await page.screenshot({
+    path: info.outputPath("conference-guest-settings-mobile.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(settings).toBeFocused();
+  expect(page.url()).toBe(beforeURL);
+  expect(isolated.connections()).toBe(1);
   expect(isolated.denied).toEqual([]);
   expect(isolated.errors).toEqual([]);
 });

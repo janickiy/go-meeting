@@ -42,8 +42,9 @@ func (Session) TableName() string { return "participant_sessions" }
 //   - UserID: идентификатор пользователя, для которого выполняется операция.
 //   - ExpiresAt: момент окончания действия сессии, токена или аренды.
 type Identity struct {
-	UserID    string    `json:"userId"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	UserID        string    `json:"userId"`
+	ExpiresAt     time.Time `json:"expiresAt"`
+	AuthSessionID string    `json:"authSessionId,omitempty"`
 }
 
 // Envelope описывает конверт realtime-события с типом, идентификаторами и полезной нагрузкой.

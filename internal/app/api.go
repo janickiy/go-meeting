@@ -128,6 +128,7 @@ func RunAPI() error {
 	if err != nil {
 		return err
 	}
+	authService.WithSessions(postgresinfra.NewAuthSessionRepository(db))
 	conferenceRepository := postgresinfra.NewConferenceRepository(db)
 	conferenceService := conferenceusecase.NewService(conferenceRepository, users, security.GenerateInviteCode)
 	store := redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace)
@@ -136,7 +137,6 @@ func RunAPI() error {
 		return err
 	}
 	defer hub.Shutdown()
-	ops.ConfigureDrain(nil, hub.LocalCount)
 	engagementService := realtimeusecase.NewEngagement(postgresinfra.NewSessionRepository(db), hub)
 	notificationBus := redisinfra.NewNotificationBus(redisClient, realtimeConfig.Namespace)
 	notificationService := notificationsusecase.NewService(postgresinfra.NewNotificationRepository(db).DisableLegacyReminders(), notificationBus)
@@ -157,27 +157,29 @@ func RunAPI() error {
 	hub.SetDisconnectObserver(realtimeusecase.DisconnectObservers{controlService, mediaController})
 	conferenceService.SetObserver(hub)
 	guestService := &conferenceusecase.GuestService{Repository: postgresinfra.NewGuestRepository(db), Tokens: tokens, Observer: hub}
-	httptransport.RegisterGuestRoutes(router, &conferencesapp.GuestHandler{Service: guestService, Tokens: tokens}, rateLimiter)
-	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(tokens))
-	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(controlService), httpmiddleware.Authenticate(tokens))
-	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(tokens))
-	httptransport.RegisterChatRoutes(router, chatapp.NewHandler(chatService), httpmiddleware.Authenticate(tokens), rateLimiter)
-	httptransport.RegisterNotificationRoutes(router, notificationsapp.NewHandler(notificationService, notificationBus, tokens, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(tokens))
-	httptransport.RegisterEngagementRoutes(router, engagementapp.NewHandler(engagementService, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(tokens))
+	httptransport.RegisterGuestRoutes(router, &conferencesapp.GuestHandler{Service: guestService, Tokens: authService}, rateLimiter)
+	httptransport.RegisterPlatformRoutes(router, authapp.NewHandler(authService).WithSessionCookies(cfg.StageSeven.PublicURL, !cfg.IsLocal()), conferencesapp.NewHandler(conferenceService), httpmiddleware.Authenticate(authService))
+	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(controlService), httpmiddleware.Authenticate(authService))
+	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(authService))
+	httptransport.RegisterChatRoutes(router, chatapp.NewHandler(chatService), httpmiddleware.Authenticate(authService), rateLimiter)
+	notificationHandler := notificationsapp.NewHandler(notificationService, notificationBus, authService, rateLimiter, realtimeConfig.Namespace)
+	ops.ConfigureDrain(notificationHandler.BeginDrain, hub.LocalCount)
+	httptransport.RegisterNotificationRoutes(router, notificationHandler, httpmiddleware.Authenticate(authService))
+	httptransport.RegisterEngagementRoutes(router, engagementapp.NewHandler(engagementService, rateLimiter, realtimeConfig.Namespace), httpmiddleware.Authenticate(authService))
 	product, err := newProductServices(cfg, db, s3Client)
 	if err != nil {
 		return fmt.Errorf("product initialization failed: %w", err)
 	}
-	httptransport.RegisterContentRoutes(router, contentapp.NewHandler(product.content), httpmiddleware.Authenticate(tokens), rateLimiter)
-	httptransport.RegisterCaptionRoutes(router, &captionsapp.Handler{Repo: postgresinfra.NewCaptionsRepository(db), Enabled: cfg.StageEight.LiveEnabled, Config: cfg.StageEight, Analytics: postgresinfra.NewAnalyticsRepository(db), Search: postgresinfra.NewSearchRepository(db)}, httpmiddleware.Authenticate(tokens), rateLimiter)
-	httptransport.RegisterIntegrationRoutes(router, integrationsapp.NewHandler(product.integrations), httpmiddleware.Authenticate(tokens), rateLimiter)
-	httptransport.RegisterInvitationRoutes(router, &conferencesapp.InvitationHandler{Service: &conferenceusecase.InvitationService{Repository: postgresinfra.NewConferenceInvitationRepository(db)}}, httpmiddleware.Authenticate(tokens), rateLimiter)
+	httptransport.RegisterContentRoutes(router, contentapp.NewHandler(product.content), httpmiddleware.Authenticate(authService), rateLimiter)
+	httptransport.RegisterCaptionRoutes(router, &captionsapp.Handler{Repo: postgresinfra.NewCaptionsRepository(db), Enabled: cfg.StageEight.LiveEnabled, Config: cfg.StageEight, Analytics: postgresinfra.NewAnalyticsRepository(db), Search: postgresinfra.NewSearchRepository(db)}, httpmiddleware.Authenticate(authService), rateLimiter)
+	httptransport.RegisterIntegrationRoutes(router, integrationsapp.NewHandler(product.integrations), httpmiddleware.Authenticate(authService), rateLimiter)
+	httptransport.RegisterInvitationRoutes(router, &conferencesapp.InvitationHandler{Service: &conferenceusecase.InvitationService{Repository: postgresinfra.NewConferenceInvitationRepository(db)}}, httpmiddleware.Authenticate(authService), rateLimiter)
 	mediaReady := healthinfra.NewHTTPReady(mediaConfig.WorkerInternalURL)
 	defer mediaReady.Close()
 	platformRepository := postgresinfra.NewPlatformRepository(db)
 	platformService := &platformusecase.Service{Repo: platformRepository, Vector: postgresinfra.NewSearchRepository(db), MediaWorker: mediaReady, APIReady: ops.Ready, DependencyStatuses: ops.DependencyStatuses, StageSeven: cfg.StageSeven, StageEight: cfg.StageEight}
-	httptransport.RegisterPlatformStatusRoutes(router, &platformapp.Handler{Service: platformService, BuildVersion: platformusecase.BuildVersion()}, httpmiddleware.Authenticate(tokens), platformRepository)
-	wstransport.NewHandler(hub, tokens, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
+	httptransport.RegisterPlatformStatusRoutes(router, &platformapp.Handler{Service: platformService, BuildVersion: platformusecase.BuildVersion()}, httpmiddleware.Authenticate(authService), platformRepository)
+	wstransport.NewHandler(hub, authService, store, rateLimiter, realtimeConfig).SetMedia(mediaController).RegisterRoutes(router)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -214,6 +216,7 @@ func RunAPI() error {
 	}
 	// Переданные приложению соединения WebSocket не закрываются вызовом http.Server.Shutdown.
 	ops.Drain()
+	notificationHandler.BeginDrain()
 	_ = listener.Close()
 	shutdown, cancel := context.WithTimeout(context.Background(), cfg.Operations.ShutdownTimeout)
 	defer cancel()

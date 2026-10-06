@@ -36,11 +36,14 @@ export function SettingsPage() {
   const [profileValidation, setProfileValidation] = useState("");
   const [saved, setSaved] = useState(false);
   const appearance = useAppearance();
+  const guest = Boolean(user?.guestConferenceId);
   const tabs = [
-    { id: "profile", label: "Профиль", Icon: UserRound },
+    ...(!guest ? [{ id: "profile", label: "Профиль", Icon: UserRound }] : []),
     { id: "audio", label: "Аудио", Icon: Mic },
     { id: "video", label: "Видео", Icon: Video },
-    { id: "notifications", label: "Уведомления", Icon: Bell },
+    ...(!guest
+      ? [{ id: "notifications", label: "Уведомления", Icon: Bell }]
+      : []),
     { id: "appearance", label: "Оформление", Icon: Palette },
   ] as const;
   const [activeSection, setActiveSection] = useState<string>(() => {
@@ -49,11 +52,13 @@ export function SettingsPage() {
       ? "audio"
       : section === "#video-settings"
         ? "video"
-        : section === "#notification-settings"
+        : section === "#notification-settings" && !guest
           ? "notifications"
           : section === "#appearance-settings"
             ? "appearance"
-            : "profile";
+            : guest
+              ? "audio"
+              : "profile";
   });
   const prefix = useId();
   const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);

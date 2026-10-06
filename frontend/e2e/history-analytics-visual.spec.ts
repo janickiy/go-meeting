@@ -67,6 +67,13 @@ async function visualFixture(page: Page) {
         contentType: "application/json",
         body: JSON.stringify(value),
       });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return reply({
+        status: "success",
+        accessToken: "isolated-visual-test",
+        expiresIn: 3600,
+        user: user,
+      });
     if (path === "/auth/me") return reply({ status: "success", user });
     if (path === "/capabilities")
       return reply({

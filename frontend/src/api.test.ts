@@ -306,3 +306,120 @@ describe("API contract", /**
     await expect(api.me()).rejects.toBeInstanceOf(ApiError);
   });
 });
+
+describe("persistent account recovery", () => {
+  it("uses the cookie only for auth mutations and never puts it into JavaScript credentials", async () => {
+    configureAuth("current-access");
+    const fetch = fetchResponse(200, {
+      accessToken: "fresh",
+      expiresIn: 3600,
+      user: { id: "person" },
+    });
+    await api.login("person@example.test", "password-test");
+    await api.refreshSession();
+    await api.establishSession();
+    await api.logout("captured-expired-access");
+    expect(
+      fetch.mock.calls.every(
+        ([, options]) => options.credentials === "same-origin",
+      ),
+    ).toBe(true);
+    expect(fetch.mock.calls[0][1].headers.has("Authorization")).toBe(false);
+    expect(fetch.mock.calls[1][1].headers.has("Authorization")).toBe(false);
+    expect(fetch.mock.calls[2][1].headers.get("Authorization")).toBe(
+      "Bearer current-access",
+    );
+    expect(fetch.mock.calls[3][1].headers.get("Authorization")).toBe(
+      "Bearer captured-expired-access",
+    );
+  });
+
+  it("retries a middleware-rejected mutation once with the renewed bearer", async () => {
+    const recover = vi.fn(async () => {
+      configureAuth("new-access");
+      return true;
+    });
+    configureAuth("old-access", recover);
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "expired" }), { status: 401 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ item: { id: "meeting" } }), {
+          status: 201,
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    await expect(api.create("Meeting")).resolves.toEqual({
+      item: { id: "meeting" },
+    });
+    expect(recover).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1].headers.get("Authorization")).toBe(
+      "Bearer new-access",
+    );
+    expect(fetch.mock.calls[1][1].body).toBe(fetch.mock.calls[0][1].body);
+  });
+
+  it("does not repeat a request indefinitely when the renewed access is also rejected", async () => {
+    const recover = vi.fn(async () => {
+      configureAuth("new-access");
+      return true;
+    });
+    configureAuth("old-access", recover);
+    const fetch = fetchResponse(401, { message: "unauthorized" });
+    await expect(api.me()).rejects.toMatchObject({ status: 401 });
+    expect(recover).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry an old account's mutation after explicit logout and another login", async () => {
+    let resolve!: (value: boolean) => void;
+    const pending = new Promise<boolean>((done) => {
+      resolve = done;
+    });
+    configureAuth("old-account", () => pending);
+    const fetch = fetchResponse(401, { message: "expired" });
+    const request = api.create("Old account meeting");
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    configureAuth(null);
+    configureAuth("other-account");
+    resolve(true);
+    await expect(request).rejects.toMatchObject({ status: 401 });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("renews and reconnects a rejected notification stream with the new bearer", async () => {
+    configureAuth("old-access", async () => {
+      configureAuth("new-access");
+      return true;
+    });
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "expired" }), { status: 401 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(": heartbeat\n\n", {
+          headers: { "Content-Type": "text/event-stream" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    await api.notificationEvents(new AbortController().signal);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][1].headers.Authorization).toBe(
+      "Bearer new-access",
+    );
+  });
+
+  it("does not invoke recovery recursively for auth refresh, migration or logout", async () => {
+    const recover = vi.fn();
+    configureAuth("old-access", recover);
+    fetchResponse(401, { message: "unauthorized" });
+    await expect(api.refreshSession()).rejects.toMatchObject({ status: 401 });
+    await expect(api.establishSession()).rejects.toMatchObject({ status: 401 });
+    await expect(api.logout()).rejects.toMatchObject({ status: 401 });
+    expect(recover).not.toHaveBeenCalled();
+  });
+});

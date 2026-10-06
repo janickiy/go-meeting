@@ -373,9 +373,14 @@ export function useRealtime(conferenceId: string, enabled: boolean) {
                   "broker_unavailable",
                   "slow_client",
                   "state_unavailable",
+                  "authentication_unavailable",
                 ].includes(event.reason)
               ) {
-                if (event.reason === "authentication_expired")
+                if (
+                  ["authentication_expired", "authentication_revoked"].includes(
+                    event.reason,
+                  )
+                )
                   void api.me().catch(
                     /**
                      * Обработчик catch выполняет переданный шаг вызова catch в состоянии связи и WebRTC-медиа.

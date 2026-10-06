@@ -113,6 +113,13 @@ async function mockStage9(page: Page, options: MockOptions = {}) {
         contentType: "text/event-stream",
         body: ": isolated test\n\n",
       });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return respond({
+        status: "success",
+        accessToken: "stage9-e2e",
+        expiresIn: 3600,
+        user: { ...user, isAdmin: options.admin === true },
+      });
     if (path === "/auth/me")
       return respond({
         status: "success",

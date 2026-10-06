@@ -58,15 +58,19 @@ JWT: HS256, `sub` = UUID пользователя, обязательные `iat
 [golang-jwt v5](https://pkg.go.dev/github.com/golang-jwt/jwt/v5@v5.3.1).
 Заголовок: `Authorization: Bearer <accessToken>`.
 
-Logout stateless: сервер подтверждает запрос, клиент удаляет свой access token.
-Токен остаётся действительным до `exp`. Blacklist, refresh tokens и server-side
-token sessions не реализованы. Unknown email и wrong password возвращают одинаковый
+Авторизация аккаунта использует серверную сессию PostgreSQL без срока простоя
+или абсолютного истечения. Короткий JWT содержит `sid`; middleware проверяет,
+что сессия не отозвана. Login устанавливает HttpOnly cookie, refresh выдаёт
+новый JWT, logout отзывает сессию вместе с её JWT. Действующий JWT предыдущего
+выпуска мигрирует через `/auth/session`. Подробности: [PERSISTENT_AUTH.md](PERSISTENT_AUTH.md).
+Unknown email и wrong password возвращают одинаковый
 `401` с `invalid email or password`; неизвестный email тоже выполняет hash-проверку.
 
 ## HTTP-контракты
 
-Все пути ниже имеют префикс `/api/v1`. Только register/login публичные;
-остальные новые маршруты требуют JWT. JSON имеет camelCase. Идентификатор текущего
+Все пути ниже имеют префикс `/api/v1`. Register/login, cookie refresh/logout и
+lookup/гостевой вход по приглашению публичные; остальные маршруты требуют JWT.
+JSON имеет camelCase. Идентификатор текущего
 пользователя берётся только из auth context, а не из JSON. Неизвестные JSON-поля,
 включая `ownerId`, `userId`, `role`, запрещены. Максимальный body — 32 KiB.
 
@@ -76,7 +80,9 @@ token sessions не реализованы. Unknown email и wrong password во
 | `POST /auth/login` | `{email,password}` → `200 {status,accessToken,tokenType,expiresIn,user}` | public |
 | `GET /auth/me` | `200 {status,user}` | authenticated |
 | `PATCH /auth/me` | `{displayName}` → `200 {status,user}`; имя после trim: 1–100 Unicode code points, без управляющих символов; другие поля запрещены | authenticated, только свой профиль |
-| `POST /auth/logout` | пустое тело или `{}` → `200 {status,message}` | authenticated |
+| `POST /auth/refresh` | `{}` → `200 {status,accessToken,tokenType,expiresIn,user}` | HttpOnly cookie, проверка Origin |
+| `POST /auth/session` | `{}` → LoginResponse и cookie; миграция действующего старого JWT | authenticated, только постоянный аккаунт |
+| `POST /auth/logout` | пустое тело или `{}` → `200 {status,message}`; отзыв cookie/SID или старого JWT | public, идемпотентный, проверка Origin |
 | `POST /conferences` | `{title}` → `201 {status,item: Conference}` | authenticated |
 | `GET /conferences` | `200 {status,items: Conference[]}` | свои membership |
 | `GET /conferences/{id}` | `200 {status,item: Conference}` | membership |

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/janickiy/go-recorder/internal/app/httpresponse"
+	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	"github.com/janickiy/go-recorder/internal/domain/users"
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
 )
@@ -53,7 +54,12 @@ type Service interface {
 
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.
 //   - service: значение service типа Service, используемое согласно назначению этой операции.
-type Handler struct{ service Service }
+type Handler struct {
+	service            Service
+	publicOrigin       string
+	secureCookie       bool
+	persistentSessions bool
+}
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в авторизации и учётных записях пользователей.
 //
@@ -69,6 +75,10 @@ func NewHandler(service Service) *Handler { return &Handler{service: service} }
 // @parameters:
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Register(c *gin.Context) {
+	if !h.sameOrigin(c) {
+		return
+	}
+	c.Header("Cache-Control", "no-store")
 	var request users.RegisterRequest
 	if !httpresponse.BindJSON(c, &request, false) {
 		return
@@ -86,6 +96,10 @@ func (h *Handler) Register(c *gin.Context) {
 // @parameters:
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Login(c *gin.Context) {
+	if !h.sameOrigin(c) {
+		return
+	}
+	c.Header("Cache-Control", "no-store")
 	var request users.LoginRequest
 	if !httpresponse.BindJSON(c, &request, false) {
 		return
@@ -95,6 +109,18 @@ func (h *Handler) Login(c *gin.Context) {
 		httpresponse.Fail(c, err)
 		return
 	}
+	if h.persistentSessions {
+		// Replacing a sign-in in this browser revokes its previous cookie session.
+		if previous := h.sessionCookie(c); previous != "" {
+			if sessions, ok := h.service.(persistentService); ok {
+				if err := sessions.Logout(c.Request.Context(), previous, ""); err != nil {
+					httpresponse.Fail(c, err)
+					return
+				}
+			}
+		}
+		h.setSessionCookie(c, response.SessionToken)
+	}
 	c.JSON(http.StatusOK, response)
 }
 
@@ -103,6 +129,7 @@ func (h *Handler) Login(c *gin.Context) {
 // @parameters:
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Me(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	user, err := h.service.Me(c.Request.Context(), httpmiddleware.UserID(c))
 	if err != nil {
 		httpresponse.Fail(c, err)
@@ -130,8 +157,24 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 // @parameters:
 //   - c (*gin.Context): контекст HTTP-запроса Gin с параметрами, авторизацией и ответом.
 func (h *Handler) Logout(c *gin.Context) {
+	if !h.sameOrigin(c) {
+		return
+	}
+	c.Header("Cache-Control", "no-store")
 	if !httpresponse.BindJSON(c, &struct{}{}, true) {
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Discard the access token on the client; the token remains valid until expiration"})
+	if h.persistentSessions {
+		sessions, ok := h.service.(persistentService)
+		if !ok {
+			httpresponse.Fail(c, apperrors.ErrUnavailable)
+			return
+		}
+		if err := sessions.Logout(c.Request.Context(), h.sessionCookie(c), bearerToken(c)); err != nil {
+			httpresponse.Fail(c, err)
+			return
+		}
+		h.setSessionCookie(c, "")
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }

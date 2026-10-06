@@ -135,12 +135,10 @@ describe("conference recording controls", /**
   it.each(["participant", "co_host"] as const)(
     "allows authenticated %s to start",
     async (role) => {
-      const start = vi
-        .spyOn(api, "startRecording")
-        .mockResolvedValue({
-          status: "success",
-          item: { ...row, status: "starting", requestedBy: "self" },
-        });
+      const start = vi.spyOn(api, "startRecording").mockResolvedValue({
+        status: "success",
+        item: { ...row, status: "starting", requestedBy: "self" },
+      });
       const client = show(role, []);
       fireEvent.click(await readyStart());
       await waitFor(() =>

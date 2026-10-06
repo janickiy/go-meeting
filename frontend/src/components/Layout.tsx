@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import {
@@ -25,6 +25,7 @@ import { useNotificationStream } from "../notifications";
 import { useCapabilities } from "../useCapabilities";
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
 import { AccountSettingsModal } from "./AccountSettingsModal";
+import { AccountSettingsContext } from "./AccountSettingsContext";
 
 /**
  * Layout объединяет навигацию, поиск и личный профиль, не управляя соединениями комнаты.
@@ -50,6 +51,17 @@ export function Layout() {
   const bottomButton = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
 
+  const showAccountSettings = useCallback((element: HTMLElement) => {
+    settingsOpener.current = element;
+    setSettingsOpen(true);
+  }, []);
+  const settingsDialog = settingsOpen && (
+    <AccountSettingsModal
+      onClose={() => setSettingsOpen(false)}
+      returnFocus={() => settingsOpener.current}
+    />
+  );
+
   /** Открывает диалог обычным кликом, сохраняя текущую страницу и стандартное открытие ссылок в новой вкладке.
    * @args event — нажатие ссылки настроек в навигации или меню профиля.
    * @return Значение не возвращается; диалог получает фокус, мобильное меню закрывается.
@@ -70,7 +82,7 @@ export function Layout() {
       : details?.querySelector<HTMLElement>("summary") || event.currentTarget;
     if (details) details.open = false;
     setOpen(false);
-    setSettingsOpen(true);
+    showAccountSettings(settingsOpener.current!);
   }
   useEffect(() => {
     if (!open) return;
@@ -128,16 +140,19 @@ export function Layout() {
   };
   if (user?.guestConferenceId)
     return (
-      <div className="guest-room-shell">
-        <a className="skip-link" href="#workspace-main">
-          Перейти к встрече
-        </a>
-        <main id="workspace-main">
-          <Suspense fallback={<Loading />}>
-            <Outlet />
-          </Suspense>
-        </main>
-      </div>
+      <AccountSettingsContext.Provider value={showAccountSettings}>
+        <div className="guest-room-shell" inert={settingsOpen}>
+          <a className="skip-link" href="#workspace-main">
+            Перейти к встрече
+          </a>
+          <main id="workspace-main">
+            <Suspense fallback={<Loading />}>
+              <Outlet />
+            </Suspense>
+          </main>
+        </div>
+        {settingsDialog}
+      </AccountSettingsContext.Provider>
     );
   const items = [
     { to: "/app", label: "Главная", Icon: Home, end: true },
@@ -158,7 +173,7 @@ export function Layout() {
       : []),
   ];
   return (
-    <>
+    <AccountSettingsContext.Provider value={showAccountSettings}>
       <div className="app-shell" inert={settingsOpen || settingsRouteOpen}>
         <a className="skip-link" href="#workspace-main">
           Перейти к содержимому
@@ -341,12 +356,7 @@ export function Layout() {
           </nav>
         </div>
       </div>
-      {settingsOpen && (
-        <AccountSettingsModal
-          onClose={() => setSettingsOpen(false)}
-          returnFocus={() => settingsOpener.current}
-        />
-      )}
-    </>
+      {settingsDialog}
+    </AccountSettingsContext.Provider>
   );
 }

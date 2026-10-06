@@ -15,6 +15,16 @@ describe("session storage", /**
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
+  it("retains an expired access cache for cookie restoration without storing credentials in localStorage", () => {
+    const session = {
+      token: "expired-short-access",
+      expiresAt: Date.now() - 86_400_000,
+    };
+    saveSession(session);
+    expect(readSession()).toEqual(session);
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+    saveSession(null);
+  });
   it("restores only an unexpired, bounded session", /**
    * Проверяет восстановление только неистёкшей сессии в установленных пределах.
    *

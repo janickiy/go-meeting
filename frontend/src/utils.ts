@@ -1,4 +1,7 @@
+import type { User } from "./types";
+
 export const SESSION_KEY = "meet.session.v1";
+export const LOGOUT_KEY = "meet.auth.logout.v1";
 /**
  * Session связывает сохранённый токен, пользователя и сведения клиентской авторизации.
  *
@@ -9,6 +12,7 @@ export const SESSION_KEY = "meet.session.v1";
 export interface Session {
   token: string;
   expiresAt: number;
+  user?: User;
 }
 /**
  * readSession читает и проверяет сохранённую клиентскую сессию и отвергает повреждённое значение.
@@ -31,10 +35,24 @@ export function readSession(): Session | null {
       "expiresAt" in data &&
       typeof data.expiresAt === "number" &&
       Number.isFinite(data.expiresAt) &&
-      data.expiresAt > Date.now() &&
+      data.expiresAt > 0 &&
       data.expiresAt <= Date.now() + 3600000
-    )
-      return data as Session;
+    ) {
+      const session: Session = { token: data.token, expiresAt: data.expiresAt };
+      if ("user" in data && data.user && typeof data.user === "object") {
+        const user = data.user as Partial<User>;
+        if (
+          typeof user.id === "string" &&
+          typeof user.email === "string" &&
+          (typeof user.displayName === "string" || user.displayName === null) &&
+          typeof user.createdAt === "string" &&
+          typeof user.updatedAt === "string"
+        )
+          session.user = user as User;
+      }
+      // An expired access token is only a cache. The HttpOnly cookie restores the session.
+      return session;
+    }
     sessionStorage.removeItem(SESSION_KEY);
   } catch {
     try {
@@ -59,6 +77,31 @@ export function saveSession(session: Session | null) {
     else sessionStorage.removeItem(SESSION_KEY);
   } catch {
     /* Не сохраняем учётные данные в других местах. */
+  }
+}
+
+/** Contains only an explicit logout marker; credentials never enter localStorage. */
+export function hasLogoutMarker(): boolean {
+  try {
+    return localStorage.getItem(LOGOUT_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+export function markLogout(): void {
+  try {
+    localStorage.setItem(LOGOUT_KEY, `${Date.now()}:${crypto.randomUUID()}`);
+  } catch {
+    /* The current tab still clears its in-memory session. */
+  }
+}
+
+export function clearLogoutMarker(): void {
+  try {
+    localStorage.removeItem(LOGOUT_KEY);
+  } catch {
+    /* Storage may be unavailable. */
   }
 }
 /**

@@ -145,6 +145,13 @@ async function recordingsFixture(
       unexpected.push(`unauthorized:${path}`);
       return respond({ message: "Authentication required by fixture" }, 401);
     }
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return respond({
+        status: "success",
+        accessToken: "recordings-visual-fixture",
+        expiresIn: 3600,
+        user: user,
+      });
     if (path === "/auth/me") return respond({ status: "success", user });
     if (path === "/capabilities")
       return respond({

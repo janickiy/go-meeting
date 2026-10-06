@@ -94,6 +94,13 @@ async function accountFixture(page: Page): Promise<FixtureState> {
         contentType: "application/json",
         body: JSON.stringify(body),
       });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return reply({
+        status: "success",
+        accessToken: "isolated-account-settings-test",
+        expiresIn: 3600,
+        user: state.user,
+      });
     if (path === "/auth/me" && method === "GET")
       return reply({ status: "success", user: state.user });
     if (path === "/auth/me" && method === "PATCH") {

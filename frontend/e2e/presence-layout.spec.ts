@@ -116,6 +116,19 @@ async function fixture(page: Page) {
   await page.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace("/api/v1", "");
     const respond = (data: unknown) => route.fulfill({ json: data });
+    if (["/auth/session", "/auth/refresh"].includes(path))
+      return respond({
+        accessToken: "presence-only-token",
+        expiresIn: 3600,
+        status: "success",
+        user: {
+          id: owner.userId,
+          email: "owner@example.test",
+          displayName: owner.displayName,
+          createdAt: stamp,
+          updatedAt: stamp,
+        },
+      });
     if (path === "/auth/me")
       return respond({
         status: "success",
