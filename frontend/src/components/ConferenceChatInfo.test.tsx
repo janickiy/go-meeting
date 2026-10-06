@@ -208,12 +208,15 @@ function showMembers(onClose = vi.fn()) {
 }
 
 describe("меню конференции", () => {
-  it("не делает запросы для закрытых строк и содержит четыре действия без жалобы", async () => {
+  it("не делает запросы для закрытых строк и содержит пять действий без жалобы", async () => {
     show();
     expect(api.conferenceChatInfo).not.toHaveBeenCalled();
     fireEvent.click(trigger());
     const menu = screen.getByRole("menu");
-    expect(within(menu).getAllByRole("menuitem")).toHaveLength(4);
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(5);
+    expect(
+      within(menu).getByRole("menuitem", { name: "Добавить в папку" }),
+    ).toBeInTheDocument();
     expect(
       within(menu).getByRole("menuitem", { name: "Информация о чате" }),
     ).toHaveFocus();

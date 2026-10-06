@@ -461,15 +461,20 @@ func TestPersonalMigrationPreservesConferenceChat(t *testing.T) {
 		return result
 	}
 	before := snapshot()
-	down, err := os.ReadFile(filepath.Join("..", "..", "database", "migrations", "000028_personal_conversations.down.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = f.db.Exec(string(down)).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err = f.db.Exec("DELETE FROM release_schema_migrations WHERE name='000028_personal_conversations.up.sql'").Error; err != nil {
-		t.Fatal(err)
+	// The latest fixture includes additive folder/group/avatar tables referencing the
+	// personal core. Rehearse their guarded empty downgrade in dependency order;
+	// never leave migration ledger entries for schema that has been removed.
+	for _, name := range []string{"000032_personal_folders", "000031_conversation_avatar_objects", "000030_group_conversations", "000028_personal_conversations"} {
+		down, readErr := os.ReadFile(filepath.Join("..", "..", "database", "migrations", name+".down.sql"))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if err = f.db.Exec(string(down)).Error; err != nil {
+			t.Fatal(name, err)
+		}
+		if err = f.db.Exec("DELETE FROM release_schema_migrations WHERE name=?", name+".up.sql").Error; err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err = pg.RunMigrations(f.db, filepath.Join("..", "..", "database", "migrations")); err != nil {
 		t.Fatal(err)

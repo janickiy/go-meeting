@@ -264,8 +264,13 @@ func (h *UserHandler) run(ctx context.Context, cancel context.CancelFunc, conn *
 		case <-ctx.Done():
 			return
 		case data := <-queue:
-			_ = conn.SetWriteDeadline(time.Now().Add(cfg.WriteTimeout))
-			if conn.WriteMessage(ws.TextMessage, data) != nil {
+			op, stop := context.WithTimeout(ctx, cfg.WriteTimeout+2*time.Second)
+			err := h.deliver(op, id.UserID, data, func() error {
+				_ = conn.SetWriteDeadline(time.Now().Add(cfg.WriteTimeout))
+				return conn.WriteMessage(ws.TextMessage, data)
+			})
+			stop()
+			if err != nil {
 				return
 			}
 		case <-ping.C:

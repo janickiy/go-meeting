@@ -70,30 +70,56 @@ func (r *PersonalRepository) GetOrCreate(ctx context.Context, user, target strin
 	return item, created, err
 }
 
-// A bounded page uses one projection query (including unread), rather than a query per peer.
-const personalProjection = `SELECT c.id,c.type,c.created_at,c.last_message_at,c.last_message_id,
+// A bounded page uses one projection (including sender/member count/unread), not per-row calls.
+const personalUnreadSQL = `(SELECT count(*) FROM conversation_messages x WHERE x.conversation_id=c.id AND x.sequence>m.last_read_sequence AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL)`
+const personalProjection = `SELECT c.id,c.type,c.created_at,c.updated_at,c.last_message_at,c.last_message_id,
  COALESCE(c.last_message_at,c.created_at) AS activity_at,u.id AS peer_id,
  COALESCE(NULLIF(u.display_name,''),'Пользователь') AS peer_name,
+ COALESCE(c.name,'') AS name,c.description,c.created_by,c.avatar_version,m.role AS my_role,
+ CASE WHEN c.type='group' THEN (SELECT count(*) FROM conversation_members gm WHERE gm.conversation_id=c.id AND gm.left_at IS NULL) ELSE 0 END AS member_count,
+ lm.sender_user_id AS last_sender_id,COALESCE(NULLIF(su.display_name,''),'Пользователь') AS last_sender_name,
  CASE WHEN lm.deleted_at IS NOT NULL THEN 'Сообщение удалено' ELSE COALESCE(NULLIF(left(lm.text,160),''),CASE WHEN lm.id IS NULL THEN '' ELSE 'Вложение' END) END AS preview,
- (SELECT count(*) FROM conversation_messages x WHERE x.conversation_id=c.id AND x.sequence>m.last_read_sequence AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL) AS unread_count
+ ` + personalUnreadSQL + ` AS unread_count
  FROM conversation_members m JOIN conversations c ON c.id=m.conversation_id
- JOIN users u ON u.id=CASE WHEN c.user_low_id=m.user_id THEN c.user_high_id ELSE c.user_low_id END
- LEFT JOIN conversation_messages lm ON lm.id=c.last_message_id WHERE m.user_id=?`
+ LEFT JOIN users u ON c.type='direct' AND u.id=CASE WHEN c.user_low_id=m.user_id THEN c.user_high_id ELSE c.user_low_id END
+ LEFT JOIN conversation_messages lm ON lm.id=c.last_message_id
+ LEFT JOIN users su ON su.id=lm.sender_user_id
+ WHERE m.user_id=? AND m.left_at IS NULL AND c.deleted_at IS NULL AND c.type IN('direct','group')`
 
 type personalRow struct {
-	ID, Type, PeerID, PeerName, Preview string
-	CreatedAt, ActivityAt               time.Time
-	LastMessageAt                       *time.Time
-	LastMessageID                       *string
-	UnreadCount                         int64
+	ID, Type, PeerName, Preview, Name, Description, MyRole, LastSenderName string
+	PeerID, CreatedBy, AvatarVersion, LastSenderID                         *string
+	CreatedAt, UpdatedAt, ActivityAt                                       time.Time
+	LastMessageAt                                                          *time.Time
+	LastMessageID                                                          *string
+	UnreadCount, MemberCount                                               int64
 }
 
 func (row personalRow) view() personal.Conversation {
-	return personal.Conversation{ID: row.ID, Type: row.Type, Peer: personal.Peer{ID: row.PeerID, DisplayName: row.PeerName}, CreatedAt: row.CreatedAt, ActivityAt: row.ActivityAt, LastMessageAt: row.LastMessageAt, LastMessageID: row.LastMessageID, Preview: row.Preview, UnreadCount: row.UnreadCount}
+	item := personal.Conversation{ID: row.ID, Type: row.Type, Name: row.Name, Description: row.Description,
+		CreatedBy: row.CreatedBy, UpdatedAt: row.UpdatedAt, MemberCount: row.MemberCount, AvatarVersion: row.AvatarVersion,
+		CreatedAt: row.CreatedAt, ActivityAt: row.ActivityAt, LastMessageAt: row.LastMessageAt, LastMessageID: row.LastMessageID,
+		Preview: row.Preview, UnreadCount: row.UnreadCount}
+	if row.Type == "direct" && row.PeerID != nil {
+		item.Peer = &personal.Peer{ID: *row.PeerID, DisplayName: row.PeerName}
+	}
+	if row.Type == "group" {
+		item.MyRole = personal.Role(row.MyRole)
+	}
+	if row.LastSenderID != nil {
+		item.LastSender = &personal.Peer{ID: *row.LastSenderID, DisplayName: row.LastSenderName}
+	}
+	return item
 }
 func (r *PersonalRepository) Get(ctx context.Context, user, id string) (personal.Conversation, error) {
+	return personalView(r.db.WithContext(ctx), user, id)
+}
+
+// A write response is projected while its conversation lock is still held. A
+// subsequent revoke cannot turn a committed mutation into an apparent failure.
+func personalView(db *gorm.DB, user, id string) (personal.Conversation, error) {
 	var row personalRow
-	result := r.db.WithContext(ctx).Raw(personalProjection+" AND c.id=?", user, id).Scan(&row)
+	result := db.Raw(personalProjection+" AND c.id=?", user, id).Scan(&row)
 	if result.Error != nil {
 		return personal.Conversation{}, result.Error
 	}
@@ -104,25 +130,45 @@ func (r *PersonalRepository) Get(ctx context.Context, user, id string) (personal
 }
 
 type personalCursor struct {
-	User string
-	At   time.Time
-	ID   string
+	User   string
+	At     time.Time
+	ID     string
+	Filter personal.ListFilter
 }
 
 func (r *PersonalRepository) List(ctx context.Context, user, cursor string, limit int) (personal.Page, error) {
+	return r.ListFiltered(ctx, user, cursor, limit, personal.ListFilter{})
+}
+func (r *PersonalRepository) ListFiltered(ctx context.Context, user, cursor string, limit int, filter personal.ListFilter) (personal.Page, error) {
 	page := personal.Page{Items: []personal.Conversation{}}
 	if limit < 1 || limit > 100 {
 		return page, apperrors.ErrInvalidInput
 	}
+	filter, err := personal.NormalizeListFilter(filter)
+	if err != nil {
+		return page, err
+	}
 	query := personalProjection
 	args := []any{user}
+	if filter.Type != "" {
+		query += " AND c.type=?"
+		args = append(args, filter.Type)
+	}
+	if filter.UnreadOnly {
+		query += " AND " + personalUnreadSQL + ">0"
+	}
+	if filter.Search != "" {
+		escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(filter.Search)
+		query += " AND (CASE WHEN c.type='group' THEN c.name ELSE COALESCE(NULLIF(u.display_name,''),'Пользователь') END) ILIKE ?"
+		args = append(args, "%"+escaped+"%")
+	}
 	if cursor != "" {
 		var c personalCursor
-		raw, err := base64.RawURLEncoding.DecodeString(cursor)
-		if len(cursor) > 512 || err != nil || json.Unmarshal(raw, &c) != nil || c.User != user || c.At.IsZero() {
+		raw, e := base64.RawURLEncoding.DecodeString(cursor)
+		if len(cursor) > 1024 || e != nil || json.Unmarshal(raw, &c) != nil || c.User != user || c.At.IsZero() || c.Filter != filter {
 			return page, apperrors.ErrInvalidInput
 		}
-		if _, err := uuid.Parse(c.ID); err != nil {
+		if _, e = uuid.Parse(c.ID); e != nil {
 			return page, apperrors.ErrInvalidInput
 		}
 		query += " AND (COALESCE(c.last_message_at,c.created_at),c.id)<(?,?)"
@@ -131,25 +177,39 @@ func (r *PersonalRepository) List(ctx context.Context, user, cursor string, limi
 	query += " ORDER BY COALESCE(c.last_message_at,c.created_at) DESC,c.id DESC LIMIT ?"
 	args = append(args, limit+1)
 	var rows []personalRow
-	if err := r.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
+	if err = r.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
 		return page, err
 	}
 	if len(rows) > limit {
 		rows = rows[:limit]
 		last := rows[len(rows)-1]
-		raw, _ := json.Marshal(personalCursor{User: user, At: last.ActivityAt, ID: last.ID})
+		raw, _ := json.Marshal(personalCursor{User: user, At: last.ActivityAt, ID: last.ID, Filter: filter})
 		page.NextCursor = base64.RawURLEncoding.EncodeToString(raw)
 	}
 	for _, row := range rows {
 		page.Items = append(page.Items, row.view())
 	}
-	err := r.db.WithContext(ctx).Raw(`SELECT count(*) FROM conversation_members m JOIN conversation_messages x ON x.conversation_id=m.conversation_id AND x.sequence>m.last_read_sequence AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL WHERE m.user_id=?`, user).Scan(&page.UnreadCount).Error
+	// The sidebar badge stays the total across all active direct/group conversations.
+	err = r.db.WithContext(ctx).Raw(`SELECT count(*) FROM conversation_members m JOIN conversations c ON c.id=m.conversation_id AND c.deleted_at IS NULL JOIN conversation_messages x ON x.conversation_id=m.conversation_id AND x.sequence>m.last_read_sequence AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL WHERE m.user_id=? AND m.left_at IS NULL`, user).Scan(&page.UnreadCount).Error
 	return page, err
 }
 func (r *PersonalRepository) Members(ctx context.Context, id string) ([]string, error) {
-	var ids []string
-	err := r.db.WithContext(ctx).Table("conversation_members").Where("conversation_id=?", id).Order("user_id").Pluck("user_id", &ids).Error
+	ids := []string{}
+	err := r.db.WithContext(ctx).Table("conversation_members m").Joins("JOIN conversations c ON c.id=m.conversation_id").Where("m.conversation_id=? AND m.left_at IS NULL AND c.deleted_at IS NULL", id).Order("m.user_id").Pluck("m.user_id", &ids).Error
 	return ids, err
+}
+func (r *PersonalRepository) ConversationType(ctx context.Context, id string) (string, error) {
+	var row struct{ Type string }
+	err := r.db.WithContext(ctx).Table("conversations").Select("type").Where("id=?", id).Take(&row).Error
+	if err != nil {
+		return "", mapNotFound(err)
+	}
+	return row.Type, nil
+}
+func (r *PersonalRepository) HasActiveMembership(ctx context.Context, id, user string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Table("conversation_members m").Joins("JOIN conversations c ON c.id=m.conversation_id").Joins("JOIN users u ON u.id=m.user_id").Where("m.conversation_id=? AND m.user_id=? AND m.left_at IS NULL AND c.deleted_at IS NULL AND c.type IN('direct','group') AND u.guest_conference_id IS NULL", id, user).Count(&count).Error
+	return count == 1, err
 }
 func (r *PersonalRepository) Search(ctx context.Context, user, query string) ([]personal.Peer, error) {
 	query = strings.TrimSpace(query)

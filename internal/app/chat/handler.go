@@ -16,8 +16,9 @@ import (
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.
 //   - service: значение service типа *chatusecase.Service, используемое согласно назначению этой операции.
 type Handler struct {
-	service   *chatusecase.Service
-	namespace string
+	service        *chatusecase.Service
+	namespace      string
+	groupDownloads GroupDownloads
 }
 
 // NewHandler создаёт и связывает зависимости компонента Handler, используемого в постоянном чате и приватных вложениях.
@@ -271,6 +272,9 @@ func (h *Handler) Download(c *gin.Context) {
 	}
 	attachmentID, ok := parameter(c, "attachmentId")
 	if !ok {
+		return
+	}
+	if h.downloadGroup(c, id, attachmentID) {
 		return
 	}
 	url, expires, err := h.service.Download(c.Request.Context(), httpmiddleware.UserID(c), id, attachmentID)

@@ -1,0 +1,239 @@
+.group-modal {
+  width: min(540px, calc(100vw - 32px));
+}
+.group-modal form,
+.group-user-picker {
+  display: grid;
+  gap: 12px;
+}
+.group-modal h3 {
+  font-size: 16px;
+  margin: 8px 0;
+}
+.group-modal .field-hint {
+  margin: 0;
+  color: var(--text);
+}
+.group-avatar {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.personal-avatar img,
+.group-avatar-picker img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.group-avatar-large {
+  flex-basis: 64px;
+  width: 64px;
+  height: 64px;
+}
+.group-avatar-field {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.group-avatar-picker {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--primary-soft);
+  color: var(--primary);
+  cursor: pointer;
+}
+.group-selected-users,
+.group-search-users,
+.group-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.group-selected-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.group-selected-users li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: var(--primary-soft);
+  font-size: 12px;
+}
+.group-selected-users button {
+  background: none;
+  border: 0;
+  color: inherit;
+  display: flex;
+  padding: 4px;
+  cursor: pointer;
+}
+.group-search-users {
+  max-height: 240px;
+  overflow: auto;
+}
+.group-search-users label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  cursor: pointer;
+}
+.group-search-users label > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.group-search-users input,
+.group-transfer-choice input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.group-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+.group-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 12px 0 24px;
+}
+.group-identity > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.group-identity p,
+.group-identity small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.group-info-actions {
+  display: grid;
+  gap: 10px;
+}
+.group-info-actions .button {
+  justify-content: flex-start;
+}
+.group-back {
+  margin-bottom: 20px;
+}
+.group-members {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+.group-members li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.group-member-name {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.group-member-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+.group-presence-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--success);
+  right: -2px;
+  bottom: 0;
+}
+.group-member-name strong,
+.group-member-name small {
+  display: block;
+}
+.group-member-name small {
+  color: var(--muted);
+  margin-top: 4px;
+  font-size: 12px;
+}
+.group-member-controls {
+  display: flex;
+  flex-basis: 100%;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.group-member-controls .button {
+  font-size: 12px;
+  min-height: 36px;
+}
+.group-confirmation {
+  border: 1px solid var(--border);
+  padding: 14px;
+  border-radius: 12px;
+}
+.group-confirmation .button {
+  margin: 4px;
+}
+.personal-filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.personal-filters button {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text);
+  padding: 9px 6px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.personal-filters button[aria-pressed="true"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.personal-header-copy {
+  flex: 1;
+  min-width: 0;
+}
+.personal-header-copy strong,
+.personal-header-copy small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.personal-header-copy small {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+@media (max-width: 760px) {
+  .group-modal {
+    max-height: calc(100dvh - 32px);
+  }
+  .personal-header .personal-avatar {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+}

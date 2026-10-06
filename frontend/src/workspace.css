@@ -121,6 +121,7 @@ body {
   display: flex;
   flex-direction: column;
   z-index: var(--z-nav);
+  overflow-y: auto;
 }
 .sidebar-head {
   padding: 0 14px 26px;
@@ -162,6 +163,17 @@ body {
 }
 .nav-active svg {
   color: var(--primary);
+}
+.sidebar-personal-caption {
+  margin-top: 22px;
+}
+.sidebar-service-nav {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.sidebar > * {
+  flex-shrink: 0;
 }
 .sidebar-context-note {
   display: flex;

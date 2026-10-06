@@ -1,0 +1,173 @@
+.folders-page {
+  min-width: 0;
+}
+.folders-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0 28px;
+}
+.folders-heading h1 {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.folders-heading p {
+  margin: 0;
+}
+.folders-heading .eyebrow {
+  margin-bottom: 12px;
+}
+.folders-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.folder-list {
+  display: grid;
+  gap: 12px;
+}
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  min-width: 0;
+}
+.folder-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 10px;
+}
+.folder-link:hover {
+  background: var(--surface-soft);
+}
+.folder-symbol,
+.folder-meeting-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 14px;
+}
+.folder-item-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+.folder-item-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-item-copy small {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.folder-count {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.folder-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.folder-detail-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 100%;
+  width: 300px;
+}
+.folder-detail-search input {
+  width: 100%;
+  min-width: 0;
+}
+.folder-item-section {
+  margin-bottom: 28px;
+}
+.folder-item-section h2 {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+.folder-empty {
+  padding: 50px 20px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 18px;
+}
+.folder-empty > svg {
+  color: var(--primary);
+}
+.folder-empty h2 {
+  font-size: 20px;
+  color: var(--text);
+}
+.folder-empty p {
+  margin-bottom: 0;
+}
+@media (max-width: 760px) {
+  .folders-heading {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-top: 12px;
+  }
+  .folder-row {
+    padding: 4px 8px 4px 4px;
+    gap: 2px;
+  }
+  .folder-link {
+    padding: 10px 6px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .folder-link .status-badge {
+    margin-left: 52px;
+  }
+  .folder-symbol,
+  .folder-meeting-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+  .folder-item-copy {
+    flex-basis: calc(100% - 62px);
+  }
+  .folder-toolbar {
+    align-items: stretch;
+  }
+  .folder-detail-search {
+    width: 100%;
+  }
+}
+/* Hovered rows keep readable metadata; status backgrounds retain their meaning. */
+.folder-link:hover .folder-item-copy small {
+  color: var(--text);
+}
+.folders-page .status-badge {
+  color: var(--text);
+}

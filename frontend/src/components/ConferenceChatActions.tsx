@@ -11,6 +11,7 @@ import {
   Bell,
   BellOff,
   Info,
+  FolderPlus,
   LogOut,
   MoreVertical,
   UserPlus,
@@ -18,6 +19,7 @@ import {
 import { api } from "../api";
 import { useAuth } from "../auth";
 import type { Conference, ConferenceChatInfo } from "../types";
+import { FolderPicker } from "./FolderPicker";
 import { ErrorNotice } from "./ui";
 import {
   ConferenceChatInfoModal,
@@ -35,6 +37,7 @@ export function ConferenceChatActions({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [folderOpen, setFolderOpen] = useState(false);
   const [view, setView] = useState<ConferenceChatView | null>(null);
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export function ConferenceChatActions({
   }, [open]);
 
   function navigateMenu(event: KeyboardEvent<HTMLDivElement>) {
-    if (view) return;
+    if (view || folderOpen) return;
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
@@ -104,10 +107,21 @@ export function ConferenceChatActions({
           id={id}
           conference={conference}
           anchor={() => trigger.current}
+          onFolder={() => {
+            setOpen(false);
+            setFolderOpen(true);
+          }}
           onSelect={(next) => {
             setOpen(false);
             setView(next);
           }}
+        />
+      )}
+      {folderOpen && (
+        <FolderPicker
+          target={{ type: "conference", id: conference.id }}
+          onClose={() => setFolderOpen(false)}
+          returnFocus={() => trigger.current}
         />
       )}
       {view && (
@@ -127,11 +141,13 @@ function ConferenceChatMenu({
   conference,
   anchor,
   onSelect,
+  onFolder,
 }: {
   id: string;
   conference: Conference;
   anchor: () => HTMLElement | null;
   onSelect: (view: ConferenceChatView) => void;
+  onFolder: () => void;
 }) {
   const { user } = useAuth();
   const client = useQueryClient();
@@ -217,6 +233,10 @@ function ConferenceChatMenu({
       >
         <Info size={19} aria-hidden="true" />
         Информация о чате
+      </button>
+      <button role="menuitem" tabIndex={-1} type="button" onClick={onFolder}>
+        <FolderPlus size={19} aria-hidden="true" />
+        Добавить в папку
       </button>
       <button
         role="menuitem"

@@ -223,7 +223,8 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 			if message.RequestFingerprint != fingerprint {
 				return apperrors.New(apperrors.ErrConflict, "clientRequestId was already used for a different message")
 			}
-			return nil
+			message, err = r.loadMessage(tx, conferenceID, message.ID)
+			return err
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -278,15 +279,16 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 			}
 		}
 		created = true
-		return nil
+		message, err = r.loadMessage(tx, conferenceID, message.ID)
+		return err
 	})
 	if err != nil {
 		return chat.Message{}, false, err
 	}
-	message, err = r.loadMessage(r.db.WithContext(ctx), conferenceID, message.ID)
-	return message, created, err
+	return message, created, nil
 }
 func (r *ChatRepository) Edit(ctx context.Context, userID, conferenceID, id, text string) (chat.Message, error) {
+	var item chat.Message
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if _, err := r.authorize(tx, userID, conferenceID, true, true); err != nil {
 			return err
@@ -310,14 +312,20 @@ func (r *ChatRepository) Edit(ctx context.Context, userID, conferenceID, id, tex
 				return apperrors.New(apperrors.ErrInvalidInput, "message cannot be empty")
 			}
 		}
-		return r.messages(tx).Where("id=?", id).Updates(map[string]any{"text": text, "version": gorm.Expr("version+1"), "updated_at": gorm.Expr("clock_timestamp()")}).Error
+		if err := r.messages(tx).Where("id=?", id).Updates(map[string]any{"text": text, "version": gorm.Expr("version+1"), "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
+			return err
+		}
+		var err error
+		item, err = r.loadMessage(tx, conferenceID, id)
+		return err
 	})
 	if err != nil {
 		return chat.Message{}, err
 	}
-	return r.loadMessage(r.db.WithContext(ctx), conferenceID, id)
+	return item, nil
 }
 func (r *ChatRepository) Delete(ctx context.Context, userID, conferenceID, id string) (chat.Message, error) {
+	var item chat.Message
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		p, err := r.authorize(tx, userID, conferenceID, true, true)
 		if err != nil {
@@ -330,29 +338,37 @@ func (r *ChatRepository) Delete(ctx context.Context, userID, conferenceID, id st
 		if message.SenderID != userID && p.Role != conferences.Owner && p.Role != conferences.CoHost {
 			return apperrors.ErrForbidden
 		}
-		if message.DeletedAt != nil {
-			return nil
+		if message.DeletedAt == nil {
+			if err := r.messages(tx).Where("id=?", id).Updates(map[string]any{"text": "", "deleted_at": gorm.Expr("clock_timestamp()"), "updated_at": gorm.Expr("clock_timestamp()"), "version": gorm.Expr("version+1")}).Error; err != nil {
+				return err
+			}
 		}
-		return r.messages(tx).Where("id=?", id).Updates(map[string]any{"text": "", "deleted_at": gorm.Expr("clock_timestamp()"), "updated_at": gorm.Expr("clock_timestamp()"), "version": gorm.Expr("version+1")}).Error
+		item, err = r.loadMessage(tx, conferenceID, id)
+		return err
 	})
 	if err != nil {
 		return chat.Message{}, err
 	}
-	return r.loadMessage(r.db.WithContext(ctx), conferenceID, id)
+	return item, nil
 }
 func (r *ChatRepository) ReadState(ctx context.Context, userID, conferenceID string) (chat.ReadState, error) {
-	tx := r.db.WithContext(ctx)
-	p, err := r.authorize(tx, userID, conferenceID, false, false)
-	if err != nil {
-		return chat.ReadState{}, err
-	}
-	state, err := r.readState(tx, userID, conferenceID)
-	state.ParticipantID = p.ID
+	var state chat.ReadState
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		p, err := r.authorize(tx, userID, conferenceID, false, false)
+		if err != nil {
+			return err
+		}
+		state, err = r.readState(tx, userID, conferenceID)
+		state.ParticipantID = p.ID
+		return err
+	})
 	return state, err
 }
 func (r *ChatRepository) MarkRead(ctx context.Context, userID, conferenceID, messageID string) (chat.ReadState, error) {
+	var state chat.ReadState
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := r.authorize(tx, userID, conferenceID, true, false); err != nil {
+		p, err := r.authorize(tx, userID, conferenceID, true, false)
+		if err != nil {
 			return err
 		}
 		var message chat.Message
@@ -360,12 +376,19 @@ func (r *ChatRepository) MarkRead(ctx context.Context, userID, conferenceID, mes
 			return mapNotFound(err)
 		}
 		if r.direct {
-			return tx.Table("conversation_members").Where("conversation_id=? AND user_id=? AND last_read_sequence<?", conferenceID, userID, message.Sequence).Updates(map[string]any{"last_read_message_id": messageID, "last_read_sequence": message.Sequence, "updated_at": gorm.Expr("clock_timestamp()")}).Error
+			err = tx.Table("conversation_members").Where("conversation_id=? AND user_id=? AND last_read_sequence<?", conferenceID, userID, message.Sequence).Updates(map[string]any{"last_read_message_id": messageID, "last_read_sequence": message.Sequence, "updated_at": gorm.Expr("clock_timestamp()")}).Error
+		} else {
+			err = tx.Exec(`INSERT INTO chat_read_states(conference_id,user_id,last_read_message_id,last_read_sequence) VALUES(?,?,?,?) ON CONFLICT(conference_id,user_id) DO UPDATE SET last_read_message_id=EXCLUDED.last_read_message_id,last_read_sequence=EXCLUDED.last_read_sequence,updated_at=clock_timestamp() WHERE chat_read_states.last_read_sequence<EXCLUDED.last_read_sequence`, conferenceID, userID, messageID, message.Sequence).Error
 		}
-		return tx.Exec(`INSERT INTO chat_read_states(conference_id,user_id,last_read_message_id,last_read_sequence) VALUES(?,?,?,?) ON CONFLICT(conference_id,user_id) DO UPDATE SET last_read_message_id=EXCLUDED.last_read_message_id,last_read_sequence=EXCLUDED.last_read_sequence,updated_at=clock_timestamp() WHERE chat_read_states.last_read_sequence<EXCLUDED.last_read_sequence`, conferenceID, userID, messageID, message.Sequence).Error
+		if err != nil {
+			return err
+		}
+		state, err = r.readState(tx, userID, conferenceID)
+		state.ParticipantID = p.ID
+		return err
 	})
 	if err != nil {
 		return chat.ReadState{}, err
 	}
-	return r.ReadState(ctx, userID, conferenceID)
+	return state, nil
 }

@@ -4,6 +4,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
 } from "@tanstack/react-query";
 import {
   Download,
@@ -16,7 +17,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api, errorMessage, type ChatTransport } from "../api";
+import { api, ApiError, errorMessage, type ChatTransport } from "../api";
 import { useAuth } from "../auth";
 import { mergeChatPages, formatBytes } from "../collaboration";
 import {
@@ -26,10 +27,19 @@ import {
   insertChatEmoji,
 } from "../chatPresentation";
 import { formatDate, initials } from "../utils";
-import type { ChatAttachment, ChatMessage, Participant } from "../types";
+import type {
+  ChatAttachment,
+  ChatMessage,
+  ChatPage,
+  Participant,
+} from "../types";
 import { AttachmentUploader } from "./AttachmentUploader";
 import { EmojiPicker } from "./EmojiPicker";
 import { Button, ErrorNotice, Loading, Modal } from "./ui";
+
+function isAccessDenied(error: unknown) {
+  return error instanceof ApiError && [403, 404].includes(error.status);
+}
 
 /**
  * Показывает историю чата и управляет отправкой, ответами, вложениями и правами на изменение сообщений.
@@ -72,6 +82,8 @@ export function MessageThread({
   readOnly = false,
   readOnlyReason,
   personal = false,
+  requireAuthenticatedDownloads = false,
+  onAccessDenied,
   focusMessageId,
   onLatest,
 }: {
@@ -81,6 +93,8 @@ export function MessageThread({
   readOnly?: boolean;
   readOnlyReason?: string;
   personal?: boolean;
+  requireAuthenticatedDownloads?: boolean;
+  onAccessDenied?: () => void;
   focusMessageId?: string;
   onLatest?: () => void;
 }) {
@@ -112,6 +126,24 @@ export function MessageThread({
   const selection = useRef({ start: 0, end: 0 });
   const pendingCaret = useRef<number | null>(null);
   const retryRequest = useRef<{ signature: string; id: string } | null>(null);
+  const sendActive = useRef(false);
+  const mounted = useRef(true);
+  const downloadController = useRef<AbortController | null>(null);
+  const [pending, setPending] = useState<{
+    clientRequestId: string;
+    text: string;
+    attachments: ChatAttachment[];
+    replyName?: string;
+    createdAt: string;
+    state: "sending" | "failed";
+  } | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      downloadController.current?.abort();
+    };
+  }, []);
   const viewport = useRef<HTMLDivElement>(null);
   const lastMarker = useRef<HTMLSpanElement>(null);
   const markerVisible = useRef(false);
@@ -130,7 +162,10 @@ export function MessageThread({
       () => setDownload(null),
       Math.max(0, Date.parse(download.expiresAt) - Date.now() - 5000),
     );
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (download.url.startsWith("blob:")) URL.revokeObjectURL(download.url);
+    };
   }, [download]);
 
   const query = useInfiniteQuery({
@@ -144,13 +179,28 @@ export function MessageThread({
         : transport.messages(scopeId, pageParam, signal),
     getNextPageParam: (last) => last.nextCursor || undefined,
     refetchInterval: 15000,
+    retry: (failures, error) => !isAccessDenied(error) && failures < 3,
   });
   const read = useQuery({
     queryKey: [readKey, scopeId, user?.id],
     queryFn: ({ signal }) => transport.chatRead(scopeId, signal),
     refetchInterval: 15000,
+    retry: (failures, error) => !isAccessDenied(error) && failures < 3,
   });
-  const messages = mergeChatPages(query.data?.pages || []);
+  const accessDenied =
+    !!onAccessDenied &&
+    (isAccessDenied(query.error) || isAccessDenied(read.error));
+  useEffect(() => {
+    if (accessDenied) onAccessDenied?.();
+  }, [accessDenied, onAccessDenied]);
+  const messages = accessDenied ? [] : mergeChatPages(query.data?.pages || []);
+  const confirmedPending =
+    !!pending &&
+    messages.some(
+      (message) =>
+        message.senderId === user?.id &&
+        message.clientRequestId === pending.clientRequestId,
+    );
   const latest = messages.at(-1)?.id;
 
   /** Обновляет историю и счётчик непрочитанных сообщений после изменения на сервере. */
@@ -159,22 +209,27 @@ export function MessageThread({
     void client.invalidateQueries({ queryKey: [readKey, scopeId] });
   };
   const send = useMutation({
-    mutationFn: () => {
-      const body = {
-        text: text.trim(),
-        replyTo: reply?.id,
-        attachmentIds: attachments.map((file) => file.id),
-      };
-      const signature = JSON.stringify(body);
-      // Неизменённое сообщение при повторе получает прежний ключ, поэтому сбой сети не создаёт дубль.
-      if (retryRequest.current?.signature !== signature)
-        retryRequest.current = { signature, id: crypto.randomUUID() };
-      return transport.sendMessage(scopeId, {
-        ...body,
-        clientRequestId: retryRequest.current.id,
-      });
-    },
-    onSuccess: () => {
+    mutationFn: (body: {
+      text: string;
+      replyTo?: string;
+      attachmentIds: string[];
+      clientRequestId: string;
+    }) => transport.sendMessage(scopeId, body),
+    onSuccess: ({ item }) => {
+      if (!mounted.current) return;
+      client.setQueryData<InfiniteData<ChatPage>>(
+        [historyKey, scopeId, user?.id],
+        (current) =>
+          current
+            ? {
+                ...current,
+                pages: current.pages.map((page, index) =>
+                  index ? page : { ...page, items: [...page.items, item] },
+                ),
+              }
+            : current,
+      );
+      setPending(null);
       newestVisible.current = true;
       setText("");
       setReply(null);
@@ -184,6 +239,15 @@ export function MessageThread({
       retryRequest.current = null;
       invalidate();
       if (focused) onLatest?.();
+    },
+    onError: () => {
+      if (mounted.current)
+        setPending((current) =>
+          current ? { ...current, state: "failed" } : current,
+        );
+    },
+    onSettled: () => {
+      sendActive.current = false;
     },
   });
   const edit = useMutation({
@@ -390,7 +454,7 @@ export function MessageThread({
 
   /** Проверяет черновик перед отправкой; вложения разрешены и без текстовой части. */
   const sendDraft = () => {
-    if (readOnly || send.isPending || uploadBusy) return;
+    if (readOnly || sendActive.current || send.isPending || uploadBusy) return;
     setValidation("");
     if (
       (!text.trim() && !attachments.length) ||
@@ -399,7 +463,25 @@ export function MessageThread({
       setValidation("Добавьте текст (до 4000 символов) или файл.");
       return;
     }
-    send.mutate();
+    const body = {
+      text: text.trim(),
+      replyTo: reply?.id,
+      attachmentIds: attachments.map((file) => file.id),
+    };
+    const signature = JSON.stringify(body);
+    if (retryRequest.current?.signature !== signature)
+      retryRequest.current = { signature, id: crypto.randomUUID() };
+    sendActive.current = true;
+    setPending({
+      clientRequestId: retryRequest.current.id,
+      text: body.text,
+      attachments: [...attachments],
+      replyName: reply?.senderName,
+      createdAt: new Date().toISOString(),
+      state: "sending",
+    });
+    newestVisible.current = true;
+    send.mutate({ ...body, clientRequestId: retryRequest.current.id });
   };
 
   /**
@@ -408,23 +490,61 @@ export function MessageThread({
    */
   const prepareDownload = async (file: ChatAttachment) => {
     setDownloadError("");
+    downloadController.current?.abort();
+    const controller = new AbortController();
+    downloadController.current = controller;
     try {
       const result = await transport.attachmentDownload(scopeId, file.id);
+      controller.signal.throwIfAborted();
       const url = new URL(result.url, window.location.origin);
+      if (requireAuthenticatedDownloads && result.authenticated !== true)
+        throw new Error("unauthenticated_group_file");
+      if (result.authenticated === true) {
+        const path = `/api/v1/${personal ? "conversations" : "conferences"}/${encodeURIComponent(scopeId)}/attachments/${encodeURIComponent(file.id)}/content`;
+        if (
+          url.origin !== window.location.origin ||
+          url.pathname !== path ||
+          url.search ||
+          url.hash
+        )
+          throw new Error("invalid_private_file_url");
+        const blob = await transport.attachmentContent(
+          scopeId,
+          file.id,
+          controller.signal,
+        );
+        if (!mounted.current || controller.signal.aborted) return;
+        setDownload({
+          id: file.id,
+          url: URL.createObjectURL(blob),
+          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        });
+        return;
+      }
       if (!["http:", "https:"].includes(url.protocol))
         throw new Error("invalid_download_url");
+      if (!mounted.current || controller.signal.aborted) return;
       setDownload({
         id: file.id,
         url: url.toString(),
         expiresAt: result.expiresAt,
       });
     } catch (error) {
-      setDownloadError(errorMessage(error));
+      if (
+        mounted.current &&
+        !controller.signal.aborted &&
+        error instanceof ApiError &&
+        error.status === 403
+      )
+        onAccessDenied?.();
+      if (mounted.current && !controller.signal.aborted)
+        setDownloadError(errorMessage(error));
     }
   };
 
   const unread =
     read.data?.item.unreadCount ?? query.data?.pages[0]?.unreadCount ?? 0;
+  if (accessDenied) return <ErrorNotice error={query.error || read.error} />;
   return (
     <section
       className={`content-card chat-panel ${personal ? "personal-thread" : ""}`}
@@ -673,6 +793,42 @@ export function MessageThread({
                 </Fragment>
               );
             })}
+            {pending && !confirmedPending && (
+              <article
+                className="chat-message chat-message-own chat-message-pending"
+                data-testid={`chat-pending-${pending.clientRequestId}`}
+              >
+                <div className="chat-message-content">
+                  <div className="chat-message-bubble">
+                    {pending.replyName && (
+                      <blockquote>Ответ: {pending.replyName}</blockquote>
+                    )}
+                    {pending.text && (
+                      <p className="chat-text">{pending.text}</p>
+                    )}
+                    {pending.attachments.map((file) => (
+                      <div className="chat-attachment" key={file.id}>
+                        <span>
+                          <Paperclip size={15} />
+                          {file.filename}
+                          <small>{formatBytes(file.size)}</small>
+                        </span>
+                      </div>
+                    ))}
+                    <footer className="chat-message-meta">
+                      <time dateTime={pending.createdAt}>
+                        {chatTime(pending.createdAt)}
+                      </time>
+                      <span role="status">
+                        {pending.state === "sending"
+                          ? "Отправляется…"
+                          : "Не отправлено"}
+                      </span>
+                    </footer>
+                  </div>
+                </div>
+              </article>
+            )}
             <span
               ref={lastMarker}
               className="chat-read-marker"

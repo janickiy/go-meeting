@@ -3,6 +3,15 @@ import type { Page } from "@playwright/test";
 
 /** openChat загружает автономный макет без записи в API проекта. */
 async function openChat(page: Page) {
+  // Settle the original application's anonymous startup before mounting a
+  // second AuthProvider; a late 401 must not clear the fixture's shared session.
+  await page.route("**/api/v1/auth/refresh", (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ status: "error", message: "unauthorized" }),
+    }),
+  );
   await page.addInitScript(() => {
     // HTTP-адрес host.docker.internal тестового Firefox не является secure context.
     // Только эта автономная вкладка получает UUID v4 на CSPRNG; HTTPS-приложение не меняется.
@@ -20,6 +29,7 @@ async function openChat(page: Page) {
     });
   });
   await page.goto("/login");
+  await page.waitForLoadState("networkidle");
   await page.evaluate(async () => {
     const fixturePath = "/e2e/helpers/chat-fixture.tsx";
     const fixture = await import(fixturePath);

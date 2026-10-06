@@ -382,7 +382,7 @@ func (s *Service) Send(ctx context.Context, user, conference string, request dom
 		return domain.Message{}, false, err
 	}
 	message, created, err := s.repo.Send(ctx, user, conference, request, fingerprint)
-	if err == nil {
+	if err == nil && created {
 		s.publish(ctx, "chat.message.created", message)
 	}
 	return message, created, err

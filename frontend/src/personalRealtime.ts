@@ -1,12 +1,113 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router";
+import {
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type QueryClient,
+} from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router";
 import { api } from "./api";
-import type { ChatMessage } from "./types";
+import { invalidateFolders, purgeFolder, purgeFolderTarget } from "./folders";
+import type { ChatMessage, PersonalConversation, PersonalPage } from "./types";
+
+/** A revoke removes previews immediately, even when REST recovery is offline. */
+export function revokePersonalConversation(
+  client: QueryClient,
+  id: string,
+  userId: string,
+) {
+  void client.cancelQueries({ queryKey: ["personal-list", userId] });
+  void client.cancelQueries({ queryKey: ["personal-summary", userId] });
+  const cached = client.getQueriesData<InfiniteData<PersonalPage>>({
+    queryKey: ["personal-list", userId],
+  });
+  let removedUnread =
+    client.getQueryData<{ item: PersonalConversation }>([
+      "personal-detail",
+      id,
+      userId,
+    ])?.item.unreadCount || 0;
+  for (const [, data] of cached)
+    for (const page of data?.pages || [])
+      for (const item of page.items)
+        if (item.id === id)
+          removedUnread = Math.max(removedUnread, item.unreadCount);
+  client.setQueriesData<InfiniteData<PersonalPage>>(
+    { queryKey: ["personal-list", userId] },
+    (current) =>
+      current
+        ? {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              items: page.items.filter((item) => item.id !== id),
+              unreadCount: Math.max(0, page.unreadCount - removedUnread),
+            })),
+          }
+        : current,
+  );
+  client.setQueryData<PersonalPage>(["personal-summary", userId], (current) =>
+    current
+      ? {
+          ...current,
+          items: current.items.filter((item) => item.id !== id),
+          unreadCount: Math.max(0, current.unreadCount - removedUnread),
+        }
+      : current,
+  );
+  for (const key of [
+    "personal-chat",
+    "personal-chat-read",
+    "personal-detail",
+    "group-members",
+  ]) {
+    void client.cancelQueries({ queryKey: [key, id] });
+    client.removeQueries({ queryKey: [key, id] });
+  }
+  purgeFolderTarget(client, userId, { type: "conversation", id });
+}
+
+export function acceptFolderEvent(
+  raw: string,
+): { type: string; data: { folderId?: string } } | null {
+  try {
+    const event = JSON.parse(raw);
+    if (
+      !event ||
+      ![
+        "folder.created",
+        "folder.updated",
+        "folder.deleted",
+        "folder.items.updated",
+        "folder.reordered",
+      ].includes(event.type) ||
+      !event.data ||
+      typeof event.data !== "object" ||
+      Array.isArray(event.data)
+    )
+      return null;
+    if (
+      event.type !== "folder.reordered" &&
+      (typeof event.data.folderId !== "string" ||
+        !event.data.folderId ||
+        event.data.folderId.length > 128)
+    )
+      return null;
+    return event;
+  } catch {
+    return null;
+  }
+}
 
 export interface PersonalEvent {
   type: string;
-  data: { conversationId?: string; type?: string; message?: ChatMessage };
+  data: {
+    conversationId?: string;
+    type?: string;
+    message?: ChatMessage;
+    userId?: string;
+    role?: string;
+  };
 }
 // A bounded identity/version window suppresses duplicate notices, including send retries.
 export function acceptPersonalEvent(
@@ -27,9 +128,17 @@ export function acceptPersonalEvent(
       "message.deleted",
       "conversation.updated",
       "conversation.read.updated",
+      "conversation.member.added",
+      "conversation.member.updated",
+      "conversation.member.removed",
     ].includes(event.type) ||
-    event.data?.type !== "direct" ||
+    !["direct", "group"].includes(event.data?.type || "") ||
     !event.data.conversationId
+  )
+    return null;
+  if (
+    event.type.startsWith("conversation.member.") &&
+    (event.data.type !== "group" || !event.data.userId)
   )
     return null;
   const m = event.data.message;
@@ -51,6 +160,7 @@ export function acceptPersonalEvent(
 export function usePersonalRealtime(userId?: string) {
   const client = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const pathname = useRef(location.pathname);
   pathname.current = location.pathname;
   const [notice, setNotice] = useState<{
@@ -80,6 +190,7 @@ export function usePersonalRealtime(userId?: string) {
       void client.invalidateQueries({ queryKey: ["personal-list"] });
       void client.invalidateQueries({ queryKey: ["personal-summary"] });
       void client.invalidateQueries({ queryKey: ["personal-detail"] });
+      void invalidateFolders(client, userId);
     };
     const retry = () => {
       if (controller.signal.aborted) return;
@@ -105,10 +216,32 @@ export function usePersonalRealtime(userId?: string) {
         };
         socket.onmessage = ({ data }) => {
           if (typeof data !== "string") return;
+          const folderEvent = acceptFolderEvent(data);
+          if (folderEvent) {
+            if (folderEvent.type === "folder.deleted") {
+              const folderId = folderEvent.data.folderId!;
+              purgeFolder(client, userId, folderId);
+              if (pathname.current === `/folders/${folderId}`)
+                navigate("/folders", { replace: true });
+            }
+            void invalidateFolders(client, userId);
+            return;
+          }
           const event = acceptPersonalEvent(data, seen);
           if (!event) return;
-          refresh();
           const id = event.data.conversationId!;
+          if (
+            event.type === "conversation.member.removed" &&
+            event.data.userId === userId
+          ) {
+            revokePersonalConversation(client, id, userId);
+            setNotice((current) => (current?.id === id ? null : current));
+            if (pathname.current === `/personal/${id}`)
+              navigate("/personal", { replace: true });
+          }
+          refresh();
+          if (event.type.startsWith("conversation.member."))
+            void client.invalidateQueries({ queryKey: ["group-members", id] });
           void client.invalidateQueries({ queryKey: ["personal-chat", id] });
           void client.invalidateQueries({
             queryKey: ["personal-chat-read", id],
@@ -145,7 +278,7 @@ export function usePersonalRealtime(userId?: string) {
       }
       setNotice(null);
     };
-  }, [userId, client]);
+  }, [userId, client, navigate]);
   return {
     unread: summary.data?.unreadCount ?? 0,
     notice,

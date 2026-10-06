@@ -13,15 +13,18 @@ import (
 )
 
 type Repository interface {
+	GroupRepository
 	Account(context.Context, string) error
 	GetOrCreate(context.Context, string, string) (personal.Conversation, bool, error)
 	Get(context.Context, string, string) (personal.Conversation, error)
 	List(context.Context, string, string, int) (personal.Page, error)
+	ListFiltered(context.Context, string, string, int, personal.ListFilter) (personal.Page, error)
 	Search(context.Context, string, string) ([]personal.Peer, error)
 }
 type Handler struct {
-	Repo   Repository
-	Events *personalusecase.Events
+	Repo     Repository
+	Events   *personalusecase.Events
+	Presence GroupPresence
 }
 
 func (h *Handler) AccountOnly(c *gin.Context) {
@@ -67,7 +70,16 @@ func (h *Handler) List(c *gin.Context) {
 		}
 		limit = n
 	}
-	page, err := h.Repo.List(c.Request.Context(), middleware.UserID(c), c.Query("before"), limit)
+	filter := personal.ListFilter{Type: c.Query("type"), Search: c.Query("search")}
+	if raw, present := c.GetQuery("unreadOnly"); present {
+		value, err := strconv.ParseBool(raw)
+		if err != nil {
+			httpresponse.Fail(c, apperrors.ErrInvalidInput)
+			return
+		}
+		filter.UnreadOnly = value
+	}
+	page, err := h.Repo.ListFiltered(c.Request.Context(), middleware.UserID(c), c.Query("before"), limit, filter)
 	if err != nil {
 		httpresponse.Fail(c, err)
 		return

@@ -11,6 +11,7 @@ import { saveSession } from "../../src/utils";
 import type {
   ChatAttachment,
   ChatMessage,
+  LoginResponse,
   Participant,
   User,
 } from "../../src/types";
@@ -66,8 +67,9 @@ function fixtureMessage(index: number, text: string, own = false): ChatMessage {
  * @return изолированный макет конференции с настоящими ChatPanel и AuthProvider.
  */
 function Fixture() {
-  const { user: activeUser } = useAuth();
-  if (!activeUser) return <p role="status">Подготовка тестового чата…</p>;
+  const { user: activeUser, loading } = useAuth();
+  if (!activeUser || loading)
+    return <p role="status">Подготовка тестового чата…</p>;
   return (
     <main
       className="conference-room-page"
@@ -181,6 +183,19 @@ export function install() {
     { ...fixtureMessage(36, "До встречи 👍", true), id: "own-short" },
   );
   api.me = async () => ({ user });
+  // Current AuthProvider establishes/renews persistent sessions even when the
+  // cached JWT is valid. Keep both paths local to this isolated fixture.
+  const session = async (signal?: AbortSignal): Promise<LoginResponse> => {
+    signal?.throwIfAborted();
+    return {
+      accessToken: "isolated-ui-fixture",
+      tokenType: "Bearer",
+      expiresIn: 1800,
+      user,
+    };
+  };
+  api.refreshSession = session;
+  api.establishSession = session;
   api.messages = async () => ({
     status: "success",
     items: [...history],
@@ -235,6 +250,7 @@ export function install() {
   saveSession({
     token: "isolated-ui-fixture",
     expiresAt: Date.now() + 1800000,
+    user,
   });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },

@@ -70,15 +70,26 @@ func (r *ChatRepository) authorize(tx *gorm.DB, user, id string, locked, write b
 }
 func authorizeDirect(tx *gorm.DB, user, id string, locked bool) error {
 	var row struct{ ID string }
-	q := tx.Table("conversations").Select("conversations.id").Where("conversations.id=? AND EXISTS(SELECT 1 FROM conversation_members m JOIN users u ON u.id=m.user_id WHERE m.conversation_id=conversations.id AND m.user_id=? AND u.guest_conference_id IS NULL)", id, user)
+	q := tx.Table("conversations").Select("conversations.id").Where("conversations.id=? AND type IN('direct','group') AND deleted_at IS NULL", id)
+	strength := "SHARE"
 	if locked {
-		q = q.Clauses(clause.Locking{Strength: "UPDATE", Table: clause.Table{Name: "conversations"}})
+		strength = "UPDATE"
 	}
+	q = q.Clauses(clause.Locking{Strength: strength, Table: clause.Table{Name: "conversations"}})
 	if err := q.Take(&row).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return apperrors.ErrForbidden
 		}
 		return err
+	}
+	// Check membership in a new statement after acquiring the conversation lock.
+	// All group mutations lock this same row before changing member activity.
+	var count int64
+	if err := tx.Table("conversation_members m").Joins("JOIN users u ON u.id=m.user_id").Where("m.conversation_id=? AND m.user_id=? AND m.left_at IS NULL AND u.guest_conference_id IS NULL", id, user).Count(&count).Error; err != nil {
+		return err
+	}
+	if count != 1 {
+		return apperrors.ErrForbidden
 	}
 	return nil
 }

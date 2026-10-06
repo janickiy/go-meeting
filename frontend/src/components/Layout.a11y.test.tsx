@@ -98,6 +98,16 @@ describe("навигация приложения", () => {
       "/personal",
     );
     expect(screen.queryByRole("link", { name: "Чаты" })).toBeNull();
+    expect(
+      screen.getByRole("navigation", { name: "Личное пространство" }),
+    ).toHaveTextContent("Папки");
+    expect(screen.getByRole("link", { name: "Папки" })).toHaveAttribute(
+      "href",
+      "/folders",
+    );
+    expect(
+      screen.getByRole("navigation", { name: "Настройки приложения" }),
+    ).toHaveTextContent("Настройки");
     expect(screen.getByRole("main")).toHaveAttribute("id", "workspace-main");
     expect(screen.getByRole("link", { name: "История" })).toHaveAttribute(
       "href",

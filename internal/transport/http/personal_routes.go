@@ -13,7 +13,11 @@ func RegisterPersonalRoutes(router gin.IRouter, h *personalapp.Handler, chat *ch
 	for _, v := range []struct {
 		Method, Path, Scope string
 		Limit               int
-	}{{"GET", "/users", "personal_search", 30}, {"GET", "/conversations", "personal_list", 120}, {"POST", "/conversations/direct", "personal_create", 30}, {"GET", "/conversations/:id", "personal_detail", 120}, {"POST", "/conversations/:id/read", "personal_read", 30}} {
+	}{{"GET", "/users", "personal_search", 30}, {"GET", "/conversations", "personal_list", 120}, {"POST", "/conversations/direct", "personal_create", 30}, {"GET", "/conversations/:id", "personal_detail", 120}, {"POST", "/conversations/:id/read", "personal_read", 30},
+		{"POST", "/conversations/group", "group_create", 20}, {"PATCH", "/conversations/:id", "group_metadata", 30}, {"DELETE", "/conversations/:id", "group_delete", 20},
+		{"GET", "/conversations/:id/members", "group_members", 120}, {"POST", "/conversations/:id/members", "group_add", 30},
+		{"DELETE", "/conversations/:id/members/:userId", "group_remove", 30}, {"PATCH", "/conversations/:id/members/:userId", "group_role", 30},
+		{"POST", "/conversations/:id/leave", "group_leave", 30}, {"POST", "/conversations/:id/ownership", "group_ownership", 20}} {
 		rules = append(rules, httpmiddleware.Rule{Method: v.Method, Path: APIV1Prefix + v.Path, Scope: v.Scope, Limit: v.Limit, Window: time.Minute, Key: httpmiddleware.UserID})
 	}
 	private := func(c *gin.Context) {
@@ -25,7 +29,16 @@ func RegisterPersonalRoutes(router gin.IRouter, h *personalapp.Handler, chat *ch
 	g.GET("/users", h.Search)
 	g.GET("/conversations", h.List)
 	g.POST("/conversations/direct", h.Create)
+	g.POST("/conversations/group", h.CreateGroup)
 	g.GET("/conversations/:id", h.Get)
+	g.PATCH("/conversations/:id", h.UpdateGroup)
+	g.DELETE("/conversations/:id", h.DeleteGroup)
+	g.GET("/conversations/:id/members", h.GroupMembers)
+	g.POST("/conversations/:id/members", h.AddGroupMembers)
+	g.DELETE("/conversations/:id/members/:userId", h.RemoveGroupMember)
+	g.PATCH("/conversations/:id/members/:userId", h.ChangeGroupRole)
+	g.POST("/conversations/:id/leave", h.LeaveGroup)
+	g.POST("/conversations/:id/ownership", h.TransferGroupOwnership)
 	g.POST("/conversations/:id/read", chat.MarkRead)
 	// AccountOnly is also applied to all shared message/file routes.
 	registerMessageRoutes(router, chat, auth, limiter, "conversations", h.AccountOnly)

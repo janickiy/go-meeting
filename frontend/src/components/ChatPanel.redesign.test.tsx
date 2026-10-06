@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -9,10 +10,10 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { CHAT_EMOJIS } from "../emoji";
 import type { ChatMessage, Participant } from "../types";
-import { ChatPanel } from "./ChatPanel";
+import { ChatPanel, MessageThread } from "./ChatPanel";
 
 vi.mock("../auth", () => ({
   useAuth: () => ({ user: { id: "user", displayName: "Александр" } }),
@@ -105,6 +106,35 @@ afterEach(() => {
 });
 
 describe("обновлённая панель чата", () => {
+  it("закрывает cached group history on authoritative access denial without a WebSocket event", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    clients.push(client);
+    const denied = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MessageThread
+            scopeId="group"
+            transport={api}
+            personal
+            onAccessDenied={denied}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByText(message.text);
+    vi.mocked(api.messages).mockRejectedValue(
+      new ApiError(403, "Доступ закрыт"),
+    );
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["personal-chat", "group"] });
+    });
+    await waitFor(() => expect(denied).toHaveBeenCalledOnce());
+    expect(screen.queryByText(message.text)).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Сообщение" })).toBeNull();
+  });
   it("показывает не менее 40 смайликов и заменяет выделение с UTF-16 курсором", async () => {
     const send = vi.spyOn(api, "sendMessage").mockResolvedValue({
       status: "success",
@@ -207,6 +237,71 @@ describe("обновлённая панель чата", () => {
     complete({ status: "success", item: message });
     await waitFor(() => expect(textarea).toHaveValue(""));
     expect(textarea).toBeEnabled();
+  });
+
+  it("показывает pending без выдуманного sequence и сверяет раннее realtime подтверждение", async () => {
+    const page = {
+      status: "success" as const,
+      items: [] as ChatMessage[],
+      nextCursor: null,
+      unreadCount: 0,
+      lastReadMessageId: null,
+    };
+    vi.mocked(api.messages).mockResolvedValue(page);
+    let resolve!: (result: Awaited<ReturnType<typeof api.sendMessage>>) => void;
+    const send = vi.spyOn(api, "sendMessage").mockReturnValue(
+      new Promise((complete) => {
+        resolve = complete;
+      }),
+    );
+    showChat();
+    await screen.findByRole("log");
+    fireEvent.change(screen.getByRole("textbox", { name: "Сообщение" }), {
+      target: { value: "Новое сообщение" },
+    });
+    const button = screen.getByRole("button", { name: "Отправить" });
+    act(() => {
+      button.click();
+      button.click();
+    });
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Отправляется…")).toBeInTheDocument();
+    const confirmed = {
+      ...message,
+      id: "confirmed",
+      text: "Новое сообщение",
+      clientRequestId: send.mock.calls[0][1].clientRequestId,
+    };
+    const peerMessage = {
+      ...confirmed,
+      id: "peer",
+      senderId: "bob",
+      senderName: "Борис",
+      text: "Другой автор",
+    };
+    vi.mocked(api.messages).mockResolvedValue({
+      ...page,
+      items: [peerMessage],
+    });
+    await act(async () => {
+      await clients.at(-1)!.invalidateQueries({ queryKey: ["chat", "room"] });
+    });
+    expect(screen.getByText("Отправляется…")).toBeInTheDocument();
+    vi.mocked(api.messages).mockResolvedValue({ ...page, items: [confirmed] });
+    await act(async () => {
+      await clients.at(-1)!.invalidateQueries({ queryKey: ["chat", "room"] });
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("log").querySelectorAll(".chat-text"),
+      ).toHaveLength(1),
+    );
+    expect(screen.queryByText("Отправляется…")).toBeNull();
+    await act(async () => resolve({ status: "success", item: confirmed }));
+    await waitFor(() =>
+      expect(screen.getAllByTestId("chat-message-confirmed")).toHaveLength(1),
+    );
+    expect(screen.getByRole("textbox", { name: "Сообщение" })).toHaveValue("");
   });
 
   it("не добавляет смайлик сверх серверного лимита в 4000 Unicode-символов", async () => {

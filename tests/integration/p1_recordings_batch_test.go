@@ -130,13 +130,17 @@ func TestP1RecordingBatchPreservesPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	chat := pg.NewChatRepository(db)
+	// Seven original page/attachment/reply/read queries plus the later chat
+	// leave-policy check and batched personal bookmarks. The budget remains
+	// constant for one and twenty messages; those access checks must not be removed.
+	const chatPageQueries = 9
 	for _, limit := range []int{1, 20} {
 		count.Store(0)
 		page, e := chat.List(ctx, uid, cid, "", limit)
 		if e != nil {
 			t.Fatal(e)
 		}
-		if count.Load() != 7 || len(page.Items) != limit {
+		if count.Load() != chatPageQueries || len(page.Items) != limit {
 			t.Fatalf("chat limit=%d queries=%d rows=%d", limit, count.Load(), len(page.Items))
 		}
 		for _, message := range page.Items {

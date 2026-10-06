@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, configureAuth, uploadAttachment } from "./api";
+import {
+  api,
+  ApiError,
+  configureAuth,
+  personalChatAPI,
+  uploadAttachment,
+} from "./api";
 
 afterEach(
   /**
@@ -52,6 +58,121 @@ describe("API contract", /**
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
+  it("binds personal list cursors to server filters without changing legacy defaults", async () => {
+    const fetch = fetchResponse(200, { status: "success", items: [] });
+    const controller = new AbortController();
+    await api.personalConversations(undefined, controller.signal);
+    expect(fetch.mock.calls[0][0]).toBe("/api/v1/conversations?limit=50");
+    await api.personalConversations("cursor+next", controller.signal, 50, {
+      type: "group",
+      unreadOnly: true,
+      search: " Команда ",
+    });
+    const query = new URL(fetch.mock.calls[1][0], "http://local.invalid")
+      .searchParams;
+    expect(Object.fromEntries(query)).toEqual({
+      limit: "50",
+      before: "cursor+next",
+      type: "group",
+      unreadOnly: "true",
+      search: "Команда",
+    });
+    expect(fetch.mock.calls[1][1].signal).toBe(controller.signal);
+  });
+  it("renews private binary authorization once without exposing a token in its URL", async () => {
+    configureAuth("old-binary", async () => {
+      configureAuth("new-binary");
+      return true;
+    });
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: { "Content-Type": "image/png" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const controller = new AbortController();
+    const image = await api.groupAvatar("group/id", controller.signal);
+    expect(image.size).toBe(3);
+    expect(image.type).toBe("image/png");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toBe(
+      "/api/v1/conversations/group%2Fid/avatar/content",
+    );
+    expect(fetch.mock.calls[1][1].headers.get("Authorization")).toBe(
+      "Bearer new-binary",
+    );
+    expect(fetch.mock.calls[1][1]).toMatchObject({
+      credentials: "omit",
+      signal: controller.signal,
+    });
+  });
+  it("rejects private avatar MIME and streaming size before exposing bytes", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("<svg/>", {
+          headers: { "Content-Type": "image/svg+xml" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array(2 * 1024 * 1024 + 1), {
+          headers: { "Content-Type": "image/png" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    await expect(api.groupAvatar("group")).rejects.toMatchObject({
+      status: 502,
+    });
+    await expect(api.groupAvatar("group")).rejects.toMatchObject({
+      status: 413,
+    });
+  });
+  it("uploads avatar raw and downloads private group attachments with Bearer and cancellation", async () => {
+    configureAuth("group-private");
+    const fetch = fetchResponse(200, { status: "success", item: {} });
+    const controller = new AbortController();
+    const file = new File(["png"], "photo.png", { type: "image/png" });
+    await api.putGroupAvatar("group", file, controller.signal);
+    expect(fetch.mock.calls[0][1]).toMatchObject({
+      method: "PUT",
+      body: file,
+      credentials: "omit",
+      signal: controller.signal,
+    });
+    expect(fetch.mock.calls[0][1].headers.get("Content-Type")).toBe(
+      "image/png",
+    );
+    expect(fetch.mock.calls[0][1].headers.get("Authorization")).toBe(
+      "Bearer group-private",
+    );
+    await expect(
+      api.putGroupAvatar(
+        "group",
+        new File(["svg"], "evil.svg", { type: "image/svg+xml" }),
+      ),
+    ).rejects.toBeInstanceOf(ApiError);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    fetch.mockResolvedValueOnce(
+      new Response("Private attachment", {
+        headers: { "Content-Type": "text/plain" },
+      }),
+    );
+    const blob = await personalChatAPI.attachmentContent(
+      "group",
+      "file",
+      controller.signal,
+    );
+    expect(blob.size).toBe(18);
+    expect(fetch.mock.calls[1][0]).toBe(
+      "/api/v1/conversations/group/attachments/file/content",
+    );
+    expect(fetch.mock.calls[1][1].headers.get("Authorization")).toBe(
+      "Bearer group-private",
+    );
+  });
   it("объясняет конфликт повторного запуска записи без технических деталей", async () => {
     fetchResponse(409, {
       status: "error",
@@ -421,5 +542,78 @@ describe("persistent account recovery", () => {
     await expect(api.establishSession()).rejects.toMatchObject({ status: 401 });
     await expect(api.logout()).rejects.toMatchObject({ status: 401 });
     expect(recover).not.toHaveBeenCalled();
+  });
+});
+describe("private folders API", () => {
+  it("binds each cursor to its folder, type and search, and forwards AbortSignal", async () => {
+    const fetch = fetchResponse(200, { items: [] });
+    const controller = new AbortController();
+    configureAuth("folder-test-token");
+    await api.folderItems(
+      "folder/id",
+      { type: "all", search: "Работа & дом" },
+      "cursor+next",
+      controller.signal,
+    );
+    const url = new URL(fetch.mock.calls[0][0], "http://test.invalid");
+    expect(url.pathname).toBe("/api/v1/folders/folder%2Fid/items");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      limit: "50",
+      type: "all",
+      search: "Работа & дом",
+      before: "cursor+next",
+    });
+    expect(fetch.mock.calls[0][1].signal).toBe(controller.signal);
+    expect(fetch.mock.calls[0][1].headers.get("Authorization")).toBe(
+      "Bearer folder-test-token",
+    );
+    await api.folderCandidates(
+      "folder",
+      { type: "conference", search: "План" },
+      undefined,
+      controller.signal,
+    );
+    expect(
+      Object.fromEntries(
+        new URL(fetch.mock.calls[1][0], "http://test.invalid").searchParams,
+      ),
+    ).toEqual({
+      limit: "50",
+      folderId: "folder",
+      type: "conference",
+      search: "План",
+    });
+  });
+  it("uses one bounded checkbox projection and changes only the selected mapping or folder", async () => {
+    const fetch = fetchResponse(200, { status: "success", items: [] });
+    const signal = new AbortController().signal;
+    await api.folders({ type: "conversation", id: "chat" }, signal);
+    expect(fetch.mock.calls[0][0]).toBe(
+      "/api/v1/folders?itemKind=conversation&itemId=chat",
+    );
+    await api.setFolderItem(
+      "folder",
+      { type: "conference", id: "meeting" },
+      true,
+      signal,
+    );
+    expect(fetch.mock.calls[1][0]).toBe(
+      "/api/v1/folders/folder/items/conference/meeting",
+    );
+    expect(fetch.mock.calls[1][1].method).toBe("PUT");
+    await api.setFolderItem(
+      "folder",
+      { type: "conference", id: "meeting" },
+      false,
+      signal,
+    );
+    expect(fetch.mock.calls[2][1].method).toBe("DELETE");
+    await api.orderFolders(["a", "b"], signal);
+    expect(fetch.mock.calls[3][0]).toBe("/api/v1/folders/order");
+    expect(fetch.mock.calls[3][1].body).toBe(
+      JSON.stringify({ ids: ["a", "b"] }),
+    );
+    await api.deleteFolder("folder", signal);
+    expect(fetch.mock.calls[4][0]).toBe("/api/v1/folders/folder");
   });
 });

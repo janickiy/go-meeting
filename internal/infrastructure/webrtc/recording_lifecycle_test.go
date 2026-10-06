@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -191,6 +192,22 @@ func TestStartedCallbackDoesNotBlockRecordingStop(t *testing.T) {
 	}
 }
 
+// The recorder logs after its startup timer, immediately before returning the
+// process to the session. Hold that handoff without relying on a scheduling gap.
+type recorderStartupBarrier struct {
+	reached, released chan struct{}
+	notify, resume    sync.Once
+}
+
+func (b *recorderStartupBarrier) Write(data []byte) (int, error) {
+	if strings.Contains(string(data), "ffmpeg segment recorder started") {
+		b.notify.Do(func() { close(b.reached) })
+		<-b.released
+	}
+	return len(data), nil
+}
+func (b *recorderStartupBarrier) Release() { b.resume.Do(func() { close(b.released) }) }
+
 func TestStopAndShutdownJoinInFlightRecorderStartup(t *testing.T) {
 	for _, action := range []string{"stop", "shutdown"} {
 		t.Run(action, func(t *testing.T) {
@@ -205,7 +222,9 @@ func TestStopAndShutdownJoinInFlightRecorderStartup(t *testing.T) {
 			if err := os.WriteFile(binary, []byte(script), 0700); err != nil {
 				t.Fatal(err)
 			}
-			m, err := NewManager(Options{StoragePath: root, FFmpegPath: binary, Logger: log.New(io.Discard, "", 0)})
+			barrier := &recorderStartupBarrier{reached: make(chan struct{}), released: make(chan struct{})}
+			t.Cleanup(barrier.Release)
+			m, err := NewManager(Options{StoragePath: root, FFmpegPath: binary, Logger: log.New(barrier, "", 0)})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -216,9 +235,22 @@ func TestStopAndShutdownJoinInFlightRecorderStartup(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			t.Cleanup(func() {
+				barrier.Release()
+				ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+				defer cancel()
+				_ = m.Shutdown(ctx)
+			})
 			s.tracks = []ffmpeg.RTPTrack{{Kind: "audio", MimeType: "audio/opus", ClockRate: 48000, Channels: 2, PayloadType: 111, Port: 39007}}
 			started := make(chan error, 1)
 			go func() { started <- s.startFFmpeg() }()
+			select {
+			case <-barrier.reached:
+			case err := <-started:
+				t.Fatalf("startup returned before the handoff barrier: %v", err)
+			case <-time.After(3 * time.Second):
+				t.Fatal("recorder startup did not reach the handoff barrier")
+			}
 			var pid int
 			deadline := time.Now().Add(time.Second)
 			for time.Now().Before(deadline) {
@@ -239,19 +271,42 @@ func TestStopAndShutdownJoinInFlightRecorderStartup(t *testing.T) {
 			pending := s.process == nil
 			s.mu.Unlock()
 			if !pending {
-				t.Fatal("fixture missed startup window")
+				t.Fatal("startup crossed the held handoff barrier")
 			}
-			if action == "stop" {
-				if err = m.Stop("inflight-start"); err != nil {
-					t.Fatalf("accepted startup lost its media grace: %v", err)
+			completed := make(chan error, 1)
+			go func() {
+				if action == "stop" {
+					completed <- m.Stop("inflight-start")
+					return
 				}
-			} else {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				err = m.Shutdown(ctx)
-				cancel()
-				if err != nil {
-					t.Fatal(err)
+				defer cancel()
+				completed <- m.Shutdown(ctx)
+			}()
+			// Observe that the lifecycle operation entered while startup still owns
+			// the real child. Both flags remain stable until the barrier is released.
+			entered := false
+			deadline = time.Now().Add(3 * time.Second)
+			for time.Now().Before(deadline) {
+				s.mu.Lock()
+				entered = (action == "stop" && s.stopRequested) || (action == "shutdown" && s.stopping && s.ctx.Err() != nil)
+				s.mu.Unlock()
+				if entered {
+					break
 				}
+				time.Sleep(time.Millisecond)
+			}
+			if !entered {
+				t.Fatal("lifecycle operation did not enter during the held startup")
+			}
+			barrier.Release()
+			select {
+			case err = <-completed:
+				if err != nil {
+					t.Fatalf("%s did not join accepted startup: %v", action, err)
+				}
+			case <-time.After(6 * time.Second):
+				t.Fatalf("%s retained the startup worker", action)
 			}
 			if err := syscall.Kill(pid, 0); err != syscall.ESRCH {
 				t.Fatalf("%s returned before process Wait: pid=%d error=%v", action, pid, err)

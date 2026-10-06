@@ -8,6 +8,7 @@ import {
   BarChart3,
   CalendarDays,
   Home,
+  Folder,
   History,
   LogOut,
   Menu,
@@ -166,6 +167,8 @@ export function Layout() {
     capabilities.data.capabilities.meetingAnalytics
       ? [{ to: "/analytics", label: "Аналитика", Icon: BarChart3 }]
       : []),
+  ];
+  const serviceItems = [
     { to: "/app/settings", label: "Настройки", Icon: Settings },
     ...(user?.isAdmin
       ? [{ to: "/admin", label: "Администрирование", Icon: ShieldCheck }]
@@ -237,6 +240,41 @@ export function Layout() {
                     {personal.unread}
                   </span>
                 )}
+              </NavLink>
+            ))}
+          </nav>
+          <p className="sidebar-caption sidebar-personal-caption">
+            ЛИЧНОЕ ПРОСТРАНСТВО
+          </p>
+          <nav className="sidebar-nav" aria-label="Личное пространство">
+            <NavLink
+              to="/folders"
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                isActive ? "nav-item nav-active" : "nav-item"
+              }
+            >
+              <Folder size={18} aria-hidden="true" />
+              Папки
+            </NavLink>
+          </nav>
+          <nav
+            className="sidebar-nav sidebar-service-nav"
+            aria-label="Настройки приложения"
+          >
+            {serviceItems.map(({ to, label, Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                onClick={(event) =>
+                  to === "/app/settings" ? openSettings(event) : setOpen(false)
+                }
+                className={({ isActive }) =>
+                  isActive ? "nav-item nav-active" : "nav-item"
+                }
+              >
+                <Icon size={18} aria-hidden="true" />
+                {label}
               </NavLink>
             ))}
           </nav>

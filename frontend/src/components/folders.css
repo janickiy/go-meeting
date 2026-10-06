@@ -1,0 +1,157 @@
+.folder-modal {
+  width: min(520px, calc(100vw - 32px));
+}
+.folder-name-form {
+  display: grid;
+  gap: 14px;
+}
+.folder-hint {
+  color: var(--text);
+  font-size: 12px;
+  margin: 0;
+}
+.folder-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+.item-actions {
+  flex-shrink: 0;
+  position: relative;
+}
+.item-action-menu {
+  position: fixed;
+  z-index: 20;
+  width: min(280px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 8px;
+  box-shadow: var(--shadow-card);
+}
+.item-action-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 12px;
+  min-height: 44px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.item-action-menu > button:hover,
+.item-action-menu > button:focus-visible {
+  background: var(--surface-soft);
+}
+.item-action-menu > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.item-action-menu > .item-action-danger {
+  color: var(--danger);
+}
+.folder-checkboxes {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+  max-height: 360px;
+  overflow: auto;
+}
+.folder-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 4px;
+  cursor: pointer;
+}
+.folder-checkboxes input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.folder-checkboxes label > span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.folder-checkboxes small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.folder-picker-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.folder-back {
+  margin-bottom: 20px;
+}
+.folder-candidate-filter {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+.folder-candidate-filter button {
+  flex: 1;
+}
+@media (max-width: 760px) {
+  .folder-modal {
+    max-height: calc(100dvh - 32px);
+  }
+}
+.folder-candidate-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.folder-candidate-filters button {
+  min-height: 42px;
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.folder-candidate-filters button[aria-pressed="true"] {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.folder-candidates .personal-avatar,
+.folder-candidates .folder-meeting-icon {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+}
+.folder-candidates .status-badge {
+  display: none;
+}
+.folder-checkboxes .folder-item-copy {
+  overflow: hidden;
+}
+.folder-candidate-modal .field {
+  margin-top: 18px;
+}
+.folder-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  text-decoration: none;
+}

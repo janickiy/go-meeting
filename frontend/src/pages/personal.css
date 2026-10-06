@@ -226,3 +226,17 @@
     padding: 14px;
   }
 }
+
+.personal-conversation-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.personal-conversation-row .personal-conversation {
+  min-width: 0;
+  flex: 1;
+}
+.personal-conversation-row .item-actions {
+  margin-right: 4px;
+}

@@ -18,6 +18,7 @@ import (
 	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
 	contentapp "github.com/janickiy/go-recorder/internal/app/content"
 	engagementapp "github.com/janickiy/go-recorder/internal/app/engagement"
+	foldersapp "github.com/janickiy/go-recorder/internal/app/folders"
 	integrationsapp "github.com/janickiy/go-recorder/internal/app/integrations"
 	notificationsapp "github.com/janickiy/go-recorder/internal/app/notifications"
 	personalapp "github.com/janickiy/go-recorder/internal/app/personal"
@@ -40,6 +41,7 @@ import (
 	authusecase "github.com/janickiy/go-recorder/internal/usecase/auth"
 	chatusecase "github.com/janickiy/go-recorder/internal/usecase/chat"
 	conferenceusecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
+	foldersusecase "github.com/janickiy/go-recorder/internal/usecase/folders"
 	mediausecase "github.com/janickiy/go-recorder/internal/usecase/media"
 	notificationsusecase "github.com/janickiy/go-recorder/internal/usecase/notifications"
 	personalusecase "github.com/janickiy/go-recorder/internal/usecase/personal"
@@ -150,6 +152,10 @@ func RunAPI() error {
 	}
 	personalRepository := postgresinfra.NewPersonalRepository(db)
 	personalEvents := &personalusecase.Events{Members: personalRepository, Bus: notificationBus}
+	personalAssets, err := personalusecase.NewAssetService(context.Background(), postgresinfra.NewPersonalAssetRepository(db), s3Client, personalRepository, personalEvents)
+	if err != nil {
+		return fmt.Errorf("personal assets initialization: %w", err)
+	}
 	personalChat, err := chatusecase.NewService(context.Background(), postgresinfra.NewDirectChatRepository(db), s3Client, personalEvents)
 	if err != nil {
 		return fmt.Errorf("personal chat initialization: %w", err)
@@ -158,7 +164,11 @@ func RunAPI() error {
 	globalWS := wstransport.NewUserHandler(authService, redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace+":user-ws"), rateLimiter, realtimeConfig, notificationBus, userPresence, personalRepository)
 	defer globalWS.Shutdown()
 	globalWS.RegisterRoutes(router)
-	httptransport.RegisterPersonalRoutes(router, &personalapp.Handler{Repo: personalRepository, Events: personalEvents}, chatapp.NewHandler(personalChat).ForConversations(), httpmiddleware.Authenticate(authService), rateLimiter)
+	personalHandler := &personalapp.Handler{Repo: personalRepository, Events: personalEvents, Presence: userPresence}
+	httptransport.RegisterPersonalRoutes(router, personalHandler, chatapp.NewHandler(personalChat).ForConversations().WithGroupDownloads(personalAssets), httpmiddleware.Authenticate(authService), rateLimiter)
+	httptransport.RegisterPersonalAssetRoutes(router, personalapp.NewAssetHandler(personalAssets), httpmiddleware.Authenticate(authService), personalHandler.AccountOnly, rateLimiter)
+	folderHandler := foldersapp.NewHandler(postgresinfra.NewFolderRepository(db), &foldersusecase.Events{Bus: notificationBus})
+	httptransport.RegisterFolderRoutes(router, folderHandler, httpmiddleware.Authenticate(authService), rateLimiter)
 	mediaTickets, err := security.NewMediaTickets(mediaConfig.TicketSecret, mediaConfig.TicketTTL)
 	if err != nil {
 		return err
@@ -209,6 +219,7 @@ func RunAPI() error {
 	go recorder.RunRetention(ctx, repository, s3Client)
 	go chatService.Run(ctx)
 	go personalChat.Run(ctx)
+	go personalAssets.Run(ctx)
 	go notificationService.Run(ctx)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.APIPort))
 	if err != nil {

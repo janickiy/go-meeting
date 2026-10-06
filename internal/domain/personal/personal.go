@@ -10,7 +10,15 @@ type Peer struct {
 type Conversation struct {
 	ID            string     `json:"id"`
 	Type          string     `json:"type"`
-	Peer          Peer       `json:"peer"`
+	Peer          *Peer      `json:"peer,omitempty"`
+	Name          string     `json:"name,omitempty"`
+	Description   string     `json:"description"`
+	CreatedBy     *string    `json:"createdBy,omitempty"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
+	MemberCount   int64      `json:"memberCount,omitempty"`
+	MyRole        Role       `json:"myRole,omitempty"`
+	AvatarVersion *string    `json:"avatarVersion"`
+	LastSender    *Peer      `json:"lastSender"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	LastMessageAt *time.Time `json:"lastMessageAt"`
 	LastMessageID *string    `json:"lastMessageId"`

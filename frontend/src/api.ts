@@ -1,4 +1,17 @@
-import type { PersonalPage, PersonalConversation, PersonalPeer } from "./types";
+import type {
+  PersonalPage,
+  PersonalConversation,
+  PersonalPeer,
+  DirectConversation,
+  GroupConversation,
+  GroupMember,
+  GroupRole,
+  ConversationFilters,
+  PersonalFolder,
+  FolderTarget,
+  FolderPage,
+  FolderItemFilters,
+} from "./types";
 import type {
   Conference,
   ConferenceStatus,
@@ -238,7 +251,153 @@ async function request<T>(
   if (!data) throw new ApiError(502, "Сервер вернул некорректный ответ.");
   return data as T;
 }
+
+/** Private bytes use the same session renewal and account-change guard as JSON. */
+async function binaryRequest(
+  path: string,
+  options: { method?: string; body?: File; signal?: AbortSignal } = {},
+  retry = true,
+): Promise<Response> {
+  const usedToken = accessToken,
+    version = identityVersion;
+  const headers = new Headers({
+    Accept: "application/octet-stream, image/png, image/jpeg, application/json",
+  });
+  if (usedToken) headers.set("Authorization", `Bearer ${usedToken}`);
+  if (options.body) headers.set("Content-Type", options.body.type);
+  const response = await fetch(`/api/v1${path}`, {
+    method: options.method || "GET",
+    body: options.body,
+    headers,
+    credentials: "omit",
+    signal: options.signal,
+  });
+  if (version !== identityVersion) {
+    await response.body?.cancel();
+    throw new DOMException("Account changed", "AbortError");
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    if (
+      response.status === 401 &&
+      usedToken &&
+      retry &&
+      (await recoverSession(usedToken, version))
+    ) {
+      options.signal?.throwIfAborted();
+      return binaryRequest(path, options, false);
+    }
+    throw new ApiError(
+      response.status,
+      statuses[response.status] || "Не удалось загрузить файл.",
+    );
+  }
+  return response;
+}
+
+async function privateBlob(
+  path: string,
+  signal: AbortSignal | undefined,
+  maxBytes: number,
+  imageOnly = false,
+): Promise<Blob> {
+  const version = identityVersion;
+  const response = await binaryRequest(path, { signal });
+  const mime =
+    response.headers.get("Content-Type")?.split(";")[0] ||
+    "application/octet-stream";
+  if (imageOnly && !["image/png", "image/jpeg"].includes(mime)) {
+    await response.body?.cancel();
+    throw new ApiError(502, "Некорректное изображение группы.");
+  }
+  const reader = response.body?.getReader();
+  if (!reader) throw new ApiError(502, "Файл недоступен.");
+  const parts: Uint8Array<ArrayBuffer>[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      if (version !== identityVersion)
+        throw new DOMException("Account changed", "AbortError");
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes)
+        throw new ApiError(413, "Файл превышает допустимый размер.");
+      parts.push(new Uint8Array(value));
+    }
+    return new Blob(parts, { type: mime });
+  } catch (error) {
+    await reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
 export const api = {
+  folders: (target?: FolderTarget, signal?: AbortSignal) =>
+    request<Items<PersonalFolder>>(
+      `/folders${target ? `?${new URLSearchParams({ itemKind: target.type, itemId: target.id })}` : ""}`,
+      { signal },
+    ),
+  folder: (id: string, signal?: AbortSignal) =>
+    request<Item<PersonalFolder>>(`/folders/${encodeURIComponent(id)}`, {
+      signal,
+    }),
+  createFolder: (name: string, signal?: AbortSignal) =>
+    request<Item<PersonalFolder>>("/folders", {
+      method: "POST",
+      body: { name },
+      signal,
+    }),
+  renameFolder: (id: string, name: string, signal?: AbortSignal) =>
+    request<Item<PersonalFolder>>(`/folders/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: { name },
+      signal,
+    }),
+  deleteFolder: (id: string, signal?: AbortSignal) =>
+    request<{ status: string }>(`/folders/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      signal,
+    }),
+  orderFolders: (ids: string[], signal?: AbortSignal) =>
+    request<Items<PersonalFolder>>("/folders/order", {
+      method: "PUT",
+      body: { ids },
+      signal,
+    }),
+  folderItems: (
+    id: string,
+    filters: FolderItemFilters,
+    before?: string,
+    signal?: AbortSignal,
+  ) =>
+    request<FolderPage>(
+      `/folders/${encodeURIComponent(id)}/items?${new URLSearchParams({ limit: "50", type: filters.type, ...(filters.search ? { search: filters.search } : {}), ...(before ? { before } : {}) })}`,
+      { signal },
+    ),
+  folderCandidates: (
+    folderId: string,
+    filters: FolderItemFilters,
+    before?: string,
+    signal?: AbortSignal,
+  ) =>
+    request<FolderPage>(
+      `/folder-items?${new URLSearchParams({ limit: "50", folderId, type: filters.type, ...(filters.search ? { search: filters.search } : {}), ...(before ? { before } : {}) })}`,
+      { signal },
+    ),
+  setFolderItem: (
+    id: string,
+    target: FolderTarget,
+    present: boolean,
+    signal?: AbortSignal,
+  ) =>
+    request<Item<PersonalFolder>>(
+      `/folders/${encodeURIComponent(id)}/items/${target.type}/${encodeURIComponent(target.id)}`,
+      { method: present ? "PUT" : "DELETE", signal },
+    ),
   /** Читает эффективные серверные функции без адресов и секретов провайдеров. */
   capabilities: (signal?: AbortSignal) =>
     request<CapabilitiesResponse>("/capabilities", { signal }),
@@ -927,9 +1086,14 @@ export const api = {
       `/conferences/${encodeURIComponent(id)}/chat/messages/${encodeURIComponent(messageId)}/context`,
       { signal },
     ),
-  personalConversations: (before?: string, signal?: AbortSignal, limit = 50) =>
+  personalConversations: (
+    before?: string,
+    signal?: AbortSignal,
+    limit = 50,
+    filters: ConversationFilters = {},
+  ) =>
     request<PersonalPage>(
-      `/conversations?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ""}`,
+      `/conversations?${new URLSearchParams({ limit: String(limit), ...(before ? { before } : {}), ...(filters.type ? { type: filters.type } : {}), ...(filters.unreadOnly ? { unreadOnly: "true" } : {}), ...(filters.search?.trim() ? { search: filters.search.trim() } : {}) })}`,
       { signal },
     ),
   personalConversation: (id: string, signal?: AbortSignal) =>
@@ -938,10 +1102,88 @@ export const api = {
       { signal },
     ),
   createPersonalConversation: (userId: string) =>
-    request<Item<PersonalConversation>>("/conversations/direct", {
+    request<Item<DirectConversation>>("/conversations/direct", {
       method: "POST",
       body: { userId },
     }),
+  createGroup: (body: {
+    clientRequestId: string;
+    name: string;
+    description: string;
+    memberIds: string[];
+  }) =>
+    request<Item<GroupConversation>>("/conversations/group", {
+      method: "POST",
+      body,
+    }),
+  updateGroup: (id: string, body: { name?: string; description?: string }) =>
+    request<Item<GroupConversation>>(
+      `/conversations/${encodeURIComponent(id)}`,
+      { method: "PATCH", body },
+    ),
+  groupMembers: (id: string, signal?: AbortSignal) =>
+    request<Items<GroupMember>>(
+      `/conversations/${encodeURIComponent(id)}/members`,
+      { signal },
+    ),
+  addGroupMembers: (id: string, userIds: string[]) =>
+    request<Item<GroupConversation>>(
+      `/conversations/${encodeURIComponent(id)}/members`,
+      { method: "POST", body: { userIds } },
+    ),
+  removeGroupMember: (id: string, userId: string) =>
+    request<Item<GroupConversation>>(
+      `/conversations/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    ),
+  setGroupRole: (
+    id: string,
+    userId: string,
+    role: Exclude<GroupRole, "owner">,
+  ) =>
+    request<Item<GroupConversation>>(
+      `/conversations/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`,
+      { method: "PATCH", body: { role } },
+    ),
+  transferGroup: (id: string, userId: string) =>
+    request<Item<GroupConversation>>(
+      `/conversations/${encodeURIComponent(id)}/ownership`,
+      { method: "POST", body: { userId } },
+    ),
+  leaveGroup: (id: string) =>
+    request<{ status: string }>(
+      `/conversations/${encodeURIComponent(id)}/leave`,
+      { method: "POST", body: {} },
+    ),
+  deleteGroup: (id: string) =>
+    request<{ status: string }>(`/conversations/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  groupAvatar: (id: string, signal?: AbortSignal) =>
+    privateBlob(
+      `/conversations/${encodeURIComponent(id)}/avatar/content`,
+      signal,
+      2 * 1024 * 1024,
+      true,
+    ),
+  putGroupAvatar: async (id: string, file: File, signal?: AbortSignal) => {
+    if (
+      !file.size ||
+      file.size > 2 * 1024 * 1024 ||
+      !["image/png", "image/jpeg"].includes(file.type)
+    )
+      throw new ApiError(400, "Выберите PNG или JPEG размером до 2 МБ.");
+    const response = await binaryRequest(
+      `/conversations/${encodeURIComponent(id)}/avatar`,
+      { method: "PUT", body: file, signal },
+    );
+    return response.json() as Promise<Item<GroupConversation>>;
+  },
+  deleteGroupAvatar: (id: string) =>
+    request<Item<GroupConversation>>(
+      `/conversations/${encodeURIComponent(id)}/avatar`,
+      { method: "DELETE" },
+    ),
   searchPersonalUsers: (search: string, signal?: AbortSignal) =>
     request<{ items: PersonalPeer[] }>(
       `/users?search=${encodeURIComponent(search)}`,
@@ -1243,8 +1485,18 @@ export function createChatAPI(namespace: "conferences" | "conversations") {
         { method: "POST", body: {} },
       ),
     attachmentDownload: (id: string, attachmentId: string) =>
-      request<{ url: string; expiresAt: string }>(
+      request<{ url: string; expiresAt: string; authenticated?: boolean }>(
         `${base(id)}/attachments/${encodeURIComponent(attachmentId)}/download`,
+      ),
+    attachmentContent: (
+      id: string,
+      attachmentId: string,
+      signal?: AbortSignal,
+    ) =>
+      privateBlob(
+        `${base(id)}/attachments/${encodeURIComponent(attachmentId)}/content`,
+        signal,
+        10 * 1024 * 1024,
       ),
   };
 }

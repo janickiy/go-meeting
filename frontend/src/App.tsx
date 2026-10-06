@@ -22,6 +22,12 @@ const PersonalPage = lazy(() =>
   })),
 );
 
+const FoldersPage = lazy(() =>
+  import("./pages/FoldersPage").then((module) => ({
+    default: module.FoldersPage,
+  })),
+);
+
 const Dashboard = lazy(() =>
   import("./pages/Dashboard").then((module) => ({ default: module.Dashboard })),
 );
@@ -219,6 +225,8 @@ export function App() {
       <Route element={<Protected />}>
         <Route element={<Layout />}>
           <Route path="/app" element={<Dashboard />} />
+          <Route path="/folders" element={<FoldersPage />} />
+          <Route path="/folders/:id" element={<FoldersPage />} />
           <Route path="/personal" element={<PersonalPage />} />
           <Route path="/personal/:id" element={<PersonalPage />} />
           <Route path="/calendar" element={<CalendarPage />} />

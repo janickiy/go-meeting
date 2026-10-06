@@ -69,6 +69,7 @@ export interface Conference {
   waitingRoomEnabled?: boolean;
   scheduledAt?: string | null;
   plannedDurationMin?: number | null;
+  participantCount?: number;
 }
 /**
  * Participant описывает членство, роль, допуск и сохранённые ограничения медиа участника.
@@ -431,6 +432,8 @@ export interface ChatMessage {
   updatedAt: string;
   deletedAt: string | null;
   version: number;
+  /** Reconciles the sender's optimistic row with REST and account events. */
+  clientRequestId?: string;
   attachments: ChatAttachment[];
   /** Personal bookmark, projected only into the acting member's REST reads. */
   important?: boolean;
@@ -724,16 +727,68 @@ export interface PersonalPeer {
   id: string;
   displayName: string;
 }
-export interface PersonalConversation {
+interface ConversationSummary {
   id: string;
-  type: "direct";
-  peer: PersonalPeer;
   createdAt: string;
   lastMessageAt: string | null;
   lastMessageId: string | null;
   preview: string;
   unreadCount: number;
 }
+export interface DirectConversation extends ConversationSummary {
+  type: "direct";
+  peer: PersonalPeer;
+}
+export type GroupRole = "owner" | "admin" | "member";
+export interface GroupConversation extends ConversationSummary {
+  type: "group";
+  name: string;
+  description: string;
+  createdBy: string;
+  updatedAt: string;
+  memberCount: number;
+  myRole: GroupRole;
+  avatarVersion: string | null;
+  lastSender: PersonalPeer | null;
+}
+export interface GroupMember extends PersonalPeer {
+  role: GroupRole;
+  online?: boolean | null;
+}
+export type PersonalConversation = DirectConversation | GroupConversation;
+export interface ConversationFilters {
+  type?: "direct" | "group";
+  unreadOnly?: boolean;
+  search?: string;
+}
 export interface PersonalPage extends CursorItems<PersonalConversation> {
   unreadCount: number;
+}
+
+export type FolderItemKind = "conversation" | "conference";
+export interface FolderTarget {
+  type: FolderItemKind;
+  id: string;
+}
+export interface PersonalFolder {
+  id: string;
+  name: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+  itemCount: number;
+  conversationCount: number;
+  conferenceCount: number;
+  contains?: boolean;
+}
+export type FolderItem =
+  | { type: "conversation"; item: PersonalConversation; inFolder?: boolean }
+  | { type: "conference"; item: Conference; inFolder?: boolean };
+export interface FolderItemFilters {
+  type: FolderItemKind | "all";
+  search?: string;
+}
+export interface FolderPage {
+  items: FolderItem[];
+  nextCursor?: string;
 }
