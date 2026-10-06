@@ -129,6 +129,9 @@ type Store interface {
 	//   - результат 1 (domain.Session): значение, подготовленное операцией для вызывающей стороны.
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Get(context.Context, string) (domain.Session, error)
+	// Missing returns connections whose route has expired. An error must not be
+	// interpreted as absence: reconciliation then leaves SQL sessions intact.
+	Missing(context.Context, []string) ([]string, error)
 	// Active возвращает действующие сессии, учитывая срок их активности.
 	//
 	// @args
@@ -918,11 +921,7 @@ func (h *Hub) janitor() {
 			// Восстанавливаем и сбой между открытием сессии в SQL и регистрацией в Redis.
 			rows, err := h.repo.Stale(ctx, time.Now().Add(-2*h.ttl), cursor)
 			if err == nil {
-				for _, s := range rows {
-					if _, err := h.store.Get(ctx, s.ConnectionID); errors.Is(err, apperrors.ErrNotFound) {
-						_ = h.repo.Close(ctx, s.ConnectionID, s.LastSeenAt)
-					}
-				}
+				h.closeMissingSessions(ctx, rows)
 				if len(rows) < 500 {
 					cursor = ""
 				} else {
@@ -930,6 +929,32 @@ func (h *Hub) janitor() {
 				}
 			}
 			c()
+		}
+	}
+}
+
+// closeMissingSessions checks one bounded SQL page in a Redis request batch.
+// Live routes need no JSON decoding; SQL is changed only after a successful
+// presence check, preserving the failure behavior of the former GET loop.
+func (h *Hub) closeMissingSessions(ctx context.Context, rows []domain.Session) {
+	if len(rows) == 0 {
+		return
+	}
+	ids := make([]string, len(rows))
+	for i := range rows {
+		ids[i] = rows[i].ConnectionID
+	}
+	missing, err := h.store.Missing(ctx, ids)
+	if err != nil || len(missing) == 0 {
+		return
+	}
+	absent := make(map[string]struct{}, len(missing))
+	for _, id := range missing {
+		absent[id] = struct{}{}
+	}
+	for _, s := range rows {
+		if _, ok := absent[s.ConnectionID]; ok {
+			_ = h.repo.Close(ctx, s.ConnectionID, s.LastSeenAt)
 		}
 	}
 }

@@ -170,6 +170,23 @@ func (s *persistentSocketStore) Get(_ context.Context, connectionID string) (dom
 	return lease.session, nil
 }
 
+func (s *persistentSocketStore) Missing(ctx context.Context, connectionIDs []string) ([]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	var missing []string
+	for _, connectionID := range connectionIDs {
+		lease, ok := s.sessions[connectionID]
+		if !ok || !lease.until.After(now) {
+			missing = append(missing, connectionID)
+		}
+	}
+	return missing, nil
+}
+
 func (s *persistentSocketStore) Active(_ context.Context, conferenceID string) ([]domain.Session, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

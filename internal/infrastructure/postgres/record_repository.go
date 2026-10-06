@@ -184,6 +184,40 @@ func (r *RecordRepository) FindDetailsByUUID(ctx context.Context, uuid string) (
 	}, nil
 }
 
+// FindDetailsByUUIDs loads one authorized page in a fixed number of queries.
+// Availability is rechecked here, just as in FindDetailsByUUID; callers retain
+// responsibility for membership checks. Results follow the requested order.
+func (r *RecordRepository) FindDetailsByUUIDs(ctx context.Context, ids []string) ([]records.RecordDetails, error) {
+	if len(ids) == 0 {
+		return []records.RecordDetails{}, nil
+	}
+	var rows []records.Record
+	if err := r.db.WithContext(ctx).Scopes(availableRecordings).Where("uuid IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	byUUID := make(map[string]records.Record, len(rows))
+	recordIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		byUUID[row.UUID] = row
+		recordIDs = append(recordIDs, row.ID)
+	}
+	for _, id := range ids {
+		if _, ok := byUUID[id]; !ok {
+			return nil, gorm.ErrRecordNotFound
+		}
+	}
+	files, segments, events, err := r.relatedByRecordIDs(ctx, recordIDs)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]records.RecordDetails, 0, len(ids))
+	for _, id := range ids {
+		row := byUUID[id]
+		result = append(result, records.RecordDetails{Record: row, Files: files[row.ID], Segments: segments[row.ID], Events: events[row.ID]})
+	}
+	return result, nil
+}
+
 // MarkRecording переводит запись в recording.
 // @args
 // - ctx: контекст операции.

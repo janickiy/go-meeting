@@ -27,11 +27,12 @@ import (
 //   - peers: индекс значений peers для поиска и согласования состояния.
 //   - errors: канал «ошибки» для передачи данных или завершения ожидания.
 type pionHarness struct {
-	manager      *Manager
-	mu           sync.Mutex
-	peers        map[string]*testPeer
-	errors       chan error
-	clientConfig pion.Configuration // Необязательная ICE-конфигурация только тестового клиента.
+	manager                              *Manager
+	mu                                   sync.Mutex
+	peers                                map[string]*testPeer
+	errors                               chan error
+	audioPayloadBytes, videoPayloadBytes int                // Optional realistic packet sizes for opt-in performance workloads.
+	clientConfig                         pion.Configuration // Необязательная ICE-конфигурация только тестового клиента.
 }
 
 // testPeer хранит изолированное состояние тестового компонента «проверка Peer».
@@ -271,7 +272,7 @@ func (h *pionHarness) joinSlots(t *testing.T, conference string, participant str
 					if err != nil {
 						return
 					}
-					if len(packet.Payload) != 4 || packet.Payload[0] != 0x10 {
+					if len(packet.Payload) != h.payloadBytes(remote.Kind()) || packet.Payload[0] != 0x10 {
 						h.problem(fmt.Errorf("encoded RTP payload changed"))
 						return
 					}
@@ -404,6 +405,10 @@ func (p *testPeer) publish() {
 	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
 	var sequence uint16
+	audioPayload := make([]byte, p.harness.payloadBytes(pion.RTPCodecTypeAudio))
+	videoPayload := make([]byte, p.harness.payloadBytes(pion.RTPCodecTypeVideo))
+	copy(audioPayload, []byte{0x10, 0x01, 0x02, 0x03})
+	copy(videoPayload, []byte{0x10, 0x01, 0x02, 0x03})
 	for {
 		select {
 		case <-p.ctx.Done():
@@ -413,9 +418,10 @@ func (p *testPeer) publish() {
 				continue
 			}
 			sequence++
-			packet := &rtp.Packet{Header: rtp.Header{Version: 2, SequenceNumber: sequence, Timestamp: uint32(sequence) * 960, Marker: true}, Payload: []byte{0x10, 0x01, 0x02, 0x03}}
+			packet := &rtp.Packet{Header: rtp.Header{Version: 2, SequenceNumber: sequence, Timestamp: uint32(sequence) * 960, Marker: true}, Payload: audioPayload}
 			_ = p.audio.WriteRTP(packet)
 			packet.Header.Timestamp = uint32(sequence) * 1800
+			packet.Payload = videoPayload
 			_ = p.video.WriteRTP(packet)
 		}
 	}
@@ -1358,4 +1364,17 @@ func TestAnsweredSSRCsExcludesInactiveRejectedAndRepair(t *testing.T) {
 	if _, err = answeredSSRCs(strings.Replace(raw, "ssrc:100", "ssrc:invalid", 1)); !errors.Is(err, media.ErrNegotiation) {
 		t.Fatalf("malformed SSRC accepted: %v", err)
 	}
+}
+
+// payloadBytes preserves the small functional fixtures unless a performance
+// scenario supplies realistic encoded packet sizes before joining peers.
+func (h *pionHarness) payloadBytes(kind pion.RTPCodecType) int {
+	size := h.audioPayloadBytes
+	if kind == pion.RTPCodecTypeVideo {
+		size = h.videoPayloadBytes
+	}
+	if size == 0 {
+		return 4
+	}
+	return size
 }

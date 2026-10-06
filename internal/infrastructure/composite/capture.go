@@ -142,7 +142,7 @@ func (c *Composer) Capture(captureCtx, workCtx context.Context, reader io.Reader
 			_, stillActive := active[id]
 			// Передаём последний полный кадр редко обновляемого видео после окна компенсации
 			// джиттера; SampleBuilder обычно ждёт следующую временную отметку RTP.
-			quietVideo := writer.track.Kind == media.KindVideo && end-writer.state.lastPacketAt >= int64(200*time.Millisecond)
+			quietVideo := writer.track.Kind == media.KindVideo && end-writer.state.lastPacketAt >= int64(sourceJitterWindow)
 			if err := writer.closeChunk(final || !stillActive || quietVideo); err != nil {
 				closeErr = errors.Join(closeErr, err)
 			}
@@ -470,6 +470,9 @@ type sourceState struct {
 	lastPacketAt int64
 }
 
+// sourceJitterWindow bounds RTP reordering during ordinary packet capture.
+const sourceJitterWindow = 200 * time.Millisecond
+
 // newSourceWriter создаёт запись элементарного потока для одного источника медиа.
 //
 // @args
@@ -505,7 +508,7 @@ func newSourceWriterState(dir string, index int, track media.EgressTrack, state 
 	}
 	w.path = filepath.Join(dir, "sources", fmt.Sprintf("%06d_%s%s", index, track.ID, ext))
 	if w.state == nil {
-		w.state = &sourceState{builder: samplebuilder.New(64, depacketizer, track.ClockRate, samplebuilder.WithMaxTimeDelay(200*time.Millisecond)), arrivals: make(map[uint32]int64)}
+		w.state = &sourceState{builder: samplebuilder.New(64, depacketizer, track.ClockRate, samplebuilder.WithMaxTimeDelay(sourceJitterWindow)), arrivals: make(map[uint32]int64)}
 	}
 	if track.Kind == media.KindAudio {
 		channels := track.Channels
@@ -676,7 +679,12 @@ func (w *sourceWriter) Close() error {
 func (w *sourceWriter) closeChunk(final bool) error {
 	var err error
 	if final {
+		// Flush already forces every buffered packet out. Disable its redundant
+		// timestamp-age scans, then restore the capture jitter window for sources
+		// reused after a quiet video chunk. No Push/Pop runs with the guard disabled.
+		samplebuilder.WithMaxTimeDelay(0)(w.state.builder)
 		w.state.builder.Flush()
+		samplebuilder.WithMaxTimeDelay(sourceJitterWindow)(w.state.builder)
 		err = w.pop()
 	}
 	if w.ogg != nil {

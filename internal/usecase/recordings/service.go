@@ -319,6 +319,22 @@ func (s *Service) List(ctx context.Context, userID, conferenceID string, limit, 
 	if err != nil {
 		return nil, err
 	}
+	if batch, ok := s.reader.(interface {
+		ReadComposites(context.Context, []string) ([]records.RecordCard, error)
+	}); ok {
+		ids := make([]string, 0, len(rows))
+		for _, row := range rows {
+			ids = append(ids, row.UUID)
+		}
+		items, err := batch.ReadComposites(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for i := range items {
+			items[i].Status = records.PublicStatus(items[i].Status)
+		}
+		return items, nil
+	}
 	items := make([]records.RecordCard, 0, len(rows))
 	for _, record := range rows {
 		card, err := s.card(ctx, record.UUID)

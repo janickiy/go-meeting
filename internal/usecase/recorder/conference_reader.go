@@ -26,3 +26,38 @@ func (s *Service) ReadComposite(ctx context.Context, id string) (records.RecordC
 	}
 	return s.recordCard(ctx, details)
 }
+
+// ReadComposites builds an already-authorized page while retaining the single
+// record availability and mode checks. Older repository adapters keep working.
+func (s *Service) ReadComposites(ctx context.Context, ids []string) ([]records.RecordCard, error) {
+	batch, ok := s.repository.(interface {
+		FindDetailsByUUIDs(context.Context, []string) ([]records.RecordDetails, error)
+	})
+	if !ok {
+		cards := make([]records.RecordCard, 0, len(ids))
+		for _, id := range ids {
+			card, err := s.ReadComposite(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			cards = append(cards, card)
+		}
+		return cards, nil
+	}
+	rows, err := batch.FindDetailsByUUIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	cards := make([]records.RecordCard, 0, len(rows))
+	for _, row := range rows {
+		if !records.IsComposite(row.Record) {
+			return nil, apperrors.ErrNotFound
+		}
+		card, err := s.recordCard(ctx, row)
+		if err != nil {
+			return nil, err
+		}
+		cards = append(cards, card)
+	}
+	return cards, nil
+}

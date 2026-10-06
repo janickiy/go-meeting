@@ -199,6 +199,32 @@ func (s *RealtimeStore) Get(ctx context.Context, id string) (realtime.Session, e
 	return session, err
 }
 
+// Missing checks route existence without reading session JSON. Each pipeline is
+// bounded to the reconciliation page size. Partial replies on transport errors
+// are discarded so a Redis failure cannot close live SQL sessions.
+func (s *RealtimeStore) Missing(ctx context.Context, ids []string) ([]string, error) {
+	var missing []string
+	for start := 0; start < len(ids); start += 500 {
+		batch := ids[start:min(start+500, len(ids))]
+		commands := make([]*goredis.IntCmd, len(batch))
+		_, err := s.client.Pipelined(ctx, func(pipe goredis.Pipeliner) error {
+			for i, id := range batch {
+				commands[i] = pipe.Exists(ctx, s.prefix+":route:"+id)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		for i, command := range commands {
+			if command.Val() == 0 {
+				missing = append(missing, batch[i])
+			}
+		}
+	}
+	return missing, nil
+}
+
 // Active возвращает действующие сессии, учитывая срок их активности.
 //
 // @args

@@ -3,7 +3,9 @@ package redis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +15,38 @@ import (
 	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
 	goredis "github.com/redis/go-redis/v9"
 )
+
+func TestPresenceMissingBatchesAndCancellation(t *testing.T) {
+	store := presenceFixture(t)
+	ctx := context.Background()
+	ids := make([]string, 1001)
+	var want []string
+	for i := range ids {
+		ids[i] = fmt.Sprint(i)
+		if i%3 == 0 {
+			want = append(want, ids[i])
+		} else if err := store.client.Set(ctx, store.prefix+":route:"+ids[i], "opaque session", time.Minute).Err(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := store.Missing(ctx, ids)
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("missing=%v err=%v", got, err)
+	}
+	if err := store.client.PExpireAt(ctx, store.prefix+":route:1", time.Now().Add(-time.Second)).Err(); err != nil {
+		t.Fatal(err)
+	}
+	got, err = store.Missing(ctx, []string{"1", "2"})
+	if err != nil || !reflect.DeepEqual(got, []string{"1"}) {
+		t.Fatalf("expired route=%v err=%v", got, err)
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	got, err = store.Missing(cancelled, ids)
+	if err == nil || len(got) != 0 {
+		t.Fatalf("cancelled lookup returned partial absence: %v %v", got, err)
+	}
+}
 
 // presenceFixture выделяет случайное пространство ключей в специально указанном
 // локальном Redis; очистка не затрагивает ключи приложения или других тестов.
