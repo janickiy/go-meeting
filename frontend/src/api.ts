@@ -43,6 +43,7 @@ import type {
   ConferenceChatInfo,
   ConferenceChatPreferences,
   ConferenceChatMaterial,
+  ConferenceChatMember,
 } from "./types";
 
 let accessToken: string | null = null;
@@ -491,8 +492,8 @@ export const api = {
       { signal },
     ),
   conferenceChatMembers: (id: string, after?: string, signal?: AbortSignal) =>
-    request<CursorItems<Participant>>(
-      `/conferences/${encodeURIComponent(id)}/chat/members?limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`,
+    request<CursorItems<ConferenceChatMember>>(
+      `/conferences/${encodeURIComponent(id)}/chat/members?limit=50${after ? `&after=${encodeURIComponent(after)}` : ""}`,
       { signal },
     ),
   /**

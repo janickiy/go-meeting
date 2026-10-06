@@ -154,7 +154,8 @@ func RunAPI() error {
 	if err != nil {
 		return fmt.Errorf("personal chat initialization: %w", err)
 	}
-	globalWS := wstransport.NewUserHandler(authService, redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace+":user-ws"), rateLimiter, realtimeConfig, notificationBus, redisinfra.NewUserPresence(redisClient, realtimeConfig.Namespace, realtimeConfig.SessionTTL), personalRepository)
+	userPresence := redisinfra.NewUserPresence(redisClient, realtimeConfig.Namespace, realtimeConfig.SessionTTL)
+	globalWS := wstransport.NewUserHandler(authService, redisinfra.NewRealtimeStore(redisClient, realtimeConfig.Namespace+":user-ws"), rateLimiter, realtimeConfig, notificationBus, userPresence, personalRepository)
 	defer globalWS.Shutdown()
 	globalWS.RegisterRoutes(router)
 	httptransport.RegisterPersonalRoutes(router, &personalapp.Handler{Repo: personalRepository, Events: personalEvents}, chatapp.NewHandler(personalChat).ForConversations(), httpmiddleware.Authenticate(authService), rateLimiter)
@@ -178,7 +179,7 @@ func RunAPI() error {
 	httptransport.RegisterControlRoutes(router, conferencesapp.NewControlHandler(controlService), httpmiddleware.Authenticate(authService))
 	httptransport.RegisterConferenceRecordingRoutes(router, recordingsapp.NewHandler(recordingService), httpmiddleware.Authenticate(authService))
 	httptransport.RegisterChatRoutes(router, chatapp.NewHandler(chatService), httpmiddleware.Authenticate(authService), rateLimiter)
-	httptransport.RegisterChatActionRoutes(router, &chatapp.ActionHandler{Service: chatusecase.NewActionService(conferenceChatRepository, hub)}, httpmiddleware.Authenticate(authService), rateLimiter)
+	httptransport.RegisterChatActionRoutes(router, &chatapp.ActionHandler{Service: chatusecase.NewActionService(conferenceChatRepository, hub).WithPresence(userPresence, hub)}, httpmiddleware.Authenticate(authService), rateLimiter)
 	notificationHandler := notificationsapp.NewHandler(notificationService, notificationBus, authService, rateLimiter, realtimeConfig.Namespace)
 	ops.ConfigureDrain(func() { notificationHandler.BeginDrain(); globalWS.BeginDrain(true) }, func() int { return hub.LocalCount() + globalWS.LocalCount() })
 	httptransport.RegisterNotificationRoutes(router, notificationHandler, httpmiddleware.Authenticate(authService))

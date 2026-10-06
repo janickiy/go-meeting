@@ -1,27 +1,37 @@
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
+import {
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "../api";
 import type {
   ChatMessage,
   Conference,
   ConferenceChatInfo,
-  Participant,
+  ConferenceChatMember,
 } from "../types";
 import { ConferenceChatActions } from "./ConferenceChatActions";
 import { ConferenceChatInfoModal } from "./ConferenceChatInfo";
 
-vi.mock("../auth", () => ({
-  useAuth: () => ({ user: { id: "user", displayName: "Александр" } }),
+const authState = vi.hoisted(() => ({
+  user: {
+    id: "user",
+    displayName: "Александр",
+    guestConferenceId: undefined as string | undefined,
+  },
 }));
+vi.mock("../auth", () => ({ useAuth: () => authState }));
 const conference: Conference = {
   id: "conference",
   ownerId: "user",
@@ -52,6 +62,7 @@ let info: ConferenceChatInfo;
 let clients: QueryClient[];
 beforeEach(() => {
   clients = [];
+  authState.user.guestConferenceId = undefined;
   info = {
     conferenceId: conference.id,
     title: "Планирование",
@@ -83,6 +94,19 @@ beforeEach(() => {
     status: "success",
     item: conference,
   });
+  vi.spyOn(api, "createPersonalConversation").mockResolvedValue({
+    status: "success",
+    item: {
+      id: "existing-conversation",
+      type: "direct",
+      peer: { id: "peer", displayName: "Алиса" },
+      createdAt: "2026-10-06T10:00:00Z",
+      lastMessageAt: null,
+      lastMessageId: null,
+      preview: "",
+      unreadCount: 0,
+    },
+  });
   vi.spyOn(api, "searchConferenceChat").mockResolvedValue({
     status: "success",
     items: [message],
@@ -111,14 +135,18 @@ beforeEach(() => {
         displayName: "Александр",
         role: "owner",
         status: "joined",
-      } as Participant,
+        online: true,
+        isGuest: false,
+      } as ConferenceChatMember,
       {
         id: "p2",
         userId: "peer",
         displayName: "Алиса",
         role: "participant",
         status: "left",
-      } as Participant,
+        online: false,
+        isGuest: false,
+      } as ConferenceChatMember,
     ],
   });
 });
@@ -133,15 +161,50 @@ function show(element = <ConferenceChatActions conference={conference} />) {
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>{element}</MemoryRouter>
+      <MemoryRouter>
+        {element}
+        <LocationOutput />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return client;
+}
+function LocationOutput() {
+  return <output data-testid="location">{useLocation().pathname}</output>;
 }
 function trigger() {
   return screen.getByRole("button", {
     name: "Действия с конференцией: Планирование",
   });
+}
+function member(
+  overrides: Partial<ConferenceChatMember> = {},
+): ConferenceChatMember {
+  return {
+    id: "p2",
+    conferenceId: conference.id,
+    userId: "peer",
+    displayName: "Алиса",
+    role: "participant",
+    status: "left",
+    joinedAt: null,
+    leftAt: "2026-10-06T10:05:00Z",
+    createdAt: "2026-10-06T10:00:00Z",
+    updatedAt: "2026-10-06T10:05:00Z",
+    online: true,
+    isGuest: false,
+    ...overrides,
+  };
+}
+
+function showMembers(onClose = vi.fn()) {
+  return show(
+    <ConferenceChatInfoModal
+      conference={conference}
+      initialView="participants"
+      onClose={onClose}
+    />,
+  );
 }
 
 describe("меню конференции", () => {
@@ -358,7 +421,73 @@ describe("информация о чате", () => {
     ).toBeInTheDocument();
   });
 
-  it("читает фактических участников и фильтрует загруженный состав", async () => {
+  it.each(["info", "edit"] as const)(
+    "не разрешает участнику редактирование в представлении %s даже при устаревшем canEdit",
+    async (initialView) => {
+      show(
+        <ConferenceChatInfoModal
+          conference={{ ...conference, ownerId: "other-owner" }}
+          initialView={initialView}
+          onClose={() => {}}
+        />,
+      );
+      await waitFor(() => expect(api.conferenceChatInfo).toHaveBeenCalled());
+      if (initialView === "edit") {
+        expect(
+          await screen.findByText(
+            "Изменять название и описание может только администратор чата.",
+          ),
+        ).toBeInTheDocument();
+      } else {
+        await screen.findByRole("heading", { name: "Планирование" });
+      }
+      expect(
+        screen.queryByRole("button", { name: "Название и описание" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("textbox", { name: "Название" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("textbox", { name: "Описание" }),
+      ).not.toBeInTheDocument();
+      expect(api.updateConferenceChatInfo).not.toHaveBeenCalled();
+    },
+  );
+
+  it("разделяет администратора и участников, сохраняя фильтр состава", async () => {
+    vi.mocked(api.conferenceChatMembers).mockResolvedValue({
+      status: "success",
+      nextCursor: null,
+      items: [
+        {
+          id: "p1",
+          userId: "user",
+          displayName: "Александр",
+          role: "owner",
+          status: "joined",
+          online: false,
+          isGuest: false,
+        } as ConferenceChatMember,
+        {
+          id: "p2",
+          userId: "peer",
+          displayName: "Алиса",
+          role: "participant",
+          status: "left",
+          online: true,
+          isGuest: false,
+        } as ConferenceChatMember,
+        {
+          id: "p3",
+          userId: "cohost",
+          displayName: "Борис",
+          role: "co_host",
+          status: "joined",
+          online: false,
+          isGuest: false,
+        } as ConferenceChatMember,
+      ],
+    });
     show(
       <ConferenceChatInfoModal
         conference={conference}
@@ -367,18 +496,405 @@ describe("информация о чате", () => {
       />,
     );
     await screen.findByText("Алиса");
-    expect(screen.getByText("Александр (вы)")).toBeInTheDocument();
-    expect(screen.getByText("Участник · Вышел из встречи")).toBeInTheDocument();
+    const administrators = within(
+      screen.getByRole("region", { name: "Администраторы" }),
+    );
+    const participants = within(
+      screen.getByRole("region", { name: "Участники" }),
+    );
+    expect(administrators.getByText("Александр (вы)")).toBeInTheDocument();
+    expect(
+      administrators.getByText("Администратор · Во встрече"),
+    ).toBeInTheDocument();
+    expect(administrators.queryByText("Алиса")).not.toBeInTheDocument();
+    expect(administrators.queryByText("Борис")).not.toBeInTheDocument();
+    expect(participants.queryByText("Александр (вы)")).not.toBeInTheDocument();
+    expect(participants.getByText("Алиса")).toBeInTheDocument();
+    expect(participants.getByText("Борис")).toBeInTheDocument();
+    expect(
+      participants.getByText("Участник · Вышел из встречи"),
+    ).toBeInTheDocument();
     fireEvent.change(
       screen.getByRole("searchbox", { name: "Найти участника" }),
       { target: { value: "Али" } },
     );
     expect(screen.queryByText("Александр (вы)")).toBeNull();
+    expect(screen.queryByText("Борис")).toBeNull();
+    expect(participants.getByText("Алиса")).toBeInTheDocument();
     expect(api.conferenceChatMembers).toHaveBeenCalledWith(
       conference.id,
       undefined,
       expect.any(AbortSignal),
     );
+  });
+
+  it("показывает серверное присутствие независимо от участия во встрече", async () => {
+    vi.mocked(api.conferenceChatMembers).mockResolvedValue({
+      status: "success",
+      nextCursor: null,
+      items: [
+        member({
+          id: "p1",
+          userId: "user",
+          displayName: "Александр",
+          role: "owner",
+          status: "joined",
+          online: false,
+        }),
+        member({ status: "left", online: true }),
+        member({
+          id: "p3",
+          userId: "boris",
+          displayName: "Борис",
+          status: "joined",
+          online: null,
+        }),
+      ],
+    });
+    showMembers();
+    const online = await screen.findByRole("button", {
+      name: "О пользователе: Алиса",
+    });
+    expect(within(online).getByText("В сети")).toBeInTheDocument();
+    expect(
+      online.querySelector(".conference-chat-member-online-dot"),
+    ).not.toBeNull();
+    const offline = screen.getByRole("button", {
+      name: "О пользователе: Александр",
+    });
+    expect(within(offline).getByText("Не в сети")).toBeInTheDocument();
+    expect(
+      offline.querySelector(".conference-chat-member-online-dot"),
+    ).toBeNull();
+    const unknown = screen.getByRole("button", {
+      name: "О пользователе: Борис",
+    });
+    expect(within(unknown).getByText("Статус недоступен")).toBeInTheDocument();
+    expect(
+      unknown.querySelector(".conference-chat-member-online-dot"),
+    ).toBeNull();
+  });
+
+  it("открывает карточку пользователя и возвращает фильтр, страницы и фокус по Escape", async () => {
+    vi.mocked(api.conferenceChatMembers)
+      .mockResolvedValueOnce({
+        status: "success",
+        items: [member({ id: "p3", userId: "boris", displayName: "Борис" })],
+        nextCursor: "page2",
+      })
+      .mockResolvedValue({
+        status: "success",
+        items: [member()],
+        nextCursor: null,
+      });
+    const onClose = vi.fn();
+    showMembers(onClose);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Ещё участники" }),
+    );
+    const row = await screen.findByRole("button", {
+      name: "О пользователе: Алиса",
+    });
+    const filter = screen.getByRole("searchbox", { name: "Найти участника" });
+    fireEvent.change(filter, { target: { value: "Али" } });
+    fireEvent.click(row);
+    const card = screen.getByRole("dialog", { name: "О пользователе" });
+    const profile = within(card).getByRole("region", {
+      name: "Профиль: Алиса",
+    });
+    expect(profile).toHaveFocus();
+    expect(
+      within(profile).getByRole("heading", { name: "Алиса" }),
+    ).toBeInTheDocument();
+    expect(within(profile).getByText("В сети")).toBeInTheDocument();
+    expect(
+      within(profile).queryByRole("button", { name: /Звонок|Видеозвонок/ }),
+    ).toBeNull();
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await screen.findByRole("dialog", { name: "Участники" });
+    expect(filter).toHaveValue("Али");
+    expect(row).toHaveFocus();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(api.conferenceChatMembers).toHaveBeenCalledTimes(2);
+    expect(api.conferenceChatMembers).toHaveBeenLastCalledWith(
+      conference.id,
+      "page2",
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("открывает существующую личную переписку после серверного ответа", async () => {
+    const onClose = vi.fn();
+    const client = showMembers(onClose);
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "О пользователе: Алиса" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Сообщение" }));
+    await waitFor(() =>
+      expect(api.createPersonalConversation).toHaveBeenCalledWith("peer"),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/personal/existing-conversation",
+      ),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["personal-list", "user"],
+    });
+    expect(
+      client.getQueryData(["personal-detail", "existing-conversation", "user"]),
+    ).toMatchObject({ item: { id: "existing-conversation" } });
+  });
+
+  it.each([
+    ["себя", { userId: "user" }, false],
+    ["гостя с аккаунтом", { userId: "guest-user", isGuest: true }, false],
+    ["участника от имени гостя", {}, true],
+  ] as const)(
+    "не предлагает личное сообщение для %s",
+    async (_label, values, guestActor) => {
+      if (guestActor) authState.user.guestConferenceId = conference.id;
+      vi.mocked(api.conferenceChatMembers).mockResolvedValue({
+        status: "success",
+        items: [member(values)],
+        nextCursor: null,
+      });
+      showMembers();
+      fireEvent.click(
+        await screen.findByRole("button", { name: "О пользователе: Алиса" }),
+      );
+      expect(
+        screen.getByRole("dialog", { name: "О пользователе" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Сообщение" })).toBeNull();
+      expect(api.createPersonalConversation).not.toHaveBeenCalled();
+    },
+  );
+
+  it("сохраняет карточку при отказе создать переписку и не навигирует заранее", async () => {
+    let reject!: (error: unknown) => void;
+    vi.mocked(api.createPersonalConversation).mockReturnValue(
+      new Promise((_resolve, rejectRequest) => {
+        reject = rejectRequest;
+      }),
+    );
+    const onClose = vi.fn();
+    showMembers(onClose);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "О пользователе: Алиса" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Сообщение" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Сообщение" })).toBeDisabled(),
+    );
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(
+      screen.getByRole("dialog", { name: "О пользователе" }),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
+    await act(async () =>
+      reject(new ApiError(403, "Личные сообщения недоступны")),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Личные сообщения недоступны",
+    );
+    expect(screen.getByRole("button", { name: "Сообщение" })).toBeEnabled();
+    expect(
+      screen.getByRole("dialog", { name: "О пользователе" }),
+    ).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("отправляет один запрос при немедленных повторных кликах и разрешает повтор после отказа", async () => {
+    let reject!: (error: unknown) => void;
+    vi.mocked(api.createPersonalConversation).mockImplementation(
+      () =>
+        new Promise((_resolve, rejectRequest) => {
+          reject = rejectRequest;
+        }),
+    );
+    showMembers();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "О пользователе: Алиса" }),
+    );
+    const button = screen.getByRole("button", { name: "Сообщение" });
+    act(() => {
+      button.click();
+      button.click();
+    });
+    await waitFor(() =>
+      expect(api.createPersonalConversation).toHaveBeenCalledTimes(1),
+    );
+    await act(async () => reject(new ApiError(403, "Нет доступа")));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Нет доступа");
+    expect(button).toBeEnabled();
+    act(() => {
+      button.click();
+      button.click();
+    });
+    await waitFor(() =>
+      expect(api.createPersonalConversation).toHaveBeenCalledTimes(2),
+    );
+    await act(async () => reject(new ApiError(403, "Нет доступа")));
+  });
+
+  it("сохраняет состав и доступ к карточкам при неизвестном присутствии или ошибке обновления", async () => {
+    vi.mocked(api.conferenceChatMembers).mockResolvedValue({
+      status: "success",
+      items: [member()],
+      nextCursor: null,
+    });
+    const client = showMembers();
+    const row = await screen.findByRole("button", {
+      name: "О пользователе: Алиса",
+    });
+    vi.mocked(api.conferenceChatMembers).mockResolvedValue({
+      status: "success",
+      items: [member({ online: null })],
+      nextCursor: null,
+    });
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["conference-chat-members"] });
+    });
+    expect(
+      await within(row).findByText("Статус недоступен"),
+    ).toBeInTheDocument();
+    expect(row.querySelector(".conference-chat-member-online-dot")).toBeNull();
+    fireEvent.click(row);
+    const profile = screen.getByRole("region", { name: "Профиль: Алиса" });
+    expect(within(profile).getByText("Статус недоступен")).toBeInTheDocument();
+    expect(
+      within(profile).getByRole("button", { name: "Сообщение" }),
+    ).toBeEnabled();
+    vi.mocked(api.conferenceChatMembers).mockResolvedValue({
+      status: "success",
+      items: [member({ online: false })],
+      nextCursor: null,
+    });
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["conference-chat-members"] });
+    });
+    expect(await within(profile).findByText("Не в сети")).toBeInTheDocument();
+    vi.mocked(api.conferenceChatMembers).mockRejectedValue(
+      new ApiError(503, "Сервис временно недоступен"),
+    );
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["conference-chat-members"] });
+    });
+    expect(
+      await within(profile).findByText("Статус недоступен"),
+    ).toBeInTheDocument();
+    expect(
+      profile.querySelector(".conference-chat-member-online-dot"),
+    ).toBeNull();
+    expect(
+      within(profile).getByRole("button", { name: "Повторить загрузку" }),
+    ).toBeInTheDocument();
+  });
+
+  it("обновляет присутствие только в видимом открытом списке и освобождает polling после закрытия", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const visibility = vi
+      .spyOn(document, "visibilityState", "get")
+      .mockReturnValue("visible");
+    try {
+      showMembers();
+      await screen.findByRole("button", { name: "О пользователе: Алиса" });
+      expect(api.conferenceChatMembers).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(api.conferenceChatMembers).toHaveBeenCalledTimes(2);
+      visibility.mockReturnValue("hidden");
+      fireEvent(document, new Event("visibilitychange"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30000);
+      });
+      expect(api.conferenceChatMembers).toHaveBeenCalledTimes(2);
+      visibility.mockReturnValue("visible");
+      fireEvent(document, new Event("visibilitychange"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(api.conferenceChatMembers).toHaveBeenCalledTimes(3);
+      let pendingSignal!: AbortSignal;
+      vi.mocked(api.conferenceChatMembers).mockImplementationOnce(
+        (_id, _after, signal) => {
+          pendingSignal = signal!;
+          return new Promise(() => {});
+        },
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(api.conferenceChatMembers).toHaveBeenCalledTimes(4);
+      expect(pendingSignal.aborted).toBe(false);
+      visibility.mockReturnValue("hidden");
+      fireEvent(document, new Event("visibilitychange"));
+      expect(pendingSignal.aborted).toBe(true);
+      cleanup();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30000);
+      });
+      expect(api.conferenceChatMembers).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("скрывает кешированный онлайн-статус списка и карточки при остановке запросов без сети", async () => {
+    vi.mocked(api.conferenceChatMembers).mockResolvedValue({
+      status: "success",
+      items: [member({ online: true })],
+      nextCursor: null,
+    });
+    const client = showMembers();
+    const row = await screen.findByRole("button", {
+      name: "О пользователе: Алиса",
+    });
+    expect(
+      row.querySelector(".conference-chat-member-online-dot"),
+    ).not.toBeNull();
+    try {
+      act(() => {
+        onlineManager.setOnline(false);
+        void client.invalidateQueries({
+          queryKey: ["conference-chat-members"],
+        });
+      });
+      await waitFor(() =>
+        expect(
+          client.getQueryState([
+            "conference-chat-members",
+            conference.id,
+            "user",
+          ])?.fetchStatus,
+        ).toBe("paused"),
+      );
+      expect(within(row).getByText("Статус недоступен")).toBeInTheDocument();
+      expect(
+        row.querySelector(".conference-chat-member-online-dot"),
+      ).toBeNull();
+      expect(api.conferenceChatMembers).toHaveBeenCalledTimes(1);
+      fireEvent.click(row);
+      const profile = screen.getByRole("region", { name: "Профиль: Алиса" });
+      expect(
+        within(profile).getByText("Статус недоступен"),
+      ).toBeInTheDocument();
+      expect(
+        profile.querySelector(".conference-chat-member-online-dot"),
+      ).toBeNull();
+      act(() => onlineManager.setOnline(true));
+      expect(await within(profile).findByText("В сети")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(api.conferenceChatMembers).toHaveBeenCalledTimes(2),
+      );
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 
   it("ищет по серверной истории и ведёт к сообщению в завершённой конференции", async () => {

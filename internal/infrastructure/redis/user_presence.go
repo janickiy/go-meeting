@@ -2,8 +2,10 @@ package redis
 
 import (
 	"context"
-	goredis "github.com/redis/go-redis/v9"
 	"time"
+
+	"github.com/janickiy/go-recorder/internal/domain/apperrors"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // One lease per physical account socket. Pruning and mutation are atomic across APIs.
@@ -39,4 +41,43 @@ func (p *UserPresence) change(ctx context.Context, user, id, action string) (int
 }
 func (p *UserPresence) Count(ctx context.Context, user string) (int64, error) {
 	return userPresenceCountScript.Run(ctx, p.client, []string{p.prefix + user}).Int64()
+}
+
+// A page uses one Redis command and a shared Redis clock, independent of API clocks.
+const userPresenceOnlineScript = `
+local clock=redis.call('TIME');local now=clock[1]*1000+math.floor(clock[2]/1000)
+local result={}
+for i,key in ipairs(KEYS) do result[i]=redis.call('ZCOUNT',key,'('..now,'+inf') end
+return result`
+
+// Online projects confirmed global account leases without extending their lifetime.
+func (p *UserPresence) Online(ctx context.Context, users []string) (map[string]bool, error) {
+	if len(users) > 100 {
+		return nil, apperrors.ErrInvalidInput
+	}
+	keys, ids := []string{}, []string{}
+	seen := make(map[string]bool, len(users))
+	for _, user := range users {
+		if user == "" || seen[user] {
+			continue
+		}
+		seen[user] = true
+		keys, ids = append(keys, p.prefix+user), append(ids, user)
+	}
+	result := make(map[string]bool, len(ids))
+	if len(keys) == 0 {
+		return result, nil
+	}
+	// EVAL avoids the extra NOSCRIPT retry on an API instance's first lookup.
+	counts, err := p.client.Eval(ctx, userPresenceOnlineScript, keys).Int64Slice()
+	if err != nil {
+		return nil, err
+	}
+	if len(counts) != len(ids) {
+		return nil, apperrors.ErrUnavailable
+	}
+	for i, id := range ids {
+		result[id] = counts[i] > 0
+	}
+	return result, nil
 }

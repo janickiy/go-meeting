@@ -1,6 +1,14 @@
-import { useEffect, useId, useState, type SubmitEvent } from "react";
-import { Link } from "react-router";
 import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type SubmitEvent,
+} from "react";
+import { Link, useNavigate } from "react-router";
+import {
+  onlineManager,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -11,6 +19,7 @@ import {
   Bell,
   Download,
   LogOut,
+  MessageCircle,
   Paperclip,
   Pencil,
   Search,
@@ -28,6 +37,7 @@ import type {
   ChatMessage,
   Conference,
   ConferenceChatInfo,
+  ConferenceChatMember,
   Participant,
 } from "../types";
 import { formatDate, initials } from "../utils";
@@ -74,6 +84,9 @@ export function ConferenceChatInfoModal({
   const [view, setView] = useState(initialView);
   const [invitationBusy, setInvitationBusy] = useState(false);
   const [editingBusy, setEditingBusy] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [selectedMember, setSelectedMember] =
+    useState<ConferenceChatMember | null>(null);
   const key = ["conference-chat-info", conference.id, user?.id];
   const query = useQuery({
     queryKey: key,
@@ -81,6 +94,7 @@ export function ConferenceChatInfoModal({
     retry: false,
   });
   const info = query.data?.item;
+  const canEdit = info?.canEdit === true && user?.id === conference.ownerId;
   const notifications = useMutation({
     mutationFn: (enabled: boolean) =>
       api.setConferenceChatNotifications(conference.id, enabled),
@@ -121,16 +135,23 @@ export function ConferenceChatInfoModal({
     },
   });
   const busy =
-    invitationBusy || editingBusy || leave.isPending || notifications.isPending;
+    invitationBusy ||
+    editingBusy ||
+    profileBusy ||
+    leave.isPending ||
+    notifications.isPending;
   const link = safeRecordingUrl(info?.inviteUrl);
 
   return (
     <Modal
-      title={titles[view]}
+      title={selectedMember ? "О пользователе" : titles[view]}
       className="conference-chat-info-modal"
       returnFocus={returnFocus}
       onClose={() => {
-        if (!busy) onClose();
+        if (!busy) {
+          if (selectedMember) setSelectedMember(null);
+          else onClose();
+        }
       }}
     >
       {view !== "info" && (
@@ -138,10 +159,13 @@ export function ConferenceChatInfoModal({
           variant="outline"
           className="conference-chat-info-back"
           disabled={busy}
-          onClick={() => setView("info")}
+          onClick={() => {
+            if (selectedMember) setSelectedMember(null);
+            else setView("info");
+          }}
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Информация о чате
+          {selectedMember ? "Участники" : "Информация о чате"}
         </Button>
       )}
       <ErrorNotice error={query.error || notifications.error} />
@@ -221,7 +245,7 @@ export function ConferenceChatInfoModal({
               <Star size={23} aria-hidden="true" />
               Важные сообщения
             </button>
-            {info.canEdit && (
+            {canEdit && (
               <button
                 type="button"
                 className="conference-chat-info-action"
@@ -295,7 +319,7 @@ export function ConferenceChatInfoModal({
       )}
       {info &&
         view === "edit" &&
-        (info.canEdit ? (
+        (canEdit ? (
           <EditConferenceChat
             conferenceId={conference.id}
             info={info}
@@ -309,11 +333,18 @@ export function ConferenceChatInfoModal({
           />
         ) : (
           <p className="conference-chat-info-empty">
-            Изменять название и описание может только организатор.
+            Изменять название и описание может только администратор чата.
           </p>
         ))}
       {info && view === "participants" && (
-        <ConferenceChatMembers conferenceId={conference.id} />
+        <ConferenceChatMembers
+          conferenceId={conference.id}
+          ownerId={conference.ownerId}
+          selectedMember={selectedMember}
+          onSelect={setSelectedMember}
+          onBusyChange={setProfileBusy}
+          onNavigate={onClose}
+        />
       )}
       {info && view === "search" && (
         <ConferenceChatSearch conference={conference} onNavigate={onClose} />
@@ -418,9 +449,58 @@ const statuses: Record<Participant["status"], string> = {
   kicked: "Исключён",
 };
 
-function ConferenceChatMembers({ conferenceId }: { conferenceId: string }) {
+function ConferenceChatMembers({
+  conferenceId,
+  ownerId,
+  selectedMember,
+  onSelect,
+  onBusyChange,
+  onNavigate,
+}: {
+  conferenceId: string;
+  ownerId: string;
+  selectedMember: ConferenceChatMember | null;
+  onSelect: (member: ConferenceChatMember) => void;
+  onBusyChange: (busy: boolean) => void;
+  onNavigate: () => void;
+}) {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const client = useQueryClient();
+  const connected = useSyncExternalStore(onlineManager.subscribe, () =>
+    onlineManager.isOnline(),
+  );
+  const presenceId = useId();
+  const [visible, setVisible] = useState(
+    () => document.visibilityState !== "hidden",
+  );
+  const memberList = useRef<HTMLDivElement>(null);
+  const memberTrigger = useRef<HTMLButtonElement | null>(null);
+  const profileWasOpen = useRef(false);
+  useEffect(() => {
+    const visibility = () => {
+      const next = document.visibilityState !== "hidden";
+      setVisible(next);
+      if (!next)
+        void client.cancelQueries({
+          queryKey: ["conference-chat-members", conferenceId, user?.id],
+          exact: true,
+        });
+    };
+    document.addEventListener("visibilitychange", visibility);
+    return () => document.removeEventListener("visibilitychange", visibility);
+  }, [client, conferenceId, user?.id]);
+  useEffect(() => {
+    if (selectedMember) {
+      profileWasOpen.current = true;
+    } else if (profileWasOpen.current) {
+      profileWasOpen.current = false;
+      const trigger = memberTrigger.current;
+      if (trigger?.isConnected) trigger.focus();
+      else
+        memberList.current?.querySelector<HTMLInputElement>("input")?.focus();
+    }
+  }, [selectedMember]);
   const query = useInfiniteQuery({
     queryKey: ["conference-chat-members", conferenceId, user?.id],
     initialPageParam: undefined as string | undefined,
@@ -428,64 +508,251 @@ function ConferenceChatMembers({ conferenceId }: { conferenceId: string }) {
       api.conferenceChatMembers(conferenceId, pageParam, signal),
     getNextPageParam: (page) => page.nextCursor || undefined,
     retry: false,
+    staleTime: 5000,
+    enabled: visible,
+    refetchInterval: visible ? 5000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
-  const members =
-    query.data?.pages
-      .flatMap((page) => page.items)
-      .filter((item) =>
-        item.displayName
-          .toLocaleLowerCase("ru")
-          .includes(search.toLocaleLowerCase("ru")),
-      ) || [];
+  const allMembers = Array.from(
+    new Map(
+      (query.data?.pages.flatMap((page) => page.items) || []).map((member) => [
+        member.id,
+        member,
+      ]),
+    ).values(),
+  );
+  const presenceKnown = connected && !query.isPaused && !query.isError;
+  const members = allMembers.filter((item) =>
+    item.displayName
+      .toLocaleLowerCase("ru")
+      .includes(search.toLocaleLowerCase("ru")),
+  );
+  const currentProfile = selectedMember
+    ? allMembers.find((member) => member.id === selectedMember.id)
+    : undefined;
+  const groups = [
+    {
+      title: "Администраторы",
+      items: members.filter((item) => item.userId === ownerId),
+    },
+    {
+      title: "Участники",
+      items: members.filter((item) => item.userId !== ownerId),
+    },
+  ];
   return (
-    <div className="conference-chat-info-panel">
-      <label className="field">
-        Найти участника
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Имя участника"
+    <>
+      {selectedMember && (
+        <ConferenceChatUserProfile
+          member={currentProfile || selectedMember}
+          presenceKnown={!!currentProfile && presenceKnown}
+          presenceError={query.error}
+          onRefresh={() => void query.refetch()}
+          onBusyChange={onBusyChange}
+          onNavigate={onNavigate}
         />
-      </label>
-      <ErrorNotice error={query.error} />
-      {query.isPending ? (
-        <Loading />
-      ) : (
-        <ul className="conference-chat-info-list" aria-label="Участники чата">
-          {members.map((item) => (
-            <li key={item.id} className="conference-chat-info-member">
-              <span className="avatar avatar-small" aria-hidden="true">
-                {initials(item.displayName)}
-              </span>
-              <div>
-                <strong>
-                  {item.displayName}
-                  {item.userId === user?.id ? " (вы)" : ""}
-                </strong>
-                <small>
-                  {roles[item.role]} · {statuses[item.status]}
-                </small>
-              </div>
-            </li>
-          ))}
-        </ul>
       )}
-      {!query.isPending && !query.isError && !members.length && (
-        <p className="conference-chat-info-empty">Участники не найдены.</p>
-      )}
-      {query.isError && (
-        <Button variant="outline" onClick={() => void query.refetch()}>
+      <div hidden={!!selectedMember} ref={memberList}>
+        <div className="conference-chat-info-panel">
+          <label className="field">
+            Найти участника
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Имя участника"
+            />
+          </label>
+          <ErrorNotice error={query.error} />
+          {query.isPending ? (
+            <Loading />
+          ) : (
+            groups.map((group) => (
+              <section
+                key={group.title}
+                className="conference-chat-member-group"
+                aria-label={group.title}
+              >
+                <h3>{group.title}</h3>
+                <ul
+                  className="conference-chat-info-list"
+                  aria-label={`${group.title} чата`}
+                >
+                  {group.items.map((item) => (
+                    <li key={item.id} className="conference-chat-info-member">
+                      <button
+                        type="button"
+                        className="conference-chat-member-button"
+                        aria-label={`О пользователе: ${item.displayName}`}
+                        aria-describedby={`${presenceId}-${item.id}`}
+                        onClick={(event) => {
+                          memberTrigger.current = event.currentTarget;
+                          onSelect(item);
+                        }}
+                      >
+                        <span
+                          className="conference-chat-member-avatar"
+                          aria-hidden="true"
+                        >
+                          <span className="avatar avatar-small">
+                            {initials(item.displayName)}
+                          </span>
+                          {presenceKnown && item.online === true && (
+                            <span className="conference-chat-member-online-dot" />
+                          )}
+                        </span>
+                        <span className="conference-chat-member-copy">
+                          <strong>
+                            {item.displayName}
+                            {item.userId === user?.id ? " (вы)" : ""}
+                          </strong>
+                          <small>
+                            {item.userId === ownerId
+                              ? "Администратор"
+                              : roles[item.role]}{" "}
+                            · {statuses[item.status]}
+                          </small>
+                          <small
+                            id={`${presenceId}-${item.id}`}
+                            className={
+                              presenceKnown && item.online === true
+                                ? "conference-chat-member-online"
+                                : undefined
+                            }
+                          >
+                            {memberPresenceLabel(item, presenceKnown)}
+                          </small>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))
+          )}
+          {!query.isPending && !query.isError && !members.length && (
+            <p className="conference-chat-info-empty">Участники не найдены.</p>
+          )}
+          {query.isError && (
+            <Button variant="outline" onClick={() => void query.refetch()}>
+              Повторить загрузку
+            </Button>
+          )}
+          {query.hasNextPage && (
+            <Button
+              variant="outline"
+              busy={query.isFetchingNextPage}
+              onClick={() => void query.fetchNextPage()}
+            >
+              Ещё участники
+            </Button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function memberPresenceLabel(member: ConferenceChatMember, known: boolean) {
+  if (!known || typeof member.online !== "boolean") return "Статус недоступен";
+  return member.online ? "В сети" : "Не в сети";
+}
+
+function ConferenceChatUserProfile({
+  member,
+  presenceKnown,
+  presenceError,
+  onRefresh,
+  onBusyChange,
+  onNavigate,
+}: {
+  member: ConferenceChatMember;
+  presenceKnown: boolean;
+  presenceError: unknown;
+  onRefresh: () => void;
+  onBusyChange: (busy: boolean) => void;
+  onNavigate: () => void;
+}) {
+  const { user } = useAuth();
+  const client = useQueryClient();
+  const navigate = useNavigate();
+  const root = useRef<HTMLDivElement>(null);
+  const mounted = useRef(false);
+  const directPending = useRef(false);
+  const canMessage =
+    !!user &&
+    !user.guestConferenceId &&
+    !!member.userId &&
+    member.userId !== user.id &&
+    member.isGuest === false;
+  const direct = useMutation({
+    mutationFn: () => api.createPersonalConversation(member.userId!),
+    onSuccess: ({ item }) => {
+      if (!mounted.current) return;
+      client.setQueryData(["personal-detail", item.id, user?.id], {
+        status: "success",
+        item,
+      });
+      void client.invalidateQueries({ queryKey: ["personal-list", user?.id] });
+      onNavigate();
+      navigate(`/personal/${encodeURIComponent(item.id)}`);
+    },
+    onSettled: () => {
+      directPending.current = false;
+    },
+  });
+  useEffect(() => {
+    mounted.current = true;
+    root.current?.focus();
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    onBusyChange(direct.isPending);
+    return () => onBusyChange(false);
+  }, [direct.isPending, onBusyChange]);
+  const online = presenceKnown && member.online === true;
+  return (
+    <div
+      ref={root}
+      tabIndex={-1}
+      role="region"
+      aria-label={`Профиль: ${member.displayName}`}
+      className="conference-chat-user-profile"
+    >
+      <span
+        className="conference-chat-member-avatar conference-chat-user-avatar"
+        aria-hidden="true"
+      >
+        <span className="avatar">{initials(member.displayName)}</span>
+        {online && <span className="conference-chat-member-online-dot" />}
+      </span>
+      <h3>{member.displayName}</h3>
+      <p className={online ? "conference-chat-member-online" : "muted"}>
+        {memberPresenceLabel(member, presenceKnown)}
+      </p>
+      <ErrorNotice error={direct.error} />
+      <ErrorNotice error={presenceError} />
+      {!!presenceError && (
+        <Button variant="outline" onClick={onRefresh}>
           Повторить загрузку
         </Button>
       )}
-      {query.hasNextPage && (
+      {canMessage && (
         <Button
+          className="conference-chat-user-message"
           variant="outline"
-          busy={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
+          busy={direct.isPending}
+          onClick={() => {
+            if (directPending.current) return;
+            directPending.current = true;
+            direct.mutate();
+          }}
         >
-          Ещё участники
+          <MessageCircle size={25} aria-hidden="true" />
+          Сообщение
         </Button>
       )}
     </div>

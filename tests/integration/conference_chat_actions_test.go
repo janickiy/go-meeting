@@ -49,7 +49,7 @@ func TestConferenceChatActionsAndNotifications(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := pg.NewChatRepository(db)
-	actions := chatusecase.NewActionService(repo, nil)
+	actions := chatusecase.NewActionService(repo, nil).WithPresence(conferenceChatOfflinePresence{}, conferenceChatOfflinePresence{})
 	tokens, err := security.NewTokenService("conference-chat-actions-test-secret-at-least-32-bytes")
 	if err != nil {
 		t.Fatal(err)

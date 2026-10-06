@@ -3,16 +3,18 @@ package chat
 import (
 	"context"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 	chatdomain "github.com/janickiy/go-recorder/internal/domain/chat"
 	"github.com/janickiy/go-recorder/internal/domain/conferences"
+	"github.com/janickiy/go-recorder/internal/domain/realtime"
 )
 
 type ActionRepository interface {
 	ChatInfo(context.Context, string, string) (chatdomain.Info, error)
-	ChatMembers(context.Context, string, string, string, int) ([]conferences.ParticipantView, string, error)
+	ChatMembers(context.Context, string, string, string, int) ([]chatdomain.MemberView, string, error)
 	UpdateChatInfo(context.Context, string, string, chatdomain.UpdateInfoRequest) (chatdomain.Info, error)
 	ChatPreferences(context.Context, string, string) (chatdomain.Preferences, error)
 	SetChatPreferences(context.Context, string, string, bool) (chatdomain.Preferences, error)
@@ -26,24 +28,101 @@ type ActionRepository interface {
 
 type actionObserver interface{ ConferenceChanged(context.Context, string) }
 
+type AccountPresence interface {
+	Online(context.Context, []string) (map[string]bool, error)
+}
+
+type ConferencePresence interface {
+	GetActiveSessions(context.Context, string) ([]realtime.Session, error)
+}
+
 type ActionService struct {
 	repo     ActionRepository
 	observer actionObserver
+	presence AccountPresence
+	guests   ConferencePresence
 }
 
 func NewActionService(repo ActionRepository, observer actionObserver) *ActionService {
 	return &ActionService{repo: repo, observer: observer}
 }
 
+func (s *ActionService) WithPresence(accounts AccountPresence, guests ConferencePresence) *ActionService {
+	s.presence, s.guests = accounts, guests
+	return s
+}
+
 func (s *ActionService) Info(ctx context.Context, user, conference string) (chatdomain.Info, error) {
 	return s.repo.ChatInfo(ctx, user, conference)
 }
 
-func (s *ActionService) Members(ctx context.Context, user, conference, cursor string, limit int) ([]conferences.ParticipantView, string, error) {
+func (s *ActionService) Members(ctx context.Context, user, conference, cursor string, limit int) ([]chatdomain.MemberView, string, error) {
 	if limit < 1 || limit > 100 {
 		return nil, "", apperrors.ErrInvalidInput
 	}
-	return s.repo.ChatMembers(ctx, user, conference, cursor, limit)
+	// Authorization and page bounds precede Redis access: this is not a user directory.
+	items, next, err := s.repo.ChatMembers(ctx, user, conference, cursor, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+	if len(items) == 0 {
+		return items, next, nil
+	}
+	ids, hasGuests := []string{}, false
+	for _, item := range items {
+		if item.UserID == nil {
+			continue
+		}
+		if item.IsGuest {
+			hasGuests = true
+		} else {
+			ids = append(ids, *item.UserID)
+		}
+	}
+	lookup, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	statuses := map[string]bool{}
+	accountAvailable := s.presence != nil
+	if len(ids) > 0 && accountAvailable {
+		statuses, err = s.presence.Online(lookup, ids)
+		accountAvailable = err == nil
+	}
+	guestStatuses := map[string]bool{}
+	guestAvailable := s.guests != nil
+	if hasGuests && guestAvailable {
+		sessions, err := s.guests.GetActiveSessions(lookup, conference)
+		guestAvailable = err == nil
+		if guestAvailable {
+			for _, session := range sessions {
+				if session.ConferenceID == conference {
+					guestStatuses[session.UserID] = true
+				}
+			}
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+	for i := range items {
+		// A presence outage must not turn a valid PG member into a false offline status.
+		items[i].Online = nil
+		if items[i].UserID == nil {
+			continue
+		}
+		if items[i].IsGuest {
+			if guestAvailable {
+				online := guestStatuses[*items[i].UserID]
+				items[i].Online = &online
+			}
+		} else if accountAvailable {
+			online := statuses[*items[i].UserID]
+			items[i].Online = &online
+		}
+	}
+	return items, next, nil
 }
 
 func (s *ActionService) UpdateInfo(ctx context.Context, user, conference string, request chatdomain.UpdateInfoRequest) (chatdomain.Info, error) {

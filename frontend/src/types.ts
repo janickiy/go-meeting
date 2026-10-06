@@ -117,6 +117,12 @@ export interface Participant {
   admissionDecidedAt?: string | null;
   admissionVersion?: number;
 }
+
+/** Chat member presence is independent of meeting attendance. */
+export interface ConferenceChatMember extends Participant {
+  online: boolean | null;
+  isGuest: boolean;
+}
 /**
  * ParticipantMediaState связывает признаки медиа с физическим подключением и порядковым номером изменения.
  *

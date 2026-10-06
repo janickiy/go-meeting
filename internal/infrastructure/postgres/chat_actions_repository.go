@@ -114,8 +114,8 @@ func (r *ChatRepository) ChatInfo(ctx context.Context, userID, conferenceID stri
 	return result, err
 }
 
-func (r *ChatRepository) ChatMembers(ctx context.Context, userID, conferenceID, cursor string, limit int) ([]conferences.ParticipantView, string, error) {
-	items := []conferences.ParticipantView{}
+func (r *ChatRepository) ChatMembers(ctx context.Context, userID, conferenceID, cursor string, limit int) ([]chat.MemberView, string, error) {
+	items := []chat.MemberView{}
 	after, err := parseMemberCursor(conferenceID, cursor)
 	if err != nil {
 		return items, "", err
@@ -125,8 +125,9 @@ func (r *ChatRepository) ChatMembers(ctx context.Context, userID, conferenceID, 
 		if _, err := authorizeChat(tx, userID, conferenceID, false, false); err != nil {
 			return err
 		}
-		rows := []conferences.Participant{}
-		q := tx.Table("conference_participants p").Select("p.*").
+		rows := []chat.MemberView{}
+		q := tx.Table("conference_participants p").Select("p.*, u.guest_conference_id IS NOT NULL AS is_guest").
+			Joins("JOIN users u ON u.id=p.user_id").
 			Where("p.conference_id=? AND p.user_id IS NOT NULL AND p.admission_state='admitted' AND p.status IN ('joined','left')", conferenceID).
 			Where("NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND cp.left_at IS NOT NULL)")
 		if after != "" {
@@ -139,9 +140,7 @@ func (r *ChatRepository) ChatMembers(ctx context.Context, userID, conferenceID, 
 			rows = rows[:limit]
 			next = memberCursor(conferenceID, rows[len(rows)-1].ID)
 		}
-		for _, row := range rows {
-			items = append(items, row.View())
-		}
+		items = rows
 		return nil
 	})
 	return items, next, err
