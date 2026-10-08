@@ -51,7 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [startupError, setStartupError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const generation = useRef(0);
-  const loggedOut = useRef(hasLogoutMarker());
+  // Выход из аккаунта запрещает восстановление его cookie, но не отменяет
+  // отдельно выданный гостевой токен. Сервер подтвердит его через auth/me.
+  const accountRestoreBlocked = useRef(hasLogoutMarker());
+  const loggedOut = useRef(
+    accountRestoreBlocked.current && !session?.user?.guestConferenceId,
+  );
   const renewal = useRef<Promise<boolean> | null>(null);
   const renewalController = useRef<AbortController | null>(null);
   const identityController = useRef<AbortController | null>(null);
@@ -121,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clear(true);
         return Promise.resolve(false);
       }
+      if (accountRestoreBlocked.current) return Promise.resolve(false);
       if (renewal.current) return renewal.current;
       const expected = generation.current;
       const controller = new AbortController();
@@ -183,6 +189,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const result = await api.me(controller.signal);
           if (controller.signal.aborted || generation.current !== expected)
             return;
+          // Признак гостя в кеше не даёт права восстановить старый аккаунт:
+          // исключение действует только для подтверждённой сервером гостевой сессии.
+          if (accountRestoreBlocked.current && !result.user.guestConferenceId) {
+            loggedOut.current = true;
+            clear();
+            await api.logout().catch(() => {});
+            return;
+          }
           userRef.current = result.user;
           setUser(result.user);
           if (result.user.guestConferenceId) {
@@ -198,13 +212,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           if (controller.signal.aborted || generation.current !== expected)
             return;
-          if (
-            error instanceof ApiError &&
-            error.status === 401 &&
-            restoreAllowed.current
-          )
-            await renewRef.current();
-          else if (!userRef.current) setStartupError(true);
+          if (error instanceof ApiError && error.status === 401) {
+            // Отозванный гостевой токен означает завершённую сессию,
+            // а не недоступность сервера и не повод восстанавливать аккаунт.
+            if (restoreAllowed.current) await renewRef.current();
+          } else if (!userRef.current) setStartupError(true);
         }
       } else {
         await renewRef.current();
@@ -244,6 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     const onStorage = (event: StorageEvent) => {
       if (event.key !== LOGOUT_KEY || event.newValue === null) return;
+      accountRestoreBlocked.current = true;
       loggedOut.current = true;
       generation.current++;
       renewalController.current?.abort();
@@ -297,18 +310,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  async function acceptSession(result: LoginResponse, expected: number) {
-    if (generation.current !== expected) return;
+  /** Принимает новую личность только пока запрос принадлежит текущему поколению.
+   * @args result — подтверждённая сервером сессия; expected — поколение запроса входа.
+   * @return Принята ли сессия; false запрещает вызывающему коду применять старый ответ.
+   */
+  async function acceptSession(
+    result: LoginResponse,
+    expected: number,
+  ): Promise<boolean> {
+    if (generation.current !== expected) return false;
     await client.cancelQueries();
-    if (generation.current !== expected) return;
+    if (generation.current !== expected) return false;
     client.clear();
     // A new identity fences retries belonging to the previous account.
     configureAuth(null);
     loggedOut.current = false;
-    if (!result.user.guestConferenceId) clearLogoutMarker();
-    applySession(result, expected);
+    if (!result.user.guestConferenceId) {
+      accountRestoreBlocked.current = false;
+      clearLogoutMarker();
+    }
+    if (!applySession(result, expected)) return false;
     startupComplete.current = true;
     setLoading(false);
+    return true;
   }
 
   async function login(email: string, password: string) {
@@ -337,7 +361,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     renewal.current = null;
     try {
       const result = await api.joinGuest(code, displayName, controller.signal);
-      await acceptSession(result, expected);
+      const accepted = await acceptSession(result, expected);
+      if (!accepted || generation.current !== expected)
+        throw new ApiError(
+          409,
+          "Сессия изменилась. Повторите подключение к встрече.",
+        );
       return result;
     } finally {
       if (identityController.current === controller)
@@ -363,6 +392,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     const token = sessionRef.current?.token ?? null;
+    accountRestoreBlocked.current = true;
     loggedOut.current = true;
     generation.current++;
     renewalController.current?.abort();

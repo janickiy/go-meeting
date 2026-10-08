@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ConferencePage } from "./ConferencePage";
 import { api } from "../api";
+import type { Conference, ConferenceHistory } from "../types";
 
 const fixture = vi.hoisted(() => ({
   membership: {
@@ -20,6 +21,12 @@ const fixture = vi.hoisted(() => ({
   conferenceStatus: "active",
   ownerId: "other",
   guest: false,
+  realtimeOwners: 0,
+  realtimeOwnersCreated: 0,
+  realtimeMaxOwners: 0,
+  realtimeEnabled: [] as boolean[],
+  mediaMounts: 0,
+  mediaUnmounts: 0,
 }));
 
 beforeEach(() => {
@@ -32,6 +39,12 @@ beforeEach(() => {
   fixture.conferenceStatus = "active";
   fixture.ownerId = "other";
   fixture.guest = false;
+  fixture.realtimeOwners = 0;
+  fixture.realtimeOwnersCreated = 0;
+  fixture.realtimeMaxOwners = 0;
+  fixture.realtimeEnabled = [];
+  fixture.mediaMounts = 0;
+  fixture.mediaUnmounts = 0;
 });
 
 vi.mock("../auth", () => ({
@@ -68,13 +81,32 @@ vi.mock("../queries", () => ({
     hasNextPage: false,
   }),
 }));
-vi.mock("../realtime", () => ({
-  useRealtime: () => ({
-    state: { connectionId: "connection", participants: [] },
-    status: "Подключено",
-    subscribe: () => () => {},
-  }),
-}));
+vi.mock("../realtime", async () => {
+  const { useEffect } = await import("react");
+  return {
+    useRealtime: (_id: string, enabled: boolean) => {
+      useEffect(() => {
+        fixture.realtimeOwners++;
+        fixture.realtimeOwnersCreated++;
+        fixture.realtimeMaxOwners = Math.max(
+          fixture.realtimeMaxOwners,
+          fixture.realtimeOwners,
+        );
+        return () => {
+          fixture.realtimeOwners--;
+        };
+      }, []);
+      useEffect(() => {
+        fixture.realtimeEnabled.push(enabled);
+      }, [enabled]);
+      return {
+        state: { connectionId: "connection", participants: [] },
+        status: "Подключено",
+        subscribe: () => () => {},
+      };
+    },
+  };
+});
 vi.mock("../useCapabilities", () => ({
   useCapabilities: () => ({
     isSuccess: !fixture.capabilitiesError,
@@ -87,15 +119,39 @@ vi.mock("../useCapabilities", () => ({
     },
   }),
 }));
-vi.mock("../components/RealtimePanel", () => ({
-  RealtimePanel: () => <div data-testid="realtime-panel">Медиа</div>,
-}));
+vi.mock("../components/RealtimePanel", async () => {
+  const { useEffect } = await import("react");
+  return {
+    RealtimePanel: ({ controls }: { controls?: import("react").ReactNode }) => {
+      useEffect(() => {
+        fixture.mediaMounts++;
+        return () => {
+          fixture.mediaUnmounts++;
+        };
+      }, []);
+      return <div data-testid="realtime-panel">Медиа{controls}</div>;
+    },
+  };
+});
 vi.mock("../components/ReactionsPanel", () => ({
   ReactionsPanel: () => <div data-testid="reactions-panel">Реакции</div>,
 }));
 vi.mock("../components/ChatPanel", () => ({
-  ChatPanel: ({ conferenceId }: { conferenceId: string }) => (
-    <textarea id={`chat-text-${conferenceId}`} aria-label="Сообщение" />
+  ChatPanel: ({
+    conferenceId,
+    readOnly,
+    focusMessageId,
+  }: {
+    conferenceId: string;
+    readOnly?: boolean;
+    focusMessageId?: string;
+  }) => (
+    <textarea
+      id={`chat-text-${conferenceId}`}
+      aria-label="Сообщение"
+      readOnly={readOnly}
+      data-focus-message={focusMessageId}
+    />
   ),
 }));
 vi.mock("../components/CaptionsPanel", () => ({
@@ -109,21 +165,29 @@ vi.mock("../components/WaitingRoomPanel", () => ({
   WaitingRoomPanel: () => null,
 }));
 
-function page() {
+/** Монтирует страницу с изолированным кешем и сохраняет элемент для проверки смены состояния.
+ * @args entry — адрес встречи и параметры фокуса чата.
+ * @return Представление, исходный элемент и клиент запросов.
+ */
+function page(entry = "/conferences/room") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const element = (
+  const createElement = () => (
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/conferences/room"]}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/conferences/:id" element={<ConferencePage />} />
           <Route path="/meetings/:id" element={<ConferencePage />} />
+          <Route
+            path="/conferences/:id/join"
+            element={<p>Подготовка к встрече</p>}
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
   );
-  return { ...render(element), client };
+  return { ...render(createElement()), client, createElement };
 }
 
 it("puts media first and supports roving tab keys and safe H/C shortcuts", async () => {
@@ -241,4 +305,78 @@ it("не использует устаревшие разрешения субт
   expect(screen.queryByTestId("analytics-panel")).not.toBeInTheDocument();
   expect(screen.queryByTestId("captions-panel")).not.toBeInTheDocument();
   left.client.clear();
+});
+
+it("не пересоздаёт медиасвязь и владельца realtime при переключении и закрытии панелей", () => {
+  const view = page();
+  const composer = screen.getByRole("textbox", { name: "Сообщение" });
+  fireEvent.change(composer, { target: { value: "Несохранённое сообщение" } });
+  fireEvent.click(screen.getByRole("tab", { name: /Участники/ }));
+  fireEvent.click(screen.getByRole("tab", { name: "Субтитры" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Закрыть панель встречи" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Чат" }));
+  expect(screen.getByRole("textbox", { name: "Сообщение" })).toBe(composer);
+  expect(composer).toHaveValue("Несохранённое сообщение");
+  expect(fixture.mediaMounts).toBe(1);
+  expect(fixture.mediaUnmounts).toBe(0);
+  expect(fixture.realtimeOwnersCreated).toBe(1);
+  expect(fixture.realtimeMaxOwners).toBe(1);
+  view.unmount();
+  expect(fixture.mediaUnmounts).toBe(1);
+  expect(fixture.realtimeOwners).toBe(0);
+  view.client.clear();
+});
+
+it("при завершении переключается на историю и отключает realtime без второго владельца", async () => {
+  const history: ConferenceHistory = {
+    conference: { id: "room", status: "finished" } as Conference,
+    owner: { id: "other", displayName: "Организатор" },
+    durationSec: 120,
+    participantCount: 1,
+    participants: [],
+    participantsTruncated: false,
+    recordings: { total: 0, ready: 0, processing: 0, failed: 0 },
+    chatAvailable: true,
+    chatReadOnly: true,
+  };
+  const historyRequest = vi
+    .spyOn(api, "history")
+    .mockResolvedValue({ status: "success", item: history });
+  const view = page("/conferences/room?chat=1&message=saved-message");
+  expect(fixture.realtimeEnabled).toEqual([true]);
+  fixture.conferenceStatus = "finished";
+  view.rerender(view.createElement());
+  expect(screen.queryByTestId("realtime-panel")).not.toBeInTheDocument();
+  expect(screen.getByRole("textbox", { name: "Сообщение" })).toHaveAttribute(
+    "readonly",
+  );
+  expect(screen.getByRole("textbox", { name: "Сообщение" })).toHaveAttribute(
+    "data-focus-message",
+    "saved-message",
+  );
+  await waitFor(() => expect(screen.getByText("2 мин")).toBeInTheDocument());
+  expect(
+    screen.getByRole("region", { name: "История встречи" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Алиса")).toBeInTheDocument();
+  expect(fixture.realtimeEnabled).toEqual([true, false]);
+  expect(fixture.realtimeOwnersCreated).toBe(1);
+  expect(fixture.realtimeMaxOwners).toBe(1);
+  view.unmount();
+  view.client.clear();
+  historyRequest.mockRestore();
+});
+
+it("перед повторным входом открывает проверку устройств без подключения медиа", () => {
+  fixture.membership.status = "left";
+  const view = page();
+  expect(screen.queryByTestId("realtime-panel")).not.toBeInTheDocument();
+  expect(fixture.realtimeEnabled).toEqual([false]);
+  fireEvent.click(screen.getByRole("button", { name: "Присоединиться" }));
+  expect(screen.getByText("Подготовка к встрече")).toBeInTheDocument();
+  expect(fixture.mediaMounts).toBe(0);
+  expect(fixture.realtimeOwners).toBe(0);
+  view.client.clear();
 });

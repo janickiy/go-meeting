@@ -1,13 +1,12 @@
 package httptransport
 
 import (
-	"github.com/janickiy/go-recorder/internal/operations"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
+	"github.com/janickiy/go-recorder/internal/operations"
 )
 
 // APIV1Prefix задает основной префикс версионированного REST API.
@@ -15,12 +14,9 @@ const APIV1Prefix = "/api/v1"
 
 // NewRouter создаёт маршрутизатор API на основе Gin.
 // @args
-// - recordsHandler: handler записей.
-// - debug: включить локальные страницы отладки.
-// - completedRecords: источник завершённых записей для страниц отладки.
 // - middleware: дополнительные промежуточные обработчики Gin.
 // @return готовый *gin.Engine.
-func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords CompletedRecordsLister, middleware ...gin.HandlerFunc) *gin.Engine {
+func NewRouter(middleware ...gin.HandlerFunc) *gin.Engine {
 	router := gin.New()
 	router.Use( /* Вложенный обработчик выполняет выделенный шаг обработки в регистрации и обработке HTTP-маршрутов, используя состояние окружающей функции.
 
@@ -56,33 +52,7 @@ func NewRouter(recordsHandler *recordsapp.Handler, debug bool, completedRecords 
 		*/func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		})
-	RegisterRecordRoutes(router, recordsHandler)
-	if debug {
-		RegisterDebugRoutes(router, completedRecords)
-	}
+	registerRetiredRecordingRoutes(router)
 
 	return router
-}
-
-// RegisterRecordRoutes регистрирует HTTP-маршруты записей.
-// @args
-// - router: группа маршрутов Gin.
-// - recordsHandler: handler записей.
-// @return ничего.
-func RegisterRecordRoutes(router gin.IRouter, recordsHandler *recordsapp.Handler) {
-	registerRecordRoutes(router.Group(APIV1Prefix), recordsHandler)
-}
-
-// registerRecordRoutes регистрирует маршруты записей внутри заданного префикса API.
-// @args
-// - router: группа маршрутов Gin, например /api/v1.
-// - recordsHandler: handler записей.
-// @return ничего.
-func registerRecordRoutes(router gin.IRouter, recordsHandler *recordsapp.Handler) {
-	router.POST("/records/start", recordsHandler.Start)
-	router.POST("/records/end", recordsHandler.End)
-	router.POST("/records/:id/webrtc/offer", recordsHandler.Offer)
-	router.GET("/records", recordsHandler.List)
-	router.GET("/records/count-by-conference", recordsHandler.CountByConference)
-	router.GET("/records/:id", recordsHandler.Read)
 }

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -37,6 +43,13 @@ import { initials } from "../utils";
 import "./prejoin.css";
 
 type InputKind = "audio" | "video";
+
+/** Снимок личности перед запросом допуска отделяет старый ответ от новой сессии. */
+interface JoinIdentity {
+  owner: string;
+  generation: number;
+  guestEntry: boolean;
+}
 
 /** Локальный захват служит только предпросмотру. Клиент SFU создаётся после допуска. */
 export function PreJoinPage({
@@ -80,8 +93,28 @@ export function PreJoinPage({
       : undefined,
   });
   const self = useMembership(id, 3000, needsMembership);
-  const [preferences, setPreferences] = useState<DevicePreferences>(() =>
-    readDevicePreferences(user?.id || "guest"),
+  const preferencesOwner = authLoading ? "" : user?.id || "guest";
+  const [ownedPreferences, setOwnedPreferences] = useState(() => ({
+    owner: preferencesOwner,
+    value: readDevicePreferences(preferencesOwner),
+  }));
+  const preferences = ownedPreferences.value;
+  const preferencesReady =
+    !!preferencesOwner && ownedPreferences.owner === preferencesOwner;
+  const preferencesOwnerRef = useRef(preferencesOwner);
+  preferencesOwnerRef.current = preferencesOwner;
+  const identityGeneration = useRef(0);
+
+  // Обновление от старого пользователя не может изменить настройки новой сессии.
+  const setPreferences = useCallback(
+    (update: (current: DevicePreferences) => DevicePreferences) => {
+      setOwnedPreferences((current) =>
+        current.owner && current.owner === preferencesOwnerRef.current
+          ? { ...current, value: update(current.value) }
+          : current,
+      );
+    },
+    [],
   );
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
@@ -110,10 +143,18 @@ export function PreJoinPage({
     "setSinkId" in HTMLMediaElement.prototype;
 
   const refreshDevices = useCallback(async () => {
+    const owner = preferencesOwnerRef.current;
+    const expectedIdentity = identityGeneration.current;
+    if (!owner) return;
     if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
       const list = await navigator.mediaDevices.enumerateDevices();
-      if (!mounted.current) return;
+      if (
+        !mounted.current ||
+        preferencesOwnerRef.current !== owner ||
+        identityGeneration.current !== expectedIdentity
+      )
+        return;
       setDevices(list);
       setPreferences((current) => {
         const next = {
@@ -147,7 +188,7 @@ export function PreJoinPage({
     } catch {
       // Названия устройств могут быть недоступны до первого предоставления разрешения.
     }
-  }, []);
+  }, [setPreferences]);
 
   const stopInput = useCallback((kind: InputKind) => {
     generation.current[kind] += 1;
@@ -167,9 +208,30 @@ export function PreJoinPage({
     }
   }, []);
 
+  useLayoutEffect(() => {
+    // Смена личности отменяет захват до показа новых элементов управления.
+    identityGeneration.current += 1;
+    stopInput("audio");
+    stopInput("video");
+    setBusy({ audio: false, video: false });
+    setDeviceError("");
+    setNotice("");
+    setPlaybackBlocked(false);
+    setDevices([]);
+    autoPreviewRequested.current = "";
+    if (preferencesOwner)
+      setOwnedPreferences((current) =>
+        current.owner === preferencesOwner
+          ? current
+          : {
+              owner: preferencesOwner,
+              value: readDevicePreferences(preferencesOwner),
+            },
+      );
+  }, [preferencesOwner, stopInput]);
+
   useEffect(() => {
     mounted.current = true;
-    void refreshDevices();
     navigator.mediaDevices?.addEventListener?.("devicechange", refreshDevices);
     return () => {
       mounted.current = false;
@@ -191,8 +253,13 @@ export function PreJoinPage({
   }, [refreshDevices]);
 
   useEffect(() => {
-    saveDevicePreferences(user?.id || "guest", preferences);
-  }, [user?.id, preferences]);
+    if (preferencesReady && !startupError)
+      saveDevicePreferences(preferencesOwner, preferences);
+  }, [preferencesOwner, preferencesReady, preferences, startupError]);
+
+  useEffect(() => {
+    if (preferencesReady) void refreshDevices();
+  }, [preferencesOwner, preferencesReady, refreshDevices]);
 
   useEffect(() => {
     const element = video.current;
@@ -255,6 +322,8 @@ export function PreJoinPage({
     enabled: boolean,
     preferredId: string,
   ) {
+    if (!preferencesReady || startupError) return;
+    const owner = preferencesOwner;
     stopInput(kind);
     setDeviceError("");
     if (!enabled) {
@@ -315,8 +384,18 @@ export function PreJoinPage({
           (name !== "NotFoundError" && name !== "OverconstrainedError")
         )
           throw error;
+        if (
+          !mounted.current ||
+          preferencesOwnerRef.current !== owner ||
+          generation.current[kind] !== request
+        )
+          return;
         stream = await navigator.mediaDevices.getUserMedia(constraints(""));
-        if (mounted.current && generation.current[kind] === request) {
+        if (
+          mounted.current &&
+          preferencesOwnerRef.current === owner &&
+          generation.current[kind] === request
+        ) {
           setPreferences((current) => ({
             ...current,
             [kind === "audio" ? "audioInputId" : "videoInputId"]: "",
@@ -326,7 +405,11 @@ export function PreJoinPage({
           );
         }
       }
-      if (!mounted.current || generation.current[kind] !== request) {
+      if (
+        !mounted.current ||
+        preferencesOwnerRef.current !== owner ||
+        generation.current[kind] !== request
+      ) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
@@ -344,7 +427,12 @@ export function PreJoinPage({
         .forEach((item) => item.stop());
       tracks.current[kind] = track;
       track.onended = () => {
-        if (!mounted.current || tracks.current[kind] !== track) return;
+        if (
+          !mounted.current ||
+          preferencesOwnerRef.current !== owner ||
+          tracks.current[kind] !== track
+        )
+          return;
         tracks.current[kind] = null;
         generation.current[kind] += 1;
         if (kind === "video") {
@@ -377,7 +465,11 @@ export function PreJoinPage({
       }));
       void refreshDevices();
     } catch (error) {
-      if (mounted.current && generation.current[kind] === request) {
+      if (
+        mounted.current &&
+        preferencesOwnerRef.current === owner &&
+        generation.current[kind] === request
+      ) {
         setDeviceError(captureErrorMessage(error, kind));
         setPreferences((current) => ({
           ...current,
@@ -385,27 +477,34 @@ export function PreJoinPage({
         }));
       }
     } finally {
-      if (mounted.current && generation.current[kind] === request)
+      if (
+        mounted.current &&
+        preferencesOwnerRef.current === owner &&
+        generation.current[kind] === request
+      )
         setBusy((current) => ({ ...current, [kind]: false }));
     }
   }
 
-  // Request the default preview once per entry. The browser still controls
-  // permission; denial leaves the join button available without devices.
+  // Предпросмотр использует только загруженные настройки текущей личности.
+  // Отказ браузера в разрешении не мешает подключиться без устройств.
   useEffect(() => {
     if (
       !invitation ||
       authLoading ||
+      !preferencesReady ||
+      startupError ||
       conference.isPending ||
       (needsMembership && self.isPending) ||
       conference.data?.item.id !== id ||
       !["created", "active"].includes(conference.data?.item.status || "")
     )
       return;
-    // Scheduling avoids duplicate permission requests in React StrictMode.
+    // Отложенный запуск исключает повторные запросы в React StrictMode.
     const timer = window.setTimeout(() => {
-      if (autoPreviewRequested.current === id) return;
-      autoPreviewRequested.current = id;
+      const entry = `${preferencesOwner}:${id}`;
+      if (autoPreviewRequested.current === entry) return;
+      autoPreviewRequested.current = entry;
       if (preferences.microphoneEnabled)
         void capture("audio", true, preferences.audioInputId);
       if (preferences.cameraEnabled)
@@ -415,16 +514,56 @@ export function PreJoinPage({
   }, [
     id,
     authLoading,
+    preferencesOwner,
+    preferencesReady,
+    preferences,
+    startupError,
     conference.isPending,
     conference.data?.item.status,
     needsMembership,
     self.isPending,
   ]);
 
+  /**
+   * Проверяет принадлежность ответа текущей сессии. Только гостевой вход
+   * допускает одну ожидаемую смену личности на созданного сервером гостя.
+   *
+   * @args identity — снимок владельца и поколения при отправке запроса.
+   * @args userId — пользователь, получивший допуск к встрече.
+   * @return true, если ответ ещё можно применить без изменения чужой сессии.
+   */
+  function joinIdentityIsCurrent(identity: JoinIdentity, userId: string) {
+    const owner = preferencesOwnerRef.current;
+    const currentGeneration = identityGeneration.current;
+    return (
+      (owner === identity.owner && currentGeneration === identity.generation) ||
+      (identity.guestEntry &&
+        owner === userId &&
+        currentGeneration ===
+          identity.generation + Number(identity.owner !== userId))
+    );
+  }
+
   const join = useMutation({
     mutationFn: async () => {
+      if (!preferencesReady || startupError)
+        throw new Error("prejoin_preferences_not_ready");
       if (!conference.data || conference.data.item.id !== id)
         throw new Error("invite_conference_mismatch");
+      const identity: JoinIdentity = {
+        owner: preferencesOwner,
+        generation: identityGeneration.current,
+        guestEntry: guestMode,
+      };
+      // Гостевая авторизация меняет личность до onSuccess. Снимок сохраняет
+      // ручной выбор устройств и их фактическое состояние перед подключением.
+      const entryPreferences = invitation
+        ? {
+            ...preferences,
+            microphoneEnabled: microphoneOn,
+            cameraEnabled: cameraOn,
+          }
+        : preferences;
       if (guestMode) {
         if (!inviteCode)
           throw new ApiError(
@@ -432,7 +571,14 @@ export function PreJoinPage({
             "Откройте ссылку-приглашение, чтобы войти гостем.",
           );
         const session = await enterGuest(inviteCode, guestName.trim());
-        return { membership: session.item, userId: session.user.id };
+        if (!joinIdentityIsCurrent(identity, session.user.id))
+          throw new ApiError(409, "Сессия изменилась. Повторите подключение.");
+        return {
+          membership: session.item,
+          userId: session.user.id,
+          entryPreferences,
+          identity,
+        };
       }
       const current = self.data;
       const membership =
@@ -441,19 +587,19 @@ export function PreJoinPage({
           : inviteCode
             ? (await api.joinInvite(inviteCode)).item
             : (await api.membership(id, "join")).item;
-      return { membership, userId: user!.id };
+      if (!joinIdentityIsCurrent(identity, identity.owner))
+        throw new ApiError(409, "Сессия изменилась. Повторите подключение.");
+      return {
+        membership,
+        userId: identity.owner,
+        entryPreferences,
+        identity,
+      };
     },
-    onSuccess: ({ membership, userId }) => {
-      saveDevicePreferences(
-        userId,
-        invitation
-          ? {
-              ...preferences,
-              microphoneEnabled: microphoneOn,
-              cameraEnabled: cameraOn,
-            }
-          : preferences,
-      );
+    onSuccess: ({ membership, userId, entryPreferences, identity }) => {
+      if (!joinIdentityIsCurrent(identity, userId)) return;
+      saveDevicePreferences(userId, entryPreferences);
+      setOwnedPreferences({ owner: userId, value: entryPreferences });
       client.setQueryData(["membership", userId, id], membership);
       void client.invalidateQueries({ queryKey: ["membership"] });
       void client.invalidateQueries({ queryKey: ["participants"] });
@@ -475,6 +621,7 @@ export function PreJoinPage({
     );
   if (
     authLoading ||
+    !preferencesReady ||
     conference.isPending ||
     (needsMembership && self.isPending)
   )
@@ -693,6 +840,7 @@ export function PreJoinPage({
                 className="invite-entry-control invite-entry-settings"
                 aria-label="Настройки устройств"
                 aria-haspopup="dialog"
+                disabled={join.isPending}
                 onClick={() => setSettingsOpen(true)}
               >
                 <Settings />
@@ -710,7 +858,7 @@ export function PreJoinPage({
                 Микрофон
                 <select
                   value={preferences.audioInputId}
-                  disabled={!supported || busy.audio}
+                  disabled={!supported || busy.audio || join.isPending}
                   onChange={(event) => {
                     const deviceId = event.target.value;
                     setPreferences((current) => ({
@@ -727,7 +875,7 @@ export function PreJoinPage({
                 Камера
                 <select
                   value={preferences.videoInputId}
-                  disabled={!supported || busy.video}
+                  disabled={!supported || busy.video || join.isPending}
                   onChange={(event) => {
                     const deviceId = event.target.value;
                     setPreferences((current) => ({
@@ -745,6 +893,7 @@ export function PreJoinPage({
                   Вывод звука
                   <select
                     value={preferences.audioOutputId}
+                    disabled={join.isPending}
                     onChange={(event) =>
                       setPreferences((current) => ({
                         ...current,
@@ -880,7 +1029,7 @@ export function PreJoinPage({
             </span>
             <select
               value={preferences.audioInputId}
-              disabled={!supported || busy.audio}
+              disabled={!supported || busy.audio || join.isPending}
               onChange={(event) => {
                 const id = event.target.value;
                 setPreferences((current) => ({ ...current, audioInputId: id }));
@@ -896,7 +1045,7 @@ export function PreJoinPage({
             </span>
             <select
               value={preferences.videoInputId}
-              disabled={!supported || busy.video}
+              disabled={!supported || busy.video || join.isPending}
               onChange={(event) => {
                 const id = event.target.value;
                 setPreferences((current) => ({ ...current, videoInputId: id }));
@@ -913,6 +1062,7 @@ export function PreJoinPage({
               </span>
               <select
                 value={preferences.audioOutputId}
+                disabled={join.isPending}
                 onChange={(event) =>
                   setPreferences((current) => ({
                     ...current,

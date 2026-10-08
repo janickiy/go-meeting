@@ -125,6 +125,41 @@ describe("navigation and invitations", /**
     );
   });
   it.each([
+    "/calendar?date=2026-10-09",
+    "/analytics",
+    "/meetings",
+    "/meetings/new",
+    "/meetings/45144e4e-c3d7-4eed-863e-2edc7ceec5b4",
+    "/meetings/45144e4e-c3d7-4eed-863e-2edc7ceec5b4/join?camera=off",
+    "/conferences/45144e4e-c3d7-4eed-863e-2edc7ceec5b4/join",
+    "/history",
+    "/history/45144e4e-c3d7-4eed-863e-2edc7ceec5b4",
+    "/folders",
+    "/folders/45144e4e-c3d7-4eed-863e-2edc7ceec5b4?sort=name",
+    "/settings",
+    "/app/settings",
+    "/app/recordings?conference=room",
+    "/notifications?unread=true",
+    "/admin",
+    "/calendar/",
+  ])("сохраняет адрес раздела после авторизации: %s", (value) => {
+    expect(safeNext(value)).toBe(value);
+  });
+  it.each([
+    "/calendar/settings",
+    "/analytics/export",
+    "/meetings/room/unknown",
+    "/history/room/files",
+    "/app/login",
+    "/settings/security",
+    "/notifications/../login",
+    "/meetings/%2f%2fevil.test/join",
+    "/recordings/%5cevil.test",
+    "/history/%0aroom",
+  ])("отвергает неподдерживаемый вложенный адрес: %s", (value) => {
+    expect(safeNext(value)).toBe("/app");
+  });
+  it.each([
     "/personal",
     "/personal?from=notification",
     "/personal/45144e4e-c3d7-4eed-863e-2edc7ceec5b4",

@@ -18,6 +18,12 @@ Meetrix включает веб-интерфейс, конференции, SFU,
 образы не пересобираются на сервере, миграции выполняются явно. Команды build,
 restart и debug ниже относятся к **разработке**, не к production promotion.
 
+**Изменение безопасности:** прежний публичный recorder `/api/v1/records*`,
+`/api/records*` и debug-страницы записи закрыты (`410 Gone`, в том числе локально).
+Используйте авторизованный `/api/v1/conferences/{id}/recordings*`. Примеры старого
+браузерного recorder ниже сохранены как история и больше не выполняются;
+подробности совместимости и ранее выданных ссылок — в [индексе API](docs/API.md).
+
 ## Развитие функциональности
 
 API отвечает за управление задачами записи: создает запись в PostgreSQL, публикует команды `record.start` и `record.stop` в локальный RabbitMQ проекта и возвращает состояние записи через HTTP. Непосредственный захват видеопотока, склейку итогового видео, генерацию preview и загрузку артефактов в MinIO выполняет отдельный `worker`.
@@ -318,12 +324,12 @@ TCP используется как fallback. Если LAN-адрес измен
 Redis-блокировку только этой записи и добавляет событие `record.ingest.failed`.
 Тестовая страница при статусе `failed` останавливает локальные media tracks.
 
-Сквозной тест без камеры и микрофона доступен в `tests/integration`:
-задай `RECORDER_TEST_URL=http://127.0.0.1:8085` и `RECORDER_TEST_IVF` — путь к
-искусственному VP8-видео в IVF (25 fps, не менее 6 секунд), затем выполни
-`go test -count=1 -v ./tests/integration`. Он создает отдельную проверочную
-запись и оставляет ее готовые артефакты в локальном MinIO. Без этих переменных
-сквозной тест пропускается.
+Прежний WebRTC smoke через публичный recorder заменён безопасной проверкой
+закрытого контракта: задайте `RECORDER_TEST_URL=http://127.0.0.1:8085` и выполните
+`go test -count=1 -v ./tests/integration -run TestRetiredRecordingAPILocal`.
+Проверка не создаёт данные и ожидает `410`; без URL она пропускается.
+Тесты действующей конференционной записи находятся отдельно в
+`tests/integration/composite_recording_test.go` и требуют своих явных настроек.
 
 ## Запуск
 
@@ -353,9 +359,9 @@ MINIO_PUBLIC_ENDPOINT=http://localhost:9000
 `HTTPS_CERT_IP=127.0.0.1 sh scripts/generate-https-certs.sh` (не запускай ее поверх
 сертификатов, которые нужно сохранить). Доверие к локальному CA в систему автоматически не добавляется.
 
-При этих настройках открой [локальную тестовую страницу записи](http://localhost:8085/debug/webrtc-smoke?gatewayBase=http%3A%2F%2Flocalhost%3A8085).
-Параметр `gatewayBase` направляет браузер напрямую в API. Для HTTPS-страницы
-нужно вернуть `MINIO_PUBLIC_ENDPOINT=https://localhost:18482` и настроить доверие к локальному сертификату.
+Для проверки встречи откройте [локальный интерфейс Meetrix](http://localhost:5173).
+Прежняя `/debug/webrtc-smoke` закрыта и не предоставляет обход авторизации.
+Для HTTPS-страницы нужно настроить доверие к локальному сертификату.
 
 Пересборка API и worker:
 
@@ -407,17 +413,16 @@ REST API версионирован префиксом `/api/v1`.
 
 Основные endpoints:
 
-- `POST /api/v1/records/start`
-- `POST /api/v1/records/end`
-- `POST /api/v1/records/{recordId}/webrtc/offer`
-- `GET /api/v1/records`
-- `GET /api/v1/records/count-by-conference`
-- `GET /api/v1/records/{recordId}`
+- `POST /api/v1/conferences/{id}/recordings`
+- `POST /api/v1/conferences/{id}/recordings/{recordingId}/stop`
+- `GET /api/v1/conferences/{id}/recordings`
+- `GET /api/v1/conferences/{id}/recordings/{recordingId}`
 
-При работе через gateway используются те же публичные API endpoints, но с gateway base URL:
+Все требуют авторизации и текущих прав на конференцию. При работе через gateway
+используются те же API endpoints, но с gateway base URL:
 
 ```text
-http://127.0.0.1:18080/api/v1/records
+http://127.0.0.1:18080/api/v1/conferences/{id}/recordings
 ```
 
 Для внутренних обращений API к recorder-worker через gateway добавлены отдельные worker routes:
@@ -427,13 +432,13 @@ http://127.0.0.1:18080/api/v1/records
 - `POST /api/v1/record-worker/records/{recordId}/stop`
 - `POST /api/v1/record-worker/records/{recordId}/webrtc/offer`
 
-Эти worker endpoints нужны для сервисного взаимодействия и smoke/debug-проверок. Клиентский frontend обычно вызывает публичные endpoints `/api/v1/records/*`, а API уже обращается к worker через gateway.
+Эти worker endpoints предназначены только для внутреннего сервисного доступа и
+не должны публиковаться через пользовательский proxy. Клиентский frontend
+использует только авторизованные маршруты конференционной записи.
 
-Debug endpoint для списка завершенных записей из MinIO:
-
-- `GET /debug/records/completed?limit=50`
-
-Legacy-префикс `/api/records` удален. Клиенты должны использовать только версионированные endpoints `/api/v1/records/*`.
+Оба прежних префикса `/api/v1/records*`, `/api/records*`, debug-список завершённых
+записей и WebRTC smoke закрыты без возможности включения через env. Существующие
+данные не удаляются; прежний HTTP-контракт намеренно несовместим с текущим выпуском.
 
 ## Проверка
 

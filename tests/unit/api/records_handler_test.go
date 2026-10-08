@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
 	"github.com/janickiy/go-recorder/internal/domain/records"
-	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 )
 
 // TestRecordsStartValidationErrorResponse проверяет сценарий «Records запуск проверка входных данных ошибка Response», фиксируя ошибки поведения как регрессию.
@@ -291,7 +290,9 @@ func TestRecordsOfferProxiesWorkerAnswer(t *testing.T) {
 	assertJSONField(t, response.Body.String(), "sdp", "answer-sdp")
 }
 
-// newRecordsRouter подготавливает тестовый маршрутизатор записей.
+// newRecordsRouter напрямую подключает старые обработчики только для unit-тестов
+// их валидации и преобразования ответов. Рабочий NewRouter не регистрирует эти
+// обработчики и всегда закрывает старый API ответом 410.
 //
 // @args
 //   - workerURL (string): значение workerURL типа string, используемое согласно назначению этой операции.
@@ -304,7 +305,13 @@ func newRecordsRouter(workerURL string) (*gin.Engine, *fakeRecordService) {
 	service := &fakeRecordService{}
 	router := gin.New()
 	handler := recordsapp.NewHandler(service, workerURL)
-	httptransport.RegisterRecordRoutes(router, handler)
+	routes := router.Group("/api/v1")
+	routes.POST("/records/start", handler.Start)
+	routes.POST("/records/end", handler.End)
+	routes.POST("/records/:id/webrtc/offer", handler.Offer)
+	routes.GET("/records", handler.List)
+	routes.GET("/records/count-by-conference", handler.CountByConference)
+	routes.GET("/records/:id", handler.Read)
 
 	return router, service
 }

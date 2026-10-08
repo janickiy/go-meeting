@@ -41,7 +41,11 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-function Harness() {
+function Harness({
+  onGuestError,
+}: {
+  onGuestError?: (error: unknown) => void;
+}) {
   const auth = useAuth();
   return (
     <>
@@ -57,10 +61,19 @@ function Harness() {
       >
         Войти
       </button>
+      <button
+        onClick={() =>
+          void auth
+            .enterGuest("guest-invite", "Гость")
+            .catch((error: unknown) => onGuestError?.(error))
+        }
+      >
+        Войти гостем
+      </button>
     </>
   );
 }
-function mount() {
+function mount(onGuestError?: (error: unknown) => void) {
   const client = new QueryClient({
     defaultOptions: { queries: { gcTime: Infinity } },
   });
@@ -70,7 +83,7 @@ function mount() {
     ...render(
       <QueryClientProvider client={client}>
         <AuthProvider>
-          <Harness />
+          <Harness onGuestError={onGuestError} />
         </AuthProvider>
       </QueryClientProvider>,
     ),
@@ -371,6 +384,142 @@ it("keeps a scoped guest token separate from persistent account restoration", as
   await ready();
   expect(fetch.mock.calls.map(([path]) => path)).toEqual(["/api/v1/auth/me"]);
   expect(readSession()?.user?.guestConferenceId).toBe("guest-room");
+});
+
+it("сохраняет гостевой вход после выхода из аккаунта и перезагрузки страницы", async () => {
+  const guest = { ...person, email: "", guestConferenceId: "guest-room" };
+  stored();
+  const fetch = standardFetch((path, options) => {
+    if (path === "/api/v1/conference-invites/guest-invite/guest")
+      return json({ ...account("scoped-guest"), user: guest });
+    if (
+      path === "/api/v1/auth/me" &&
+      new Headers(options?.headers).get("Authorization") ===
+        "Bearer scoped-guest"
+    )
+      return json({ status: "success", user: guest });
+  });
+  const first = mount();
+  await ready();
+  fireEvent.click(screen.getByRole("button", { name: "Выйти" }));
+  await waitFor(() =>
+    expect(screen.getByTestId("name")).toHaveTextContent("signed out"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Войти гостем" }));
+  await waitFor(() => expect(getAccessToken()).toBe("scoped-guest"));
+  expect(localStorage.getItem(LOGOUT_KEY)).not.toBeNull();
+  first.unmount();
+  fetch.mockClear();
+
+  mount();
+  await ready();
+  expect(getAccessToken()).toBe("scoped-guest");
+  expect(readSession()?.user?.guestConferenceId).toBe("guest-room");
+  expect(fetch.mock.calls.map(([path]) => path)).toEqual(["/api/v1/auth/me"]);
+  expect(localStorage.getItem(LOGOUT_KEY)).not.toBeNull();
+});
+
+it.each(["expired", "revoked"])(
+  "не восстанавливает старый аккаунт после %s гостевой сессии",
+  async (state) => {
+    localStorage.setItem(LOGOUT_KEY, "previous-account-logout");
+    saveSession({
+      token: "scoped-guest",
+      expiresAt: Date.now() + (state === "expired" ? -1000 : 3600_000),
+      user: { ...person, email: "", guestConferenceId: "guest-room" },
+    });
+    const fetch = standardFetch((path) =>
+      path === "/api/v1/auth/me" ? json({}, 401) : undefined,
+    );
+    const first = mount();
+    await waitFor(() =>
+      expect(screen.getByTestId("loading")).toHaveTextContent("false"),
+    );
+    expect(screen.getByTestId("name")).toHaveTextContent("signed out");
+    expect(screen.getByTestId("error")).toHaveTextContent("false");
+    expect(readSession()).toBeNull();
+    expect(
+      fetch.mock.calls.some(([path]) => path === "/api/v1/auth/refresh"),
+    ).toBe(false);
+    first.unmount();
+    fetch.mockClear();
+
+    mount();
+    await waitFor(() =>
+      expect(screen.getByTestId("loading")).toHaveTextContent("false"),
+    );
+    expect(screen.getByTestId("name")).toHaveTextContent("signed out");
+    expect(fetch.mock.calls.map(([path]) => path)).toEqual([
+      "/api/v1/auth/logout",
+    ]);
+  },
+);
+
+it("не доверяет гостевому признаку кеша, если сервер подтвердил прежний аккаунт", async () => {
+  localStorage.setItem(LOGOUT_KEY, "previous-account-logout");
+  saveSession({
+    token: "old-account-token",
+    expiresAt: Date.now() + 3600_000,
+    user: { ...person, email: "", guestConferenceId: "guest-room" },
+  });
+  const fetch = standardFetch();
+  mount();
+  await waitFor(() =>
+    expect(screen.getByTestId("loading")).toHaveTextContent("false"),
+  );
+  expect(screen.getByTestId("name")).toHaveTextContent("signed out");
+  expect(readSession()).toBeNull();
+  expect(fetch.mock.calls.map(([path]) => path)).toEqual([
+    "/api/v1/auth/me",
+    "/api/v1/auth/logout",
+  ]);
+});
+
+it("отклоняет запоздалый гостевой вход после явного выхода", async () => {
+  const response = deferred<Awaited<ReturnType<typeof api.joinGuest>>>();
+  // Этот ответ намеренно игнорирует AbortSignal: проверяется защита поколения
+  // в AuthProvider, а не только отмена сетевого запроса.
+  const joinGuest = vi
+    .spyOn(api, "joinGuest")
+    .mockReturnValue(response.promise);
+  const onGuestError = vi.fn();
+  standardFetch((path) => {
+    if (path === "/api/v1/auth/refresh") return json({}, 401);
+  });
+  mount(onGuestError);
+  await waitFor(() =>
+    expect(screen.getByTestId("loading")).toHaveTextContent("false"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Войти гостем" }));
+  await waitFor(() => expect(joinGuest).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole("button", { name: "Выйти" }));
+  await act(async () => {
+    response.resolve({
+      ...account("late-guest-access"),
+      tokenType: "Bearer",
+      user: { ...person, email: "", guestConferenceId: "guest-room" },
+      item: {
+        id: "guest-participant",
+        conferenceId: "guest-room",
+        userId: person.id,
+        displayName: person.displayName,
+        role: "participant",
+        status: "joined",
+        admissionState: "admitted",
+        joinedAt: person.createdAt,
+        leftAt: null,
+        createdAt: person.createdAt,
+        updatedAt: person.updatedAt,
+      },
+    });
+  });
+  expect(onGuestError).toHaveBeenCalledWith(
+    expect.objectContaining({ status: 409 }),
+  );
+  expect(getAccessToken()).toBeNull();
+  expect(readSession()).toBeNull();
+  expect(screen.getByTestId("name")).toHaveTextContent("signed out");
+  expect(localStorage.getItem(LOGOUT_KEY)).not.toBeNull();
 });
 
 it("retries legacy cookie migration after a transport error without logging out", async () => {

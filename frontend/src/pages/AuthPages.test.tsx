@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthPage } from "./AuthPages";
 
@@ -11,6 +11,18 @@ beforeEach(() => {
   login.mockReset();
   login.mockResolvedValue(undefined);
 });
+
+/** Показывает фактический адрес после отправки формы входа.
+ * @return Текущий локальный путь и параметры перехода.
+ */
+function Destination() {
+  const location = useLocation();
+  return (
+    <output data-testid="destination">
+      {location.pathname + location.search}
+    </output>
+  );
+}
 
 describe("вход и будущие провайдеры Meetrix", () => {
   it("показывает явно недоступные заглушки без ссылок и входа", () => {
@@ -50,6 +62,34 @@ describe("вход и будущие провайдеры Meetrix", () => {
         "member@example.test",
         "valid-password",
       ),
+    );
+  });
+
+  it.each([
+    "/calendar?date=2026-10-09",
+    "/history/45144e4e-c3d7-4eed-863e-2edc7ceec5b4",
+    "/meetings/45144e4e-c3d7-4eed-863e-2edc7ceec5b4/join",
+    "/settings",
+    "/notifications",
+    "/folders/45144e4e-c3d7-4eed-863e-2edc7ceec5b4",
+  ])("возвращает в нужный раздел после успешного входа: %s", async (next) => {
+    render(
+      <MemoryRouter
+        initialEntries={[`/login?next=${encodeURIComponent(next)}`]}
+      >
+        <AuthPage />
+        <Destination />
+      </MemoryRouter>,
+    );
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "member@example.test" },
+    });
+    fireEvent.change(screen.getByLabelText("Пароль", { exact: true }), {
+      target: { value: "valid-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Войти$/ }));
+    await waitFor(() =>
+      expect(screen.getByTestId("destination").textContent).toBe(next),
     );
   });
 });

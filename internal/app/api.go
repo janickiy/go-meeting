@@ -24,7 +24,6 @@ import (
 	personalapp "github.com/janickiy/go-recorder/internal/app/personal"
 	platformapp "github.com/janickiy/go-recorder/internal/app/platform"
 	recordingsapp "github.com/janickiy/go-recorder/internal/app/recordings"
-	recordsapp "github.com/janickiy/go-recorder/internal/app/records"
 	telemetryapp "github.com/janickiy/go-recorder/internal/app/telemetry"
 	"github.com/janickiy/go-recorder/internal/config"
 	healthinfra "github.com/janickiy/go-recorder/internal/infrastructure/health"
@@ -33,7 +32,6 @@ import (
 	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
 	"github.com/janickiy/go-recorder/internal/infrastructure/security"
 	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
-	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
 	"github.com/janickiy/go-recorder/internal/operations"
 	httptransport "github.com/janickiy/go-recorder/internal/transport/http"
 	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
@@ -109,7 +107,6 @@ func RunAPI() error {
 		return err
 	}
 	defer commandPublisher.Close()
-	workerSignaler := workerinfra.NewClient(cfg.WorkerInternalURL).SetSecret(cfg.Operations.InternalSecret)
 	service := recorder.NewService(repository, commandPublisher, s3Client, conferenceLock)
 	sqlDB.SetMaxOpenConns(cfg.Operations.DBMaxOpen)
 	sqlDB.SetMaxIdleConns(cfg.Operations.DBMaxIdle)
@@ -120,8 +117,7 @@ func RunAPI() error {
 		"minio":    s3Client.Check,
 		"rabbitmq": commandPublisher.Check,
 	})
-	handler := recordsapp.NewHandlerWithSignaler(service, workerSignaler)
-	router := httptransport.NewRouter(handler, cfg.IsLocal(), s3Client, ops.Middleware(), httpmiddleware.RateLimit(rateLimiter, rateLimitConfig(cfg)))
+	router := httptransport.NewRouter(ops.Middleware(), httpmiddleware.RateLimit(rateLimiter, rateLimitConfig(cfg)))
 	ops.RegisterGin(router)
 	httptransport.RegisterClientErrorRoutes(router, telemetryapp.NewHandler(os.Getenv("CLIENT_TELEMETRY_ENABLED") == "true", slog.Default(), ops.Registry), rateLimiter)
 	if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
@@ -296,78 +292,6 @@ func rateLimitConfig(cfg config.Config) httpmiddleware.RateLimitConfig {
 		{Method: "GET", Path: path("/conference-invites/:code"), Scope: "invite_lookup_ip", Limit: 60, Window: window, Key: httpmiddleware.ClientIPKey},
 		{Method: "POST", Path: path("/auth/login"), Scope: "ip", Limit: limit(cfg.RateLimit.AuthLoginIPRPM), Window: window, Key: httpmiddleware.ClientIPKey},
 		{Method: "POST", Path: path("/auth/register"), Scope: "ip", Limit: limit(cfg.RateLimit.AuthRegisterIPRPM), Window: window, Key: httpmiddleware.ClientIPKey},
-		{
-			Method: "POST",
-			Path:   path("/records/start"),
-			Scope:  "conference",
-			Limit:  limit(cfg.RateLimit.RecordStartConferenceRPM),
-			Window: window,
-			Key:    httpmiddleware.JSONFieldKey("conferenceId"),
-		},
-		{
-			Method: "POST",
-			Path:   path("/records/start"),
-			Scope:  "ip",
-			Limit:  limit(cfg.RateLimit.RecordStartIPRPM),
-			Window: window,
-			Key:    httpmiddleware.ClientIPKey,
-		},
-		{
-			Method: "POST",
-			Path:   path("/records/end"),
-			Scope:  "record",
-			Limit:  limit(cfg.RateLimit.RecordEndRecordRPM),
-			Window: window,
-			Key:    httpmiddleware.JSONFieldKey("recordId"),
-		},
-		{
-			Method: "POST",
-			Path:   path("/records/end"),
-			Scope:  "ip",
-			Limit:  limit(cfg.RateLimit.RecordEndIPRPM),
-			Window: window,
-			Key:    httpmiddleware.ClientIPKey,
-		},
-		{
-			Method: "POST",
-			Path:   path("/records/:id/webrtc/offer"),
-			Scope:  "record",
-			Limit:  limit(cfg.RateLimit.WebRTCOfferRecordRPM),
-			Window: window,
-			Key:    httpmiddleware.PathParamKey("id"),
-		},
-		{
-			Method: "POST",
-			Path:   path("/records/:id/webrtc/offer"),
-			Scope:  "ip",
-			Limit:  limit(cfg.RateLimit.WebRTCOfferIPRPM),
-			Window: window,
-			Key:    httpmiddleware.ClientIPKey,
-		},
-		{
-			Method: "GET",
-			Path:   path("/records"),
-			Scope:  "ip",
-			Limit:  limit(cfg.RateLimit.RecordListIPRPM),
-			Window: window,
-			Key:    httpmiddleware.ClientIPKey,
-		},
-		{
-			Method: "GET",
-			Path:   path("/records/count-by-conference"),
-			Scope:  "ip",
-			Limit:  limit(cfg.RateLimit.RecordListIPRPM),
-			Window: window,
-			Key:    httpmiddleware.ClientIPKey,
-		},
-		{
-			Method: "GET",
-			Path:   path("/records/:id"),
-			Scope:  "ip",
-			Limit:  limit(cfg.RateLimit.RecordReadIPRPM),
-			Window: window,
-			Key:    httpmiddleware.ClientIPKey,
-		},
 	}
 
 	return httpmiddleware.RateLimitConfig{

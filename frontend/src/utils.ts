@@ -110,7 +110,7 @@ export function clearLogoutMarker(): void {
  * @args
  *   - value (string | null) — значение для проверки, преобразования или отображения.
  *
- * @returns string — вычисленное значение: "/app"; url.pathname + url.search.
+ * @return Поддерживаемый путь приложения с параметрами либо "/app" для небезопасного адреса.
  */
 export function safeNext(value: string | null): string {
   if (
@@ -125,9 +125,7 @@ export function safeNext(value: string | null): string {
     const url = new URL(value, "https://meet.invalid");
     if (
       url.origin !== "https://meet.invalid" ||
-      !/^\/(?:app(?:\/[^]*)?|conferences(?:\/[^]*)?|recordings(?:\/[^]*)?|personal(?:\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?|i\/[A-Za-z0-9_-]{32})$/.test(
-        url.pathname,
-      )
+      !RETURN_DESTINATIONS.some((pattern) => pattern.test(url.pathname))
     )
       return "/app";
     return url.pathname + url.search;
@@ -135,6 +133,17 @@ export function safeNext(value: string | null): string {
     return "/app";
   }
 }
+
+// Список повторяет доступные адреса App: возврат после входа не должен вести
+// на формы авторизации, внешние ресурсы или произвольные вложенные маршруты.
+const RETURN_DESTINATIONS = [
+  /^\/app(?:\/(?:settings|recordings))?\/?$/,
+  /^\/(?:calendar|analytics|settings|notifications|admin)\/?$/,
+  /^\/(?:meetings|conferences)(?:\/[A-Za-z0-9_-]+(?:\/join)?)?\/?$/,
+  /^\/(?:recordings|history|folders)(?:\/[A-Za-z0-9_-]+)?\/?$/,
+  /^\/personal(?:\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?\/?$/,
+  /^\/i\/[A-Za-z0-9_-]{32}\/?$/,
+];
 /**
  * inviteCode извлекает допустимый код приглашения из кода или ссылки.
  *
