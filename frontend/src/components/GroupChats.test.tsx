@@ -131,7 +131,6 @@ describe("group lifecycle UI", () => {
         returnFocus={() => null}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Участники (3)" }));
     await screen.findByText("Светлана");
     vi.mocked(api.groupMembers).mockRejectedValue(
       new ApiError(403, "Доступ закрыт"),
@@ -153,7 +152,6 @@ describe("group lifecycle UI", () => {
         returnFocus={() => null}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Участники (3)" }));
     await screen.findByText("Светлана");
     expect(screen.getByText("В сети")).toBeInTheDocument();
     expect(screen.getByText("Не в сети")).toBeInTheDocument();
@@ -257,7 +255,7 @@ describe("group lifecycle UI", () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByRole("dialog", { name: "О группе" }),
+        screen.getByRole("dialog", { name: "Информация о группе" }),
       ).toBeInTheDocument(),
     );
     await waitFor(() =>
@@ -293,7 +291,6 @@ describe("group lifecycle UI", () => {
       expect(!!screen.queryByRole("button", { name: "Настройки группы" })).toBe(
         role === "admin",
       );
-      fireEvent.click(screen.getByRole("button", { name: "Участники (3)" }));
       await screen.findByText("Светлана");
       expect(
         screen.queryByRole("button", { name: "Назначить администратором" }),
@@ -303,8 +300,22 @@ describe("group lifecycle UI", () => {
         within(bob).queryByRole("button", { name: "Удалить участника" }),
       ).toBeNull();
       expect(
-        screen.queryAllByRole("button", { name: "Удалить участника" }).length,
+        screen.queryAllByRole("button", { name: /Действия с участником:/ })
+          .length,
       ).toBe(role === "admin" ? 1 : 0);
+      if (role === "admin") {
+        fireEvent.click(
+          screen.getByRole("button", {
+            name: "Действия с участником: Светлана",
+          }),
+        );
+        expect(
+          screen.getByRole("menuitem", { name: "Удалить участника" }),
+        ).toBeVisible();
+        expect(
+          screen.queryByRole("menuitem", { name: "Назначить администратором" }),
+        ).toBeNull();
+      }
     },
   );
   it("releases private avatar URLs and aborts on version change/unmount", async () => {

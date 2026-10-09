@@ -10,13 +10,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera,
   CameraOff,
-  Headphones,
   Mic,
   MicOff,
   ShieldCheck,
   Settings,
   X,
-  Pencil,
 } from "lucide-react";
 import { api, ApiError } from "../api";
 import type { Invite } from "../types";
@@ -35,11 +33,11 @@ import {
   Brand,
   Button,
   ErrorNotice,
-  Loading,
   StatusBadge,
   Modal,
 } from "../components/ui";
 import { initials } from "../utils";
+import { MeetingSkeleton } from "../components/MeetingSkeleton";
 import "./prejoin.css";
 
 type InputKind = "audio" | "video";
@@ -614,7 +612,7 @@ export function PreJoinPage({
 
   if (rawInviteCode && !inviteCode)
     return (
-      <section className="content-card">
+      <section className="invite-entry-error">
         <h1>Приглашение недоступно</h1>
         <p>Проверьте ссылку приглашения.</p>
       </section>
@@ -625,20 +623,35 @@ export function PreJoinPage({
     conference.isPending ||
     (needsMembership && self.isPending)
   )
-    return <Loading />;
+    return (
+      <main className="invite-entry-page">
+        <header className="invite-entry-brand">
+          <Brand />
+        </header>
+        <div className="prejoin-loading">
+          <MeetingSkeleton rows={2} label="Готовим вход во встречу" />
+          <p>Готовим вход во встречу…</p>
+        </div>
+      </main>
+    );
   if (conference.isError || !conference.data)
     return (
-      <section className="content-card">
-        <h1>Встреча недоступна</h1>
-        <ErrorNotice error={conference.error} />
-        <Link to="/conferences">К моим встречам</Link>
-      </section>
+      <main className="invite-entry-page">
+        <header className="invite-entry-brand">
+          <Brand />
+        </header>
+        <section className="invite-entry-error">
+          <h1>Встреча недоступна</h1>
+          <ErrorNotice error={conference.error} />
+          <Link to="/conferences">К моим встречам</Link>
+        </section>
+      </main>
     );
 
   const meeting = conference.data.item;
   if (meeting.id !== id)
     return (
-      <section className="content-card">
+      <section className="invite-entry-error">
         <h1>Приглашение недоступно</h1>
         <p>Ссылка относится к другой встрече.</p>
       </section>
@@ -670,276 +683,117 @@ export function PreJoinPage({
     );
   };
 
-  if (invitation) {
-    const name = guestMode
-      ? guestName
-      : user?.displayName || user?.email || "Участник";
-    const disabled =
-      !canJoin ||
-      self.isError ||
-      busy.audio ||
-      busy.video ||
-      join.isPending ||
-      !!startupError ||
-      (guestMode && !guestName.trim());
-    return (
-      <main className="invite-entry-page">
-        <form
-          className="invite-entry"
-          aria-label="Проверка перед входом"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!disabled) join.mutate();
+  const name = guestMode
+    ? guestName
+    : user?.displayName || user?.email || "Участник";
+  const disabled =
+    !canJoin ||
+    self.isError ||
+    busy.audio ||
+    busy.video ||
+    join.isPending ||
+    !!startupError ||
+    (guestMode && !guestName.trim());
+  const home = user && !user.guestConferenceId ? "/app" : "/";
+  const deviceFields = (
+    <div className="prejoin-device-selects">
+      <label className="field">
+        Микрофон
+        <select
+          value={preferences.audioInputId}
+          disabled={!supported || busy.audio || join.isPending}
+          onChange={(event) => {
+            const deviceId = event.target.value;
+            setPreferences((current) => ({
+              ...current,
+              audioInputId: deviceId,
+            }));
+            if (microphoneOn) void capture("audio", true, deviceId);
           }}
         >
-          <div className="invite-entry-preview">
-            {cameraOn ? (
-              <video
-                ref={video}
-                autoPlay
-                muted
-                playsInline
-                aria-label="Предпросмотр камеры"
-              />
-            ) : (
-              <div className="invite-entry-placeholder">
-                <span>{initials(name || "Гость")}</span>
-                <CameraOff size={28} aria-hidden="true" />
-                <p>Камера выключена</p>
-              </div>
-            )}
-          </div>
-          <header className="invite-entry-heading">
-            <h1>{meeting.title}</h1>
-            <StatusBadge status={meeting.status} />
-          </header>
-          <Link
-            className="invite-entry-close"
-            to={user && !user.guestConferenceId ? "/app" : "/"}
-            aria-label="Закрыть подключение"
+          {inputOptions("audioinput", preferences.audioInputId)}
+        </select>
+      </label>
+      <label className="field">
+        Камера
+        <select
+          value={preferences.videoInputId}
+          disabled={!supported || busy.video || join.isPending}
+          onChange={(event) => {
+            const deviceId = event.target.value;
+            setPreferences((current) => ({
+              ...current,
+              videoInputId: deviceId,
+            }));
+            if (cameraOn) void capture("video", true, deviceId);
+          }}
+        >
+          {inputOptions("videoinput", preferences.videoInputId)}
+        </select>
+      </label>
+      {outputSupported && (
+        <label className="field">
+          Вывод звука
+          <select
+            value={preferences.audioOutputId}
+            disabled={join.isPending}
+            onChange={(event) =>
+              setPreferences((current) => ({
+                ...current,
+                audioOutputId: event.target.value,
+              }))
+            }
           >
-            <X size={30} />
-          </Link>
-          <div className="invite-entry-bottom">
-            <div className="invite-entry-identity">
-              {guestMode ? (
-                <label className="invite-entry-name">
-                  <span className="sr-only">Имя на встрече</span>
-                  <input
-                    aria-label="Имя на встрече"
-                    value={guestName}
-                    maxLength={100}
-                    required
-                    autoComplete="off"
-                    onChange={(event) => setGuestName(event.target.value)}
-                    disabled={join.isPending}
-                  />
-                  <Pencil size={19} aria-hidden="true" />
-                </label>
-              ) : (
-                <h2>{name}</h2>
-              )}
-              <p>
-                {guestMode
-                  ? "Укажите имя, которое увидят участники"
-                  : user?.email}
-              </p>
-            </div>
-            <div className="invite-entry-notices">
-              {meeting.status === "scheduled" && (
-                <p>
-                  Подключение будет доступно, когда организатор начнёт встречу.
-                </p>
-              )}
-              {meeting.status === "scheduled" && !guestMode && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  busy={join.isPending}
-                  disabled={!!startupError || self.isError}
-                  onClick={() => join.mutate()}
-                >
-                  Добавить в мои встречи
-                </Button>
-              )}
-              {closed && <p>Встреча завершена.</p>}
-              {restricted && <p>Организатор ограничил повторный вход.</p>}
-              {!secure && (
-                <p>
-                  Для камеры и микрофона откройте защищённую HTTPS-страницу.
-                </p>
-              )}
-              <ErrorNotice error={self.error || join.error}>
-                {deviceError || null}
-              </ErrorNotice>
-              {startupError && (
-                <p role="alert">
-                  Не удалось проверить сессию.{" "}
-                  <button type="button" onClick={retry}>
-                    Повторить
-                  </button>
-                </p>
-              )}
-              {notice && <p role="status">{notice}</p>}
-              {playbackBlocked && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    void video.current
-                      ?.play()
-                      .then(() => setPlaybackBlocked(false))
-                  }
-                >
-                  Запустить предпросмотр
-                </button>
-              )}
-            </div>
-            <div className="invite-entry-controls">
-              <div className="invite-entry-inputs">
-                <button
-                  type="button"
-                  className={`invite-entry-control ${microphoneOn ? "is-on" : ""}`}
-                  aria-label={
-                    microphoneOn ? "Выключить микрофон" : "Включить микрофон"
-                  }
-                  aria-pressed={microphoneOn}
-                  disabled={busy.audio || join.isPending}
-                  onClick={() =>
-                    void capture(
-                      "audio",
-                      !microphoneOn,
-                      preferences.audioInputId,
-                    )
-                  }
-                >
-                  {microphoneOn ? <Mic /> : <MicOff />}
-                </button>
-                <button
-                  type="button"
-                  className={`invite-entry-control ${cameraOn ? "is-on" : ""}`}
-                  aria-label={cameraOn ? "Выключить камеру" : "Включить камеру"}
-                  aria-pressed={cameraOn}
-                  disabled={busy.video || join.isPending}
-                  onClick={() =>
-                    void capture("video", !cameraOn, preferences.videoInputId)
-                  }
-                >
-                  {cameraOn ? <Camera /> : <CameraOff />}
-                </button>
-              </div>
-              <Button
-                type="submit"
-                className="invite-entry-connect"
-                busy={join.isPending}
-                disabled={disabled}
-              >
-                Подключиться
-              </Button>
-              <button
-                type="button"
-                className="invite-entry-control invite-entry-settings"
-                aria-label="Настройки устройств"
-                aria-haspopup="dialog"
-                disabled={join.isPending}
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings />
-              </button>
-            </div>
-          </div>
-        </form>
-        {settingsOpen && (
-          <Modal
-            title="Настройки устройств"
-            onClose={() => setSettingsOpen(false)}
-          >
-            <div className="prejoin-settings invite-device-settings">
-              <label className="field">
-                Микрофон
-                <select
-                  value={preferences.audioInputId}
-                  disabled={!supported || busy.audio || join.isPending}
-                  onChange={(event) => {
-                    const deviceId = event.target.value;
-                    setPreferences((current) => ({
-                      ...current,
-                      audioInputId: deviceId,
-                    }));
-                    if (microphoneOn) void capture("audio", true, deviceId);
-                  }}
-                >
-                  {inputOptions("audioinput", preferences.audioInputId)}
-                </select>
-              </label>
-              <label className="field">
-                Камера
-                <select
-                  value={preferences.videoInputId}
-                  disabled={!supported || busy.video || join.isPending}
-                  onChange={(event) => {
-                    const deviceId = event.target.value;
-                    setPreferences((current) => ({
-                      ...current,
-                      videoInputId: deviceId,
-                    }));
-                    if (cameraOn) void capture("video", true, deviceId);
-                  }}
-                >
-                  {inputOptions("videoinput", preferences.videoInputId)}
-                </select>
-              </label>
-              {outputSupported && (
-                <label className="field">
-                  Вывод звука
-                  <select
-                    value={preferences.audioOutputId}
-                    disabled={join.isPending}
-                    onChange={(event) =>
-                      setPreferences((current) => ({
-                        ...current,
-                        audioOutputId: event.target.value,
-                      }))
-                    }
-                  >
-                    {inputOptions("audiooutput", preferences.audioOutputId)}
-                  </select>
-                </label>
-              )}
-              <label className="prejoin-level">
-                Уровень микрофона
-                <meter min={0} max={1} value={microphoneOn ? level : 0} />
-              </label>
-              <p className="field-hint">
-                До подключения камера и микрофон доступны только вам.
-              </p>
-            </div>
-          </Modal>
-        )}
-      </main>
-    );
-  }
-
+            {inputOptions("audiooutput", preferences.audioOutputId)}
+          </select>
+        </label>
+      )}
+      {!outputSupported && (
+        <p className="field-hint">
+          Для выбора вывода звука используйте настройки браузера или системы.
+        </p>
+      )}
+      <p className="field-hint">Выбор сохраняется в этом браузере.</p>
+    </div>
+  );
   return (
-    <section className="prejoin-page" aria-label="Проверка перед входом">
-      <div className="prejoin-brand">
-        <Brand to="/app" />
-      </div>
-      <Link className="text-link" to={`/conferences/${id}`}>
-        ← К встрече
-      </Link>
+    <main className="prejoin-page prejoin-parity-page">
+      <header className="prejoin-brand">
+        <Brand to={home} />
+        <Link
+          className="icon-button"
+          to={home}
+          aria-label="Закрыть подключение"
+        >
+          <X size={20} />
+        </Link>
+      </header>
       <div className="prejoin-heading">
         <div>
-          <span className="eyebrow">НАСТРОЙКИ ПЕРЕД ВХОДОМ</span>
+          <span className="eyebrow">
+            {invitation ? "ВАС ПРИГЛАСИЛИ" : "ПЕРЕД ПОДКЛЮЧЕНИЕМ"}
+          </span>
           <h1>{meeting.title}</h1>
-          <p>
-            Проверьте устройства. Камера и микрофон пока доступны только вам.
-          </p>
+          <p>Убедитесь, что вас хорошо видно и слышно.</p>
         </div>
-        <StatusBadge status={meeting.status} />
       </div>
-      <div className="prejoin-grid">
-        <div className="content-card prejoin-preview">
+      <form
+        className="prejoin-grid"
+        aria-label="Проверка перед входом"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!disabled) join.mutate();
+        }}
+      >
+        <section className="content-card prejoin-preview">
           <div className="prejoin-video-frame">
+            <div className="prejoin-preview-top">
+              <StatusBadge status={meeting.status} />
+              <span>
+                <ShieldCheck size={14} aria-hidden="true" />
+                Видно только вам
+              </span>
+            </div>
             {cameraOn ? (
               <video
                 ref={video}
@@ -951,15 +805,85 @@ export function PreJoinPage({
             ) : (
               <div className="prejoin-camera-off">
                 <span className="prejoin-initials">
-                  {initials(user?.displayName || "Участник")}
+                  {initials(name || "Гость")}
                 </span>
-                <CameraOff size={22} aria-hidden="true" />
-                <span>Камера выключена</span>
+                <span>
+                  <CameraOff size={21} aria-hidden="true" />
+                  Камера выключена
+                </span>
               </div>
             )}
+            <span className="prejoin-preview-name">{name || "Гость"} · вы</span>
           </div>
+          <div className="prejoin-toggles">
+            <Button
+              type="button"
+              variant="secondary"
+              aria-label={
+                microphoneOn ? "Выключить микрофон" : "Включить микрофон"
+              }
+              aria-pressed={microphoneOn}
+              disabled={busy.audio || join.isPending}
+              onClick={() =>
+                void capture("audio", !microphoneOn, preferences.audioInputId)
+              }
+            >
+              {microphoneOn ? <Mic size={21} /> : <MicOff size={21} />}
+              <span>Микрофон</span>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              aria-label={cameraOn ? "Выключить камеру" : "Включить камеру"}
+              aria-pressed={cameraOn}
+              disabled={busy.video || join.isPending}
+              onClick={() =>
+                void capture("video", !cameraOn, preferences.videoInputId)
+              }
+            >
+              {cameraOn ? <Camera size={21} /> : <CameraOff size={21} />}
+              <span>Камера</span>
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="prejoin-mobile-devices"
+              aria-label="Настройки устройств"
+              aria-haspopup="dialog"
+              disabled={join.isPending}
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings size={21} />
+              <span>Устройства</span>
+            </Button>
+          </div>
+          <label className="prejoin-level">
+            <span>
+              <Mic size={17} aria-hidden="true" />
+              Уровень микрофона
+            </span>
+            <meter
+              className="sr-only"
+              min={0}
+              max={1}
+              value={microphoneOn ? level : 0}
+            />
+            <span className="prejoin-meter-bars" aria-hidden="true">
+              {Array.from({ length: 20 }, (_, index) => (
+                <i
+                  key={index}
+                  className={
+                    microphoneOn && level > index / 20
+                      ? "prejoin-meter-lit"
+                      : ""
+                  }
+                />
+              ))}
+            </span>
+          </label>
           {playbackBlocked && (
             <Button
+              type="button"
               variant="outline"
               onClick={() =>
                 void video.current?.play().then(() => setPlaybackBlocked(false))
@@ -968,116 +892,47 @@ export function PreJoinPage({
               Запустить предпросмотр
             </Button>
           )}
-          <div className="prejoin-toggles">
-            <Button
-              variant={microphoneOn ? "secondary" : "outline"}
-              aria-pressed={microphoneOn}
-              busy={busy.audio}
-              disabled={join.isPending}
-              onClick={() =>
-                void capture("audio", !microphoneOn, preferences.audioInputId)
-              }
-            >
-              {microphoneOn ? <Mic size={18} /> : <MicOff size={18} />}
-              {microphoneOn ? "Выключить микрофон" : "Проверить микрофон"}
-            </Button>
-            <Button
-              variant={cameraOn ? "secondary" : "outline"}
-              aria-pressed={cameraOn}
-              busy={busy.video}
-              disabled={join.isPending}
-              onClick={() =>
-                void capture("video", !cameraOn, preferences.videoInputId)
-              }
-            >
-              {cameraOn ? <Camera size={18} /> : <CameraOff size={18} />}
-              {cameraOn ? "Выключить камеру" : "Проверить камеру"}
-            </Button>
-          </div>
-          <label className="prejoin-level">
-            Уровень микрофона
-            <meter min={0} max={1} value={microphoneOn ? level : 0} />
-          </label>
+          {!secure && (
+            <p className="field-hint">
+              Для камеры и микрофона откройте защищённую HTTPS-страницу.
+            </p>
+          )}
           <ErrorNotice>{deviceError || null}</ErrorNotice>
           {notice && (
             <p role="status" className="field-hint">
               {notice}
             </p>
           )}
-          {!secure && (
-            <p className="field-hint">
-              Для доступа к устройствам откройте встречу через HTTPS или
-              localhost.
-            </p>
-          )}
-        </div>
-        <div className="content-card prejoin-settings">
-          <h2>Устройства и вход</h2>
-          <label className="field">
-            Имя на встрече
-            <input value={user?.displayName || user?.email || ""} readOnly />
-          </label>
-          <p className="field-hint">
-            Имя берётся из вашего аккаунта.{" "}
-            <Link className="text-link" to="/settings">
-              Изменить имя в настройках
-            </Link>
-          </p>
-          <label className="field">
-            <span className="prejoin-device-label">
-              <Mic size={16} aria-hidden="true" /> Микрофон
-            </span>
-            <select
-              value={preferences.audioInputId}
-              disabled={!supported || busy.audio || join.isPending}
-              onChange={(event) => {
-                const id = event.target.value;
-                setPreferences((current) => ({ ...current, audioInputId: id }));
-                if (microphoneOn) void capture("audio", true, id);
-              }}
-            >
-              {inputOptions("audioinput", preferences.audioInputId)}
-            </select>
-          </label>
-          <label className="field">
-            <span className="prejoin-device-label">
-              <Camera size={16} aria-hidden="true" /> Камера
-            </span>
-            <select
-              value={preferences.videoInputId}
-              disabled={!supported || busy.video || join.isPending}
-              onChange={(event) => {
-                const id = event.target.value;
-                setPreferences((current) => ({ ...current, videoInputId: id }));
-                if (cameraOn) void capture("video", true, id);
-              }}
-            >
-              {inputOptions("videoinput", preferences.videoInputId)}
-            </select>
-          </label>
-          {outputSupported && (
+        </section>
+        <section className="content-card prejoin-settings">
+          <h2>
+            {guestMode ? "Как вас представить?" : "Всё готово к встрече?"}
+          </h2>
+          {guestMode ? (
             <label className="field">
-              <span className="prejoin-device-label">
-                <Headphones size={16} aria-hidden="true" /> Вывод звука
-              </span>
-              <select
-                value={preferences.audioOutputId}
+              Имя на встрече
+              <input
+                aria-label="Имя на встрече"
+                value={guestName}
+                maxLength={100}
+                required
+                autoComplete="off"
+                onChange={(event) => setGuestName(event.target.value)}
                 disabled={join.isPending}
-                onChange={(event) =>
-                  setPreferences((current) => ({
-                    ...current,
-                    audioOutputId: event.target.value,
-                  }))
-                }
-              >
-                {inputOptions("audiooutput", preferences.audioOutputId)}
-              </select>
+              />
             </label>
+          ) : (
+            <div className="prejoin-signed-in">
+              <span className="avatar">{initials(name)}</span>
+              <div>
+                <strong>{name}</strong>
+                <span>{user?.email}</span>
+              </div>
+            </div>
           )}
-          <p className="field-hint">
-            Выбранные устройства запоминаются только в этом браузере. Если
-            устройство исчезнет, будет использовано системное.
-          </p>
+          {!settingsOpen && (
+            <div className="prejoin-desktop-devices">{deviceFields}</div>
+          )}
           {meeting.waitingRoomEnabled && !inviteCode && (
             <p className="prejoin-waiting-note">
               После входа организатор может направить вас в зал ожидания. Медиа
@@ -1085,28 +940,66 @@ export function PreJoinPage({
             </p>
           )}
           {meeting.status === "scheduled" && (
-            <p className="field-hint">Войти можно после начала встречи.</p>
+            <p className="prejoin-waiting-note">
+              Подключение станет доступно, когда организатор начнёт встречу.
+            </p>
+          )}
+          {invitation && meeting.status === "scheduled" && !guestMode && (
+            <Button
+              type="button"
+              variant="secondary"
+              busy={join.isPending}
+              disabled={!!startupError || self.isError}
+              onClick={() => join.mutate()}
+            >
+              Добавить в мои встречи
+            </Button>
           )}
           {closed && <p className="field-hint">Встреча завершена.</p>}
           {restricted && (
             <p className="field-hint">Организатор ограничил повторный вход.</p>
           )}
           <ErrorNotice error={self.error || join.error} />
+          {startupError && (
+            <p role="alert">
+              Не удалось проверить сессию.{" "}
+              <button type="button" onClick={retry}>
+                Повторить
+              </button>
+            </p>
+          )}
           <Button
+            type="submit"
             className="prejoin-join"
+            aria-label={invitation ? "Подключиться" : "Войти во встречу"}
             busy={join.isPending}
-            disabled={!canJoin || self.isError || busy.audio || busy.video}
-            onClick={() => join.mutate()}
+            disabled={disabled}
           >
-            Войти во встречу
+            {meeting.status === "scheduled"
+              ? "Ожидаем начала встречи"
+              : "Подключиться"}
           </Button>
-          <p className="field-hint">
-            <ShieldCheck size={15} aria-hidden="true" /> Предпросмотр
-            остановится при входе. После допуска включите медиа в комнате
-            выбранными устройствами.
+          <p className="prejoin-privacy">
+            <ShieldCheck size={16} aria-hidden="true" />
+            Можно войти с выключенными камерой и микрофоном.
           </p>
-        </div>
-      </div>
-    </section>
+          {!guestMode && (
+            <Link className="prejoin-account-link" to="/settings">
+              Изменить имя в настройках
+            </Link>
+          )}
+        </section>
+      </form>
+      {settingsOpen && (
+        <Modal
+          title="Настройки устройств"
+          onClose={() => setSettingsOpen(false)}
+        >
+          <div className="prejoin-settings invite-device-settings">
+            {deviceFields}
+          </div>
+        </Modal>
+      )}
+    </main>
   );
 }

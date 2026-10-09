@@ -132,9 +132,9 @@ describe("календарь встреч", () => {
       }),
     );
     expect(
-      screen.getByText(/предстоящие встречи с указанной датой/),
+      screen.getByText(/Здесь только встречи с датой, которые ещё не начались/),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Новая встреча" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Запланировать" })).toHaveAttribute(
       "href",
       "/meetings/new?scheduled=1&returnTo=calendar",
     );
@@ -161,7 +161,9 @@ describe("календарь встреч", () => {
     );
     expect(mocks.transition).not.toHaveBeenCalled();
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Да, отменить встречу" }),
+      within(
+        screen.getByRole("dialog", { name: "Отменить встречу?" }),
+      ).getByRole("button", { name: "Да, отменить встречу" }),
     );
     await waitFor(() =>
       expect(mocks.transition).toHaveBeenCalledWith(

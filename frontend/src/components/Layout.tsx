@@ -10,8 +10,11 @@ import {
   Home,
   Folder,
   LogOut,
+  LayoutGrid,
+  Ellipsis,
   Menu,
   CirclePlay,
+  Plus,
   Settings,
   ShieldCheck,
   Video,
@@ -23,7 +26,7 @@ import { Brand, Loading } from "./ui";
 import { NotificationBell } from "./NotificationBell";
 import { useNotificationStream } from "../notifications";
 import { useCapabilities } from "../useCapabilities";
-import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
+import { PRODUCT_NAME } from "../brand";
 import { AccountSettingsModal } from "./AccountSettingsModal";
 import { AccountSettingsContext } from "./AccountSettingsContext";
 
@@ -86,7 +89,7 @@ export function Layout() {
   }
   useEffect(() => {
     if (!open) return;
-    const desktop = window.matchMedia("(min-width: 761px)");
+    const desktop = window.matchMedia("(min-width: 768px)");
     if (desktop.matches) {
       setOpen(false);
       return;
@@ -154,6 +157,21 @@ export function Layout() {
         {settingsDialog}
       </AccountSettingsContext.Provider>
     );
+  if (
+    /^\/(?:conferences|meetings)\/[^/]+\/(?:join|prejoin)$/.test(
+      location.pathname,
+    )
+  )
+    return (
+      <AccountSettingsContext.Provider value={showAccountSettings}>
+        <div inert={settingsOpen}>
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
+        </div>
+        {settingsDialog}
+      </AccountSettingsContext.Provider>
+    );
   const items = [
     { to: "/app", label: "Главная", Icon: Home, end: true },
     { to: "/conferences", label: "Встречи", Icon: Video },
@@ -172,6 +190,23 @@ export function Layout() {
       ? [{ to: "/admin", label: "Администрирование", Icon: ShieldCheck }]
       : []),
   ];
+  const sectionTitle =
+    [...items, { to: "/folders", label: "Папки" }, ...serviceItems].find(
+      (item) =>
+        item.to === "/app"
+          ? location.pathname === "/app"
+          : location.pathname.startsWith(item.to),
+    )?.label ||
+    (location.pathname.startsWith("/history")
+      ? "Материалы встречи"
+      : location.pathname.startsWith("/notifications")
+        ? "Уведомления"
+        : "Встречи");
+  const sectionContext = location.pathname.startsWith("/personal")
+    ? "Общение"
+    : location.pathname.startsWith("/folders")
+      ? "Организация"
+      : sectionTitle;
   return (
     <AccountSettingsContext.Provider value={showAccountSettings}>
       {personal.notice && (
@@ -196,6 +231,25 @@ export function Layout() {
         <a className="skip-link" href="#workspace-main">
           Перейти к содержимому
         </a>
+        <div className="app-chrome">
+          <span className="chrome-tagline">Место для ваших встреч</span>
+          <div className="chrome-context">
+            <LayoutGrid size={16} aria-hidden="true" />
+            <span>{PRODUCT_NAME}</span>
+            <span className="chrome-slash" aria-hidden="true">
+              /
+            </span>
+            <strong>{sectionContext}</strong>
+          </div>
+          <Link
+            to="/conferences/new"
+            className="chrome-create"
+            aria-label="Создать встречу"
+            title="Создать встречу"
+          >
+            <Plus size={20} aria-hidden="true" />
+          </Link>
+        </div>
         <aside
           id="app-sidebar"
           ref={sidebar}
@@ -214,7 +268,7 @@ export function Layout() {
               <X />
             </button>
           </div>
-          <p className="sidebar-caption">РАБОЧЕЕ ПРОСТРАНСТВО</p>
+          <p className="sidebar-caption">Рабочее пространство</p>
           <nav className="sidebar-nav" aria-label="Основная навигация">
             {items.map(({ to, label, Icon, ...props }) => (
               <NavLink
@@ -228,8 +282,8 @@ export function Layout() {
                   isActive ? "nav-item nav-active" : "nav-item"
                 }
               >
-                <Icon size={18} aria-hidden="true" />
-                {label}
+                <Icon size={22} aria-hidden="true" />
+                <span className="nav-label-text">{label}</span>
                 {to === "/personal" && personal.unread > 0 && (
                   <span
                     className="count-badge"
@@ -242,7 +296,7 @@ export function Layout() {
             ))}
           </nav>
           <p className="sidebar-caption sidebar-personal-caption">
-            ЛИЧНОЕ ПРОСТРАНСТВО
+            Личное пространство
           </p>
           <nav className="sidebar-nav" aria-label="Личное пространство">
             <NavLink
@@ -252,8 +306,8 @@ export function Layout() {
                 isActive ? "nav-item nav-active" : "nav-item"
               }
             >
-              <Folder size={18} aria-hidden="true" />
-              Папки
+              <Folder size={22} aria-hidden="true" />
+              <span className="nav-label-text">Папки</span>
             </NavLink>
           </nav>
           <nav
@@ -271,36 +325,41 @@ export function Layout() {
                   isActive ? "nav-item nav-active" : "nav-item"
                 }
               >
-                <Icon size={18} aria-hidden="true" />
-                {label}
+                <Icon size={22} aria-hidden="true" />
+                <span className="nav-label-text">{label}</span>
               </NavLink>
             ))}
           </nav>
-          <div className="sidebar-context-note">
-            <ShieldCheck size={18} />
-            <p>
-              Ваши встречи и материалы.
-              <br />
-              Доступ — под вашим контролем.
-            </p>
-          </div>
           <div className="sidebar-bottom">
-            <div className="profile">
-              <span className="avatar avatar-small">
+            <button
+              type="button"
+              className="profile profile-button"
+              aria-label="Открыть настройки аккаунта"
+              onClick={(event) => {
+                const target = open
+                  ? opener.current || menuButton.current || event.currentTarget
+                  : event.currentTarget;
+                setOpen(false);
+                showAccountSettings(target);
+              }}
+            >
+              <span className="avatar">
                 {initials(user?.displayName || user?.email || "")}
               </span>
               <div>
                 <strong>{user?.displayName || "Мой аккаунт"}</strong>
                 <span>{user?.email}</span>
               </div>
-            </div>
+            </button>
             <button
               className="logout-button"
               disabled={leaving}
               onClick={leaveAccount}
             >
-              <LogOut size={16} />
-              {leaving ? "Выходим…" : "Выйти из аккаунта"}
+              <LogOut size={22} />
+              <span className="nav-label-text">
+                {leaving ? "Выходим…" : "Выйти из аккаунта"}
+              </span>
             </button>
           </div>
         </aside>
@@ -326,17 +385,26 @@ export function Layout() {
             >
               <Menu aria-hidden="true" />
             </button>
+            <div className="workspace-mobile-brand">
+              <Brand to="/app" />
+            </div>
+            <span className="workspace-context">{sectionContext}</span>
             <div className="workspace-account">
               <NotificationBell />
-              <div className="topbar-profile">
-                <span className="avatar avatar-small">
+              <button
+                type="button"
+                className="topbar-profile"
+                aria-label="Профиль и настройки аккаунта"
+                onClick={(event) => showAccountSettings(event.currentTarget)}
+              >
+                <span className="avatar">
                   {initials(user?.displayName || user?.email || "")}
                 </span>
                 <span className="topbar-profile-text">
                   <strong>{user?.displayName || "Мой аккаунт"}</strong>
                   <small>{user?.email}</small>
                 </span>
-              </div>
+              </button>
             </div>
           </header>
           <main id="workspace-main" className="workspace-main" tabIndex={-1}>
@@ -344,14 +412,14 @@ export function Layout() {
               <Outlet />
             </Suspense>
           </main>
-          <footer className="workspace-footer">
-            <span>{PRODUCT_NAME}</span>
-            <span>{PRODUCT_TAGLINE}</span>
-          </footer>
           <nav className="mobile-bottom-nav" aria-label="Быстрая навигация">
             <NavLink to="/app" end aria-label="Главная — быстрая навигация">
               <Home size={20} />
               Главная
+            </NavLink>
+            <NavLink to="/conferences" aria-label="Встречи — быстрая навигация">
+              <Video size={20} />
+              Встречи
             </NavLink>
             <NavLink
               to="/personal"
@@ -359,10 +427,6 @@ export function Layout() {
             >
               <MessageCircle size={20} />
               Личные
-            </NavLink>
-            <NavLink to="/calendar" aria-label="Календарь — быстрая навигация">
-              <CalendarDays size={20} />
-              Календарь
             </NavLink>
             <NavLink to="/recordings" aria-label="Записи — быстрая навигация">
               <CirclePlay size={20} />
@@ -378,7 +442,7 @@ export function Layout() {
                 setOpen(true);
               }}
             >
-              <Menu size={20} />
+              <Ellipsis size={20} />
               Ещё
             </button>
           </nav>

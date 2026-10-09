@@ -63,7 +63,11 @@ test("group lifecycle with actual API, realtime, files, permissions, revocation 
   await login(page, alice);
   await login(bobPage, bob);
   await page
-    .getByRole("button", { name: "Создать группу", exact: true })
+    .locator(".personal-sidebar")
+    .getByRole("button", { name: "Новый чат", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Создать группу", exact: true })
     .click();
   await page.getByRole("textbox", { name: "Название группы" }).fill(groupName);
   await page
@@ -95,16 +99,28 @@ test("group lifecycle with actual API, realtime, files, permissions, revocation 
     .filter({ hasText: groupName })
     .click();
   await expect(bobPage.getByRole("log")).toContainText("Сообщение группе");
-  await bobPage.getByRole("button", { name: "Ответить", exact: true }).click();
+  await bobPage.getByRole("button", { name: /Действия с сообщением:/ }).click();
+  await bobPage
+    .getByRole("menuitem", { name: "Ответить", exact: true })
+    .click();
   await bobPage
     .getByRole("textbox", { name: "Сообщение", exact: true })
     .fill("Ответ участника");
   await bobPage.getByRole("button", { name: "Отправить", exact: true }).click();
   await expect(thread).toContainText("Ответ участника");
+  await bobPage
+    .locator(".chat-message-own")
+    .getByRole("button", { name: /Действия с сообщением:/ })
+    .click();
   await expect(
-    bobPage.getByRole("button", { name: "Изменить", exact: true }),
+    bobPage.getByRole("menuitem", { name: "Изменить", exact: true }),
   ).toHaveCount(1);
-  await page.getByRole("button", { name: "Изменить", exact: true }).click();
+  await bobPage.keyboard.press("Escape");
+  await page
+    .locator(".chat-message-own")
+    .getByRole("button", { name: /Действия с сообщением:/ })
+    .click();
+  await page.getByRole("menuitem", { name: "Изменить", exact: true }).click();
   await page.locator("#edit-message").fill("Исправлено для группы");
   await page
     .getByRole("dialog")
@@ -130,15 +146,22 @@ test("group lifecycle with actual API, realtime, files, permissions, revocation 
   await page.getByRole("button", { name: "Информация о группе" }).click();
   await modalAxe(page);
   await page.screenshot({ path: info.outputPath("group-info-desktop.png") });
-  await page.getByRole("button", { name: /Участники \(2\)/ }).click();
   await expect(
     page.getByRole("list", { name: "Участники группы" }),
   ).toContainText(bob.name);
-  await page.getByRole("button", { name: "Назначить администратором" }).click();
+  await page
+    .getByRole("button", { name: `Действия с участником: ${bob.name}` })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Назначить администратором" })
+    .click();
+  await page
+    .getByRole("button", { name: `Действия с участником: ${bob.name}` })
+    .click();
   await expect(
-    page.getByRole("button", { name: "Снять администратора" }),
+    page.getByRole("menuitem", { name: "Снять администратора" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "О группе", exact: true }).click();
+  await page.keyboard.press("Escape");
   await page
     .getByRole("button", { name: "Добавить участников", exact: true })
     .click();
@@ -167,10 +190,10 @@ test("group lifecycle with actual API, realtime, files, permissions, revocation 
   ).toHaveCount(0);
   await bobPage.keyboard.press("Escape");
   await page.getByRole("button", { name: "Информация о группе" }).click();
-  await page.getByRole("button", { name: /Участники \(3\)/ }).click();
   const bobRow = page.getByRole("listitem").filter({ hasText: bob.name });
-  await bobRow
-    .getByRole("button", { name: "Удалить участника", exact: true })
+  await bobRow.getByRole("button", { name: /Действия с участником:/ }).click();
+  await page
+    .getByRole("menuitem", { name: "Удалить участника", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Подтвердить удаление участника" })
@@ -261,7 +284,11 @@ test("avatar retry stays idempotent and missed WebSocket revoke closes cached me
   });
   await login(page, alice);
   await page
-    .getByRole("button", { name: "Создать группу", exact: true })
+    .locator(".personal-sidebar")
+    .getByRole("button", { name: "Новый чат", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Создать группу", exact: true })
     .click();
   await page.getByRole("textbox", { name: "Название группы" }).fill(name);
   await page

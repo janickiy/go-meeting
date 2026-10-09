@@ -3,8 +3,8 @@ import type { Page } from "@playwright/test";
 
 /** openChat загружает автономный макет без записи в API проекта. */
 async function openChat(page: Page) {
-  // Settle the original application's anonymous startup before mounting a
-  // second AuthProvider; a late 401 must not clear the fixture's shared session.
+  // Завершаем анонимную загрузку приложения перед вторым AuthProvider:
+  // поздний ответ 401 не должен очищать изолированную тестовую сессию.
   await page.route("**/api/v1/auth/refresh", (route) =>
     route.fulfill({
       status: 401,
@@ -66,16 +66,19 @@ for (const size of sizes) {
     expect(initial).not.toBeNull();
     const ownShort = page.getByTestId("chat-message-own-short");
     const ownArticleBox = (await ownShort.boundingBox())!;
-    const ownBubbleBox = (await ownShort
+    const ownBodyBox = (await ownShort
       .locator(".chat-message-bubble")
       .boundingBox())!;
-    expect(
-      ownArticleBox.x +
-        ownArticleBox.width -
-        ownBubbleBox.x -
-        ownBubbleBox.width,
-      "Свой короткий пузырь должен оставаться у правого края на любом экране",
-    ).toBeLessThan(2);
+    const ownAvatarBox = (await ownShort
+      .locator(".chat-message-avatar")
+      .boundingBox())!;
+    await expect(ownShort.locator("header strong")).toHaveText("Александр");
+    await expect(ownShort.locator("header time")).toBeVisible();
+    expect(ownAvatarBox.x).toBeGreaterThanOrEqual(ownArticleBox.x);
+    expect(ownAvatarBox.x + ownAvatarBox.width).toBeLessThan(ownBodyBox.x);
+    expect(ownBodyBox.x + ownBodyBox.width).toBeLessThanOrEqual(
+      ownArticleBox.x + ownArticleBox.width,
+    );
     const railBox = (await rail.boundingBox())!;
     expect(railBox.x).toBeGreaterThanOrEqual(0);
     expect(railBox.y).toBeGreaterThanOrEqual(0);
@@ -161,8 +164,9 @@ test("landscape: ответ, многострочный текст и 5 гото
   await openChat(page);
   await page
     .getByTestId("chat-message-incoming-short")
-    .getByRole("button", { name: "Ответить", exact: true })
+    .getByRole("button", { name: /Действия с сообщением:/ })
     .click();
+  await page.getByRole("menuitem", { name: "Ответить", exact: true }).click();
   await page.getByLabel("Выбрать файлы для сообщения").setInputFiles(
     Array.from({ length: 5 }, (_, index) => ({
       name: `Материалы-проекта-длинное-название-${index + 1}.pdf`,
@@ -227,7 +231,7 @@ test("landscape: ответ, многострочный текст и 5 гото
   ).toHaveCount(0);
 });
 
-test("пузыри слева/справа, выделение и клавиши отправки сохраняют семантику чата", async ({
+test("плоская лента с авторами, выделение и клавиши отправки сохраняют семантику чата", async ({
   page,
 }, info) => {
   await openChat(page);
@@ -235,14 +239,31 @@ test("пузыри слева/справа, выделение и клавиши
   const incoming = page.getByTestId("chat-message-incoming-short");
   const ownBox = (await own.boundingBox())!;
   const incomingBox = (await incoming.boundingBox())!;
-  expect(ownBox.x).toBeGreaterThan(incomingBox.x);
+  expect(ownBox.x).toBeCloseTo(incomingBox.x, 1);
+  expect(ownBox.width).toBeCloseTo(incomingBox.width, 1);
   expect(
     await own.evaluate((element) => getComputedStyle(element).alignSelf),
-  ).toBe("flex-end");
+  ).toBe("stretch");
   expect(
     await incoming.evaluate((element) => getComputedStyle(element).alignSelf),
-  ).toBe("flex-start");
+  ).toBe("stretch");
+  await expect(own.locator(".chat-message-avatar")).toBeVisible();
   await expect(incoming.locator(".chat-message-avatar")).toBeVisible();
+  await expect(own.locator("header strong")).toHaveText("Александр");
+  await expect(incoming.locator("header strong")).toHaveText("Мария");
+  await expect(own.locator(".chat-message-self")).toHaveText("вы");
+  await expect(own.locator("header time")).toBeVisible();
+  await expect(incoming.locator("header time")).toBeVisible();
+  expect(
+    await own
+      .locator(".chat-message-bubble")
+      .evaluate((element) => getComputedStyle(element).backgroundColor),
+  ).toBe("rgba(0, 0, 0, 0)");
+  expect(
+    await own.evaluate(
+      (element) => getComputedStyle(element).borderInlineStartWidth,
+    ),
+  ).toBe("2px");
   await expect(
     page.getByTestId("chat-message-own-reply").locator("blockquote"),
   ).toHaveText("МарияТеперь можно использовать любой фон!");
@@ -275,7 +296,10 @@ test("пузыри слева/справа, выделение и клавиши
   ]);
   await expect(textarea).toHaveValue("");
 
-  await incoming.getByRole("button", { name: "Ответить", exact: true }).click();
+  await incoming
+    .getByRole("button", { name: /Действия с сообщением:/ })
+    .click();
+  await page.getByRole("menuitem", { name: "Ответить", exact: true }).click();
   await expect(page.getByText("Ответ: Мария", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Добавить смайлик" }).click();
   await page

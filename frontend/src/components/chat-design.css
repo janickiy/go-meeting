@@ -1,0 +1,244 @@
+/* Геометрия сообщений и редактора соответствует второму макету. */
+.chat-panel .chat-message {
+  gap: 12px;
+  padding: 10px 20px;
+}
+.chat-panel .chat-message-own {
+  padding-inline-start: 18px;
+}
+.chat-panel .chat-message-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: min(calc(13px * var(--text-scale)), 18px);
+}
+.chat-panel .chat-message:not(.chat-message-own) .chat-message-avatar {
+  color: #286951;
+  background: #dff0e7;
+}
+.chat-panel .chat-message header strong {
+  font-size: calc(14px * var(--text-scale));
+}
+.chat-panel .chat-message header time,
+.chat-panel .chat-message-self {
+  font-size: calc(12px * var(--text-scale));
+}
+.chat-panel .chat-text {
+  font-size: calc(15px * var(--text-scale));
+  line-height: 1.55;
+}
+.chat-message-tools {
+  flex-shrink: 0;
+  margin-top: -6px;
+}
+.chat-message-tools > .item-actions > .icon-button {
+  background: transparent;
+  color: var(--muted);
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+.chat-panel .chat-day-label {
+  padding: 0 20px;
+  margin: 0 0 16px;
+}
+.chat-day-label > span {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 3px 14px;
+}
+.chat-panel .chat-message blockquote {
+  border-left-color: var(--primary);
+  margin: 6px 0 8px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--primary-soft) 35%, var(--surface));
+}
+.chat-panel .chat-attachment {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  width: fit-content;
+  max-width: min(448px, 100%);
+  padding: 12px;
+  gap: 12px;
+  margin: 6px 0;
+  border-radius: 8px;
+}
+.chat-panel .chat-file-icon {
+  width: 40px;
+  height: 48px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  color: #bc5148;
+  background: #fceae6;
+  border-radius: 6px;
+}
+.chat-panel .chat-file-icon > svg {
+  margin: 0;
+}
+.chat-file-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+.chat-file-copy strong {
+  font-size: calc(13px * var(--text-scale));
+}
+.chat-file-copy small {
+  font-size: calc(12px * var(--text-scale));
+}
+.chat-file-download {
+  color: var(--muted);
+  background: transparent;
+  min-width: 44px;
+  min-height: 44px;
+}
+.chat-panel .chat-compose-row {
+  grid-template-columns: 44px 44px minmax(0, 1fr) 44px;
+  grid-template-rows: auto 44px;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 10px;
+}
+.chat-panel .chat-compose-field textarea {
+  min-height: 64px;
+  padding: 6px 8px 10px;
+  font-size: calc(15px * var(--text-scale));
+}
+.chat-panel .chat-uploads-compact > .button,
+.chat-panel .chat-send-button.button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+.chat-compose-keyhint {
+  grid-column: 3;
+  grid-row: 2;
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+  align-self: center;
+  justify-self: center;
+}
+.chat-compose-caption {
+  margin: 6px 0 0;
+  text-align: right;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--muted);
+}
+.conference-stage-rail .chat-compose-keyhint,
+.conference-stage-rail .chat-compose-caption {
+  display: none;
+}
+.conference-stage-rail .chat-panel .chat-message {
+  padding-inline: 12px;
+  gap: 8px;
+}
+.conference-stage-rail .chat-panel .chat-message-own {
+  padding-inline-start: 10px;
+}
+.conference-stage-rail .chat-message-tools > .item-actions > .icon-button {
+  width: 32px;
+  min-width: 32px;
+}
+/* У панели встречи уже есть заголовок и вкладки; редактор здесь однострочный. */
+.conference-room-page .conference-stage-rail .chat-panel-heading {
+  display: none;
+}
+.conference-stage-rail .chat-panel .chat-message-avatar {
+  width: 32px;
+  height: 32px;
+}
+.conference-stage-rail .chat-panel .chat-text {
+  font-size: calc(14px * var(--text-scale));
+}
+.conference-stage-rail .chat-day-label > span {
+  border: 0;
+  padding: 0;
+}
+.conference-stage-rail .chat-panel .chat-compose-row {
+  grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+  grid-template-rows: auto;
+  align-items: center;
+  gap: 0;
+  min-height: 76px;
+  padding: 8px;
+}
+.conference-stage-rail .chat-compose-field {
+  grid-column: 2;
+  grid-row: 1;
+}
+.conference-stage-rail .chat-panel .chat-compose-field textarea {
+  min-height: 44px;
+  max-height: 88px;
+  padding: 10px 4px;
+  font-size: calc(14px * var(--text-scale));
+  line-height: 24px;
+}
+.conference-stage-rail .chat-compose-row .emoji-picker {
+  grid-column: 3;
+  grid-row: 1;
+}
+.conference-stage-rail .chat-send-button.button,
+.conference-stage-rail .chat-uploads-compact > .button {
+  grid-row: 1;
+}
+@media (max-width: 760px) {
+  .chat-panel .chat-message {
+    padding-inline: 12px;
+    gap: 8px;
+  }
+  .chat-panel .chat-message-own {
+    padding-inline-start: 10px;
+  }
+  .chat-panel .chat-message-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  .chat-message-tools > .item-actions > .icon-button {
+    width: 32px;
+    min-width: 32px;
+  }
+  .chat-compose-keyhint {
+    display: none;
+  }
+  .chat-panel .chat-compose-field textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .chat-panel .chat-attachment {
+    gap: 8px;
+    padding: 8px;
+  }
+  .chat-panel .chat-file-icon {
+    width: 32px;
+    flex-basis: 32px;
+    height: 40px;
+  }
+}
+@media (max-height: 500px) {
+  .chat-compose-caption {
+    display: none;
+  }
+  .chat-panel .chat-compose-field textarea {
+    min-height: 32px;
+  }
+}
+@media (max-height: 500px) and (max-width: 900px) {
+  .conference-room-page .conference-stage-rail {
+    top: 12px;
+    bottom: 12px;
+    height: calc(100dvh - 24px);
+  }
+  .conference-stage-rail .chat-panel .chat-compose-row {
+    min-height: 60px;
+    padding: 6px;
+  }
+  .conference-stage-rail .chat-composer {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+}

@@ -34,7 +34,9 @@ import type {
   PersonalPeer,
 } from "../types";
 import { initials } from "../utils";
-import { Button, ErrorNotice, Loading, Modal } from "./ui";
+import { Button, ErrorNotice, Modal } from "./ui";
+import { ItemActions } from "./ItemActions";
+import { MessagingSkeleton } from "./MessagingSkeleton";
 import "./group-chats.css";
 
 export function ConversationAvatar({
@@ -549,7 +551,7 @@ export function GroupInfoModal({
     navigate("/personal");
   };
   const titles: Record<GroupView, string> = {
-    info: "О группе",
+    info: "Информация о группе",
     members: "Участники группы",
     add: "Добавить участников",
     edit: "Настройки группы",
@@ -593,24 +595,26 @@ export function GroupInfoModal({
             <ConversationAvatar conversation={current} large />
             <div>
               <h3>{current.name}</h3>
-              <p>{current.memberCount} участн.</p>
               <p>{current.description}</p>
-              <small>{roles[current.myRole]}</small>
+              <small>
+                {current.memberCount} участн. · {roles[current.myRole]}
+              </small>
             </div>
           </div>
           <div className="group-info-actions">
-            <Button variant="outline" onClick={() => setView("members")}>
-              <Users size={20} />
-              Участники ({current.memberCount})
-            </Button>
             {manages && (
               <>
-                <Button variant="outline" onClick={() => setView("add")}>
+                <Button
+                  variant="outline"
+                  aria-label="Добавить участников"
+                  onClick={() => setView("add")}
+                >
                   <UserPlus size={20} />
-                  Добавить участников
+                  Добавить
                 </Button>
                 <Button
                   variant="outline"
+                  aria-label="Настройки группы"
                   onClick={() => {
                     setName(current.name);
                     setDescription(current.description);
@@ -618,31 +622,19 @@ export function GroupInfoModal({
                   }}
                 >
                   <Pencil size={20} />
-                  Настройки группы
+                  Изменить
                 </Button>
               </>
-            )}
-            {owner && (
-              <Button variant="outline" onClick={() => setView("transfer")}>
-                <ShieldCheck size={20} />
-                Передать владение
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => setView("leave")}>
-              <LogOut size={20} />
-              Выйти из группы
-            </Button>
-            {owner && (
-              <Button variant="danger" onClick={() => setView("delete")}>
-                <Trash2 size={20} />
-                Удалить группу
-              </Button>
             )}
           </div>
         </>
       )}
-      {(view === "members" || view === "transfer") && (
+      {(view === "info" || view === "members" || view === "transfer") && (
         <>
+          <div className="group-members-heading">
+            <h3>Участники</h3>
+            <span>{current.memberCount} / 100</span>
+          </div>
           <label className="field">
             Найти участника
             <input
@@ -652,7 +644,7 @@ export function GroupInfoModal({
             />
           </label>
           <ErrorNotice error={members.error} />
-          {members.isPending && <Loading />}
+          {members.isPending && <MessagingSkeleton />}
           <ul className="group-members" aria-label="Участники группы">
             {people
               .filter((person) =>
@@ -679,16 +671,18 @@ export function GroupInfoModal({
                       {person.id === user?.id ? " (вы)" : ""}
                     </strong>
                     <small>{roles[person.role]}</small>
-                    <small>
-                      {connected &&
-                      !members.isPaused &&
-                      !members.isError &&
-                      typeof person.online === "boolean"
-                        ? person.online
-                          ? "В сети"
-                          : "Не в сети"
-                        : "Статус недоступен"}
-                    </small>
+                  </span>
+                  <span
+                    className={`group-member-presence ${connected && !members.isPaused && !members.isError && person.online === true ? "is-online" : ""}`}
+                  >
+                    {connected &&
+                    !members.isPaused &&
+                    !members.isError &&
+                    typeof person.online === "boolean"
+                      ? person.online
+                        ? "В сети"
+                        : "Не в сети"
+                      : "Статус недоступен"}
                   </span>
                   {view === "transfer" ? (
                     person.id !== user?.id && (
@@ -702,42 +696,58 @@ export function GroupInfoModal({
                         />
                       </label>
                     )
-                  ) : (
-                    <div className="group-member-controls">
-                      {owner && person.id !== user?.id && (
-                        <Button
-                          variant="outline"
-                          disabled={mutation.isPending}
-                          onClick={() =>
-                            run(() =>
-                              api.setGroupRole(
-                                group.id,
-                                person.id,
-                                person.role === "admin" ? "member" : "admin",
-                              ),
-                            )
-                          }
-                        >
-                          {person.role === "admin"
-                            ? "Снять администратора"
-                            : "Назначить администратором"}
-                        </Button>
-                      )}
-                      {person.id !== user?.id &&
-                        (owner || (manages && person.role === "member")) && (
-                          <Button
-                            variant="outline"
-                            disabled={mutation.isPending}
-                            onClick={() => setRemoveTarget(person)}
-                          >
-                            Удалить участника
-                          </Button>
-                        )}
-                    </div>
-                  )}
+                  ) : person.id !== user?.id &&
+                    (owner || (manages && person.role === "member")) ? (
+                    <ItemActions
+                      label={`Действия с участником: ${person.displayName}`}
+                      actions={[
+                        ...(owner
+                          ? [
+                              {
+                                label:
+                                  person.role === "admin"
+                                    ? "Снять администратора"
+                                    : "Назначить администратором",
+                                icon: <ShieldCheck size={18} />,
+                                disabled: mutation.isPending,
+                                run: () =>
+                                  run(() =>
+                                    api.setGroupRole(
+                                      group.id,
+                                      person.id,
+                                      person.role === "admin"
+                                        ? "member"
+                                        : "admin",
+                                    ),
+                                  ),
+                              },
+                            ]
+                          : []),
+                        {
+                          label: "Удалить участника",
+                          icon: <Trash2 size={18} />,
+                          danger: true,
+                          disabled: mutation.isPending,
+                          run: () => setRemoveTarget(person),
+                        },
+                      ]}
+                    />
+                  ) : null}
                 </li>
               ))}
           </ul>
+          {!members.isPending &&
+            !members.isError &&
+            people.length > 0 &&
+            !people.some((person) =>
+              person.displayName
+                .toLocaleLowerCase("ru")
+                .includes(search.toLocaleLowerCase("ru")),
+            ) && (
+              <p className="compact-empty muted">
+                Никого не нашли. Попробуйте другое имя участника.
+              </p>
+            )}
           {removeTarget && (
             <div className="group-confirmation">
               <p>
@@ -779,6 +789,26 @@ export function GroupInfoModal({
             </>
           )}
         </>
+      )}
+      {view === "info" && (
+        <div className="group-danger-actions">
+          {owner && (
+            <Button variant="outline" onClick={() => setView("transfer")}>
+              <ShieldCheck size={18} />
+              Передать владение
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setView("leave")}>
+            <LogOut size={18} />
+            Выйти из группы
+          </Button>
+          {owner && (
+            <Button variant="danger" onClick={() => setView("delete")}>
+              <Trash2 size={18} />
+              Удалить группу
+            </Button>
+          )}
+        </div>
       )}
       {view === "add" && (
         <>

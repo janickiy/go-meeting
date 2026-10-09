@@ -20,7 +20,8 @@ import {
 } from "../folders";
 import type { FolderItem, FolderItemFilters, FolderTarget } from "../types";
 import { ConversationAvatar } from "./GroupChats";
-import { Button, ErrorNotice, Loading, Modal, StatusBadge } from "./ui";
+import { Button, ErrorNotice, Modal, StatusBadge } from "./ui";
+import { MessagingSkeleton } from "./MessagingSkeleton";
 import "./folders.css";
 
 export function folderItemName(entry: FolderItem) {
@@ -236,7 +237,7 @@ function FolderItemPickerContent({
           Повторить загрузку
         </Button>
       )}
-      {query.isPending && <Loading />}
+      {query.isPending && <MessagingSkeleton />}
       <div
         className="folder-checkboxes folder-candidates"
         aria-busy={write.isPending || undefined}

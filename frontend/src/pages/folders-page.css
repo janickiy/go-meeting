@@ -1,22 +1,26 @@
 .folders-page {
   min-width: 0;
+  max-width: 1040px;
+  margin-inline: auto;
 }
 .folders-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin: 20px 0 28px;
+  margin: 0 0 24px;
 }
 .folders-heading h1 {
   margin: 0 0 8px;
   overflow-wrap: anywhere;
+  font-size: calc(24px * var(--text-scale));
+  letter-spacing: -0.5px;
 }
 .folders-heading p {
   margin: 0;
 }
 .folders-heading .eyebrow {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 .folders-heading-actions {
   display: flex;
@@ -26,17 +30,36 @@
 }
 .folder-list {
   display: grid;
-  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.folder-list:empty {
+  display: none;
 }
 .folder-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px 10px 10px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
   background: var(--surface);
   min-width: 0;
+}
+.folder-list > .folder-row:first-child {
+  border-radius: 10px 10px 0 0;
+}
+.folder-list > .folder-row:last-child {
+  border-bottom: 0;
+  border-radius: 0 0 10px 10px;
+}
+.folder-list > .folder-row:only-child {
+  border-radius: 10px;
+}
+.folder-row:hover,
+.folder-row:focus-within {
+  background: var(--surface-soft);
 }
 .folder-link {
   flex: 1;
@@ -44,10 +67,11 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px;
+  padding: 0;
   color: var(--text);
   text-decoration: none;
-  border-radius: 10px;
+  border-radius: 7px;
+  min-height: 44px;
 }
 .folder-link:hover {
   background: var(--surface-soft);
@@ -56,34 +80,45 @@
 .folder-meeting-icon {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   color: var(--primary);
   background: var(--primary-soft);
-  border-radius: 14px;
+  border-radius: 7px;
 }
 .folder-item-copy {
   display: flex;
   flex: 1;
   min-width: 0;
   flex-direction: column;
-  gap: 7px;
+  gap: 4px;
 }
 .folder-item-copy strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: calc(15px * var(--text-scale));
+  font-weight: 600;
 }
 .folder-item-copy small {
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: calc(12px * var(--text-scale));
 }
 .folder-count {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px;
+  border-radius: 7px;
+  background: var(--surface-soft);
   color: var(--muted);
   flex-shrink: 0;
+  font-size: calc(12px * var(--text-scale));
 }
 .folder-toolbar {
   display: flex;
@@ -97,7 +132,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   color: var(--muted);
   max-width: 100%;
   width: 300px;
@@ -110,21 +145,22 @@
   margin-bottom: 28px;
 }
 .folder-item-section h2 {
-  font-size: 18px;
+  font-size: calc(16px * var(--text-scale));
   margin-bottom: 14px;
 }
 .folder-empty {
   padding: 50px 20px;
   text-align: center;
   color: var(--muted);
-  border: 1px dashed var(--border);
-  border-radius: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
 }
 .folder-empty > svg {
   color: var(--primary);
 }
 .folder-empty h2 {
-  font-size: 20px;
+  font-size: calc(20px * var(--text-scale));
   color: var(--text);
 }
 .folder-empty p {
@@ -137,11 +173,11 @@
     margin-top: 12px;
   }
   .folder-row {
-    padding: 4px 8px 4px 4px;
+    padding: 14px 12px;
     gap: 2px;
   }
   .folder-link {
-    padding: 10px 6px;
+    padding: 0;
     gap: 10px;
     flex-wrap: wrap;
   }
@@ -152,7 +188,7 @@
   .folder-meeting-icon {
     width: 42px;
     height: 42px;
-    border-radius: 12px;
+    border-radius: 7px;
   }
   .folder-item-copy {
     flex-basis: calc(100% - 62px);
@@ -164,10 +200,62 @@
     width: 100%;
   }
 }
-/* Hovered rows keep readable metadata; status backgrounds retain their meaning. */
+/* Метаданные остаются читаемыми при наведении, а статус сохраняет своё значение. */
 .folder-link:hover .folder-item-copy small {
   color: var(--text);
 }
 .folders-page .status-badge {
   color: var(--text);
+}
+.folder-row {
+  min-height: 88px;
+}
+.folder-private-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+.folder-detail-search {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  min-height: 44px;
+  padding: 8px 12px;
+}
+.folder-detail-search input {
+  border: 0;
+  padding: 0;
+  min-height: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: calc(13px * var(--text-scale));
+}
+.folder-toolbar .folder-candidate-filters {
+  flex-wrap: nowrap;
+}
+.folder-toolbar .folder-candidate-filters button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+}
+.folder-toolbar .folder-candidate-filters button[aria-pressed="true"] {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+.folder-item-section h2 > span {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+.folder-empty .button {
+  margin-top: 24px;
 }

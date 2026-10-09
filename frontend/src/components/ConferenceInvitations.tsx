@@ -10,7 +10,7 @@ import "./conference-invitations.css";
 
 const maxRecipients = 20;
 
-/** One invitation flow is shared by meeting creation and the meeting page. */
+/** Общая форма приглашения используется при создании встречи и внутри комнаты. */
 export function ConferenceInviteContent({
   conference,
   canInvite,
@@ -22,22 +22,26 @@ export function ConferenceInviteContent({
 }) {
   return (
     <div className="conference-invitations">
-      <p className="modal-description">
-        Поделитесь ссылкой на встречу. По ней можно подключиться без аккаунта.
-      </p>
+      <p className="modal-description">{conference.title}</p>
       <CopyLink value={inviteLink(conference.inviteCode)} />
+      <p className="field-hint">По приглашению можно войти без аккаунта.</p>
       {canInvite && (
-        <ConferenceInvitationForm
-          key={conference.id}
-          conferenceId={conference.id}
-          onBusyChange={onBusyChange}
-        />
+        <>
+          <div className="invitation-form-divider">
+            <span>или отправьте приглашение</span>
+          </div>
+          <ConferenceInvitationForm
+            key={conference.id}
+            conferenceId={conference.id}
+            onBusyChange={onBusyChange}
+          />
+        </>
       )}
     </div>
   );
 }
 
-/** Keeps editable recipients until the server confirms they were queued. */
+/** Сохраняет введённых получателей, пока сервер не подтвердит постановку приглашений в очередь. */
 export function ConferenceInvitationForm({
   conferenceId,
   onBusyChange,

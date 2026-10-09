@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, Info } from "lucide-react";
 import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import {
@@ -205,8 +205,10 @@ function FolderPickerContent({
 }
 export function ConversationActions({
   conversation,
+  onGroupInfo,
 }: {
   conversation: PersonalConversation;
+  onGroupInfo?: () => void;
 }) {
   return conversation.type === "direct" ? (
     <DirectConversationActions
@@ -214,15 +216,20 @@ export function ConversationActions({
       conversation={conversation}
     />
   ) : (
-    <FolderConversationActions conversation={conversation} />
+    <FolderConversationActions
+      conversation={conversation}
+      onGroupInfo={onGroupInfo}
+    />
   );
 }
 
 /** Сохраняет прежнее меню папок для групповых переписок. */
 function FolderConversationActions({
   conversation,
+  onGroupInfo,
 }: {
   conversation: PersonalConversation;
+  onGroupInfo?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const name =
@@ -234,6 +241,15 @@ function FolderConversationActions({
       <ItemActions
         label={`Действия с перепиской: ${name}`}
         actions={[
+          ...(onGroupInfo
+            ? [
+                {
+                  label: "Информация",
+                  icon: <Info size={19} aria-hidden="true" />,
+                  run: onGroupInfo,
+                },
+              ]
+            : []),
           {
             label: "Добавить в папку",
             icon: <FolderPlus size={19} aria-hidden="true" />,

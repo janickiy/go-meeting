@@ -1,0 +1,1716 @@
+{
+  "date": "2026-10-09",
+  "variant": "02 — Командная среда, Slack-inspired",
+  "environment": "Codex in-app browser; отдельный локальный прототип",
+  "summary": {
+    "screens": 54,
+    "defaultViewportChecks": 162,
+    "defaultWidths": [
+      390,
+      834,
+      1440
+    ],
+    "darkLargeTextChecks": 108,
+    "darkLargeTextWidths": [
+      390,
+      834
+    ],
+    "textPercent": 200,
+    "overflowIssues": 0,
+    "brokenImageIssues": 0,
+    "emptyButtonIssues": 0,
+    "consoleErrors": 0,
+    "firstVariantUnchanged": true,
+    "firstVariantFilesHashChecked": 40
+  },
+  "defaultChecks": [
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "landing",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "login",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "register",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "register-success",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "home",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "meetings",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "calendar",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "create-meeting",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "meeting-created",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "join-link",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "invite",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "prejoin",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "guest-prejoin",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "edit-schedule",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "personal",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "new-direct",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-info",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-clear",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-delete",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-create",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-info",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folders",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-detail",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-create",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-delete",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-add",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-profile",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-audio",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-video",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-notifications",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-appearance",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "notifications",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recordings",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recording-player",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history-detail",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "analytics",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "admin",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "captions",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-participants",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-screen",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recording-control",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-invite",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-devices",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "waiting-room",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "leave-meeting",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "finish-meeting",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "ui-kit",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "landing",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "login",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "register",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "register-success",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "home",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "meetings",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "calendar",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "create-meeting",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "meeting-created",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "join-link",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "invite",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "prejoin",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "guest-prejoin",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "edit-schedule",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "personal",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "new-direct",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-info",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-clear",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-delete",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-create",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-info",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folders",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-detail",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-create",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-delete",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-add",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-profile",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-audio",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-video",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-notifications",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-appearance",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "notifications",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recordings",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recording-player",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history-detail",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "analytics",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "admin",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "captions",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-participants",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-screen",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recording-control",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-invite",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-devices",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "waiting-room",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "leave-meeting",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "finish-meeting",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "ui-kit",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "landing",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "login",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "register",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "register-success",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "home",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "meetings",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "calendar",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "create-meeting",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "meeting-created",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "join-link",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "invite",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "prejoin",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "guest-prejoin",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "edit-schedule",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "personal",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-chat",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "new-direct",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-info",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-clear",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "direct-delete",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-chat",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-create",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "group-info",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folders",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-detail",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-create",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-delete",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "folder-add",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-profile",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-audio",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-video",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-notifications",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "settings-appearance",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "notifications",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recordings",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recording-player",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history-detail",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "history-chat",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "analytics",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "admin",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "captions",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-chat",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-participants",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-screen",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "recording-control",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-invite",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "conference-devices",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "waiting-room",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "leave-meeting",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "finish-meeting",
+      "overflow": 0,
+      "width": 1440
+    },
+    {
+      "brokenImages": 0,
+      "emptyButtons": 0,
+      "id": "ui-kit",
+      "overflow": 0,
+      "width": 1440
+    }
+  ],
+  "reflowChecks": [
+    {
+      "id": "landing",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "login",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "register",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "register-success",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "home",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "meetings",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "calendar",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "create-meeting",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "meeting-created",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "join-link",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "invite",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "prejoin",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "guest-prejoin",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "edit-schedule",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "personal",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "direct-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "new-direct",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "direct-info",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "direct-clear",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "direct-delete",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "group-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "group-create",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "group-info",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "folders",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "folder-detail",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "folder-create",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "folder-delete",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "folder-add",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "settings",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "settings-profile",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "settings-audio",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "settings-video",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "settings-notifications",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "settings-appearance",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "notifications",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "recordings",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "recording-player",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "history",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "history-detail",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "history-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "analytics",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "admin",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "captions",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "conference",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "conference-chat",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "conference-participants",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "conference-screen",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "recording-control",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "conference-invite",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "conference-devices",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "waiting-room",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "leave-meeting",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "finish-meeting",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "ui-kit",
+      "overflow": 0,
+      "width": 390
+    },
+    {
+      "id": "landing",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "login",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "register",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "register-success",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "home",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "meetings",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "calendar",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "create-meeting",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "meeting-created",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "join-link",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "invite",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "prejoin",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "guest-prejoin",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "edit-schedule",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "personal",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "direct-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "new-direct",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "direct-info",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "direct-clear",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "direct-delete",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "group-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "group-create",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "group-info",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "folders",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "folder-detail",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "folder-create",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "folder-delete",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "folder-add",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "settings",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "settings-profile",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "settings-audio",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "settings-video",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "settings-notifications",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "settings-appearance",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "notifications",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "recordings",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "recording-player",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "history",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "history-detail",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "history-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "analytics",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "admin",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "captions",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "conference",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "conference-chat",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "conference-participants",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "conference-screen",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "recording-control",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "conference-invite",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "conference-devices",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "waiting-room",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "leave-meeting",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "finish-meeting",
+      "overflow": 0,
+      "width": 834
+    },
+    {
+      "id": "ui-kit",
+      "overflow": 0,
+      "width": 834
+    }
+  ],
+  "interactionChecks": [
+    "Меню личного чата: информация, без уведомлений, папка, очистить, удалить",
+    "Escape закрывает меню",
+    "64 emoji, вставка и локальная отправка Enter",
+    "После начала записи окно закрывается и доступна остановка",
+    "Тёмная тема и 125% работают: базовый текст 20px"
+  ],
+  "limitations": [
+    "Рабочий frontend и сервер не изменялись; реальные API и медиа не тестировались",
+    "Нет сертификации WCAG или проверки на физических мобильных устройствах",
+    "Все состояния проверены строковым рендером, основные — в браузере"
+  ]
+}

@@ -166,12 +166,12 @@ test("после создания: email и выбранный пользова�
   const state = await fixture(page);
   await page.goto("/meetings/new");
   await page
-    .getByRole("textbox", { name: "Название конференции" })
+    .getByRole("textbox", { name: "Название встречи" })
     .fill(meeting.title);
   await page
-    .getByRole("button", { name: "Создать конференцию", exact: true })
+    .getByRole("button", { name: "Создать встречу", exact: true })
     .click();
-  await page.getByRole("button", { name: "Пригласить по email" }).click();
+  await page.getByRole("button", { name: "Пригласить участников" }).click();
   const dialog = page.getByRole("dialog", { name: "Пригласить участников" });
   await expect(
     dialog.getByRole("textbox", { name: "Email участников" }),

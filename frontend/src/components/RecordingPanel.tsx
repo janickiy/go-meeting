@@ -33,6 +33,7 @@ const labels = {
  *   - conference — текущая конференция; membership — членство и права текущего пользователя.
  *   - showHistory — показывать список прошлых записей и их файлов; в диалоге управления отключается.
  *   - showInsights — показывать доступные результаты обработки записи.
+ *   - materialOnly — компактное представление расшифровки или итогов без списка файлов.
  *   - onStarted — уведомить родительский интерфейс только после успешного запроса запуска записи.
  *
  * @return JSX-представление состояния записи и разрешённых действий.
@@ -42,12 +43,14 @@ export function RecordingPanel({
   membership,
   showHistory = true,
   showInsights = false,
+  materialOnly = false,
   onStarted,
 }: {
   conference: Conference;
   membership?: Participant;
   showHistory?: boolean;
   showInsights?: boolean;
+  materialOnly?: boolean;
   onStarted?: () => void;
 }) {
   const { user } = useAuth();
@@ -173,31 +176,47 @@ export function RecordingPanel({
     (current?.requestedBy === user?.id ||
       (membership?.role === "owner" && conference.ownerId === user?.id));
   if (!membership || !isAdmitted(membership)) return null;
+  const controlsOnly = !showHistory && !showInsights;
   return (
     <section
-      className="content-card recording-panel"
+      className={`content-card recording-panel${materialOnly ? " recording-panel-material" : ""}${controlsOnly ? " recording-panel-control" : ""}`}
       aria-label="Записи конференции"
     >
-      <div className="section-heading">
-        <h2>Записи конференции</h2>
-        {current && (
-          <span
-            role="status"
-            data-testid="recording-indicator"
-            className={recording ? "recording-indicator" : "participant-status"}
-          >
-            {recording && <Circle size={10} fill="currentColor" />}{" "}
-            {labels[current.status]}
-          </span>
-        )}
-      </div>
+      {!materialOnly && !controlsOnly && (
+        <div className="section-heading">
+          <h2>Записи конференции</h2>
+          {current && (
+            <span
+              role="status"
+              data-testid="recording-indicator"
+              className={
+                recording ? "recording-indicator" : "participant-status"
+              }
+            >
+              {recording && <Circle size={10} fill="currentColor" />}{" "}
+              {labels[current.status]}
+            </span>
+          )}
+        </div>
+      )}
+      {controlsOnly && current && (
+        <p
+          role="status"
+          data-testid="recording-indicator"
+          className={recording ? "recording-indicator" : "participant-status"}
+        >
+          {recording && <Circle size={10} fill="currentColor" />}
+          {labels[current.status]}
+        </p>
+      )}
       <ErrorNotice error={query.error || mutation.error} />
       {joined && conference.status === "active" && (
         <div className="meeting-actions">
           {!current && recordingModes.length > 0 && (
-            <label>
+            <label className="field">
               Режим записи
               <select
+                aria-label="Режим записи"
                 value={selectedMode}
                 disabled={mutation.isPending || !canStart}
                 onChange={(event) =>
@@ -219,6 +238,11 @@ export function RecordingPanel({
                   <option value="screen_focus">Фокус на экране</option>
                 )}
               </select>
+              {controlsOnly && (
+                <span className="field-hint">
+                  Все участники получат уведомление о начале записи.
+                </span>
+              )}
             </label>
           )}
           {!current && recordingModes.length === 0 && (
@@ -374,6 +398,7 @@ export function RecordingPanel({
           conferenceId={conference.id}
           membership={membership}
           recordings={items}
+          materialOnly={materialOnly}
         />
       )}
     </section>

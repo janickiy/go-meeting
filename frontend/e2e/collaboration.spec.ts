@@ -298,9 +298,9 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     );
     phase = "schedule-create";
     await owner
-      .getByRole("link", { name: "Новая конференция", exact: true })
+      .getByRole("link", { name: "Новая встреча", exact: true })
       .click();
-    await owner.getByLabel("Название конференции").fill(runId);
+    await owner.getByLabel("Название встречи").fill(runId);
     await owner.getByRole("checkbox", { name: /Зал ожидания/ }).check();
     await owner
       .getByRole("checkbox", { name: /Запланировать встречу/ })
@@ -324,7 +324,7 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
         response.request().method() === "POST",
     );
     await owner
-      .getByRole("button", { name: "Создать конференцию", exact: true })
+      .getByRole("button", { name: "Создать встречу", exact: true })
       .click();
     const created = (await (await createResponse).json()).item;
     conferenceId = created.id;
@@ -333,7 +333,7 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
     expect(created.waitingRoomEnabled).toBe(true);
     expect(created.scheduledAt).toBe(`${scheduledAt}:00Z`);
     await owner
-      .getByRole("link", { name: "Перейти в конференцию", exact: true })
+      .getByRole("link", { name: "Открыть встречу", exact: true })
       .click();
     await bob.goto(`${base}/i/${created.inviteCode}`);
     await bob.getByRole("button", { name: "Добавить в мои встречи" }).click();
@@ -553,13 +553,17 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       .toBe(0);
     await bob
       .getByTestId(`chat-message-${first.id}`)
-      .getByRole("button", { name: "Ответить" })
+      .getByRole("button", { name: /Действия с сообщением:/ })
       .click();
+    await bob.getByRole("menuitem", { name: "Ответить" }).click();
     await send(bob, "Ответ участника");
     await expect(owner.getByRole("log")).toContainText("Ответ участника");
     const original = owner.getByTestId(`chat-message-${first.id}`);
     await original
-      .getByRole("button", { name: "Изменить", exact: true })
+      .getByRole("button", { name: /Действия с сообщением:/ })
+      .click();
+    await owner
+      .getByRole("menuitem", { name: "Изменить", exact: true })
       .click();
     await owner
       .getByRole("dialog")
@@ -570,8 +574,9 @@ test("scheduled waiting room, durable chat/files, engagement, recording and hist
       "Исправленное сообщение",
     );
     await original
-      .getByRole("button", { name: "Удалить", exact: true })
+      .getByRole("button", { name: /Действия с сообщением:/ })
       .click();
+    await owner.getByRole("menuitem", { name: "Удалить", exact: true }).click();
     await owner.getByRole("button", { name: "Да, удалить сообщение" }).click();
     await expect(bob.getByTestId(`chat-message-${first.id}`)).toContainText(
       "Сообщение удалено",

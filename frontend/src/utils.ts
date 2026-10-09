@@ -214,7 +214,13 @@ export const passwordLength = (value: string) => Array.from(value).length;
  * @args
  *   - name (string) — отображаемое имя пользователя для инициалов.
  *
- * @returns вычисленное значение: Array.from(name.trim())[0]?.toUpperCase() || "М".
+ * @return Первые буквы двух слов; для пустого имени — «М».
  */
 export const initials = (name: string) =>
-  Array.from(name.trim())[0]?.toUpperCase() || "М";
+  name
+    .trim()
+    .split(/\s+/u)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0] || "")
+    .join("")
+    .toUpperCase() || "М";

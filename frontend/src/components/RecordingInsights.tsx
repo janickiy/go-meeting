@@ -36,10 +36,12 @@ export function RecordingInsights({
   conferenceId,
   membership,
   recordings,
+  materialOnly = false,
 }: {
   conferenceId: string;
   membership: Participant;
   recordings: ConferenceRecording[];
+  materialOnly?: boolean;
 }) {
   const [params, setParams] = useSearchParams();
   const ready = recordings.filter((recording) => recording.status === "ready");
@@ -48,7 +50,13 @@ export function RecordingInsights({
   return (
     <div className="recording-insights">
       <div className="section-heading">
-        <h3>Просмотр и материалы</h3>
+        <h3>
+          {materialOnly
+            ? params.get("section") === "summary"
+              ? "Итоги встречи"
+              : "Расшифровка встречи"
+            : "Просмотр и материалы"}
+        </h3>
         <label>
           Запись{" "}
           <select
@@ -79,6 +87,7 @@ export function RecordingInsights({
         conferenceId={conferenceId}
         recordingId={selected}
         membership={membership}
+        materialOnly={materialOnly}
       />
     </div>
   );
@@ -93,10 +102,12 @@ function RecordingMaterial({
   conferenceId,
   recordingId,
   membership,
+  materialOnly = false,
 }: {
   conferenceId: string;
   recordingId: string;
   membership: Participant;
+  materialOnly?: boolean;
 }) {
   const [params, setParams] = useSearchParams();
   const client = useQueryClient();
@@ -106,6 +117,7 @@ function RecordingMaterial({
   const pendingSeek = useRef<number | null>(null);
   const [source, setSource] = useState<string>();
   const [playbackError, setPlaybackError] = useState(false);
+  const [playerOpen, setPlayerOpen] = useState(false);
   const features =
     capabilities.isSuccess && !capabilities.isError
       ? capabilities.data.capabilities
@@ -212,6 +224,7 @@ function RecordingMaterial({
   function seek(segment: TranscriptSegment) {
     if (!Number.isFinite(segment.startMs) || segment.startMs < 0) return;
     pendingSeek.current = segment.startMs;
+    setPlayerOpen(true);
     applySeek();
     const next = new URLSearchParams(params);
     next.set("recording", recordingId);
@@ -260,9 +273,23 @@ function RecordingMaterial({
   const currentSummary = summary.isError ? null : summary.data?.item;
   return (
     <div
-      className={`recording-workspace${tabs.length ? " recording-workspace-with-materials" : ""}`}
+      className={`recording-workspace${tabs.length ? " recording-workspace-with-materials" : ""}${materialOnly ? " recording-workspace-material" : ""}`}
     >
-      <div className="recording-player-column">
+      {materialOnly && (
+        <Button
+          variant="outline"
+          aria-expanded={playerOpen}
+          aria-controls={`${tabsId}-player`}
+          onClick={() => setPlayerOpen(!playerOpen)}
+        >
+          {playerOpen ? "Свернуть запись" : "Показать запись"}
+        </Button>
+      )}
+      <div
+        className="recording-player-column"
+        id={`${tabsId}-player`}
+        hidden={materialOnly && !playerOpen}
+      >
         {source ? (
           record.data?.item.mode === "audio_only" ||
           record.data?.item.mode === "individual_tracks" ? (
@@ -336,7 +363,7 @@ function RecordingMaterial({
             Просмотр записи доступен.
           </p>
         )}
-        {tabs.length > 0 && (
+        {tabs.length > 0 && !materialOnly && (
           <div
             className="insight-tabs"
             role="tablist"
@@ -394,7 +421,8 @@ function RecordingMaterial({
           <div
             role="tabpanel"
             id={`${tabsId}-panel`}
-            aria-labelledby={`${tabsId}-transcript`}
+            aria-labelledby={materialOnly ? undefined : `${tabsId}-transcript`}
+            aria-label={materialOnly ? "Расшифровка встречи" : undefined}
           >
             <ErrorNotice error={transcript.error || segments.error} />
             {transcript.isPending ? (
@@ -498,7 +526,8 @@ function RecordingMaterial({
           <div
             role="tabpanel"
             id={`${tabsId}-panel`}
-            aria-labelledby={`${tabsId}-summary`}
+            aria-labelledby={materialOnly ? undefined : `${tabsId}-summary`}
+            aria-label={materialOnly ? "Итоги встречи" : undefined}
           >
             <ErrorNotice error={summary.error} />
             {summary.isPending ? (

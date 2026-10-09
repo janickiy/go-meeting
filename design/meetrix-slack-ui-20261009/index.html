@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Meetrix — вариант 02 · Командная среда</title>
+    <link rel="icon" href="assets/brand-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="design.css" />
+    <link rel="stylesheet" href="workbench.css" />
+  </head>
+  <body class="wb-body">
+    <header class="wb-header">
+      <a class="brand" href="index.html"
+        ><img src="assets/brand-mark.svg" alt="" />Meetrix
+        <span class="wb-design-label">Вариант 02</span></a
+      ><span class="wb-subtitle"
+        >Командная среда · стилистика ближе к Slack</span
+      ><a
+        href="../meetrix-adaptive-ui-20261009/index.html"
+        class="button button-secondary"
+        >Вариант 01 ↗</a
+      ><a href="handoff.html" class="button button-secondary"
+        >Спецификация и аудит <span aria-hidden="true">↗</span></a
+      >
+    </header>
+    <div class="wb-toolbar">
+      <label
+        >Роль в макете<select id="role-select" aria-label="Роль в макете">
+          <option value="owner">Организатор</option>
+          <option value="member">Участник</option>
+          <option value="guest">Гость</option>
+          <option value="admin">Администратор</option>
+        </select></label
+      >
+      <label class="wb-screen-select"
+        >Экран<select id="screen-select" aria-label="Выбрать экран"></select
+      ></label>
+      <div class="wb-device-control" role="group" aria-label="Размер макета">
+        <button data-width="1440" aria-pressed="true">
+          Компьютер <small>1440</small></button
+        ><button data-width="1280" aria-pressed="false">
+          Ноутбук <small>1280</small></button
+        ><button data-width="834" aria-pressed="false">
+          Планшет <small>834</small></button
+        ><button data-width="390" aria-pressed="false">
+          Телефон <small>390</small>
+        </button>
+      </div>
+      <label
+        >Состояние<select
+          id="state-select"
+          aria-label="Состояние экрана"
+        ></select
+      ></label>
+      <label
+        >Тема<select id="theme-select" aria-label="Тема макета">
+          <option value="light">Светлая</option>
+          <option value="dark">Тёмная</option>
+        </select></label
+      >
+      <label
+        >Текст<select id="scale-select" aria-label="Размер текста в макете">
+          <option value="100">100%</option>
+          <option value="125">125%</option>
+          <option value="150">150%</option>
+          <option value="200">200%</option>
+        </select></label
+      >
+    </div>
+    <div class="wb-layout">
+      <aside class="wb-navigation">
+        <div class="wb-navigation-heading">
+          <span>Экраны</span><span id="screen-count"></span>
+        </div>
+        <nav id="screen-list" aria-label="Каталог макетов"></nav>
+        <div class="wb-baseline">
+          На основе текущих routes, API и интерфейса<br /><a
+            href="https://meeting.janickiy.com/"
+            target="_blank"
+            rel="noreferrer"
+            >meeting.janickiy.com ↗</a
+          >
+        </div>
+      </aside>
+      <main class="wb-main">
+        <div class="wb-canvas-heading">
+          <div>
+            <span class="wb-kicker" id="screen-group"></span>
+            <h1 id="screen-title">Главная</h1>
+          </div>
+          <div class="wb-preview-links">
+            <span id="dimensions"></span
+            ><a id="open-screen" target="_blank" rel="noreferrer"
+              >Открыть 1:1 ↗</a
+            >
+          </div>
+        </div>
+        <div class="wb-canvas" id="canvas">
+          <div class="wb-frame-wrap" id="frame-wrap">
+            <iframe
+              id="preview"
+              title="Адаптивный макет Meetrix"
+              src="preview.html?screen=home"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+            ></iframe>
+          </div>
+        </div>
+        <p class="wb-fixture-note">
+          Дизайн-прототип · вымышленные данные · действия внутри макетов не
+          меняют рабочий сайт.
+        </p>
+      </main>
+      <aside class="wb-inspector">
+        <div class="wb-inspector-heading">Передача в разработку</div>
+        <div id="inspector"></div>
+        <a class="wb-spec-link" href="handoff.html">Вся спецификация →</a>
+      </aside>
+    </div>
+    <script src="assets/icons.js"></script>
+    <script src="runtime.js"></script>
+    <script src="screens-meetings.js"></script>
+    <script src="screens-messaging.js"></script>
+    <script src="screens-recordings.js"></script>
+    <script src="screens-conference.js"></script>
+    <script src="screens-kit.js"></script>
+    <script src="workbench.js"></script>
+  </body>
+</html>

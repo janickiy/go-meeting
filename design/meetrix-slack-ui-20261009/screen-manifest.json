@@ -1,0 +1,2456 @@
+[
+  {
+    "id": "landing",
+    "title": "Приветственная страница",
+    "group": "Начало работы",
+    "route": "/",
+    "layout": "bare",
+    "states": [
+      {
+        "id": "default",
+        "label": "Гость"
+      }
+    ],
+    "api": [],
+    "permissions": "Публичная страница.",
+    "sources": [
+      "frontend/src/pages/Landing.tsx:13"
+    ],
+    "notes": [
+      "Переходы только вход / регистрация / кабинет. Декоративный пример не является реальной встречей."
+    ],
+    "responsive": {
+      "desktop": "Публичный экран без кабинета: brand header, ограниченная ширина содержимого.",
+      "tablet": "Одна колонка без sidebar, внешние отступы 24.",
+      "mobile": "390: внешние отступы 16, поля 16px/48px, обычная прокрутка при клавиатуре."
+    }
+  },
+  {
+    "id": "login",
+    "title": "Вход",
+    "group": "Начало работы",
+    "route": "/login",
+    "layout": "bare",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Отправка"
+      },
+      {
+        "id": "error",
+        "label": "Неверные данные"
+      },
+      {
+        "id": "expired",
+        "label": "Сессия истекла"
+      },
+      {
+        "id": "recovery",
+        "label": "Восстановление недоступно"
+      }
+    ],
+    "api": [
+      "POST /api/v1/auth/login"
+    ],
+    "permissions": "Публичная форма.",
+    "sources": [
+      "frontend/src/pages/AuthPages.tsx:25",
+      "internal/transport/http/platform_routes.go:18"
+    ],
+    "notes": [
+      "Google/Microsoft сохранены отключёнными заглушками «Позже»; действующего OAuth нет.",
+      "Recovery — только пояснение, не сценарий отправки письма.",
+      "После входа сохраняется безопасный next."
+    ],
+    "responsive": {
+      "desktop": "Auth split story + card440.",
+      "tablet": "Одна card440 без бокового блока.",
+      "mobile": "Форма width358, input16px/48px, обычная прокрутка при клавиатуре."
+    }
+  },
+  {
+    "id": "register",
+    "title": "Регистрация",
+    "group": "Начало работы",
+    "route": "/register",
+    "layout": "bare",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Отправка"
+      },
+      {
+        "id": "error",
+        "label": "Email занят"
+      }
+    ],
+    "api": [
+      "POST /api/v1/auth/register"
+    ],
+    "permissions": "Публичная форма.",
+    "sources": [
+      "frontend/src/pages/AuthPages.tsx:49",
+      "internal/domain/users/user.go:179"
+    ],
+    "notes": [
+      "Email; пароль 8–128 Unicode-символов; имя необязательно до100.",
+      "Email-верификации нет. После регистрации автоматический вход может не удаться — success сохраняется."
+    ],
+    "responsive": {
+      "desktop": "Публичный экран без кабинета: brand header, ограниченная ширина содержимого.",
+      "tablet": "Одна колонка без sidebar, внешние отступы 24.",
+      "mobile": "390: внешние отступы 16, поля 16px/48px, обычная прокрутка при клавиатуре."
+    }
+  },
+  {
+    "id": "register-success",
+    "title": "Аккаунт создан",
+    "group": "Начало работы",
+    "route": "/register/success",
+    "layout": "bare",
+    "states": [
+      {
+        "id": "default",
+        "label": "Вход выполнен"
+      },
+      {
+        "id": "login-required",
+        "label": "Требуется вход"
+      }
+    ],
+    "api": [],
+    "permissions": "Результат регистрации.",
+    "sources": [
+      "frontend/src/pages/AuthPages.tsx:292"
+    ],
+    "notes": [
+      "CTA зависит от фактически восстановленной сессии."
+    ],
+    "responsive": {
+      "desktop": "Публичный экран без кабинета: brand header, ограниченная ширина содержимого.",
+      "tablet": "Одна колонка без sidebar, внешние отступы 24.",
+      "mobile": "390: внешние отступы 16, поля 16px/48px, обычная прокрутка при клавиатуре."
+    }
+  },
+  {
+    "id": "home",
+    "title": "Главная",
+    "group": "Рабочее пространство",
+    "route": "/app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "active",
+        "label": "Активные"
+      },
+      {
+        "id": "past",
+        "label": "Завершённые"
+      }
+    ],
+    "api": [
+      "GET /api/v1/me/conferences?view=upcoming",
+      "GET /api/v1/me/conferences?view=past&status=finished"
+    ],
+    "permissions": "Постоянный аккаунт; только доступные встречи.",
+    "sources": [
+      "frontend/src/pages/Dashboard.tsx:191"
+    ],
+    "notes": [
+      "Быстрые действия: создать, запланировать, присоединиться по ссылке.",
+      "Недавние встречи — фактический список истории, не выдуманные превью записей.",
+      "История доступна из материалов, в основное меню не возвращается."
+    ],
+    "responsive": {
+      "desktop": "1440: globalbar 44, sidebar 248 (216 на laptop), content topbar 64, padding 32, controls ≥44.",
+      "tablet": "834: navigation rail 76, padding 24, перенос toolbar по содержимому.",
+      "mobile": "390: topbar 64, bottom nav 72 + safe-area, padding 16; карточки одной колонкой."
+    }
+  },
+  {
+    "id": "meetings",
+    "title": "Встречи",
+    "group": "Рабочее пространство",
+    "route": "/conferences",
+    "nav": "meetings",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "active",
+        "label": "Активные"
+      },
+      {
+        "id": "past",
+        "label": "Завершённые"
+      },
+      {
+        "id": "no-results",
+        "label": "Поиск без совпадений"
+      },
+      {
+        "id": "filters",
+        "label": "Мобильные фильтры"
+      }
+    ],
+    "api": [
+      "GET /api/v1/me/conferences?view&scope&from&to&cursor"
+    ],
+    "permissions": "Постоянный аккаунт; серверная фильтрация членства.",
+    "sources": [
+      "frontend/src/pages/Dashboard.tsx:200",
+      "internal/domain/conferences/conference.go:155"
+    ],
+    "notes": [
+      "Название/даты/статус/длительность реальны; имён организаторов и счётчиков участников в основном View нет.",
+      "Поиск только среди загруженных страниц.",
+      "Завершённая встреча ведёт к /history/:id."
+    ],
+    "responsive": {
+      "desktop": "1440: globalbar 44, sidebar 248 (216 на laptop), content topbar 64, padding 32, controls ≥44.",
+      "tablet": "834: navigation rail 76, padding 24, перенос toolbar по содержимому.",
+      "mobile": "390: topbar 64, bottom nav 72 + safe-area, padding 16; карточки одной колонкой."
+    }
+  },
+  {
+    "id": "create-meeting",
+    "title": "Создать встречу",
+    "group": "Встречи и приглашения",
+    "route": "/meetings/new",
+    "nav": "meetings",
+    "states": [
+      {
+        "id": "default",
+        "label": "Без даты"
+      },
+      {
+        "id": "scheduled",
+        "label": "Запланированная"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка даты"
+      },
+      {
+        "id": "loading",
+        "label": "Создание"
+      }
+    ],
+    "api": [
+      "POST /api/v1/conferences"
+    ],
+    "permissions": "Постоянный аккаунт.",
+    "sources": [
+      "frontend/src/components/ConferenceModals.tsx:99",
+      "internal/domain/conferences/conference.go:259"
+    ],
+    "notes": [
+      "Только title/waitingRoomEnabled/scheduledAt/plannedDurationMin.",
+      "Нет описания, повтора, автозаписи или автозапуска.",
+      "Валидная invite-ссылка обходит зал ожидания: ограничение отражено прямо в форме."
+    ],
+    "responsive": {
+      "desktop": "Modal520 padding32, max-height viewport−48.",
+      "tablet": "Modal520, прокручиваемое содержимое.",
+      "mobile": "Полноэкранная форма, header56/body16/sticky footer + safe-area."
+    }
+  },
+  {
+    "id": "meeting-created",
+    "title": "Встреча создана",
+    "group": "Встречи и приглашения",
+    "route": "/meetings/new · результат",
+    "nav": "meetings",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "copied",
+        "label": "Ссылка скопирована"
+      },
+      {
+        "id": "copy-error",
+        "label": "Копирование не удалось"
+      }
+    ],
+    "api": [],
+    "permissions": "Создавший встречу владелец.",
+    "sources": [
+      "frontend/src/components/ConferenceModals.tsx:23"
+    ],
+    "notes": [
+      "Share не означает запуск. Полученный inviteCode преобразуется в публичную /i/:code ссылку."
+    ],
+    "responsive": {
+      "desktop": "1440: globalbar 44, sidebar 248 (216 на laptop), content topbar 64, padding 32, controls ≥44.",
+      "tablet": "834: navigation rail 76, padding 24, перенос toolbar по содержимому.",
+      "mobile": "390: topbar 64, bottom nav 72 + safe-area, padding 16; карточки одной колонкой."
+    }
+  },
+  {
+    "id": "join-link",
+    "title": "Войти по ссылке",
+    "group": "Встречи и приглашения",
+    "route": "/app · диалог",
+    "nav": "meetings",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "error",
+        "label": "Некорректная ссылка"
+      }
+    ],
+    "api": [
+      "GET /api/v1/conference-invites/:code"
+    ],
+    "permissions": "Код или ссылка текущей установки.",
+    "sources": [
+      "frontend/src/components/ConferenceModals.tsx:443"
+    ],
+    "notes": [
+      "Принимается same-origin /i/:code либо32-символьный код; результат публичный pre-join."
+    ],
+    "responsive": {
+      "desktop": "1440: globalbar 44, sidebar 248 (216 на laptop), content topbar 64, padding 32, controls ≥44.",
+      "tablet": "834: navigation rail 76, padding 24, перенос toolbar по содержимому.",
+      "mobile": "390: topbar 64, bottom nav 72 + safe-area, padding 16; карточки одной колонкой."
+    }
+  },
+  {
+    "id": "invite",
+    "title": "Пригласить участников",
+    "group": "Встречи и приглашения",
+    "route": "/conferences/:id · диалог",
+    "nav": "meetings",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Отправка"
+      },
+      {
+        "id": "search-empty",
+        "label": "Нет результатов"
+      },
+      {
+        "id": "sent",
+        "label": "Поставлено в очередь"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "api": [
+      "GET /api/v1/conferences/:id/invitation-users?query",
+      "POST /api/v1/conferences/:id/invitations"
+    ],
+    "permissions": "Владелец created/scheduled/active; co_host только joined/admitted в active; постоянные аккаунты.",
+    "sources": [
+      "frontend/src/components/ConferenceInvitations.tsx:40",
+      "internal/infrastructure/postgres/conference_invitation_repository.go:26"
+    ],
+    "notes": [
+      "До20 получателей, поиск≥2 символа.",
+      "Статус queued не равен доставлено; есть already_invited и left_chat."
+    ],
+    "responsive": {
+      "desktop": "1440: globalbar 44, sidebar 248 (216 на laptop), content topbar 64, padding 32, controls ≥44.",
+      "tablet": "834: navigation rail 76, padding 24, перенос toolbar по содержимому.",
+      "mobile": "390: topbar 64, bottom nav 72 + safe-area, padding 16; карточки одной колонкой."
+    }
+  },
+  {
+    "id": "prejoin",
+    "title": "Перед входом",
+    "group": "Встречи и приглашения",
+    "route": "/meetings/:id/join",
+    "layout": "bare",
+    "states": [
+      {
+        "id": "default",
+        "label": "Устройства выключены"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "denied",
+        "label": "Доступ запрещён"
+      },
+      {
+        "id": "device-lost",
+        "label": "Устройство отключено"
+      },
+      {
+        "id": "busy",
+        "label": "Устройство занято"
+      },
+      {
+        "id": "devices",
+        "label": "Устройства на мобильном"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка подключения"
+      },
+      {
+        "id": "unavailable",
+        "label": "Встреча недоступна"
+      }
+    ],
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/participants/me",
+      "POST /api/v1/conferences/:id/join"
+    ],
+    "permissions": "Текущий участник/разрешённая конференция.",
+    "sources": [
+      "frontend/src/pages/PreJoinPage.tsx:55",
+      "frontend/src/prejoinDevices.ts:133"
+    ],
+    "notes": [
+      "До допуска preview только локальный, SFU не подключён.",
+      "Выбор вывода звука только при setSinkId, при отсутствии скрыть.",
+      "В прототипе устройства не запрашиваются; кнопки показывают лишь визуальное состояние.",
+      "Внутренний вход и публичное приглашение различаются автоматическим включением медиа — сохранить текущую семантику."
+    ],
+    "responsive": {
+      "desktop": "Контейнер1080, preview640 + settings360, gap32.",
+      "tablet": "Preview16:9 сверху, настройки ниже.",
+      "mobile": "Preview358×201, controls48, устройства раскрываются, Join52."
+    }
+  },
+  {
+    "id": "guest-prejoin",
+    "title": "Приглашение и вход гостя",
+    "group": "Встречи и приглашения",
+    "route": "/i/:code",
+    "layout": "bare",
+    "states": [
+      {
+        "id": "default",
+        "label": "Гость"
+      },
+      {
+        "id": "scheduled",
+        "label": "Встреча ещё не началась"
+      },
+      {
+        "id": "denied",
+        "label": "Нет доступа к камере"
+      },
+      {
+        "id": "devices",
+        "label": "Выбор устройств"
+      },
+      {
+        "id": "unavailable",
+        "label": "Приглашение недоступно"
+      }
+    ],
+    "api": [
+      "GET /api/v1/conference-invites/:code",
+      "POST /api/v1/conference-invites/:code/guest"
+    ],
+    "permissions": "Публично. Гостевой вход только created/active; scoped сессия одной встречи.",
+    "sources": [
+      "frontend/src/pages/InvitePage.tsx:8",
+      "internal/infrastructure/postgres/guest_repository.go:31"
+    ],
+    "notes": [
+      "Сначала только метаданные, затем явное действие входа создаёт гостя.",
+      "Valid invite bypasses waiting room. Нельзя изображать обязательное ожидание допуска гостя по ссылке.",
+      "Гостю недоступен кабинет."
+    ],
+    "responsive": {
+      "desktop": "Публичный экран без кабинета: brand header, ограниченная ширина содержимого.",
+      "tablet": "Одна колонка без sidebar, внешние отступы 24.",
+      "mobile": "390: внешние отступы 16, поля 16px/48px, обычная прокрутка при клавиатуре."
+    }
+  },
+  {
+    "id": "calendar",
+    "title": "Календарь",
+    "group": "Рабочее пространство",
+    "route": "/calendar",
+    "nav": "calendar",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "month",
+        "label": "Месяц"
+      },
+      {
+        "id": "details",
+        "label": "Карточка встречи"
+      },
+      {
+        "id": "cancel",
+        "label": "Отмена встречи"
+      }
+    ],
+    "api": [
+      "GET /api/v1/me/conferences?view=upcoming&from&to",
+      "POST /api/v1/conferences/:id/cancel"
+    ],
+    "permissions": "Постоянный аккаунт; изменение только владельцем.",
+    "sources": [
+      "frontend/src/pages/CalendarPage.tsx:227",
+      "internal/infrastructure/postgres/conference_product_repository.go:178"
+    ],
+    "notes": [
+      "Только будущие created/scheduled, в сетке только существующий scheduledAt.",
+      "Нет внешнего calendar sync controls, повторов или drag/drop.",
+      "Для частичной страницы сохраняется отдельный action загрузки продолжения.",
+      "Mobile agenda использует те же API."
+    ],
+    "responsive": {
+      "desktop": "Неделя7дней и24ч scroll / месяц7×6; caption12+, event44+.",
+      "tablet": "При ширине контента<760 agenda, иначе сетка. Toolbar переносится.",
+      "mobile": "Выбор периода+7дней44+, agenda одной колонкой. Не уменьшенная desktop таблица."
+    }
+  },
+  {
+    "id": "edit-schedule",
+    "title": "Изменить расписание",
+    "group": "Встречи и приглашения",
+    "route": "/calendar · диалог",
+    "nav": "calendar",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "api": [
+      "PUT /api/v1/conferences/:id/schedule"
+    ],
+    "permissions": "Только владелец status=scheduled.",
+    "sources": [
+      "internal/infrastructure/postgres/conference_product_repository.go:111",
+      "frontend/src/components/ConferenceModals.tsx:305"
+    ],
+    "notes": [
+      "Целое число минут1–1440 либо пусто; время строго в будущем.",
+      "Дата в часовом поясе браузера отправляется RFC3339 UTC."
+    ],
+    "responsive": {
+      "desktop": "1440: globalbar 44, sidebar 248 (216 на laptop), content topbar 64, padding 32, controls ≥44.",
+      "tablet": "834: navigation rail 76, padding 24, перенос toolbar по содержимому.",
+      "mobile": "390: topbar 64, bottom nav 72 + safe-area, padding 16; карточки одной колонкой."
+    }
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись; доступ только к своим перепискам.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Вымышленные данные показывают поддержанные поля API; действия работают только внутри дизайн-прототипа."
+    ],
+    "id": "personal",
+    "title": "Личные · список и пустая область",
+    "route": "/personal",
+    "api": [
+      "GET /api/v1/conversations"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "reconnect",
+        "label": "Переподключение"
+      },
+      {
+        "id": "muted",
+        "label": "Без уведомлений"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись; доступ только к своим перепискам.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Вымышленные данные показывают поддержанные поля API; действия работают только внутри дизайн-прототипа.",
+      "Нет typing, peer read ticks, личного online или звонка из чата. Ответ, своё редактирование/удаление, 64 emoji и вложения реализованы.",
+      "Reconnecting — новый визуальный статус существующего WebSocket reconnect; hook требует frontend wiring.",
+      "4000 символов; до 5 вложений по 10 МиБ: JPG/PNG/WebP/PDF/TXT/CSV."
+    ],
+    "id": "direct-chat",
+    "title": "Личная переписка",
+    "route": "/personal/:id",
+    "api": [
+      "GET/POST /api/v1/conversations/:id/messages",
+      "PATCH/DELETE /api/v1/conversations/:id/messages/:messageId",
+      "PATCH /api/v1/conversations/:id/preferences"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись; доступ только к своим перепискам.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "API уже существует и используется из информации об участнике встречи. Меню Новый чат — предлагаемая frontend-точка входа.",
+      "Поиск 2–100 символов; до 20 найденных пользователей; только зарегистрированные, кроме себя."
+    ],
+    "id": "new-direct",
+    "title": "Новая личная переписка",
+    "route": "/personal (новая точка входа)",
+    "api": [
+      "GET /api/v1/users?search=",
+      "POST /api/v1/conversations/direct"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись; доступ только к своим перепискам.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Публичный peer содержит только id и displayName. Email, профильное фото, статус сети и last seen не добавляются."
+    ],
+    "id": "direct-info",
+    "title": "Информация о пользователе",
+    "route": "/personal/:id (modal)",
+    "api": [
+      "GET /api/v1/conversations/:id"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись; доступ только к своим перепискам.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Действие влияет только на свою историю и видимость. Фокус по умолчанию на Отмена. При ошибке диалог остаётся открытым."
+    ],
+    "id": "direct-clear",
+    "title": "Очистить историю?",
+    "route": "/personal/:id (подтверждение)",
+    "api": [
+      "POST /api/v1/conversations/:id/clear-history"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись; доступ только к своим перепискам.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Действие влияет только на свою историю и видимость. Фокус по умолчанию на Отмена. При ошибке диалог остаётся открытым."
+    ],
+    "id": "direct-delete",
+    "title": "Удалить чат?",
+    "route": "/personal/:id (подтверждение)",
+    "api": [
+      "POST /api/v1/conversations/:id/hide"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "reconnect",
+        "label": "Переподключение"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись; доступ только к своим перепискам.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Сообщения доступны активным участникам. Имя, memberCount, avatar; нет голосовых сообщений, стикеров, pinned или read-by-peer.",
+      "Reconnecting требует frontend отображения текущего состояния WS."
+    ],
+    "id": "group-chat",
+    "title": "Групповая переписка",
+    "route": "/personal/:id type=group",
+    "api": [
+      "GET /api/v1/conversations/:id",
+      "GET/POST /api/v1/conversations/:id/messages"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "partial",
+        "label": "Аватар не загружен"
+      }
+    ],
+    "permissions": "Зарегистрированный пользователь становится owner созданной группы.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Имя 1–50, описание 0–200 символов. 100 участников включая owner. Аватар PNG/JPEG до 2 МиБ. При ошибке аватара после создания не создавать группу повторно."
+    ],
+    "id": "group-create",
+    "title": "Создание группы",
+    "route": "/personal (modal)",
+    "api": [
+      "POST /api/v1/conversations/group",
+      "GET /api/v1/users",
+      "PUT /api/v1/conversations/:id/avatar"
+    ]
+  },
+  {
+    "group": "Общение",
+    "layout": "app",
+    "nav": "personal",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "member: чтение, выход; admin: метаданные, добавление, удаление member; owner: роли, передача владельца, удаление группы.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Владелец группы с другими участниками перед выходом передаёт владение. Удаление группы для всех подтверждается.",
+      "Nullable online есть только у GroupMember: показать Статус недоступен при отсутствии актуальных данных.",
+      "Пустое состояние относится к поиску участников; существующая группа не изображается без владельца."
+    ],
+    "id": "group-info",
+    "title": "Информация и участники группы",
+    "route": "/personal/:id (modal)",
+    "api": [
+      "GET /api/v1/conversations/:id/members",
+      "POST /api/v1/conversations/:id/members",
+      "PATCH/DELETE /api/v1/conversations/:id/members/:userId",
+      "POST /api/v1/conversations/:id/ownership",
+      "POST /api/v1/conversations/:id/leave",
+      "DELETE /api/v1/conversations/:id"
+    ]
+  },
+  {
+    "group": "Организация",
+    "layout": "app",
+    "nav": "folders",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Только владелец личной папки. Папка не предоставляет права на встречу или переписку.",
+    "responsive": {
+      "desktop": "Карточка-список до 1040 px, строки 88 px; действия справа.",
+      "tablet": "Список на доступную ширину; меню привязано к строке.",
+      "mobile": "Вертикальные строки с иконкой 44 px, метаданные под заголовком; фильтры прокручиваются."
+    },
+    "sources": [
+      "frontend/src/pages/FoldersPage.tsx:41",
+      "internal/domain/folders/folders.go:15"
+    ],
+    "notes": [
+      "До 100 папок; имя 1–50 символов NFC, уникальное без учёта регистра. Удаление папки удаляет ссылки, но сохраняет встречи и чаты."
+    ],
+    "api": [
+      "GET/POST /api/v1/folders",
+      "GET/PATCH/DELETE /api/v1/folders/:id",
+      "PUT /api/v1/folders/order"
+    ],
+    "id": "folders",
+    "title": "Личные папки",
+    "route": "/folders"
+  },
+  {
+    "group": "Организация",
+    "layout": "app",
+    "nav": "folders",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Только владелец личной папки. Папка не предоставляет права на встречу или переписку.",
+    "responsive": {
+      "desktop": "Карточка-список до 1040 px, строки 88 px; действия справа.",
+      "tablet": "Список на доступную ширину; меню привязано к строке.",
+      "mobile": "Вертикальные строки с иконкой 44 px, метаданные под заголовком; фильтры прокручиваются."
+    },
+    "sources": [
+      "frontend/src/pages/FoldersPage.tsx:41",
+      "internal/domain/folders/folders.go:15"
+    ],
+    "notes": [
+      "До 100 папок; имя 1–50 символов NFC, уникальное без учёта регистра. Удаление папки удаляет ссылки, но сохраняет встречи и чаты."
+    ],
+    "api": [
+      "GET/POST /api/v1/folders",
+      "GET/PATCH/DELETE /api/v1/folders/:id",
+      "PUT /api/v1/folders/order",
+      "GET /api/v1/folders/:id/items",
+      "GET /api/v1/folder-items",
+      "PUT/DELETE /api/v1/folders/:id/items/:kind/:itemId"
+    ],
+    "id": "folder-detail",
+    "title": "Содержимое папки",
+    "route": "/folders/:id"
+  },
+  {
+    "group": "Организация",
+    "layout": "app",
+    "nav": "folders",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Только владелец личной папки. Папка не предоставляет права на встречу или переписку.",
+    "responsive": {
+      "desktop": "Карточка-список до 1040 px, строки 88 px; действия справа.",
+      "tablet": "Список на доступную ширину; меню привязано к строке.",
+      "mobile": "Вертикальные строки с иконкой 44 px, метаданные под заголовком; фильтры прокручиваются."
+    },
+    "sources": [
+      "frontend/src/pages/FoldersPage.tsx:41",
+      "internal/domain/folders/folders.go:15"
+    ],
+    "notes": [
+      "До 100 папок; имя 1–50 символов NFC, уникальное без учёта регистра. Удаление папки удаляет ссылки, но сохраняет встречи и чаты."
+    ],
+    "api": [
+      "GET/POST /api/v1/folders",
+      "GET/PATCH/DELETE /api/v1/folders/:id",
+      "PUT /api/v1/folders/order"
+    ],
+    "id": "folder-create",
+    "title": "Создание / название папки",
+    "route": "/folders (modal)"
+  },
+  {
+    "group": "Организация",
+    "layout": "app",
+    "nav": "folders",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      }
+    ],
+    "permissions": "Только владелец личной папки. Папка не предоставляет права на встречу или переписку.",
+    "responsive": {
+      "desktop": "Карточка-список до 1040 px, строки 88 px; действия справа.",
+      "tablet": "Список на доступную ширину; меню привязано к строке.",
+      "mobile": "Вертикальные строки с иконкой 44 px, метаданные под заголовком; фильтры прокручиваются."
+    },
+    "sources": [
+      "frontend/src/pages/FoldersPage.tsx:41",
+      "internal/domain/folders/folders.go:15"
+    ],
+    "notes": [
+      "До 100 папок; имя 1–50 символов NFC, уникальное без учёта регистра. Удаление папки удаляет ссылки, но сохраняет встречи и чаты."
+    ],
+    "api": [
+      "GET/POST /api/v1/folders",
+      "GET/PATCH/DELETE /api/v1/folders/:id",
+      "PUT /api/v1/folders/order"
+    ],
+    "id": "folder-delete",
+    "title": "Удаление папки",
+    "route": "/folders (modal)"
+  },
+  {
+    "group": "Организация",
+    "layout": "app",
+    "nav": "folders",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Только владелец личной папки. Папка не предоставляет права на встречу или переписку.",
+    "responsive": {
+      "desktop": "Карточка-список до 1040 px, строки 88 px; действия справа.",
+      "tablet": "Список на доступную ширину; меню привязано к строке.",
+      "mobile": "Вертикальные строки с иконкой 44 px, метаданные под заголовком; фильтры прокручиваются."
+    },
+    "sources": [
+      "frontend/src/pages/FoldersPage.tsx:41",
+      "internal/domain/folders/folders.go:15"
+    ],
+    "notes": [
+      "До 100 папок; имя 1–50 символов NFC, уникальное без учёта регистра. Удаление папки удаляет ссылки, но сохраняет встречи и чаты."
+    ],
+    "api": [
+      "GET /api/v1/folder-items",
+      "PUT /api/v1/folders/:id/items/:kind/:itemId"
+    ],
+    "id": "folder-add",
+    "title": "Добавление элементов в папку",
+    "route": "/folders/:id (modal)"
+  },
+  {
+    "group": "Аккаунт",
+    "layout": "app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      }
+    ],
+    "permissions": "Аккаунт; гости видят только Аудио, Видео, Оформление.",
+    "responsive": {
+      "desktop": "1440–1920: цельная рабочая поверхность, список 288 px, переписка от 420 px. Сообщения строками с аватаром, именем и временем; ввод закреплён снизу.",
+      "tablet": "768–1023: список и диалог раздельно, когда контенту не хватает ширины. Container query сохраняет эту логику при увеличении текста до 200%.",
+      "mobile": "360–767: отдельный экран списка → отдельный диалог, назад возвращает в список. Элементы касания не менее 44 px; клавиатура не перекрывает ввод."
+    },
+    "sources": [
+      "frontend/src/pages/PersonalPage.tsx:36",
+      "internal/transport/http/personal_routes.go:12"
+    ],
+    "notes": [
+      "Вымышленные данные показывают поддержанные поля API; действия работают только внутри дизайн-прототипа."
+    ],
+    "id": "settings",
+    "title": "Настройки · категории",
+    "route": "/app/settings (modal)",
+    "api": [
+      "GET /api/v1/auth/me"
+    ]
+  },
+  {
+    "group": "Аккаунт",
+    "layout": "app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись",
+    "responsive": {
+      "desktop": "Модальное окно до 960 px, навигация216px, контент с отступом32px и собственной прокруткой.",
+      "tablet": "Модальное окно на доступную ширину, навигация180px; форма одной колонкой.",
+      "mobile": "Полноэкранный диалог: категории → подраздел, кнопка назад и закрыть; зона ввода не менее44px."
+    },
+    "sources": [
+      "frontend/src/pages/AccountPages.tsx:40",
+      "frontend/src/components/DeviceSettings.tsx:318",
+      "frontend/src/appearance.tsx:14"
+    ],
+    "notes": [
+      "Настройки открываются поверх текущей страницы; активная встреча не размонтируется.",
+      "Профиль: только имя, email readonly. Нет Интеграций и Безопасности. Оформление light/dark и 75/90/100/110/125/150/200%, локально для аккаунта.",
+      "Каналы уведомлений зависят от capabilities; mock/noop не изображать работающими. Доступ к устройствам зависит от браузера и разрешений."
+    ],
+    "id": "settings-profile",
+    "title": "Настройки · Профиль",
+    "route": "/app/settings (modal)",
+    "api": [
+      "PATCH /api/v1/auth/me"
+    ]
+  },
+  {
+    "group": "Аккаунт",
+    "layout": "app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Аккаунт или гость встречи",
+    "responsive": {
+      "desktop": "Модальное окно до 960 px, навигация216px, контент с отступом32px и собственной прокруткой.",
+      "tablet": "Модальное окно на доступную ширину, навигация180px; форма одной колонкой.",
+      "mobile": "Полноэкранный диалог: категории → подраздел, кнопка назад и закрыть; зона ввода не менее44px."
+    },
+    "sources": [
+      "frontend/src/pages/AccountPages.tsx:40",
+      "frontend/src/components/DeviceSettings.tsx:318",
+      "frontend/src/appearance.tsx:14"
+    ],
+    "notes": [
+      "Настройки открываются поверх текущей страницы; активная встреча не размонтируется.",
+      "Профиль: только имя, email readonly. Нет Интеграций и Безопасности. Оформление light/dark и 75/90/100/110/125/150/200%, локально для аккаунта.",
+      "Каналы уведомлений зависят от capabilities; mock/noop не изображать работающими. Доступ к устройствам зависит от браузера и разрешений."
+    ],
+    "id": "settings-audio",
+    "title": "Настройки · Аудио",
+    "route": "/app/settings (modal)",
+    "api": [
+      "Локальные настройки браузера; backend API не требуется"
+    ]
+  },
+  {
+    "group": "Аккаунт",
+    "layout": "app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Аккаунт или гость встречи",
+    "responsive": {
+      "desktop": "Модальное окно до 960 px, навигация216px, контент с отступом32px и собственной прокруткой.",
+      "tablet": "Модальное окно на доступную ширину, навигация180px; форма одной колонкой.",
+      "mobile": "Полноэкранный диалог: категории → подраздел, кнопка назад и закрыть; зона ввода не менее44px."
+    },
+    "sources": [
+      "frontend/src/pages/AccountPages.tsx:40",
+      "frontend/src/components/DeviceSettings.tsx:318",
+      "frontend/src/appearance.tsx:14"
+    ],
+    "notes": [
+      "Настройки открываются поверх текущей страницы; активная встреча не размонтируется.",
+      "Профиль: только имя, email readonly. Нет Интеграций и Безопасности. Оформление light/dark и 75/90/100/110/125/150/200%, локально для аккаунта.",
+      "Каналы уведомлений зависят от capabilities; mock/noop не изображать работающими. Доступ к устройствам зависит от браузера и разрешений."
+    ],
+    "id": "settings-video",
+    "title": "Настройки · Видео",
+    "route": "/app/settings (modal)",
+    "api": [
+      "Локальные настройки браузера; backend API не требуется"
+    ]
+  },
+  {
+    "group": "Аккаунт",
+    "layout": "app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Зарегистрированная учётная запись",
+    "responsive": {
+      "desktop": "Модальное окно до 960 px, навигация216px, контент с отступом32px и собственной прокруткой.",
+      "tablet": "Модальное окно на доступную ширину, навигация180px; форма одной колонкой.",
+      "mobile": "Полноэкранный диалог: категории → подраздел, кнопка назад и закрыть; зона ввода не менее44px."
+    },
+    "sources": [
+      "frontend/src/pages/AccountPages.tsx:40",
+      "frontend/src/components/DeviceSettings.tsx:318",
+      "frontend/src/appearance.tsx:14"
+    ],
+    "notes": [
+      "Настройки открываются поверх текущей страницы; активная встреча не размонтируется.",
+      "Профиль: только имя, email readonly. Нет Интеграций и Безопасности. Оформление light/dark и 75/90/100/110/125/150/200%, локально для аккаунта.",
+      "Каналы уведомлений зависят от capabilities; mock/noop не изображать работающими. Доступ к устройствам зависит от браузера и разрешений."
+    ],
+    "id": "settings-notifications",
+    "title": "Настройки · Уведомления",
+    "route": "/app/settings (modal)",
+    "api": [
+      "GET/PUT /api/v1/notifications/preferences",
+      "GET /api/v1/integrations/capabilities"
+    ]
+  },
+  {
+    "group": "Аккаунт",
+    "layout": "app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Аккаунт или гость встречи",
+    "responsive": {
+      "desktop": "Модальное окно до 960 px, навигация216px, контент с отступом32px и собственной прокруткой.",
+      "tablet": "Модальное окно на доступную ширину, навигация180px; форма одной колонкой.",
+      "mobile": "Полноэкранный диалог: категории → подраздел, кнопка назад и закрыть; зона ввода не менее44px."
+    },
+    "sources": [
+      "frontend/src/pages/AccountPages.tsx:40",
+      "frontend/src/components/DeviceSettings.tsx:318",
+      "frontend/src/appearance.tsx:14"
+    ],
+    "notes": [
+      "Настройки открываются поверх текущей страницы; активная встреча не размонтируется.",
+      "Профиль: только имя, email readonly. Нет Интеграций и Безопасности. Оформление light/dark и 75/90/100/110/125/150/200%, локально для аккаунта.",
+      "Каналы уведомлений зависят от capabilities; mock/noop не изображать работающими. Доступ к устройствам зависит от браузера и разрешений."
+    ],
+    "id": "settings-appearance",
+    "title": "Настройки · Оформление",
+    "route": "/app/settings (modal)",
+    "api": [
+      "Локальные настройки браузера; backend API не требуется"
+    ]
+  },
+  {
+    "group": "Аккаунт",
+    "layout": "app",
+    "nav": "home",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      }
+    ],
+    "permissions": "Только уведомления текущего зарегистрированного пользователя.",
+    "responsive": {
+      "desktop": "Список до880px; иконка40px, текст и время слева, действие справа.",
+      "tablet": "Одна колонка; сохранять ясную unread-индикацию.",
+      "mobile": "Иконка32px и гибкий текст, действия под текстом, даты не обрезать; 44px touch."
+    },
+    "sources": [
+      "frontend/src/pages/NotificationsPage.tsx:17",
+      "internal/transport/http/notification_routes.go:14"
+    ],
+    "notes": [
+      "Нет массового прочтения/удаления/фильтра unread-only в текущем контракте. Прочитать одно или открыть встречу.",
+      "На desktop bell может раскрывать popover с переходом к этому полному списку; mobile сразу открывает страницу.",
+      "Личные сообщения имеют отдельный WS toast; не добавлять их в долговечный inbox без backend контракта.",
+      "В payload нет названия встречи: под событием статическая подсказка, не вымышленное имя из API."
+    ],
+    "id": "notifications",
+    "title": "Уведомления",
+    "route": "/notifications",
+    "api": [
+      "GET /api/v1/notifications?limit=30&cursor=",
+      "POST /api/v1/notifications/:notificationId/read",
+      "GET /api/v1/notifications/events"
+    ]
+  },
+  {
+    "layout": "app",
+    "notes": [
+      "Самостоятельный дизайн-прототип; DTO-fixtures вымышлены. Сетевые запросы, сохранение и файлы не выполняются.",
+      "44×44px hit targets. Реальный доступ подтверждается backend, а не наличием скопированной ссылки.",
+      "7-дневная доступность записей; без поля expiresAt и без выдуманного таймера."
+    ],
+    "responsive": {
+      "desktop": "1440–1920: общая plum-sidebar, глобальная панель 44 px + header 64 px = 108 px; gutter 32 px. Редакционные превью и компактные строки; единая информационная панель плеера 290 px.",
+      "tablet": "768–1023: общая компактная sidebar; глобальная панель 44 px + header 64 px = 108 px; gutter 24 px. Плеер полной ширины, затем информация и материалы; строки перестраиваются, не уменьшая текст.",
+      "mobile": "360–767: общая панель 44 px + header 64 px = 108 px; gutter 16 px, bottom nav ≥72 px + safe area. Превью и карточки полной ширины, действия от 44×44 px; последовательность player → info → materials."
+    },
+    "id": "recordings",
+    "title": "Записи",
+    "group": "Материалы",
+    "nav": "recordings",
+    "route": "/recordings?conference=:id",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "expired",
+        "label": "Материалы недоступны"
+      },
+      {
+        "id": "active",
+        "label": "Встреча в эфире"
+      },
+      {
+        "id": "filtered",
+        "label": "Пустой результат фильтра"
+      },
+      {
+        "id": "oldest",
+        "label": "Сначала старые"
+      }
+    ],
+    "api": [
+      "GET /api/v1/me/conferences?view=past|active",
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/recordings?limit=20&offset=0",
+      "GET /api/v1/conferences/:id/history"
+    ],
+    "permissions": "Авторизованный допущенный участник joined/left. Глобального каталога нет.",
+    "sources": [
+      "frontend/src/pages/RecordingsPage.tsx:107",
+      "frontend/src/components/RecordingActions.tsx:11",
+      "internal/infrastructure/postgres/record_retention.go:14"
+    ]
+  },
+  {
+    "layout": "app",
+    "notes": [
+      "Самостоятельный дизайн-прототип; DTO-fixtures вымышлены. Сетевые запросы, сохранение и файлы не выполняются.",
+      "44×44px hit targets. Реальный доступ подтверждается backend, а не наличием скопированной ссылки.",
+      "7-дневная доступность записей; без поля expiresAt и без выдуманного таймера.",
+      "Без вкладок AI/расшифровки, избранного и удаления. Нативный медиаэлемент без src честно показывает дизайн, а не реальное воспроизведение.",
+      "Архив дорожек показан только в реальном режиме individual_tracks; final_audio + tracks_archive, без вымышленного превью или MP4."
+    ],
+    "responsive": {
+      "desktop": "1440–1920: общая plum-sidebar, глобальная панель 44 px + header 64 px = 108 px; gutter 32 px. Редакционные превью и компактные строки; единая информационная панель плеера 290 px.",
+      "tablet": "768–1023: общая компактная sidebar; глобальная панель 44 px + header 64 px = 108 px; gutter 24 px. Плеер полной ширины, затем информация и материалы; строки перестраиваются, не уменьшая текст.",
+      "mobile": "360–767: общая панель 44 px + header 64 px = 108 px; gutter 16 px, bottom nav ≥72 px + safe area. Превью и карточки полной ширины, действия от 44×44 px; последовательность player → info → materials."
+    },
+    "id": "recording-player",
+    "title": "Просмотр записи",
+    "group": "Материалы",
+    "nav": "recordings",
+    "route": "/recordings/:id?conference=:conferenceId",
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "expired",
+        "label": "Материалы недоступны"
+      },
+      {
+        "id": "audio",
+        "label": "Аудиозапись"
+      },
+      {
+        "id": "tracks",
+        "label": "Аудиомикс и архив дорожек"
+      }
+    ],
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/recordings/:recordingId",
+      "GET /api/v1/conferences/:id/history"
+    ],
+    "permissions": "Сервер подтверждает связь записи и встречи, current admitted joined/left membership.",
+    "sources": [
+      "frontend/src/pages/RecordingDetailPage.tsx:45",
+      "frontend/src/pages/RecordingDetailPage.tsx:268",
+      "internal/usecase/recorder/service.go:882",
+      "internal/usecase/recorder/composite.go:509"
+    ]
+  },
+  {
+    "layout": "app",
+    "notes": [
+      "Самостоятельный дизайн-прототип; DTO-fixtures вымышлены. Сетевые запросы, сохранение и файлы не выполняются.",
+      "44×44px hit targets. Реальный доступ подтверждается backend, а не наличием скопированной ссылки.",
+      "7-дневная доступность записей; без поля expiresAt и без выдуманного таймера.",
+      "Нет самостоятельного History пункта в глобальной навигации; вход через материалы встречи."
+    ],
+    "responsive": {
+      "desktop": "1440–1920: общая plum-sidebar, глобальная панель 44 px + header 64 px = 108 px; gutter 32 px. Редакционные превью и компактные строки; единая информационная панель плеера 290 px.",
+      "tablet": "768–1023: общая компактная sidebar; глобальная панель 44 px + header 64 px = 108 px; gutter 24 px. Плеер полной ширины, затем информация и материалы; строки перестраиваются, не уменьшая текст.",
+      "mobile": "360–767: общая панель 44 px + header 64 px = 108 px; gutter 16 px, bottom nav ≥72 px + safe area. Превью и карточки полной ширины, действия от 44×44 px; последовательность player → info → materials."
+    },
+    "id": "history",
+    "title": "История встреч · вторичный экран",
+    "group": "Материалы",
+    "nav": "recordings",
+    "route": "/history",
+    "secondary": true,
+    "restricted": true,
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "expired",
+        "label": "Материалы недоступны"
+      }
+    ],
+    "api": [
+      "GET /api/v1/me/conferences?view=past"
+    ],
+    "permissions": "Только доступные пользователю finished/cancelled встречи.",
+    "sources": [
+      "frontend/src/pages/AccountPages.tsx:317",
+      "frontend/src/components/Layout.tsx:157"
+    ]
+  },
+  {
+    "layout": "app",
+    "notes": [
+      "Самостоятельный дизайн-прототип; DTO-fixtures вымышлены. Сетевые запросы, сохранение и файлы не выполняются.",
+      "44×44px hit targets. Реальный доступ подтверждается backend, а не наличием скопированной ссылки.",
+      "7-дневная доступность записей; без поля expiresAt и без выдуманного таймера.",
+      "Один уровень material navigation; нет вложенных дублирующих tabs. AI/STT сценарии условные, mock результат обозначен вымышленным.",
+      "Чат закрытой встречи только для чтения; участники — historical memberships, не peak attendance."
+    ],
+    "responsive": {
+      "desktop": "1440–1920: общая plum-sidebar, глобальная панель 44 px + header 64 px = 108 px; gutter 32 px. Редакционные превью и компактные строки; единая информационная панель плеера 290 px.",
+      "tablet": "768–1023: общая компактная sidebar; глобальная панель 44 px + header 64 px = 108 px; gutter 24 px. Плеер полной ширины, затем информация и материалы; строки перестраиваются, не уменьшая текст.",
+      "mobile": "360–767: общая панель 44 px + header 64 px = 108 px; gutter 16 px, bottom nav ≥72 px + safe area. Превью и карточки полной ширины, действия от 44×44 px; последовательность player → info → materials."
+    },
+    "id": "history-detail",
+    "title": "Материалы встречи",
+    "group": "Материалы",
+    "nav": "recordings",
+    "route": "/history/:id",
+    "secondary": true,
+    "states": [
+      {
+        "id": "default",
+        "label": "Обычное"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Пусто"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "expired",
+        "label": "Материалы недоступны"
+      },
+      {
+        "id": "recordings",
+        "label": "Записи встречи"
+      },
+      {
+        "id": "transcript",
+        "label": "Условная расшифровка"
+      },
+      {
+        "id": "summary",
+        "label": "Условные итоги ИИ"
+      },
+      {
+        "id": "processing",
+        "label": "Материал обрабатывается"
+      },
+      {
+        "id": "content-failed",
+        "label": "Ошибка обработки"
+      },
+      {
+        "id": "capabilities-off",
+        "label": "Возможности отключены"
+      },
+      {
+        "id": "capability-error",
+        "label": "Флаги не подтверждены"
+      }
+    ],
+    "api": [
+      "GET /api/v1/conferences/:id/history",
+      "GET /api/v1/conferences/:id/participants/me",
+      "GET /api/v1/capabilities",
+      "GET /api/v1/conferences/:id/recordings",
+      "GET /api/v1/conferences/:id/recordings/:recordingId/transcript",
+      "GET /api/v1/conferences/:id/recordings/:recordingId/summary",
+      "POST /api/v1/conferences/:id/recordings/:recordingId/transcript/retry",
+      "POST /api/v1/conferences/:id/recordings/:recordingId/summary/regenerate"
+    ],
+    "permissions": "Исторический admitted joined/left участник. AI/STT только при подтверждённых flags; reprocess owner/co_host + server canRetry/canRegenerate.",
+    "sources": [
+      "frontend/src/pages/HistoryDetailPage.tsx:47",
+      "frontend/src/components/RecordingInsights.tsx:429",
+      "internal/infrastructure/postgres/conference_product_repository.go:224"
+    ]
+  },
+  {
+    "layout": "app",
+    "notes": [
+      "Самостоятельный дизайн-прототип; DTO-fixtures вымышлены. Сетевые запросы, сохранение и файлы не выполняются.",
+      "44×44px hit targets. Реальный доступ подтверждается backend, а не наличием скопированной ссылки.",
+      "7-дневная доступность записей; без поля expiresAt и без выдуманного таймера.",
+      "Настоящий существующий secondary route, без live media controls, начала записи или editable composer.",
+      "История сообщений не получает 7-дневный срок хранения записей. Перечень вымышленных сообщений соответствует ChatMessage DTO."
+    ],
+    "responsive": {
+      "desktop": "1440–1920: общая plum-sidebar, глобальная панель 44 px + header 64 px = 108 px; gutter 32 px. Редакционные превью и компактные строки; единая информационная панель плеера 290 px.",
+      "tablet": "768–1023: общая компактная sidebar; глобальная панель 44 px + header 64 px = 108 px; gutter 24 px. Плеер полной ширины, затем информация и материалы; строки перестраиваются, не уменьшая текст.",
+      "mobile": "360–767: общая панель 44 px + header 64 px = 108 px; gutter 16 px, bottom nav ≥72 px + safe area. Превью и карточки полной ширины, действия от 44×44 px; последовательность player → info → materials."
+    },
+    "id": "history-chat",
+    "title": "Чат завершённой встречи · только чтение",
+    "group": "Материалы",
+    "nav": "recordings",
+    "route": "/conferences/:id",
+    "secondary": true,
+    "restricted": true,
+    "states": [
+      {
+        "id": "default",
+        "label": "История сообщений"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Нет сообщений"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка запроса"
+      }
+    ],
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/participants/me",
+      "GET /api/v1/conferences/:id/messages"
+    ],
+    "permissions": "Исторический admitted joined/left участник; finished/cancelled conference; chatReadOnly=true.",
+    "sources": [
+      "frontend/src/pages/HistoryDetailPage.tsx:124",
+      "frontend/src/components/conference/ConferenceOverview.tsx:130",
+      "frontend/src/components/ChatPanel.tsx:50"
+    ]
+  },
+  {
+    "layout": "app",
+    "notes": [
+      "Самостоятельный дизайн-прототип; DTO-fixtures вымышлены. Сетевые запросы, сохранение и файлы не выполняются.",
+      "44×44px hit targets. Реальный доступ подтверждается backend, а не наличием скопированной ссылки.",
+      "7-дневная доступность записей; без поля expiresAt и без выдуманного таймера.",
+      "Речь ≈ — приблизительное наблюдение; нет рейтинга/оценки продуктивности. Метрики отдельных участников идут по алфавиту.",
+      "Нет пункта аналитики в глобальном меню макета. Вход из условного материала встречи; это не доказательство включённых production flags."
+    ],
+    "responsive": {
+      "desktop": "1440–1920: общая plum-sidebar, глобальная панель 44 px + header 64 px = 108 px; gutter 32 px. Редакционные превью и компактные строки; единая информационная панель плеера 290 px.",
+      "tablet": "768–1023: общая компактная sidebar; глобальная панель 44 px + header 64 px = 108 px; gutter 24 px. Плеер полной ширины, затем информация и материалы; строки перестраиваются, не уменьшая текст.",
+      "mobile": "360–767: общая панель 44 px + header 64 px = 108 px; gutter 16 px, bottom nav ≥72 px + safe area. Превью и карточки полной ширины, действия от 44×44 px; последовательность player → info → materials."
+    },
+    "id": "analytics",
+    "title": "Аналитика · условный экран",
+    "group": "Условные возможности",
+    "nav": null,
+    "route": "/analytics?conference=:id",
+    "restricted": true,
+    "conditional": "meetingAnalytics=true AND current participant can read history",
+    "states": [
+      {
+        "id": "default",
+        "label": "Возможность подтверждена"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Агрегаты не готовы"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка"
+      },
+      {
+        "id": "disabled",
+        "label": "Возможность выключена"
+      }
+    ],
+    "api": [
+      "GET /api/v1/capabilities",
+      "GET /api/v1/me/conferences?view=past|active",
+      "GET /api/v1/conferences/:id/analytics"
+    ],
+    "permissions": "Допущенный joined/left участник + подтверждённый meetingAnalytics. Не роль администратора и не глобальные KPI.",
+    "sources": [
+      "frontend/src/pages/AnalyticsPage.tsx:13",
+      "frontend/src/components/AnalyticsPanel.tsx:67",
+      "internal/infrastructure/postgres/analytics_repository.go:66"
+    ]
+  },
+  {
+    "layout": "app",
+    "notes": [
+      "Самостоятельный дизайн-прототип; DTO-fixtures вымышлены. Сетевые запросы, сохранение и файлы не выполняются.",
+      "44×44px hit targets. Реальный доступ подтверждается backend, а не наличием скопированной ссылки.",
+      "7-дневная доступность записей; без поля expiresAt и без выдуманного таймера.",
+      "Read-only: только обновление сводки, без users/config/job mutation.",
+      "Для полноценного состояния выберите роль admin. Участнику/организатору показан отказ. Глобальной admin-навигации нет."
+    ],
+    "responsive": {
+      "desktop": "1440–1920: общая plum-sidebar, глобальная панель 44 px + header 64 px = 108 px; gutter 32 px. Редакционные превью и компактные строки; единая информационная панель плеера 290 px.",
+      "tablet": "768–1023: общая компактная sidebar; глобальная панель 44 px + header 64 px = 108 px; gutter 24 px. Плеер полной ширины, затем информация и материалы; строки перестраиваются, не уменьшая текст.",
+      "mobile": "360–767: общая панель 44 px + header 64 px = 108 px; gutter 16 px, bottom nav ≥72 px + safe area. Превью и карточки полной ширины, действия от 44×44 px; последовательность player → info → materials."
+    },
+    "id": "admin",
+    "title": "Операции · только администратор",
+    "group": "Условные возможности",
+    "nav": null,
+    "route": "/admin",
+    "restricted": true,
+    "conditional": "Persisted user.isAdmin=true, rechecked on each backend request",
+    "states": [
+      {
+        "id": "default",
+        "label": "Администратор"
+      },
+      {
+        "id": "loading",
+        "label": "Загрузка"
+      },
+      {
+        "id": "empty",
+        "label": "Нет последних ошибок"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка запроса"
+      },
+      {
+        "id": "dependency-down",
+        "label": "Компонент недоступен"
+      },
+      {
+        "id": "denied",
+        "label": "Нет прав"
+      }
+    ],
+    "api": [
+      "GET /api/v1/admin/summary",
+      "GET /api/v1/capabilities"
+    ],
+    "permissions": "Глобальные действующие административные права; никакой связи с ролью owner/co_host.",
+    "sources": [
+      "frontend/src/pages/AdminPage.tsx:18",
+      "internal/transport/http/middleware/admin.go:16",
+      "internal/transport/http/platform_status_routes.go:17"
+    ]
+  },
+  {
+    "group": "Условные разделы",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id/captions",
+      "PUT /api/v1/conferences/:id/captions",
+      "GET /api/v1/conferences/:id/captions/segments"
+    ],
+    "permissions": "Только при liveCaptions=true. Изменение распознавания — по canManage. Скрытие текста локальное.",
+    "sources": [
+      "frontend/src/components/CaptionsPanel.tsx:160"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Этот экран не добавляет функцию: компонент уже существует и скрыт при выключенной серверной возможности.",
+      "Показывать текст — настройка этого устройства. Она не выключает передачу звука.",
+      "Перед включением требуется явно сообщить о передаче звука сервису распознавания."
+    ],
+    "id": "captions",
+    "title": "Субтитры · при включённой функции",
+    "states": [
+      {
+        "id": "default",
+        "label": "Распознавание включено"
+      },
+      {
+        "id": "off",
+        "label": "Выключено"
+      },
+      {
+        "id": "unavailable",
+        "label": "Отключено на сервере"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка распознавания"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/participants/me",
+      "POST /api/v1/conferences/:id/ws-ticket",
+      "WebSocket: presence, media, chat, recording events"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "conference",
+    "title": "Встреча · два участника",
+    "states": [
+      {
+        "id": "default",
+        "label": "Подключено"
+      },
+      {
+        "id": "speaking-soft",
+        "label": "Тихая речь"
+      },
+      {
+        "id": "speaking-loud",
+        "label": "Громкая речь"
+      },
+      {
+        "id": "reconnect",
+        "label": "Восстановление связи"
+      },
+      {
+        "id": "error",
+        "label": "Медиасвязь недоступна"
+      },
+      {
+        "id": "empty",
+        "label": "Вы одни во встрече"
+      },
+      {
+        "id": "recording",
+        "label": "Идёт запись"
+      },
+      {
+        "id": "loading",
+        "label": "Подключение"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/participants/me",
+      "POST /api/v1/conferences/:id/ws-ticket",
+      "WebSocket: presence, media, chat, recording events"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "conference-chat",
+    "title": "Встреча · чат",
+    "states": [
+      {
+        "id": "default",
+        "label": "Подключено"
+      },
+      {
+        "id": "speaking-soft",
+        "label": "Тихая речь"
+      },
+      {
+        "id": "speaking-loud",
+        "label": "Громкая речь"
+      },
+      {
+        "id": "reconnect",
+        "label": "Восстановление связи"
+      },
+      {
+        "id": "error",
+        "label": "Медиасвязь недоступна"
+      },
+      {
+        "id": "empty",
+        "label": "Вы одни во встрече"
+      },
+      {
+        "id": "recording",
+        "label": "Идёт запись"
+      },
+      {
+        "id": "loading",
+        "label": "Подключение"
+      },
+      {
+        "id": "upload-error",
+        "label": "Ошибка загрузки файла"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/participants/me",
+      "POST /api/v1/conferences/:id/ws-ticket",
+      "WebSocket: presence, media, chat, recording events"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "conference-participants",
+    "title": "Встреча · участники",
+    "states": [
+      {
+        "id": "default",
+        "label": "Организатор"
+      },
+      {
+        "id": "empty",
+        "label": "Вы одни"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/participants/me",
+      "POST /api/v1/conferences/:id/ws-ticket",
+      "WebSocket: presence, media, chat, recording events"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "conference-screen",
+    "title": "Демонстрация экрана",
+    "states": [
+      {
+        "id": "default",
+        "label": "Экран занимает сцену"
+      },
+      {
+        "id": "recording",
+        "label": "Демонстрация и запись"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "POST /api/v1/conferences/:id/recordings",
+      "POST /api/v1/conferences/:id/recordings/:recordingId/stop",
+      "GET /api/v1/capabilities"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены.",
+      "Одна запись на встречу. Старт: допущенный участник с аккаунтом, active/joined. Стоп: инициатор или owner. При успехе modal закрывается, в шапке остаётся стоп и индикатор. Список файлов в этом modal отсутствует.",
+      "Режимы берутся из capabilities, не закрепляются дизайном как всегда включённые."
+    ],
+    "id": "recording-control",
+    "title": "Управление записью",
+    "states": [
+      {
+        "id": "default",
+        "label": "Запуск"
+      },
+      {
+        "id": "busy",
+        "label": "Уже запущена другим участником"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка запуска"
+      },
+      {
+        "id": "guest",
+        "label": "Гость"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id/invitation-users?query=…",
+      "POST /api/v1/conferences/:id/invitations"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "conference-invite",
+    "title": "Пригласить во встречу",
+    "states": [
+      {
+        "id": "default",
+        "label": "Ссылка и поиск"
+      },
+      {
+        "id": "error",
+        "label": "Не удалось пригласить"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "Browser: enumerateDevices, getUserMedia, setSinkId when supported"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "conference-devices",
+    "title": "Устройства во встрече",
+    "states": [
+      {
+        "id": "default",
+        "label": "Устройства доступны"
+      },
+      {
+        "id": "error",
+        "label": "Устройство недоступно"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id/participants/me",
+      "POST /api/v1/conferences/:id/participants/:participantId/admission"
+    ],
+    "permissions": "Существующее членство waiting; не обязательный этап входа по валидной invite-ссылке.",
+    "sources": [
+      "frontend/src/components/WaitingRoomPanel.tsx:64",
+      "internal/infrastructure/postgres/conference_repository.go:235"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "В backend действующий inviteCode обходит зал ожидания. Макет waiting показывается только для фактического waiting membership.",
+      "Допуск/отказ индивидуальный; действия «Допустить всех» в API/UI нет. В ожидании нет медиасвязи и чата."
+    ],
+    "id": "waiting-room",
+    "title": "Ожидание допуска",
+    "states": [
+      {
+        "id": "default",
+        "label": "Ожидание"
+      },
+      {
+        "id": "rejected",
+        "label": "Запрос отклонён"
+      },
+      {
+        "id": "closed",
+        "label": "Встреча завершена"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "GET /api/v1/conferences/:id",
+      "GET /api/v1/conferences/:id/participants/me",
+      "POST /api/v1/conferences/:id/ws-ticket",
+      "WebSocket: presence, media, chat, recording events"
+    ],
+    "permissions": "Допущенный участник активной встречи; доступные команды зависят от роли и состояния подключения.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "leave-meeting",
+    "title": "Выйти из встречи",
+    "states": [
+      {
+        "id": "default",
+        "label": "Подтверждение"
+      }
+    ]
+  },
+  {
+    "group": "Встреча",
+    "nav": "meetings",
+    "layout": "bare",
+    "route": "/conferences/:id",
+    "api": [
+      "POST /api/v1/conferences/:id/finish"
+    ],
+    "permissions": "Только owner конференции.",
+    "sources": [
+      "frontend/src/components/conference/ActiveConferenceRoom.tsx:49",
+      "frontend/src/components/conference/ConferenceRoomSidebar.tsx:34",
+      "frontend/src/components/RealtimePanel.tsx:322",
+      "frontend/src/components/ParticipantsPanel.tsx:92"
+    ],
+    "responsive": {
+      "desktop": "Тёмная сцена на всю высоту; две плитки 16:9 одна над другой по центру. Панель чата/участников 360px. Контролы вне прокрутки видео.",
+      "tablet": "Панель шириной 360px поверх сцены; после закрытия фокус возвращается к кнопке. Видео не сжимается в узкие колонки.",
+      "mobile": "Две широкие плитки вертикально, управление внизу. Чат/участники — отдельный полноэкранный слой с кнопкой возврата."
+    },
+    "notes": [
+      "Офлайн-участники исчезают из плиток и списка через пять секунд потери присутствия; отдельная вкладка того же участника сохраняет онлайн.",
+      "Рамка и заполнение фона микрофона получают реальный уровень звука из useSpeakingParticipants; таймерная декоративная пульсация не используется.",
+      "При демонстрации экран заменяет все видеоплитки; чат остаётся доступен.",
+      "Клавиши M/V/C действуют вне полей ввода и диалогов; после переподключения камера и микрофон не включаются автоматически.",
+      "Все имена и сообщения в макетах вымышлены."
+    ],
+    "id": "finish-meeting",
+    "title": "Завершить для всех",
+    "states": [
+      {
+        "id": "default",
+        "label": "Подтверждение организатора"
+      }
+    ]
+  },
+  {
+    "id": "ui-kit",
+    "title": "Компоненты и состояния",
+    "group": "Дизайн-система",
+    "nav": "",
+    "route": "Дизайн-артефакт; нового route в приложении нет",
+    "states": [
+      {
+        "id": "default",
+        "label": "Компоненты"
+      },
+      {
+        "id": "loading",
+        "label": "Состояния загрузки"
+      },
+      {
+        "id": "error",
+        "label": "Ошибка и восстановление"
+      }
+    ],
+    "api": [],
+    "permissions": "Каждый компонент наследует права своего сценария.",
+    "sources": [
+      "frontend/src/components/ui.tsx:1",
+      "frontend/src/components/Layout.tsx:1",
+      "frontend/src/components/ItemActions.tsx:21",
+      "frontend/src/components/EmojiPicker.tsx:15"
+    ],
+    "notes": [
+      "Из существующих компонентов сохраняются поведение, права, фокус и клавиатурная навигация. Дизайн задаёт визуальные токены и responsive варианты.",
+      "AppShell, Sidebar, Topbar, MobileNavigation; MeetingCard, RecordingCard, ConversationItem, FolderItem, ParticipantTile; формы, диалоги, меню, empty/error/skeleton.",
+      "Default, hover и pressed реализованы стилями. Focus видим с клавиатуры. Disabled не единственный способ объяснить недоступность.",
+      "Размеры текста в rem, высоты кнопок минимальные. Контент может увеличивать высоту при 200%."
+    ],
+    "responsive": {
+      "desktop": "Колонки 2–3; таблицы токенов и наборы компонентов.",
+      "tablet": "Две колонки при достаточной ширине, формы не уже 280px.",
+      "mobile": "Одна колонка, controls≥44px, labels≥12px. Тема и масштаб доступны в галерее."
+    }
+  }
+]

@@ -3,6 +3,12 @@
 }
 .analytics-selector {
   margin-bottom: 24px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0 0 24px;
+  background: transparent;
+  box-shadow: none;
 }
 .analytics-selector-fields {
   display: grid;
@@ -25,11 +31,12 @@
   margin: 20px 0;
 }
 .analytics-metrics > div {
-  border: 1px solid var(--border);
+  min-width: 0;
+  border: 0;
   border-radius: var(--radius-lg);
   background: var(--surface);
-  padding: 22px;
-  box-shadow: var(--shadow-card);
+  padding: 20px;
+  box-shadow: none;
 }
 .analytics-metrics dt {
   display: flex;
@@ -41,8 +48,9 @@
 .analytics-metrics dd {
   margin: 16px 0 0;
   color: var(--text);
-  font-size: calc(clamp(24px, 2.8vw, 34px) * var(--text-scale));
-  font-weight: 700;
+  font-size: calc(28px * var(--text-scale));
+  font-weight: 600;
+  letter-spacing: -0.7px;
   font-variant-numeric: tabular-nums;
 }
 .analytics-chart-grid {
@@ -54,10 +62,15 @@
 .analytics-chart-grid .content-card {
   margin: 0;
   min-width: 0;
+  border: 0;
+  padding: 20px;
+  box-shadow: none;
 }
 .analytics-chart-card h3,
 .analytics-context h3 {
   margin-top: 0;
+  font-size: calc(16px * var(--text-scale));
+  font-weight: 600;
 }
 .analytics-timeline-chart {
   display: block;
@@ -93,6 +106,7 @@
 .analytics-context dd {
   margin: 0;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .analytics-context .field-hint {
   line-height: 1.65;
@@ -122,6 +136,9 @@
 .analytics-scroll thead {
   background: var(--surface-soft);
   color: var(--muted);
+}
+.analytics-scroll tbody tr:hover {
+  background: var(--surface-soft);
 }
 .analytics-empty {
   display: grid;
@@ -160,5 +177,75 @@
   }
   .analytics-metrics dd {
     font-size: calc(26px * var(--text-scale));
+  }
+}
+html[data-large-text="true"] .analytics-metrics,
+html[data-large-text="true"] .analytics-selector-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.analytics-selector {
+  padding: 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+}
+.analytics-chart-card h3,
+.analytics-context h3 {
+  font-size: calc(17px * var(--text-scale));
+}
+.analytics-context dl > div {
+  display: grid;
+  gap: 4px;
+  border: 0;
+  padding: 0 0 14px;
+}
+.analytics-context dt {
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+.analytics-context dd {
+  font-size: calc(14px * var(--text-scale));
+  font-weight: 500;
+}
+@media (max-width: 767px) {
+  .analytics-scroll table,
+  .analytics-scroll caption,
+  .analytics-scroll tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .analytics-scroll thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .analytics-scroll tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .analytics-scroll tbody th {
+    grid-column: 1 / -1;
+    padding: 0;
+    border: 0;
+  }
+  .analytics-scroll tbody td {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 0;
+    padding: 0;
+    font-size: calc(14px * var(--text-scale));
+  }
+  .analytics-scroll tbody td::before {
+    content: attr(data-label);
+    font-size: calc(12px * var(--text-scale));
+    color: var(--muted);
   }
 }

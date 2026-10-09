@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Meetrix — дизайн экрана</title>
+    <link rel="icon" href="assets/brand-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="design.css" />
+    <link rel="stylesheet" href="variant-two.css" />
+    <link rel="stylesheet" href="screens-meetings.css" />
+    <link rel="stylesheet" href="screens-messaging.css" />
+    <link rel="stylesheet" href="screens-recordings.css" />
+    <link rel="stylesheet" href="screens-conference.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="dialog-root"></div>
+    <div id="toast" role="status" hidden></div>
+    <script src="assets/icons.js"></script>
+    <script src="runtime.js"></script>
+    <script src="screens-meetings.js"></script>
+    <script src="screens-messaging.js"></script>
+    <script src="screens-recordings.js"></script>
+    <script src="screens-conference.js"></script>
+    <script src="screens-kit.js"></script>
+    <script>
+      MeetrixDesign.start();
+    </script>
+  </body>
+</html>

@@ -69,12 +69,10 @@ export function IntegrationsSettings({
         className="content-card settings-section"
         id="notification-settings"
       >
-        <h2>Уведомления</h2>
-        <p className="field-hint">
-          Выберите события и разрешённые внешние каналы. Email и push управляют
-          автоматическими уведомлениями. Приглашения, отправленные
-          организатором, приходят на email отдельно.
-        </p>
+        <div className="account-settings-section-heading">
+          <h2>Уведомления</h2>
+          <p>Выберите события и каналы доставки</p>
+        </div>
         <ErrorNotice error={preferences.error || capabilities.error} />
         {preferences.isPending || capabilities.isPending ? (
           <Loading />
@@ -88,6 +86,9 @@ export function IntegrationsSettings({
             />
           )
         )}
+        <p className="field-hint">
+          Личные приглашения, отправленные организатором, приходят отдельно.
+        </p>
       </section>
       {!notificationsOnly && (
         <section

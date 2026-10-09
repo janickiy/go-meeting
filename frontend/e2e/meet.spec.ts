@@ -358,7 +358,7 @@ async function login(page: Page) {
   await page.getByRole("button", { name: "Войти", exact: true }).click();
   await expect(page).toHaveURL(/\/app$/);
   await expect(
-    page.getByRole("heading", { name: "Добро пожаловать, Александр!" }),
+    page.getByRole("heading", { name: "Добро пожаловать, Александр." }),
   ).toBeVisible();
 }
 /**
@@ -395,7 +395,7 @@ test("landing, login, registration and success match the reference at desktop si
   await mockApi(page, { empty: true });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Встречайтесь без границ" }),
+    page.getByRole("heading", { name: "Работайте вместе. Где бы вы ни были." }),
   ).toBeVisible();
   const hero = page.getByRole("img");
   await expect(hero).toBeVisible();
@@ -432,12 +432,12 @@ test("landing, login, registration and success match the reference at desktop si
   });
   await page.getByLabel("Email", { exact: true }).fill(user.email);
   await page.getByLabel("Пароль", { exact: true }).fill("correct-password-123");
-  await page.getByLabel(/Как к вам обращаться/).fill("Александр");
+  await page.getByLabel(/Ваше имя/).fill("Александр");
   await page
     .getByRole("button", { name: "Зарегистрироваться", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Аккаунт создан!" }),
+    page.getByRole("heading", { name: "Вы в Meetrix." }),
   ).toBeVisible();
   await page.screenshot({
     path: info.outputPath("04-success.png"),
@@ -464,10 +464,10 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
     path: info.outputPath("05-dashboard.png"),
     fullPage: true,
   });
-  await page.getByRole("link", { name: "Новая конференция" }).click();
+  await page.getByRole("link", { name: "Новая встреча" }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog).toHaveAccessibleName("Новая конференция");
-  const title = page.getByLabel("Название конференции");
+  await expect(dialog).toHaveAccessibleName("Новая встреча");
+  const title = page.getByLabel("Название встречи");
   await expect(title).toBeFocused();
   await title.fill("Демо React интерфейса");
   await expect(page.getByLabel(/Зал ожидания/)).toBeEnabled();
@@ -476,9 +476,9 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
     fullPage: true,
   });
   await page
-    .getByRole("button", { name: "Создать конференцию", exact: true })
+    .getByRole("button", { name: "Создать встречу", exact: true })
     .click();
-  await expect(dialog).toHaveAccessibleName("Конференция создана!");
+  await expect(dialog).toHaveAccessibleName("Встреча создана");
   await expect(page.getByLabel("Ссылка-приглашение")).toHaveValue(
     `http://127.0.0.1:5174/i/${code}`,
   );
@@ -501,7 +501,10 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
     path: info.outputPath("07-share.png"),
     fullPage: true,
   });
-  await page.getByRole("link", { name: "Перейти в конференцию" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Открыть встречу", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Присоединиться", exact: true })
     .click();
@@ -523,8 +526,9 @@ test("login -> dashboard -> create -> share -> lifecycle -> logout", /**
     .click();
   await page.getByRole("button", { name: "Да, завершить" }).click();
   await expect(
-    page.getByRole("heading", { name: "Встреча закрыта" }),
+    page.getByText("Чат завершённой встречи", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Сообщение" })).toHaveCount(0);
   await page.getByRole("button", { name: "Выйти из аккаунта" }).click();
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   expect(
@@ -600,7 +604,7 @@ test("restores a session and redirects only after the server confirms revocation
   await login(page);
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Добро пожаловать, Александр!" }),
+    page.getByRole("heading", { name: "Добро пожаловать, Александр." }),
   ).toBeVisible();
   await page.route(
     "**/api/v1/auth/{me,refresh}",
@@ -665,10 +669,10 @@ test("handles errors without leaking server details or pretending registration f
     .getByRole("button", { name: "Зарегистрироваться", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Аккаунт создан!" }),
+    page.getByRole("heading", { name: "Вы в Meetrix." }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Войти в приложение" }),
+    page.getByRole("link", { name: "Войти в аккаунт" }),
   ).toBeVisible();
 });
 
@@ -714,7 +718,7 @@ test("registration counts characters, not bytes, and accepts eight plain letters
   await password.fill("abcdefgh");
   await submit.click();
   await expect(
-    page.getByRole("heading", { name: "Аккаунт создан!" }),
+    page.getByRole("heading", { name: "Вы в Meetrix." }),
   ).toBeVisible();
   expect(
     writes.filter(

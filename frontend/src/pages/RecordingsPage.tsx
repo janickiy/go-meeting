@@ -1,10 +1,19 @@
 import { useEffect, useId, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { CalendarDays, Clapperboard, Play, Search, Users } from "lucide-react";
+import {
+  CalendarDays,
+  Clapperboard,
+  FileArchive,
+  Info,
+  Play,
+  Search,
+  Users,
+} from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useConferences } from "../queries";
+import { formatDate } from "../utils";
 import type {
   Conference,
   ConferenceHistory,
@@ -29,7 +38,7 @@ const pageSize = 20;
  * @args record — запись; conference — встреча; history — доступная историческая сводка.
  * @return компактная строка с превью, метаданными и поддерживаемыми действиями.
  */
-function RecordingCard({
+export function RecordingCard({
   record,
   conference,
   history,
@@ -42,22 +51,70 @@ function RecordingCard({
   const preview = recordingPreviewFile(record);
   const file = recordingMediaFile(record);
   const path = recordingDetailPath(conference.id, record.uuid);
+  const hasPreview = !!preview?.url && brokenPreview !== preview.url;
+  const audioOnly = record.mode === "audio_only";
+  const tracks = record.mode === "individual_tracks";
+  const modeLabel = tracks
+    ? "Аудиомикс и дорожки"
+    : audioOnly
+      ? "Аудиозапись"
+      : "Видеозапись";
   return (
     <article className="recordings-row" data-testid="recordings-row">
       <Link
         to={path}
-        className="recordings-thumbnail"
+        className={`recordings-thumbnail${hasPreview ? "" : " recordings-thumbnail-placeholder"}${audioOnly ? " recordings-thumbnail-audio" : ""}${tracks ? " recordings-thumbnail-tracks" : ""}`}
         aria-label={`Смотреть запись: ${conference.title}`}
       >
-        {preview?.url && brokenPreview !== preview.url ? (
+        {hasPreview ? (
           <img
-            src={preview.url}
+            src={preview!.url}
             alt=""
             loading="lazy"
-            onError={() => setBrokenPreview(preview.url!)}
+            onError={() => setBrokenPreview(preview!.url!)}
           />
         ) : (
-          <Clapperboard size={30} aria-hidden="true" />
+          <>
+            <span className="recordings-thumbnail-label">{modeLabel}</span>
+            {audioOnly ? (
+              <span className="recordings-thumbnail-wave" aria-hidden="true">
+                {Array.from({ length: 19 }, (_, index) => (
+                  <i
+                    key={index}
+                    style={{ height: `${12 + ((index * 13) % 37)}px` }}
+                  />
+                ))}
+              </span>
+            ) : tracks ? (
+              <span
+                className="recordings-thumbnail-tracks-art"
+                aria-hidden="true"
+              >
+                <FileArchive size={25} />
+                <span>
+                  {[0, 1, 2].map((row) => (
+                    <i key={row}>
+                      <b />
+                      <b />
+                      <b />
+                      <b />
+                      <b />
+                      <b />
+                    </i>
+                  ))}
+                </span>
+              </span>
+            ) : (
+              <span className="recordings-thumbnail-art" aria-hidden="true">
+                <Clapperboard size={27} />
+                <span>
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              </span>
+            )}
+          </>
         )}
         {record.durationSec !== undefined && (
           <span className="recordings-thumbnail-duration">
@@ -71,12 +128,18 @@ function RecordingCard({
         </Link>
         <p className="recordings-meta">
           <span>{recordingDate(record)}</span>
+          <span aria-hidden="true">·</span>
+          <span>{modeLabel}</span>
+        </p>
+        <p className="recordings-meta">
           {history && (
             <span>
               <Users size={13} aria-hidden="true" />
               {history.participantCount} участников встречи
             </span>
           )}
+          {history && <span aria-hidden="true">·</span>}
+          <span>{formatRecordingSize(file?.sizeBytes)}</span>
         </p>
         {history?.owner.displayName && (
           <p className="recordings-row-owner">
@@ -84,17 +147,16 @@ function RecordingCard({
           </p>
         )}
       </div>
-      <span className="recordings-row-size">
-        {formatRecordingSize(file?.sizeBytes)}
-      </span>
-      <Link to={path} className="button button-primary recordings-watch">
-        <Play size={15} aria-hidden="true" /> Смотреть
-      </Link>
-      <RecordingActions
-        title={conference.title}
-        path={path}
-        downloadUrl={file?.url}
-      />
+      <div className="recordings-row-actions">
+        <Link to={path} className="button button-primary recordings-watch">
+          <Play size={15} aria-hidden="true" /> Смотреть
+        </Link>
+        <RecordingActions
+          title={conference.title}
+          path={path}
+          downloadUrl={file?.url}
+        />
+      </div>
     </article>
   );
 }
@@ -205,7 +267,7 @@ export function RecordingsPage() {
       <section className="page-heading recordings-heading">
         <div>
           <h1>Записи</h1>
-          <p>Записи ваших встреч и важные моменты.</p>
+          <p>Записи и материалы выбранной встречи.</p>
         </div>
       </section>
       <section className="recordings-selection" aria-label="Выбор встречи">
@@ -235,15 +297,18 @@ export function RecordingsPage() {
             </button>
           ))}
         </div>
-        <label className="recordings-search">
-          <Search size={17} aria-hidden="true" />
-          <input
-            type="search"
-            aria-label="Поиск по загруженным встречам"
-            placeholder="Поиск по названию встречи…"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+        <label className="recordings-search-field">
+          <span>Поиск по загруженным встречам</span>
+          <span className="recordings-search">
+            <Search size={17} aria-hidden="true" />
+            <input
+              type="search"
+              aria-label="Поиск по загруженным встречам"
+              placeholder="Название встречи"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </span>
         </label>
         <label className="recordings-conference-selector" htmlFor={selectionId}>
           <span>Встреча</span>
@@ -282,12 +347,12 @@ export function RecordingsPage() {
             В загруженных встречах совпадений нет.
           </p>
         )}
-        {(conferences.hasNextPage || search) && (
+        {
           <p className="recordings-selection-note">
             Поиск выполняется по загруженным встречам. Записи загружаются только
             для выбранной встречи.
           </p>
-        )}
+        }
         {conferences.isError && (
           <div className="recordings-error">
             <ErrorNotice>Не удалось загрузить список встреч.</ErrorNotice>
@@ -335,7 +400,17 @@ export function RecordingsPage() {
           aria-labelledby="recordings-selected-title"
         >
           <div className="recordings-library-heading">
-            <h2 id="recordings-selected-title">{selected.title}</h2>
+            <div>
+              <h2 id="recordings-selected-title">{selected.title}</h2>
+              {history.data?.item.owner.displayName &&
+                !history.isError &&
+                history.data.item.conference.id === conferenceId && (
+                  <p className="recordings-library-context">
+                    {formatDate(selected.finishedAt || selected.createdAt)} ·
+                    Организатор {history.data.item.owner.displayName}
+                  </p>
+                )}
+            </div>
             <div className="recordings-filters">
               <label>
                 <CalendarDays size={16} aria-hidden="true" />
@@ -435,6 +510,13 @@ export function RecordingsPage() {
           )}
         </section>
       )}
+      <p className="recordings-retention">
+        <Info size={16} aria-hidden="true" />
+        <span>
+          Готовые записи доступны 7 дней после завершения записи. Ссылка на файл
+          временная; ссылка на страницу не открывает доступ посторонним.
+        </span>
+      </p>
     </div>
   );
 }

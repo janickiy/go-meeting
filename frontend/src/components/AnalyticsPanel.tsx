@@ -192,11 +192,17 @@ export function AnalyticsPanel({
                 {people.map((person) => (
                   <tr key={person.participantId}>
                     <th scope="row">{person.displayName || "Участник"}</th>
-                    <td>{recordingTime(person.participationMs)}</td>
-                    <td>{recordingTime(person.speakingMs)}</td>
-                    <td>{recordingTime(person.observedAudioMs)}</td>
-                    <td>{recordingTime(person.screenMs)}</td>
-                    <td>{person.messageCount}</td>
+                    <td data-label="Присутствие">
+                      {recordingTime(person.participationMs)}
+                    </td>
+                    <td data-label="Речь ≈">
+                      {recordingTime(person.speakingMs)}
+                    </td>
+                    <td data-label="Наблюдалось аудио">
+                      {recordingTime(person.observedAudioMs)}
+                    </td>
+                    <td data-label="Экран">{recordingTime(person.screenMs)}</td>
+                    <td data-label="Сообщения">{person.messageCount}</td>
                   </tr>
                 ))}
               </tbody>

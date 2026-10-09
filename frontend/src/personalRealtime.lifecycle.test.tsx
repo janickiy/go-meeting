@@ -110,6 +110,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("личные настройки в потоке событий", () => {
+  it("публикует состояние существующего соединения и игнорирует позднее открытие после выхода", async () => {
+    const { client, wrapper } = setup();
+    const { unmount } = renderHook(() => usePersonalRealtime("alice"), {
+      wrapper,
+    });
+    await waitFor(() => expect(Socket.latest.onopen).toBeTypeOf("function"));
+    expect(client.getQueryData(["personal-connection", "alice"])).toBe(
+      "connecting",
+    );
+    const lateOpen = Socket.latest.onopen!;
+    act(() => lateOpen());
+    expect(client.getQueryData(["personal-connection", "alice"])).toBe(
+      "connected",
+    );
+    act(() => Socket.latest.onclose?.());
+    expect(client.getQueryData(["personal-connection", "alice"])).toBe(
+      "reconnecting",
+    );
+    unmount();
+    expect(
+      client.getQueryData(["personal-connection", "alice"]),
+    ).toBeUndefined();
+    act(() => lateOpen());
+    expect(
+      client.getQueryData(["personal-connection", "alice"]),
+    ).toBeUndefined();
+  });
   it("точный порог HTTP-удаления блокирует уже отправленный старый кадр после подтверждения", async () => {
     const { client, wrapper } = setup();
     vi.spyOn(api, "hidePersonalConversation").mockResolvedValue({

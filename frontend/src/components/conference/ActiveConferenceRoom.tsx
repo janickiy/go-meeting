@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useRef, useState } from "react";
 import {
   ArrowLeft,
   Circle,
@@ -7,13 +8,14 @@ import {
   MessageCircle,
   Square,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 import { RealtimePanel } from "../RealtimePanel";
 import { RecordingNotice } from "../RecordingNotice";
 import { RecordingPanel } from "../RecordingPanel";
 import { ConferenceInviteContent } from "../ConferenceInvitations";
 import { Button, ErrorNotice, Modal } from "../ui";
-import { initials } from "../../utils";
+import { ReactionsPanel } from "../ReactionsPanel";
 import { MeetingClock } from "./MeetingClock";
 import { ConferenceRoomSidebar } from "./ConferenceRoomSidebar";
 import type { ActiveConferenceViewProps } from "./types";
@@ -24,6 +26,10 @@ import type { ActiveConferenceViewProps } from "./types";
  * @return Представление раздела с прежними условиями доступа и монтирования панелей.
  */
 export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
+  const recordingOpener = useRef<HTMLElement | null>(null);
+  const [controlsTarget, setControlsTarget] = useState<HTMLDivElement | null>(
+    null,
+  );
   const { id } = props;
   const {
     user,
@@ -32,7 +38,6 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
     membership,
     people,
     live,
-    onlinePeople,
     recordingAccess,
     recordingStatus,
     activeRecording,
@@ -46,8 +51,6 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
     panelOpen,
     setPanelOpen,
     panelTrigger,
-    reconnectTarget,
-    setReconnectTarget,
     utility,
     setUtility,
     invitationBusy,
@@ -124,10 +127,13 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
               </span>
             </button>
           )}
-        {recordingAccess && (
+        {recordingAccess && !activeRecording && (
           <button
             className="room-header-action"
-            onClick={() => setUtility("recording")}
+            onClick={(event) => {
+              recordingOpener.current = event.currentTarget;
+              setUtility("recording");
+            }}
             aria-label="Записи конференции"
           >
             <Circle size={17} />
@@ -141,13 +147,6 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
           <LinkIcon size={17} />
           <span>Пригласить</span>
         </button>
-        <span
-          className="avatar avatar-small room-self-avatar"
-          aria-label={membership.displayName}
-        >
-          {initials(membership.displayName)}
-        </span>
-        <div className="room-reconnect-slot" ref={setReconnectTarget} />
       </header>
       <RecordingNotice
         conferenceId={id}
@@ -183,11 +182,53 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
             membership={membership}
             live={live}
             participants={people}
-            reconnectTarget={reconnectTarget}
+            controlsTarget={controlsTarget}
+            moreActions={[
+              {
+                label: "Участники",
+                icon: <Users size={18} />,
+                run: () => {
+                  panelTrigger.current =
+                    document.activeElement as HTMLButtonElement;
+                  setStagePanel("participants");
+                  setPanelOpen(true);
+                },
+              },
+              {
+                label: "Пригласить",
+                icon: <LinkIcon size={18} />,
+                run: () => setUtility("invite"),
+              },
+              ...(recordingAccess
+                ? [
+                    {
+                      label: "Запись",
+                      icon: <Circle size={18} />,
+                      run: () => {
+                        recordingOpener.current =
+                          document.activeElement as HTMLElement;
+                        setUtility("recording");
+                      },
+                    },
+                  ]
+                : []),
+            ]}
+            endControls={
+              <Button
+                variant="danger"
+                busy={mutation.isPending}
+                aria-label="Покинуть конференцию"
+                onClick={() => setConfirm("leave")}
+              >
+                <LogOut size={20} />
+                Выйти
+              </Button>
+            }
             controls={
               <>
                 <Button
                   variant="secondary"
+                  className="room-participants-control"
                   aria-expanded={panelOpen && stagePanel === "participants"}
                   onClick={(event) => {
                     panelTrigger.current = event.currentTarget;
@@ -196,7 +237,7 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
                   }}
                 >
                   <Users size={18} />
-                  Участники ({onlinePeople.length})
+                  Участники
                 </Button>
                 <Button
                   variant="secondary"
@@ -211,21 +252,22 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
                   <MessageCircle size={18} />
                   Чат
                 </Button>
-                <Button
-                  variant="danger"
-                  busy={mutation.isPending}
-                  aria-label="Покинуть конференцию"
-                  onClick={() => mutation.mutate("leave")}
-                >
-                  <LogOut size={18} />
-                  Выйти
-                </Button>
               </>
             }
           />
         </div>
         <ConferenceRoomSidebar {...props} />
       </section>
+      <footer className="room-footer">
+        <div ref={setControlsTarget} />
+        <div className="room-footer-meta">
+          <span>
+            <ShieldCheck size={14} />
+            Доступ по приглашению
+          </span>
+          <ReactionsPanel conferenceId={id} participants={people} live={live} />
+        </div>
+      </footer>
       {utility && (utility !== "recording" || recordingAccess) && (
         <Modal
           title={
@@ -236,6 +278,16 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
           onClose={() => {
             if (!invitationBusy) setUtility(null);
           }}
+          returnFocus={
+            utility === "recording"
+              ? () =>
+                  recordingOpener.current?.isConnected
+                    ? recordingOpener.current
+                    : document.querySelector<HTMLButtonElement>(
+                        ".room-header-stop-recording, .room-header-action",
+                      )
+              : undefined
+          }
         >
           {utility === "recording" ? (
             <RecordingPanel
@@ -255,22 +307,27 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
       )}
       {confirm && (
         <Modal
-          title="Завершить конференцию?"
+          title={
+            confirm === "leave" ? "Выйти из встречи?" : "Завершить конференцию?"
+          }
           onClose={() => {
             if (!mutation.isPending) setConfirm(null);
           }}
         >
           <p className="modal-description">
-            После завершения участники не смогут присоединиться. Текущая запись
-            остановится и будет обработана в фоне.
+            {confirm === "leave"
+              ? "Вы отключитесь от встречи. Остальные участники продолжат разговор."
+              : "После завершения участники не смогут присоединиться. Текущая запись остановится и будет обработана в фоне."}
           </p>
           <ErrorNotice error={mutation.error} />
           <Button
             variant="danger"
             busy={mutation.isPending}
-            onClick={() => mutation.mutate("finish")}
+            onClick={() =>
+              mutation.mutate(confirm === "leave" ? "leave" : "finish")
+            }
           >
-            Да, завершить
+            {confirm === "leave" ? "Выйти" : "Да, завершить"}
           </Button>
           <Button
             variant="secondary"

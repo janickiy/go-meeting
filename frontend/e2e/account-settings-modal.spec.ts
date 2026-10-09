@@ -176,9 +176,16 @@ function settingsDialog(page: Page): Locator {
  * @return Завершение переключения вкладки.
  */
 async function selectTab(dialog: Locator, name: string) {
+  const back = dialog.getByRole("button", {
+    name: "Все настройки",
+    exact: true,
+  });
+  if (await back.isVisible()) await back.click();
   const tab = dialog.getByRole("tab", { name, exact: true });
   await tab.click();
-  await expect(tab).toHaveAttribute("aria-selected", "true");
+  await expect(
+    dialog.locator('[role="tab"]').filter({ hasText: name }),
+  ).toHaveAttribute("aria-selected", "true");
 }
 
 /** Проверяет видимую область диалога без горизонтального переполнения.
@@ -264,7 +271,7 @@ test("settings links open an account modal over the current route and return foc
   ).toBeVisible();
   const originalURL = page.url();
   const sidebarLink = page
-    .getByRole("navigation", { name: "Основная навигация" })
+    .getByRole("navigation", { name: "Настройки приложения" })
     .getByRole("link", { name: "Настройки", exact: true });
   await sidebarLink.click();
   const dialog = settingsDialog(page);

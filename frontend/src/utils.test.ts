@@ -7,7 +7,18 @@ import {
   safeNext,
   saveSession,
   SESSION_KEY,
+  initials,
 } from "./utils";
+
+it.each([
+  ["Анна Морозова", "АМ"],
+  ["  Мария   Орлова  ", "МО"],
+  ["Вася", "В"],
+  ["Анна Мария Морозова", "АМ"],
+  ["", "М"],
+])("инициалы %s соответствуют аватару макета", (name, expected) => {
+  expect(initials(name)).toBe(expected);
+});
 
 describe("session storage", /**
  * Проверяет хранение сессии.

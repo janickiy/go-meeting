@@ -70,14 +70,22 @@ test("two accounts: existing pair, realtime, replies, edits, files, unread, reco
   await expect(
     bobPage.locator('.sidebar-nav a[href="/personal"] .count-badge'),
   ).toHaveCount(0, { timeout: 10000 });
-  await bobPage.getByRole("button", { name: "Ответить", exact: true }).click();
+  await bobPage.getByRole("button", { name: /Действия с сообщением:/ }).click();
+  await bobPage
+    .getByRole("menuitem", { name: "Ответить", exact: true })
+    .click();
   await bobPage
     .getByRole("textbox", { name: "Сообщение", exact: true })
     .fill("Ответ от Bob");
   await bobPage.getByRole("button", { name: "Отправить", exact: true }).click();
   await expect(page.getByRole("log")).toContainText("Ответ от Bob");
   await expect(page.locator(".personal-notice")).toHaveCount(0);
-  await page.getByRole("button", { name: "Изменить", exact: true }).click();
+  await page
+    .locator(".chat-message-own")
+    .getByRole("button", { name: /Действия с сообщением:/ })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Изменить", exact: true }).click();
   await page.locator("#edit-message").fill("Исправленное сообщение");
   await page
     .getByRole("dialog")
@@ -97,9 +105,11 @@ test("two accounts: existing pair, realtime, replies, edits, files, unread, reco
   await page.getByRole("button", { name: "Отправить", exact: true }).click();
   await expect(bobPage.getByRole("log")).toContainText("direct-note.txt");
   await page
-    .getByRole("button", { name: "Удалить", exact: true })
+    .locator(".chat-message-own")
+    .getByRole("button", { name: /Действия с сообщением:/ })
     .first()
     .click();
+  await page.getByRole("menuitem", { name: "Удалить", exact: true }).click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Да, удалить сообщение", exact: true })

@@ -77,9 +77,21 @@ vi.mock("../useCapabilities", () => ({
     },
   }),
 }));
-vi.mock("../components/RealtimePanel", () => ({
-  RealtimePanel: () => <div>Медиа</div>,
-}));
+vi.mock("../components/RealtimePanel", async () => {
+  const { ItemActions } = await import("../components/ItemActions");
+  return {
+    RealtimePanel: ({
+      moreActions,
+    }: {
+      moreActions: import("../components/ItemActions").ItemAction[];
+    }) => (
+      <div>
+        Медиа
+        <ItemActions label="Ещё" actions={moreActions} />
+      </div>
+    ),
+  };
+});
 vi.mock("../components/ReactionsPanel", () => ({ ReactionsPanel: () => null }));
 vi.mock("../components/ChatPanel", () => ({
   ChatPanel: () => <textarea aria-label="Сообщение" />,
@@ -152,12 +164,19 @@ function showConference() {
  * @return Кнопка открытия и диалог для проверки закрытия и восстановления клавиатурного фокуса.
  */
 async function openRecordingModal() {
-  showConference();
-  const trigger = screen.getByRole("button", {
-    name: "Записи конференции",
-  });
+  const { client } = showConference();
+  await waitFor(() =>
+    expect(client.getQueryData(["recordings", "room"])).toBeDefined(),
+  );
+  const trigger =
+    screen.queryByRole("button", {
+      name: "Записи конференции",
+    }) || screen.getByRole("button", { name: "Ещё" });
   trigger.focus();
   fireEvent.click(trigger);
+  if (trigger.getAttribute("aria-haspopup") === "menu") {
+    fireEvent.click(screen.getByRole("menuitem", { name: "Запись" }));
+  }
   const dialog = await screen.findByRole("dialog", {
     name: "Записи конференции",
   });
@@ -191,7 +210,9 @@ it("после успешного запуска закрывает настоя
       screen.queryByRole("dialog", { name: "Записи конференции" }),
     ).not.toBeInTheDocument(),
   );
-  expect(trigger).toHaveFocus();
+  expect(
+    screen.getByRole("button", { name: "Остановить запись" }),
+  ).toHaveFocus();
   expect(await screen.findByTestId("recording-indicator")).toHaveTextContent(
     "Запись запускается",
   );
@@ -201,9 +222,9 @@ it("сохраняет диалог при отказе запуска и поз
   const start = vi
     .spyOn(api, "startRecording")
     .mockRejectedValueOnce(new ApiError(409, "Запуск отклонён"))
-    .mockResolvedValueOnce({
-      status: "success",
-      item: { ...row, status: "starting" },
+    .mockImplementationOnce(async () => {
+      fixture.items = [{ ...row, status: "starting" }];
+      return { status: "success", item: fixture.items[0] };
     });
   const { trigger, dialog } = await openRecordingModal();
   fireEvent.click(
@@ -219,7 +240,9 @@ it("сохраняет диалог при отказе запуска и поз
   fireEvent.click(retry);
   await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(dialog).not.toBeInTheDocument());
-  expect(trigger).toHaveFocus();
+  expect(
+    screen.getByRole("button", { name: "Остановить запись" }),
+  ).toHaveFocus();
 });
 
 it("оставляет настоящий диалог открытым после успешной остановки записи", async () => {
@@ -312,21 +335,19 @@ it.each(["starting", "recording", "degraded"] as const)(
     const stopButton = await screen.findByRole("button", {
       name: "Остановить запись",
     });
-    const recordingsButton = screen.getByRole("button", {
-      name: "Записи конференции",
-    });
+    const moreButton = screen.getByRole("button", { name: "Ещё" });
     expect(stopButton).toBeEnabled();
     expect(stopButton.querySelector("svg")).not.toBeNull();
+    expect(stopButton.closest(".room-header")).not.toBeNull();
     expect(
-      stopButton.compareDocumentPosition(recordingsButton) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.queryByRole("button", { name: "Записи конференции" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     fireEvent.click(stopButton);
     await waitFor(() => expect(stop).toHaveBeenCalledWith("room", "record"));
     await waitFor(() => expect(stopButton).toBeDisabled());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(recordingsButton).toBeEnabled();
+    expect(moreButton).toBeEnabled();
   },
 );
 
@@ -423,7 +444,8 @@ it.each(["participant", "co_host"] as const)(
     expect(
       screen.queryByRole("button", { name: "Остановить запись" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Записи конференции" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ещё" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Запись" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Записи конференции",
     });
@@ -445,9 +467,7 @@ it("оставляет уже останавливаемую запись заб
   expect(stopButton).toHaveTextContent("Останавливаем…");
   fireEvent.click(stopButton);
   expect(stop).not.toHaveBeenCalled();
-  expect(
-    screen.getByRole("button", { name: "Записи конференции" }),
-  ).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Ещё" })).toBeEnabled();
 });
 
 it("не разрешает остановку владельцу членства, если текущий пользователь не совпадает с владельцем конференции", async () => {
@@ -461,9 +481,7 @@ it("не разрешает остановку владельцу членств
   expect(
     screen.queryByRole("button", { name: "Остановить запись" }),
   ).not.toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Записи конференции" }),
-  ).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Ещё" })).toBeEnabled();
   expect(stop).not.toHaveBeenCalled();
 });
 

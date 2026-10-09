@@ -55,7 +55,6 @@ select {
     .copy-link,
     .video-notice,
     .invite-code code,
-    .chat-message-bubble,
     .chat-message-avatar,
     .chat-reply,
     .hero-floating,
@@ -64,9 +63,6 @@ select {
   background: var(--surface-soft);
   color: var(--text);
   border-color: var(--border);
-}
-:root[data-theme="dark"] .chat-message-own .chat-message-bubble {
-  background: var(--primary-soft);
 }
 :root[data-theme="dark"]
   :is(

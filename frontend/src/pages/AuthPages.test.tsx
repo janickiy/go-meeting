@@ -31,14 +31,10 @@ describe("вход и будущие провайдеры Meetrix", () => {
         <AuthPage />
       </MemoryRouter>,
     );
+    expect(screen.getByRole("button", { name: /Google/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Microsoft/ })).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: /Продолжить с Google/ }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: /Продолжить с Microsoft/ }),
-    ).toBeDisabled();
-    expect(
-      screen.getByText(/Эти способы входа появятся позже/),
+      screen.getByText(/Вход через Google и Microsoft пока недоступен/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Google|Microsoft/ })).toBeNull();
     expect(login).not.toHaveBeenCalled();

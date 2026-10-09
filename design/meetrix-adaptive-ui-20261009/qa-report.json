@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-09",
+  "scope": "Статическая проверка самостоятельного дизайн-прототипа, не production-приложения",
+  "screens": 54,
+  "states": 215,
+  "renderChecks": 1720,
+  "navigationReferences": 9638,
+  "viewportInputs": [
+    360,
+    390,
+    768,
+    834,
+    1024,
+    1280,
+    1440,
+    1920
+  ],
+  "note": "Рендер проверяется на строках HTML. Фактическую CSS-адаптацию подтверждает отдельная визуальная проверка в браузере.",
+  "errors": [],
+  "browserVerification": {
+    "screens": 54,
+    "defaultViewportChecks": 162,
+    "defaultWidths": [
+      390,
+      834,
+      1440
+    ],
+    "darkLargeTextChecks": 54,
+    "darkLargeTextWidth": 390,
+    "textPercent": 200,
+    "overflowIssues": 0,
+    "brokenImageIssues": 0,
+    "emptyButtonIssues": 0,
+    "consoleErrors": 0
+  },
+  "browserReport": "browser-qa.json"
+}

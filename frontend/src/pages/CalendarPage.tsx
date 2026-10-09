@@ -6,21 +6,16 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Plus,
   Video,
+  X,
 } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useConferences } from "../queries";
-import {
-  Button,
-  ErrorNotice,
-  Loading,
-  Modal,
-  StatusBadge,
-} from "../components/ui";
+import { Button, ErrorNotice, Modal, StatusBadge } from "../components/ui";
 import { EditSchedule } from "../components/ConferenceModals";
+import { MeetingSkeleton } from "../components/MeetingSkeleton";
 import { formatDate } from "../utils";
 import { toLocalInput } from "../collaboration";
 import type { Conference } from "../types";
@@ -134,6 +129,17 @@ function CalendarMeetingDetails({
   const { user } = useAuth();
   const client = useQueryClient();
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const opener =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    panel.current?.focus();
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
   const canChange =
     meeting.ownerId === user?.id &&
     ["created", "scheduled"].includes(meeting.status);
@@ -146,77 +152,96 @@ function CalendarMeetingDetails({
     },
   });
   const past = meeting.status === "finished" || meeting.status === "cancelled";
+  if (confirmCancel)
+    return (
+      <Modal
+        title="Отменить встречу?"
+        className="meeting-design-modal calendar-cancel-modal"
+        onClose={() => {
+          if (!cancellation.isPending) setConfirmCancel(false);
+        }}
+      >
+        <p className="modal-description">
+          Встреча «{meeting.title}» будет отменена для всех участников. Это
+          действие нельзя отменить.
+        </p>
+        <ErrorNotice error={cancellation.error} />
+        <footer className="meeting-dialog-footer">
+          <Button
+            variant="secondary"
+            disabled={cancellation.isPending}
+            onClick={() => setConfirmCancel(false)}
+          >
+            Оставить встречу
+          </Button>
+          <Button
+            variant="danger"
+            busy={cancellation.isPending}
+            onClick={() => cancellation.mutate()}
+          >
+            Да, отменить встречу
+          </Button>
+        </footer>
+      </Modal>
+    );
   return (
-    <Modal
-      title={confirmCancel ? "Отменить встречу?" : meeting.title}
-      onClose={() => {
-        if (!cancellation.isPending) onClose();
+    <div
+      className="calendar-details-popover"
+      ref={panel}
+      role="dialog"
+      aria-label={meeting.title}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          onClose();
+        }
       }}
     >
+      <header>
+        <h3>{meeting.title}</h3>
+        <button
+          className="icon-button"
+          aria-label="Закрыть карточку встречи"
+          onClick={onClose}
+        >
+          <X size={18} />
+        </button>
+      </header>
       <div className="calendar-meeting-details">
         <StatusBadge status={meeting.status} />
         <p>
-          <CalendarDays size={18} aria-hidden="true" />
+          <CalendarDays size={17} aria-hidden="true" />
           {formatDate(meeting.scheduledAt!)}
+          {meeting.plannedDurationMin
+            ? ` · ${meeting.plannedDurationMin} мин`
+            : ""}
         </p>
-        {meeting.plannedDurationMin && (
-          <p>
-            <Clock3 size={18} aria-hidden="true" />
-            {meeting.plannedDurationMin} мин
-          </p>
-        )}
         <p className="field-hint">
-          Часовой пояс: {Intl.DateTimeFormat().resolvedOptions().timeZone}.
-          Запланированная встреча не начинается автоматически.
+          {meeting.ownerId === user?.id ? "Вы организатор" : "Вы участник"} ·{" "}
+          {Intl.DateTimeFormat().resolvedOptions().timeZone}
+          <br />
+          Встреча не начнётся автоматически.
         </p>
-        {confirmCancel ? (
-          <>
-            <p>
-              Встреча «{meeting.title}» будет отменена для всех участников. Это
-              действие нельзя отменить.
-            </p>
-            <ErrorNotice error={cancellation.error} />
-            <Button
-              variant="danger"
-              busy={cancellation.isPending}
-              onClick={() => cancellation.mutate()}
-            >
-              Да, отменить встречу
+        <Link
+          className="button button-primary"
+          to={past ? `/history/${meeting.id}` : `/meetings/${meeting.id}`}
+        >
+          <Video size={17} aria-hidden="true" />
+          {past ? "Открыть историю" : "Открыть встречу"}
+        </Link>
+        {canChange && (
+          <div className="calendar-meeting-actions">
+            <Button variant="outline" onClick={() => onEdit(meeting)}>
+              Изменить расписание
             </Button>
-            <Button
-              variant="secondary"
-              disabled={cancellation.isPending}
-              onClick={() => setConfirmCancel(false)}
-            >
-              Оставить встречу
+            <Button variant="secondary" onClick={() => setConfirmCancel(true)}>
+              Отменить встречу
             </Button>
-          </>
-        ) : (
-          <>
-            <Link
-              className="button button-primary"
-              to={past ? `/history/${meeting.id}` : `/meetings/${meeting.id}`}
-            >
-              <Video size={17} aria-hidden="true" />
-              {past ? "Открыть историю" : "Открыть встречу"}
-            </Link>
-            {canChange && (
-              <div className="calendar-meeting-actions">
-                <Button variant="outline" onClick={() => onEdit(meeting)}>
-                  Изменить расписание
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setConfirmCancel(true)}
-                >
-                  Отменить встречу
-                </Button>
-              </div>
-            )}
-          </>
+          </div>
         )}
       </div>
-    </Modal>
+    </div>
   );
 }
 
@@ -229,6 +254,7 @@ export function CalendarPage() {
   const [view, setView] = useState<CalendarView>("week");
   const [selected, setSelected] = useState<Conference | null>(null);
   const [editing, setEditing] = useState<Conference | null>(null);
+  const [agendaDay, setAgendaDay] = useState(() => calendarDayKey(new Date()));
   const scroll = useRef<HTMLDivElement>(null);
   const range = useMemo(() => calendarRange(anchor, view), [anchor, view]);
   const query = useConferences({
@@ -285,24 +311,38 @@ export function CalendarPage() {
       ? anchor.toLocaleDateString("ru-RU", { month: "long", year: "numeric" })
       : `${range.days[0].toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — ${range.days[6].toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}`;
   const today = calendarDayKey(new Date());
+  const agendaDate =
+    range.days.find((day) => calendarDayKey(day) === agendaDay) ||
+    range.days.find((day) => byDay.has(calendarDayKey(day))) ||
+    range.days[0];
+  const agendaDays =
+    view === "week" ? range.days : calendarRange(agendaDate, "week").days;
   return (
     <div className="calendar-page">
       <section className="page-heading">
         <div>
-          <span className="eyebrow">ПЛАНИРУЙТЕ ВАЖНОЕ</span>
           <h1>Календарь</h1>
-          <p>Ваши встречи — в удобном ритме.</p>
+          <p>Время для важных разговоров.</p>
         </div>
         <Link
           className="button button-primary"
           to="/meetings/new?scheduled=1&returnTo=calendar"
         >
           <Plus size={18} aria-hidden="true" />
-          Новая встреча
+          Запланировать
         </Link>
       </section>
       <section className="calendar-card" aria-label="Календарь встреч">
         <div className="calendar-toolbar">
+          <div className="calendar-period-group">
+            <h2 className="calendar-period" aria-live="polite">
+              {label}
+            </h2>
+            <span>
+              Предстоящие встречи ·{" "}
+              {Intl.DateTimeFormat().resolvedOptions().timeZone}
+            </span>
+          </div>
           <div className="calendar-navigation">
             <Button variant="outline" onClick={() => setAnchor(new Date())}>
               Сегодня
@@ -324,9 +364,6 @@ export function CalendarPage() {
               <ChevronRight size={18} />
             </button>
           </div>
-          <h2 className="calendar-period" aria-live="polite">
-            {label}
-          </h2>
           <div
             className="calendar-view-switch"
             role="group"
@@ -348,10 +385,6 @@ export function CalendarPage() {
             </button>
           </div>
         </div>
-        <p className="calendar-zone">
-          Часовой пояс: {Intl.DateTimeFormat().resolvedOptions().timeZone}. В
-          календаре — предстоящие встречи с указанной датой.
-        </p>
         <ErrorNotice error={query.error} />
         {query.isError && (
           <Button variant="outline" onClick={() => void query.refetch()}>
@@ -359,127 +392,148 @@ export function CalendarPage() {
           </Button>
         )}
         {query.isPending ? (
-          <Loading />
+          <MeetingSkeleton rows={4} label="Загрузка календаря" />
         ) : (
           <>
-            <div
-              className={`calendar-grid-scroll ${view === "week" ? "calendar-week-scroll" : ""}`}
-              ref={scroll}
-              tabIndex={0}
-              role="region"
-              aria-label={
-                view === "week"
-                  ? "Расписание на неделю, прокрутка по времени"
-                  : "Сетка месяца"
-              }
-            >
-              {view === "week" ? (
-                <table className="calendar-week-table">
-                  <caption className="sr-only">
-                    Неделя {label}. Встречи сгруппированы по часу начала.
-                  </caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">
-                        <span className="sr-only">Время</span>
-                      </th>
-                      {range.days.map((date, index) => (
-                        <th
-                          scope="col"
-                          key={calendarDayKey(date)}
-                          className={
-                            calendarDayKey(date) === today
-                              ? "calendar-today"
-                              : ""
-                          }
-                        >
-                          <span>{weekdays[index]}</span>
-                          <strong>{date.getDate()}</strong>
+            {!!meetings.length && (
+              <div
+                className={`calendar-grid-scroll ${view === "week" ? "calendar-week-scroll" : ""}`}
+                ref={scroll}
+                tabIndex={0}
+                role="region"
+                aria-label={
+                  view === "week"
+                    ? "Расписание на неделю, прокрутка по времени"
+                    : "Сетка месяца"
+                }
+              >
+                {view === "week" ? (
+                  <table className="calendar-week-table">
+                    <caption className="sr-only">
+                      Неделя {label}. Встречи сгруппированы по часу начала.
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">
+                          <span className="sr-only">Время</span>
                         </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hours.map((hour) => (
-                      <tr key={hour}>
-                        <th scope="row">{String(hour).padStart(2, "0")}:00</th>
-                        {range.days.map((date) => (
-                          <td key={calendarDayKey(date)}>
-                            {(byDay.get(calendarDayKey(date)) || [])
-                              .filter(
-                                (meeting) =>
-                                  scheduledMeetingDate(meeting)!.getHours() ===
-                                  hour,
-                              )
-                              .map((meeting) => (
-                                <CalendarMeeting
-                                  key={meeting.id}
-                                  meeting={meeting}
-                                  onSelect={setSelected}
-                                />
-                              ))}
-                          </td>
+                        {range.days.map((date, index) => (
+                          <th
+                            scope="col"
+                            key={calendarDayKey(date)}
+                            className={
+                              calendarDayKey(date) === today
+                                ? "calendar-today"
+                                : ""
+                            }
+                          >
+                            <span>{weekdays[index]}</span>
+                            <strong>{date.getDate()}</strong>
+                          </th>
                         ))}
                       </tr>
+                    </thead>
+                    <tbody>
+                      {hours.map((hour) => (
+                        <tr key={hour}>
+                          <th scope="row">
+                            {String(hour).padStart(2, "0")}:00
+                          </th>
+                          {range.days.map((date) => (
+                            <td key={calendarDayKey(date)}>
+                              {(byDay.get(calendarDayKey(date)) || [])
+                                .filter(
+                                  (meeting) =>
+                                    scheduledMeetingDate(
+                                      meeting,
+                                    )!.getHours() === hour,
+                                )
+                                .map((meeting) => (
+                                  <CalendarMeeting
+                                    key={meeting.id}
+                                    meeting={meeting}
+                                    onSelect={setSelected}
+                                  />
+                                ))}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div
+                    className="calendar-month-grid"
+                    aria-label={`Месяц ${label}`}
+                  >
+                    {weekdays.map((day) => (
+                      <div key={day} className="calendar-weekday">
+                        {day}
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div
-                  className="calendar-month-grid"
-                  aria-label={`Месяц ${label}`}
-                >
-                  {weekdays.map((day) => (
-                    <div key={day} className="calendar-weekday">
-                      {day}
-                    </div>
+                    {range.days.map((date) => {
+                      const key = calendarDayKey(date);
+                      const at = toLocalInput(
+                        new Date(
+                          date.getFullYear(),
+                          date.getMonth(),
+                          date.getDate(),
+                          9,
+                        ).toISOString(),
+                      );
+                      return (
+                        <section
+                          key={key}
+                          className={`calendar-month-day ${date.getMonth() !== anchor.getMonth() ? "calendar-outside-month" : ""} ${key === today ? "calendar-today" : ""}`}
+                          aria-label={formatDate(date.toISOString())}
+                        >
+                          <div className="calendar-day-heading">
+                            <time dateTime={key}>{date.getDate()}</time>
+                            <Link
+                              className="calendar-add-day"
+                              aria-label={`Запланировать на ${date.toLocaleDateString("ru-RU")}`}
+                              to={`/meetings/new?scheduled=1&returnTo=calendar&at=${encodeURIComponent(at)}`}
+                            >
+                              <Plus size={14} aria-hidden="true" />
+                            </Link>
+                          </div>
+                          {(byDay.get(key) || []).map((meeting) => (
+                            <CalendarMeeting
+                              key={meeting.id}
+                              meeting={meeting}
+                              onSelect={setSelected}
+                            />
+                          ))}
+                        </section>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+            {!!meetings.length && (
+              <div
+                className="calendar-mobile-agenda"
+                aria-label="Встречи выбранного периода списком"
+              >
+                <div className="calendar-day-strip">
+                  {agendaDays.map((day) => (
+                    <button
+                      type="button"
+                      key={calendarDayKey(day)}
+                      aria-pressed={
+                        calendarDayKey(day) === calendarDayKey(agendaDate)
+                      }
+                      onClick={() => setAgendaDay(calendarDayKey(day))}
+                    >
+                      <span>
+                        {day.toLocaleDateString("ru-RU", { weekday: "short" })}
+                      </span>
+                      <strong>{day.getDate()}</strong>
+                    </button>
                   ))}
-                  {range.days.map((date) => {
-                    const key = calendarDayKey(date);
-                    const at = toLocalInput(
-                      new Date(
-                        date.getFullYear(),
-                        date.getMonth(),
-                        date.getDate(),
-                        9,
-                      ).toISOString(),
-                    );
-                    return (
-                      <section
-                        key={key}
-                        className={`calendar-month-day ${date.getMonth() !== anchor.getMonth() ? "calendar-outside-month" : ""} ${key === today ? "calendar-today" : ""}`}
-                        aria-label={formatDate(date.toISOString())}
-                      >
-                        <div className="calendar-day-heading">
-                          <time dateTime={key}>{date.getDate()}</time>
-                          <Link
-                            className="calendar-add-day"
-                            aria-label={`Запланировать на ${date.toLocaleDateString("ru-RU")}`}
-                            to={`/meetings/new?scheduled=1&returnTo=calendar&at=${encodeURIComponent(at)}`}
-                          >
-                            <Plus size={14} aria-hidden="true" />
-                          </Link>
-                        </div>
-                        {(byDay.get(key) || []).map((meeting) => (
-                          <CalendarMeeting
-                            key={meeting.id}
-                            meeting={meeting}
-                            onSelect={setSelected}
-                          />
-                        ))}
-                      </section>
-                    );
-                  })}
                 </div>
-              )}
-            </div>
-            <div
-              className="calendar-mobile-agenda"
-              aria-label="Встречи выбранного периода списком"
-            >
-              {range.days
-                .filter((day) => byDay.has(calendarDayKey(day)))
-                .map((date) => (
+                {[agendaDate].map((date) => (
                   <section key={calendarDayKey(date)}>
                     <h3>
                       {date.toLocaleDateString("ru-RU", {
@@ -488,7 +542,7 @@ export function CalendarPage() {
                         month: "long",
                       })}
                     </h3>
-                    {byDay.get(calendarDayKey(date))!.map((meeting) => (
+                    {(byDay.get(calendarDayKey(date)) || []).map((meeting) => (
                       <CalendarMeeting
                         key={meeting.id}
                         meeting={meeting}
@@ -497,12 +551,26 @@ export function CalendarPage() {
                     ))}
                   </section>
                 ))}
-            </div>
+                {!byDay.has(calendarDayKey(agendaDate)) && (
+                  <p className="field-hint">На этот день встреч пока нет.</p>
+                )}
+              </div>
+            )}
             {!meetings.length && !query.isError && (
-              <p className="calendar-empty">
-                <CalendarDays size={20} aria-hidden="true" />
-                На этот период встреч пока нет.
-              </p>
+              <div className="calendar-empty">
+                <span>
+                  <CalendarDays size={28} aria-hidden="true" />
+                </span>
+                <h3>В этом периоде пока свободно</h3>
+                <p>Запланируйте встречу — она появится здесь.</p>
+                <Link
+                  className="button button-primary"
+                  to="/meetings/new?scheduled=1&returnTo=calendar"
+                >
+                  <Plus size={18} />
+                  Запланировать
+                </Link>
+              </div>
             )}
             {query.hasNextPage && (
               <div className="calendar-pagination">
@@ -521,33 +589,25 @@ export function CalendarPage() {
             )}
           </>
         )}
+        {selected && (
+          <CalendarMeetingDetails
+            key={selected.id}
+            meeting={selected}
+            onClose={() => setSelected(null)}
+            onEdit={(meeting) => {
+              setSelected(null);
+              setEditing(meeting);
+            }}
+          />
+        )}
       </section>
       <p className="calendar-footer-note">
-        Встречи без даты — в{" "}
+        Здесь только встречи с датой, которые ещё не начались. Остальные — в{" "}
         <Link className="text-link" to="/meetings">
-          общем списке <ArrowRight size={13} aria-hidden="true" />
-        </Link>
-        . Уже начавшиеся — в{" "}
-        <Link className="text-link" to="/meetings?view=active">
-          активных встречах
-        </Link>
-        , завершённые — в{" "}
-        <Link className="text-link" to="/history">
-          истории
+          списке встреч <ArrowRight size={13} aria-hidden="true" />
         </Link>
         .
       </p>
-      {selected && (
-        <CalendarMeetingDetails
-          key={selected.id}
-          meeting={selected}
-          onClose={() => setSelected(null)}
-          onEdit={(meeting) => {
-            setSelected(null);
-            setEditing(meeting);
-          }}
-        />
-      )}
       {editing && (
         <EditSchedule conference={editing} onClose={() => setEditing(null)} />
       )}

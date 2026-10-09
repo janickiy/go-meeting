@@ -4,7 +4,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { ArrowUpRight, Bell, Check } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { notificationLabel } from "../components/NotificationBell";
@@ -40,13 +40,15 @@ export function NotificationsPage() {
   const unread = query.data?.pages[0]?.unreadCount || 0;
 
   return (
-    <>
+    <div className="notifications-page">
       <section className="page-heading">
         <div>
-          <span className="eyebrow">ЛИЧНЫЙ КАБИНЕТ</span>
           <h1>Уведомления</h1>
-          <p role="status">Непрочитанных: {unread}</p>
+          <p>Приглашения, напоминания и материалы встреч.</p>
         </div>
+        <span className="notifications-count" role="status">
+          Непрочитанных: {unread}
+        </span>
       </section>
       <section className="content-card" aria-label="Список уведомлений">
         <ErrorNotice error={query.error || read.error} />
@@ -55,7 +57,14 @@ export function NotificationsPage() {
         ) : (
           <>
             {!rows.length && !query.isError && (
-              <p className="empty-state">Пока нет уведомлений.</p>
+              <div className="notifications-empty">
+                <Bell size={32} aria-hidden="true" />
+                <h2>Пока тихо</h2>
+                <p>
+                  Пока нет уведомлений. Здесь появятся приглашения и новости о
+                  ваших встречах.
+                </p>
+              </div>
             )}
             <div className="notification-list notifications-page-list">
               {rows.map((item) => (
@@ -63,30 +72,46 @@ export function NotificationsPage() {
                   key={item.id}
                   className={`notification-row ${item.readAt ? "" : "notification-unread"}`}
                 >
-                  <div>
-                    <strong>{notificationLabel(item)}</strong>
-                    <p className="field-hint">{formatDate(item.createdAt)}</p>
-                    {item.payload.conferenceId && (
-                      <Link
-                        to={notificationLink(item)}
-                        onClick={() => {
-                          if (!item.readAt) read.mutate(item.id);
-                        }}
-                      >
-                        Открыть встречу
-                      </Link>
-                    )}
+                  <span className="notification-page-icon" aria-hidden="true">
+                    <Bell size={22} />
+                  </span>
+                  <div className="notification-page-copy">
+                    <div className="notification-page-title">
+                      <strong>{notificationLabel(item)}</strong>
+                      {!item.readAt && (
+                        <span
+                          className="notification-unread-dot"
+                          aria-label="Непрочитанное"
+                        />
+                      )}
+                    </div>
+                    <time dateTime={item.createdAt}>
+                      {formatDate(item.createdAt)}
+                    </time>
+                    <div className="notification-page-actions">
+                      {item.payload.conferenceId && (
+                        <Link
+                          to={notificationLink(item)}
+                          onClick={() => {
+                            if (!item.readAt) read.mutate(item.id);
+                          }}
+                        >
+                          Открыть встречу{" "}
+                          <ArrowUpRight size={15} aria-hidden="true" />
+                        </Link>
+                      )}
+                      {!item.readAt && (
+                        <Button
+                          variant="outline"
+                          busy={read.isPending && read.variables === item.id}
+                          onClick={() => read.mutate(item.id)}
+                          aria-label={`Отметить как прочитанное: ${notificationLabel(item)}`}
+                        >
+                          <Check size={17} /> Прочитано
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  {!item.readAt && (
-                    <Button
-                      variant="outline"
-                      busy={read.isPending && read.variables === item.id}
-                      onClick={() => read.mutate(item.id)}
-                      aria-label={`Отметить как прочитанное: ${notificationLabel(item)}`}
-                    >
-                      <Check size={17} /> Прочитано
-                    </Button>
-                  )}
                 </article>
               ))}
             </div>
@@ -107,6 +132,6 @@ export function NotificationsPage() {
           </>
         )}
       </section>
-    </>
+    </div>
   );
 }

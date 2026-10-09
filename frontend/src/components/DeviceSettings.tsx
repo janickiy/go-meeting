@@ -66,7 +66,7 @@ function useSettings() {
   };
 }
 
-/** Each panel owns its preview; late permission responses are stopped after closing or switching. */
+/** Панель владеет предпросмотром: запоздавшие ответы разрешений останавливаются после закрытия или смены вкладки. */
 function usePreview(
   kind: "audio" | "video",
   enabled: boolean,
@@ -342,7 +342,7 @@ export function AudioSettings() {
       update({ [field]: chosen.deviceId });
       await settings.refresh();
     } catch {
-      /* Cancelling the browser picker leaves the selection unchanged. */
+      /* Отмена выбора устройства в браузере сохраняет прежнее значение. */
     }
   }
   const canChooseOutput = !!(
@@ -350,6 +350,10 @@ export function AudioSettings() {
   )?.selectAudioOutput;
   return (
     <div className="device-settings" id="audio-settings">
+      <div className="account-settings-section-heading">
+        <h2>Аудио</h2>
+        <p>Подготовьте звук к следующей встрече</p>
+      </div>
       {!available && (
         <p role="status">
           Разрешите доступ к устройствам в браузере. Настройки доступны через
@@ -516,7 +520,10 @@ export function VideoSettings() {
     <div className="device-settings" id="video-settings">
       <section className="device-card" aria-labelledby="camera-title">
         <header>
-          <h2 id="camera-title">Видео</h2>
+          <div className="account-settings-section-heading">
+            <h2 id="camera-title">Видео</h2>
+            <p>Предпросмотр доступен только вам</p>
+          </div>
         </header>
         <div className="device-camera-preview">
           <video

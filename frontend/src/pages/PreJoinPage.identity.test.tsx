@@ -444,7 +444,9 @@ describe("Настройки предпросмотра и восстановл�
       expect(readDevicePreferences(alice.id).audioInputId).toBe("manual-mic"),
     );
     fireEvent.click(screen.getByRole("button", { name: "Изменить профиль" }));
-    await screen.findByRole("heading", { name: "Новое имя" });
+    await screen.findByText("Новое имя", {
+      selector: ".prejoin-signed-in strong",
+    });
     expect(screen.getByRole("combobox", { name: "Микрофон" })).toHaveValue(
       "manual-mic",
     );

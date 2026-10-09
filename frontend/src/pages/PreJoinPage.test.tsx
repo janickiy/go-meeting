@@ -133,7 +133,7 @@ describe("PreJoinPage", () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     page();
     await screen.findByRole("heading", { name: "Проверка проекта" });
-    fireEvent.click(screen.getByRole("button", { name: "Проверить камеру" }));
+    fireEvent.click(screen.getByRole("button", { name: "Включить камеру" }));
     await waitFor(() => expect(capture).toHaveBeenCalledOnce());
     await waitFor(() =>
       expect(

@@ -244,7 +244,7 @@ test("prejoin shows an actionable device denial without opening room media", asy
   await expect(
     page.getByRole("heading", { name: conference.title }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Проверить камеру" }).click();
+  await page.getByRole("button", { name: "Включить камеру" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "Разрешите камеру для этого сайта",
   );

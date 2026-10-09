@@ -228,6 +228,8 @@ export function usePersonalRealtime(userId?: string) {
   useEffect(() => {
     if (!userId) return;
     const controller = new AbortController();
+    const connectionKey = ["personal-connection", userId];
+    client.setQueryData(connectionKey, "connecting");
     const seen = new Map<string, number>();
     let socket: WebSocket | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -240,6 +242,7 @@ export function usePersonalRealtime(userId?: string) {
     };
     const retry = () => {
       if (controller.signal.aborted) return;
+      client.setQueryData(connectionKey, "reconnecting");
       timer = setTimeout(
         () => void connect(),
         Math.min(30000, 1000 * 2 ** Math.min(attempts++, 5)) +
@@ -255,12 +258,15 @@ export function usePersonalRealtime(userId?: string) {
         url.searchParams.set("ticket", ticket.ticket);
         socket = new WebSocket(url);
         socket.onopen = () => {
+          if (controller.signal.aborted) return;
+          client.setQueryData(connectionKey, "connected");
           attempts = 0;
           refresh();
           void client.invalidateQueries({ queryKey: ["personal-chat"] });
           void client.invalidateQueries({ queryKey: ["personal-chat-read"] });
         };
         socket.onmessage = ({ data }) => {
+          if (controller.signal.aborted) return;
           if (typeof data !== "string") return;
           const folderEvent = acceptFolderEvent(data);
           if (folderEvent) {
@@ -396,6 +402,7 @@ export function usePersonalRealtime(userId?: string) {
         socket.close();
       }
       setNotice(null);
+      client.removeQueries({ queryKey: connectionKey, exact: true });
     };
   }, [userId, client, navigate]);
   return {

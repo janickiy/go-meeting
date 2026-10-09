@@ -1,0 +1,68 @@
+.messaging-skeleton {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.messaging-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+}
+.messaging-skeleton-row > i {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+.messaging-skeleton-row > span {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+}
+.messaging-skeleton-row b {
+  display: block;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-soft);
+}
+.messaging-skeleton-row b:first-child {
+  width: 50%;
+  background: var(--border);
+}
+.messaging-skeleton-row b:last-child {
+  width: 82%;
+}
+.personal-thread .messaging-skeleton {
+  flex: 1;
+  align-content: start;
+  padding: 20px;
+}
+.messaging-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--muted);
+}
+.messaging-empty > svg {
+  color: var(--primary);
+  width: 40px;
+  height: 40px;
+  margin-bottom: 16px;
+}
+.messaging-empty h3 {
+  margin: 0 0 8px;
+  font-size: calc(18px * var(--text-scale));
+  color: var(--text);
+}
+.messaging-empty p {
+  margin: 0;
+  font-size: calc(13px * var(--text-scale));
+  line-height: 1.6;
+}
+.messaging-empty .button {
+  margin-top: 20px;
+}

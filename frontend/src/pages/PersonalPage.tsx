@@ -11,14 +11,17 @@ import {
   useInfiniteQuery,
   useQuery,
   useQueryClient,
+  skipToken,
 } from "@tanstack/react-query";
 import {
   ArrowLeft,
   BellOff,
-  Info,
   MessageCircle,
-  Plus,
+  MessagesSquare,
   Search,
+  RefreshCw,
+  SquarePen,
+  Users,
 } from "lucide-react";
 import { api, ApiError, personalChatAPI } from "../api";
 import { useAuth } from "../auth";
@@ -26,7 +29,10 @@ import { chatTime } from "../chatPresentation";
 import { ConversationActions } from "../components/FolderPicker";
 import { DirectUserInfoModal } from "../components/DirectConversationActions";
 import { MessageThread } from "../components/ChatPanel";
-import { Button, ErrorNotice, Loading } from "../components/ui";
+import { ItemActions } from "../components/ItemActions";
+import { NewDirectChatModal } from "../components/NewDirectChatModal";
+import { Button, ErrorNotice } from "../components/ui";
+import { MessagingSkeleton } from "../components/MessagingSkeleton";
 import {
   ConversationAvatar,
   GroupCreateModal,
@@ -48,6 +54,7 @@ export function PersonalPage() {
     ? params.get("filter")!
     : "all";
   const [creating, setCreating] = useState(false);
+  const [newDirect, setNewDirect] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [userInfoOpen, setUserInfoOpen] = useState(false);
   const infoTrigger = useRef<HTMLButtonElement>(null);
@@ -57,14 +64,17 @@ export function PersonalPage() {
     const viewport = window.visualViewport;
     const measure = () => {
       const element = root.current;
-      if (!element || !window.matchMedia("(max-width:760px)").matches) return;
+      if (!element || !window.matchMedia("(max-width:767px)").matches) return;
       const visibleHeight =
         (viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0);
       const keyboard = visibleHeight < window.innerHeight - 100;
-      const bottom = keyboard
-        ? 12
-        : (document.querySelector(".mobile-bottom-nav")?.getBoundingClientRect()
-            .height ?? 64) + 20;
+      const bottom = id
+        ? 0
+        : keyboard
+          ? 12
+          : (document
+              .querySelector(".mobile-bottom-nav")
+              ?.getBoundingClientRect().height ?? 64) + 20;
       element.style.setProperty(
         "--personal-mobile-height",
         `${Math.max(180, visibleHeight - element.getBoundingClientRect().top - bottom)}px`,
@@ -81,6 +91,12 @@ export function PersonalPage() {
     };
   }, [id]);
   const { user } = useAuth();
+  const connection = useQuery<string>({
+    queryKey: ["personal-connection", user?.id],
+    queryFn: skipToken,
+    enabled: false,
+    staleTime: Infinity,
+  });
   const threadVersion = useQuery({
     queryKey: ["personal-thread-version", id, user?.id],
     queryFn: () => 0,
@@ -158,11 +174,33 @@ export function PersonalPage() {
       <aside className="personal-sidebar">
         <div className="section-heading">
           <h1>Личные</h1>
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            <Plus size={16} aria-hidden="true" />
-            Создать группу
-          </Button>
+          <ItemActions
+            label="Новый чат"
+            triggerIcon={<SquarePen size={20} aria-hidden="true" />}
+            actions={[
+              {
+                label: "Личный чат",
+                icon: <MessageCircle size={18} />,
+                run: () => setNewDirect(true),
+              },
+              {
+                label: "Создать группу",
+                icon: <Users size={18} />,
+                run: () => setCreating(true),
+              },
+            ]}
+          />
         </div>
+        <label className="personal-search">
+          <Search size={18} />
+          <input
+            type="search"
+            aria-label="Поиск переписок"
+            value={search}
+            placeholder="Найти переписку"
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
         <div
           className="personal-filters"
           role="group"
@@ -191,22 +229,13 @@ export function PersonalPage() {
             </button>
           ))}
         </div>
-        <label className="personal-search">
-          <Search size={18} />
-          <input
-            aria-label="Поиск переписок"
-            value={search}
-            placeholder="Поиск переписок"
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </label>
         <ErrorNotice error={list.error} />
         {list.isError && (
           <Button variant="outline" onClick={() => void list.refetch()}>
             Повторить загрузку
           </Button>
         )}
-        {list.isPending && <Loading />}
+        {list.isPending && <MessagingSkeleton rows={4} />}
         <nav className="personal-conversations" aria-label="Переписки">
           {conversations.map((c) => (
             <div className="personal-conversation-row" key={c.id}>
@@ -227,14 +256,14 @@ export function PersonalPage() {
                   </span>
                 </span>
                 <span className="personal-meta">
-                  {c.type === "direct" && c.notificationsEnabled === false && (
-                    <BellOff size={14} aria-label="Уведомления отключены" />
-                  )}
                   <time>
                     {c.lastMessageAt ? chatTime(c.lastMessageAt) : ""}
                   </time>
                   {c.unreadCount > 0 && (
                     <span className="count-badge">{c.unreadCount}</span>
+                  )}
+                  {c.type === "direct" && c.notificationsEnabled === false && (
+                    <BellOff size={14} aria-label="Уведомления отключены" />
                   )}
                 </span>
               </NavLink>
@@ -242,15 +271,24 @@ export function PersonalPage() {
             </div>
           ))}
           {!list.isPending && !list.isError && !conversations.length && (
-            <p className="compact-empty muted">
-              {search
-                ? "Переписки не найдены"
-                : filter === "group"
-                  ? "Пока нет групп. Создайте группу для общения с командой."
-                  : filter === "unread"
-                    ? "Непрочитанных сообщений нет."
-                    : "Пока нет личных переписок."}
-            </p>
+            <div className="messaging-empty">
+              <MessageCircle aria-hidden="true" />
+              <h3>
+                {search
+                  ? "Переписки не найдены"
+                  : filter === "group"
+                    ? "Пока нет групп. Создайте группу для общения с командой."
+                    : filter === "unread"
+                      ? "Непрочитанных сообщений нет."
+                      : "Пока нет переписок"}
+              </h3>
+              {!search && filter === "all" && (
+                <>
+                  <p>Начните разговор с коллегой или создайте группу.</p>
+                  <Button onClick={() => setNewDirect(true)}>Новый чат</Button>
+                </>
+              )}
+            </div>
           )}
         </nav>
         {list.hasNextPage && (
@@ -262,18 +300,31 @@ export function PersonalPage() {
             Ещё переписки
           </Button>
         )}
+        <footer className="personal-list-footer">
+          Переписки доступны только участникам
+        </footer>
       </aside>
       <div className="personal-content">
         {!id ? (
           <div className="personal-placeholder">
-            <MessageCircle size={48} />
-            <h2>Переписка</h2>
-            <p>Выберите собеседника из списка переписок.</p>
+            <MessagesSquare size={40} />
+            <h2>Разговор начинается здесь</h2>
+            <p>
+              Выберите переписку или начните новую.
+              <br />
+              Команда всегда рядом.
+            </p>
+            <Button onClick={() => setNewDirect(true)}>
+              <SquarePen size={18} />
+              Новый чат
+            </Button>
+            <small>Личные разговоры и группы в одном месте</small>
           </div>
         ) : (
           <>
             <header className="personal-header">
               <Link
+                className="personal-back"
                 to={`/personal${location.search}`}
                 aria-label="Назад к перепискам"
               >
@@ -290,40 +341,49 @@ export function PersonalPage() {
                   <ConversationAvatar conversation={selected} />
                   <span className="personal-header-copy">
                     <strong>{selected.peer.displayName}</strong>
-                    {selected.notificationsEnabled === false && (
-                      <small>Без уведомлений</small>
-                    )}
+                    <small>
+                      {selected.notificationsEnabled === false
+                        ? "Без уведомлений"
+                        : "Личная переписка"}
+                    </small>
                   </span>
                 </button>
               ) : (
-                <>
+                <button
+                  ref={infoTrigger}
+                  type="button"
+                  className="personal-peer-button"
+                  aria-label="Информация о группе"
+                  disabled={!selected}
+                  onClick={() => setInfoOpen(true)}
+                >
                   {selected && <ConversationAvatar conversation={selected} />}
-                  <div className="personal-header-copy">
+                  <span className="personal-header-copy">
                     <strong>
                       {selected ? conversationName(selected) : "Переписка"}
                     </strong>
                     {selected?.type === "group" && (
                       <small>{selected.memberCount} участн.</small>
                     )}
-                  </div>
-                </>
-              )}
-              {selected && <ConversationActions conversation={selected} />}
-              {selected?.type === "group" && (
-                <button
-                  ref={infoTrigger}
-                  type="button"
-                  className="icon-button"
-                  aria-label="Информация о группе"
-                  onClick={() => setInfoOpen(true)}
-                >
-                  <Info size={22} />
+                  </span>
                 </button>
               )}
+              {selected && (
+                <ConversationActions
+                  conversation={selected}
+                  onGroupInfo={() => setInfoOpen(true)}
+                />
+              )}
             </header>
+            {connection.data === "reconnecting" && (
+              <div className="personal-reconnect" role="status">
+                <RefreshCw size={16} aria-hidden="true" />
+                Переподключаемся… Сообщения обновятся автоматически.
+              </div>
+            )}
             <ErrorNotice error={detail.error} />
             {detail.isPending ? (
-              <Loading />
+              <MessagingSkeleton rows={4} />
             ) : (
               selected && (
                 <MessageThread
@@ -331,6 +391,11 @@ export function PersonalPage() {
                   scopeId={id}
                   transport={personalChatAPI}
                   personal
+                  composerPlaceholder={
+                    selected.type === "group"
+                      ? "Напишите в группу…"
+                      : "Напишите сообщение…"
+                  }
                   requireAuthenticatedDownloads={selected.type === "group"}
                   onAccessDenied={
                     selected.type === "group" ? revoke : undefined
@@ -342,6 +407,7 @@ export function PersonalPage() {
         )}
       </div>
       {creating && <GroupCreateModal onClose={() => setCreating(false)} />}
+      {newDirect && <NewDirectChatModal onClose={() => setNewDirect(false)} />}
       {userInfoOpen && selected?.type === "direct" && (
         <DirectUserInfoModal
           conversation={selected}

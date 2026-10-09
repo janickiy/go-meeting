@@ -236,9 +236,15 @@ describe("persistent chat", /**
       <ChatPanel conferenceId="room" membership={member} readOnly={false} />,
     );
     await screen.findByText("Original");
-    fireEvent.click(screen.getByRole("button", { name: "Ответить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Действия с сообщением:/ }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ответить" }));
     expect(screen.getByText("Ответ: Test")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Действия с сообщением:/ }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Изменить" }));
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByLabelText("Текст"), {
       target: { value: "Edited" },
@@ -262,7 +268,10 @@ describe("persistent chat", /**
        * @returns вычисленное значение: expect(screen.queryByRole("dialog")).toBeNull().
        */ () => expect(screen.queryByRole("dialog")).toBeNull(),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Удалить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Действия с сообщением:/ }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Удалить" }));
     fireEvent.click(
       screen.getByRole("button", { name: "Да, удалить сообщение" }),
     );

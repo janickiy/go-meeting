@@ -28,6 +28,7 @@ async function fixture(page: Page) {
   let hidden = false;
   const writes: string[] = [];
   const unexpected: string[] = [];
+  await page.routeWebSocket("**/api/v1/ws**", () => {});
   await page.addInitScript(() =>
     sessionStorage.setItem(
       "meet.session.v1",
@@ -65,10 +66,10 @@ async function fixture(page: Page) {
         },
       });
     if (path === "/ws-ticket")
-      return reply(
-        { message: "Поток изолирован для проверки интерфейса" },
-        503,
-      );
+      return reply({
+        ticket: "isolated-chat-layout",
+        expiresAt: "2099-01-01T00:00:00Z",
+      });
     if (path === "/notifications/events")
       return route.fulfill({
         contentType: "text/event-stream",
@@ -82,6 +83,11 @@ async function fixture(page: Page) {
         nextCursor: null,
       });
     if (path === "/folders") return reply({ status: "success", items: [] });
+    if (path === "/users") return reply({ items: [item.peer] });
+    if (path === "/conversations/direct" && method === "POST") {
+      writes.push("direct");
+      return reply({ status: "success", item });
+    }
     if (path === "/conversations")
       return reply({
         status: "success",
@@ -179,6 +185,27 @@ for (const size of [
       name: "Информация о пользователе: Василий",
     });
     await expect(profile).toBeVisible();
+    await expect(
+      header.getByText("Личная переписка", { exact: true }),
+    ).toBeVisible();
+    const message = page.getByTestId("chat-message-old-message");
+    await expect(
+      message.getByRole("button", { name: /Действия с сообщением:/ }),
+    ).toBeVisible();
+    await expect(message.getByRole("menuitem")).toHaveCount(0);
+    if (size.name === "desktop") {
+      const searchBox = (await page.locator(".personal-search").boundingBox())!;
+      const tabsBox = (await page.locator(".personal-filters").boundingBox())!;
+      expect(searchBox.y + searchBox.height).toBeLessThanOrEqual(tabsBox.y);
+      expect(
+        (await page.locator(".personal-sidebar").boundingBox())!.width,
+      ).toBeCloseTo(288, 0);
+      await expect(page.locator(".personal-list-footer")).toBeVisible();
+    }
+    await page.screenshot({
+      path: info.outputPath(`direct-chat-parity-${size.name}.png`),
+      fullPage: true,
+    });
     await profile.locator(".personal-avatar").click();
     const userInfo = page.getByRole("dialog", {
       name: "Информация о пользователе",
@@ -234,6 +261,10 @@ for (const size of [
     await menu.getByRole("menuitem", { name: "Очистить историю" }).click();
     const clear = page.getByRole("dialog", { name: "Очистить историю?" });
     await expect(clear.getByRole("button", { name: "Отмена" })).toBeFocused();
+    await page.screenshot({
+      path: info.outputPath(`direct-clear-${size.name}.png`),
+      fullPage: true,
+    });
     await clear
       .getByRole("button", { name: "Очистить историю", exact: true })
       .click();
@@ -245,6 +276,10 @@ for (const size of [
     await trigger.click();
     await menu.getByRole("menuitem", { name: "Удалить чат" }).click();
     const hide = page.getByRole("dialog", { name: "Удалить чат?" });
+    await page.screenshot({
+      path: info.outputPath(`direct-delete-${size.name}.png`),
+      fullPage: true,
+    });
     await hide
       .getByRole("button", { name: "Удалить чат", exact: true })
       .click();
@@ -259,3 +294,33 @@ for (const size of [
     expect(state.unexpected).toEqual([]);
   });
 }
+
+test("новый личный чат открывается через поиск, без создания повторного диалога", async ({
+  page,
+}, info) => {
+  const state = await fixture(page);
+  await page.goto("/personal");
+  await page
+    .locator(".personal-sidebar")
+    .getByRole("button", { name: "Новый чат" })
+    .click();
+  await page.getByRole("menuitem", { name: "Личный чат", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Новый чат", exact: true });
+  await dialog
+    .getByRole("searchbox", { name: "Найти пользователя" })
+    .fill("Вас");
+  await expect(
+    dialog.getByRole("button", { name: "Василий Начать переписку" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath("new-direct-chat.png"),
+    fullPage: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Василий Начать переписку" })
+    .click();
+  await expect(page).toHaveURL(/\/personal\/direct-actions$/);
+  await expect(dialog).toHaveCount(0);
+  expect(state.writes).toEqual(["direct"]);
+  expect(state.unexpected).toEqual([]);
+});

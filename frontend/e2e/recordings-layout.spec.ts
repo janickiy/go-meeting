@@ -334,9 +334,20 @@ for (const viewport of [
       exact: true,
     });
     await expect(previewLink).toHaveCount(2);
-    if (viewport.width >= 768) await expect(watch).toHaveCount(2);
-    // На телефоне превью и название заменяют дублирующую широкую кнопку.
-    else await expect(watch).toHaveCount(0);
+    await expect(watch).toHaveCount(2);
+    await expect(watch.first()).toBeVisible();
+    await expect(watch.last()).toBeVisible();
+    if (viewport.width < 600) {
+      // В мобильной карточке явная кнопка просмотра остаётся доступной для касания.
+      await watch.first().scrollIntoViewIfNeeded();
+      await expect(watch.first()).toBeInViewport();
+      const watchBox = await watch.first().boundingBox();
+      expect(watchBox).not.toBeNull();
+      expect(watchBox!.height).toBeGreaterThanOrEqual(44);
+      expect(watchBox!.x).toBeGreaterThanOrEqual(0);
+      expect(watchBox!.x + watchBox!.width).toBeLessThanOrEqual(viewport.width);
+      await watch.first().click({ trial: true });
+    }
     await expect(previewLink.first()).toHaveAttribute(
       "href",
       `/recordings/${recordingId}?conference=${conferenceId}`,
@@ -353,7 +364,8 @@ for (const viewport of [
       path: info.outputPath("recordings-list.png"),
       fullPage: true,
     });
-    await previewLink.first().click();
+    if (viewport.width < 600) await watch.first().click();
+    else await previewLink.first().click();
     await expect(page).toHaveURL(
       `/recordings/${recordingId}?conference=${conferenceId}`,
     );

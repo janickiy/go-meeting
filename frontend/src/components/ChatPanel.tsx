@@ -8,11 +8,12 @@ import {
 } from "@tanstack/react-query";
 import {
   Download,
+  FileText,
   MessageCircle,
   Paperclip,
   Pencil,
   Reply,
-  Send,
+  SendHorizontal,
   Star,
   Trash2,
   X,
@@ -35,7 +36,10 @@ import type {
 } from "../types";
 import { AttachmentUploader } from "./AttachmentUploader";
 import { EmojiPicker } from "./EmojiPicker";
-import { Button, ErrorNotice, Loading, Modal } from "./ui";
+import { ItemActions, type ItemAction } from "./ItemActions";
+import { Button, ErrorNotice, Modal } from "./ui";
+import { MessagingSkeleton } from "./MessagingSkeleton";
+import "./chat-design.css";
 
 function isAccessDenied(error: unknown) {
   return error instanceof ApiError && [403, 404].includes(error.status);
@@ -82,6 +86,7 @@ export function MessageThread({
   readOnly = false,
   readOnlyReason,
   personal = false,
+  composerPlaceholder = "Напишите сообщение…",
   requireAuthenticatedDownloads = false,
   onAccessDenied,
   focusMessageId,
@@ -93,6 +98,7 @@ export function MessageThread({
   readOnly?: boolean;
   readOnlyReason?: string;
   personal?: boolean;
+  composerPlaceholder?: string;
   requireAuthenticatedDownloads?: boolean;
   onAccessDenied?: () => void;
   focusMessageId?: string;
@@ -588,7 +594,7 @@ export function MessageThread({
           </Button>
         )}
         {query.isPending ? (
-          <Loading />
+          <MessagingSkeleton rows={4} />
         ) : (
           <div
             ref={viewport}
@@ -619,9 +625,17 @@ export function MessageThread({
               </Button>
             )}
             {!messages.length && !query.isError && (
-              <p className="compact-empty muted">
-                Здесь пока тихо. Напишите первое сообщение.
-              </p>
+              <div className="messaging-empty">
+                <MessageCircle aria-hidden="true" />
+                <h3>
+                  {readOnly ? "В чате пока нет сообщений" : "Начните разговор"}
+                </h3>
+                <p>
+                  {readOnly
+                    ? "Чат доступен только для чтения. Новые сообщения здесь отправить нельзя."
+                    : "Отправьте первое сообщение или прикрепите файл."}
+                </p>
+              </div>
             )}
             {messages.map((message, index) => {
               const own = message.senderId === user?.id;
@@ -632,7 +646,7 @@ export function MessageThread({
                     (!index ||
                       day !== chatDayKey(messages[index - 1].createdAt)) && (
                       <div className="chat-day-label">
-                        {chatDayLabel(message.createdAt)}
+                        <span>{chatDayLabel(message.createdAt)}</span>
                       </div>
                     )}
                   <article
@@ -641,17 +655,29 @@ export function MessageThread({
                     tabIndex={message.id === focused ? -1 : undefined}
                     aria-current={message.id === focused ? "true" : undefined}
                   >
-                    {!own && (
-                      <span className="chat-message-avatar" aria-hidden="true">
-                        {initials(message.senderName)}
-                      </span>
-                    )}
+                    <span className="chat-message-avatar" aria-hidden="true">
+                      {initials(message.senderName)}
+                    </span>
                     <div className="chat-message-content">
-                      {!own && (
-                        <header>
-                          <strong>{message.senderName}</strong>
-                        </header>
-                      )}
+                      <header>
+                        <strong>{message.senderName}</strong>
+                        {own && <span className="chat-message-self">вы</span>}
+                        <time
+                          dateTime={message.createdAt}
+                          title={formatDate(message.createdAt)}
+                        >
+                          {chatTime(message.createdAt)}
+                        </time>
+                        {message.version > 1 && !message.deletedAt && (
+                          <span
+                            className="chat-message-edited"
+                            title="Сообщение изменено"
+                          >
+                            <Pencil size={11} aria-hidden="true" />
+                            <span className="sr-only">изменено</span>
+                          </span>
+                        )}
+                      </header>
                       <div className="chat-message-bubble">
                         {message.replyPreview && (
                           <blockquote>
@@ -679,116 +705,122 @@ export function MessageThread({
                         {!message.deletedAt &&
                           message.attachments.map((file) => (
                             <div className="chat-attachment" key={file.id}>
-                              <span>
-                                <Paperclip size={15} aria-hidden="true" />
-                                {file.filename}
-                                <small>{formatBytes(file.size)}</small>
+                              <span className="chat-file-icon">
+                                <FileText size={24} aria-hidden="true" />
+                              </span>
+                              <span className="chat-file-copy">
+                                <strong>{file.filename}</strong>
+                                <small>
+                                  {file.filename
+                                    .split(".")
+                                    .at(-1)
+                                    ?.toUpperCase()}{" "}
+                                  · {formatBytes(file.size)}
+                                </small>
                               </span>
                               {download?.id === file.id ? (
                                 <a
-                                  className="text-link"
+                                  className="icon-button chat-file-download"
                                   href={download.url}
                                   target="_blank"
                                   rel="noreferrer"
                                   download
+                                  aria-label="Скачать файл"
+                                  title={file.filename}
                                 >
-                                  Скачать файл
+                                  <Download size={18} aria-hidden="true" />
                                 </a>
                               ) : (
                                 <button
                                   type="button"
-                                  className="text-link"
+                                  className="icon-button chat-file-download"
+                                  aria-label="Получить ссылку"
+                                  title="Получить ссылку на скачивание"
                                   onClick={() => void prepareDownload(file)}
                                 >
-                                  <Download size={14} />
-                                  Получить ссылку
+                                  <Download size={18} aria-hidden="true" />
                                 </button>
                               )}
                             </div>
                           ))}
-                        <footer className="chat-message-meta">
-                          {message.version > 1 && !message.deletedAt && (
-                            <span title="Сообщение изменено">
-                              <Pencil size={11} aria-hidden="true" />
-                              <span className="sr-only">изменено</span>
-                            </span>
-                          )}
-                          <time
-                            dateTime={message.createdAt}
-                            title={formatDate(message.createdAt)}
-                          >
-                            {chatTime(message.createdAt)}
-                          </time>
-                        </footer>
                       </div>
-                      {!message.deletedAt && (!readOnly || mayBookmark) && (
-                        <div className="chat-message-actions">
-                          {mayBookmark && (
-                            <button
-                              type="button"
-                              aria-pressed={!!message.important}
-                              disabled={bookmark.isPending}
-                              onClick={() =>
-                                bookmark.mutate({
-                                  messageId: message.id,
-                                  important: !message.important,
-                                })
-                              }
-                            >
-                              <Star
-                                size={13}
-                                fill={
-                                  message.important ? "currentColor" : "none"
-                                }
-                              />
-                              {message.important
-                                ? "Убрать из важных"
-                                : "В важные"}
-                            </button>
-                          )}
-                          {!readOnly && (
-                            <>
-                              <button
-                                type="button"
-                                disabled={send.isPending}
-                                onClick={() => {
-                                  setReply(message);
-                                  composer.current?.focus();
-                                }}
-                              >
-                                <Reply size={13} />
-                                Ответить
-                              </button>
-                              {own && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditing(message);
-                                    setEditText(message.text);
-                                    edit.reset();
-                                  }}
-                                >
-                                  <Pencil size={13} />
-                                  Изменить
-                                </button>
-                              )}
-                              {(own || mayModerate) && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDeleting(message);
-                                    remove.reset();
-                                  }}
-                                >
-                                  <Trash2 size={13} />
-                                  Удалить
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
+                    {!message.deletedAt && (!readOnly || mayBookmark) && (
+                      <div className="chat-message-tools">
+                        <ItemActions
+                          label={`Действия с сообщением: ${message.senderName}, ${chatTime(message.createdAt)}`}
+                          actions={
+                            [
+                              ...(mayBookmark
+                                ? [
+                                    {
+                                      label: message.important
+                                        ? "Убрать из важных"
+                                        : "В важные",
+                                      icon: (
+                                        <Star
+                                          size={16}
+                                          fill={
+                                            message.important
+                                              ? "currentColor"
+                                              : "none"
+                                          }
+                                        />
+                                      ),
+                                      pressed: !!message.important,
+                                      disabled: bookmark.isPending,
+                                      run: () =>
+                                        bookmark.mutate({
+                                          messageId: message.id,
+                                          important: !message.important,
+                                        }),
+                                    },
+                                  ]
+                                : []),
+                              ...(!readOnly
+                                ? [
+                                    {
+                                      label: "Ответить",
+                                      icon: <Reply size={16} />,
+                                      disabled: send.isPending,
+                                      run: () => {
+                                        setReply(message);
+                                        composer.current?.focus();
+                                      },
+                                    },
+                                  ]
+                                : []),
+                              ...(!readOnly && own
+                                ? [
+                                    {
+                                      label: "Изменить",
+                                      icon: <Pencil size={16} />,
+                                      run: () => {
+                                        setEditing(message);
+                                        setEditText(message.text);
+                                        edit.reset();
+                                      },
+                                    },
+                                  ]
+                                : []),
+                              ...(!readOnly && (own || mayModerate)
+                                ? [
+                                    {
+                                      label: "Удалить",
+                                      icon: <Trash2 size={16} />,
+                                      danger: true,
+                                      run: () => {
+                                        setDeleting(message);
+                                        remove.reset();
+                                      },
+                                    },
+                                  ]
+                                : []),
+                            ] satisfies ItemAction[]
+                          }
+                        />
+                      </div>
+                    )}
                   </article>
                 </Fragment>
               );
@@ -798,7 +830,17 @@ export function MessageThread({
                 className="chat-message chat-message-own chat-message-pending"
                 data-testid={`chat-pending-${pending.clientRequestId}`}
               >
+                <span className="chat-message-avatar" aria-hidden="true">
+                  {initials(user?.displayName || "Вы")}
+                </span>
                 <div className="chat-message-content">
+                  <header>
+                    <strong>{user?.displayName || "Вы"}</strong>
+                    <span className="chat-message-self">вы</span>
+                    <time dateTime={pending.createdAt}>
+                      {chatTime(pending.createdAt)}
+                    </time>
+                  </header>
                   <div className="chat-message-bubble">
                     {pending.replyName && (
                       <blockquote>Ответ: {pending.replyName}</blockquote>
@@ -816,9 +858,6 @@ export function MessageThread({
                       </div>
                     ))}
                     <footer className="chat-message-meta">
-                      <time dateTime={pending.createdAt}>
-                        {chatTime(pending.createdAt)}
-                      </time>
                       <span role="status">
                         {pending.state === "sending"
                           ? "Отправляется…"
@@ -903,8 +942,8 @@ export function MessageThread({
                   aria-label="Сообщение"
                   id={`chat-text-${scopeId}`}
                   value={text}
-                  rows={1}
-                  placeholder="Напишите сообщение…"
+                  rows={2}
+                  placeholder={composerPlaceholder}
                   disabled={send.isPending}
                   onSelect={rememberSelection}
                   onBlur={rememberSelection}
@@ -929,6 +968,9 @@ export function MessageThread({
                 />
               </label>
               <EmojiPicker onSelect={addEmoji} disabled={send.isPending} />
+              <span className="chat-compose-keyhint" aria-hidden="true">
+                Enter — отправить
+              </span>
               <Button
                 type="submit"
                 className="chat-send-button"
@@ -937,9 +979,12 @@ export function MessageThread({
                 aria-label={send.isError ? "Повторить отправку" : "Отправить"}
                 title={send.isError ? "Повторить отправку" : "Отправить"}
               >
-                {!send.isPending && <Send size={21} />}
+                {!send.isPending && <SendHorizontal size={19} />}
               </Button>
             </div>
+            <p className="chat-compose-caption" aria-hidden="true">
+              Shift + Enter — новая строка
+            </p>
             <p className="sr-only">
               Enter — отправить, Shift + Enter — новая строка. Если связь
               прервётся, повторная отправка не создаст копию сообщения.

@@ -345,13 +345,22 @@ describe("обновлённая панель чата", () => {
         return { status: "success" };
       });
     showChat(true);
-    fireEvent.click(await screen.findByRole("button", { name: "В важные" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Действия с сообщением:/ }),
+    );
+    expect(
+      screen.queryByRole("menuitem", { name: /Ответить|Изменить|Удалить/ }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "В важные" }));
     await waitFor(() =>
       expect(save).toHaveBeenCalledWith("room", message.id, true),
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: /Действия с сообщением:/ }),
+    );
     expect(
-      await screen.findByRole("button", { name: "Убрать из важных" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      await screen.findByRole("menuitemcheckbox", { name: "Убрать из важных" }),
+    ).toHaveAttribute("aria-checked", "true");
     expect(screen.queryByRole("button", { name: "Удалить" })).toBeNull();
   });
 
@@ -360,14 +369,19 @@ describe("обновлённая панель чата", () => {
       new Error("Не удалось сохранить отметку"),
     );
     showChat();
-    fireEvent.click(await screen.findByRole("button", { name: "В важные" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Действия с сообщением:/ }),
+    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "В важные" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Не удалось связаться с сервером",
     );
-    expect(screen.getByRole("button", { name: "В важные" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
+    fireEvent.click(
+      screen.getByRole("button", { name: /Действия с сообщением:/ }),
     );
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "В важные" }),
+    ).toHaveAttribute("aria-checked", "false");
   });
 
   it("открывает точный контекст сообщения без обхода страниц всей истории", async () => {

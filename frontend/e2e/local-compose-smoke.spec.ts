@@ -39,12 +39,12 @@ test("local Compose: prejoin gates entry, history opens, notifications load and 
     await page
       .getByLabel("Пароль", { exact: true })
       .fill("stage9-smoke-password");
-    await page.getByLabel(/Как к вам обращаться/).fill("Stage9 Smoke");
+    await page.getByLabel(/Ваше имя/).fill("Stage9 Smoke");
     await page
       .getByRole("button", { name: "Зарегистрироваться", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Аккаунт создан!" }),
+      page.getByRole("heading", { name: "Вы в Meetrix." }),
     ).toBeVisible();
     await page.getByRole("link", { name: "Перейти в приложение" }).click();
     token = await page.evaluate(() => {
@@ -62,12 +62,15 @@ test("local Compose: prejoin gates entry, history opens, notifications load and 
     else expect(buildVersion).toMatch(/^stage9-local-/);
     console.log(`Stage9 API buildVersion: ${buildVersion}`);
 
-    await page.getByRole("link", { name: "Новая конференция" }).click();
-    await page.getByLabel("Название конференции").fill(title);
+    await page.getByRole("link", { name: "Новая встреча" }).click();
+    await page.getByLabel("Название встречи").fill(title);
     await page
-      .getByRole("button", { name: "Создать конференцию", exact: true })
+      .getByRole("button", { name: "Создать встречу", exact: true })
       .click();
-    await page.getByRole("link", { name: "Перейти в конференцию" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("link", { name: "Открыть встречу", exact: true })
+      .click();
     conferenceId = new URL(page.url()).pathname.split("/").pop() || "";
     expect(conferenceId).toBeTruthy();
 

@@ -503,7 +503,10 @@ describe("действия личной переписки", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Сообщение" }), {
       target: { value: "Черновик" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Ответить" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Действия с сообщением:/ }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ответить" }));
     fireEvent.click(
       within(await openMenu(true)).getByRole("menuitem", {
         name: "Очистить историю",

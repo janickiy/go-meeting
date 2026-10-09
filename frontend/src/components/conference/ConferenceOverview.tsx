@@ -7,11 +7,12 @@ import { ChatPanel } from "../ChatPanel";
 import { ConferenceCalendarStatus } from "../IntegrationsSettings";
 import { ConferenceInviteContent } from "../ConferenceInvitations";
 import { EditSchedule } from "../ConferenceModals";
-import { Button, ErrorNotice, Modal } from "../ui";
+import { Brand, Button, ErrorNotice, Modal } from "../ui";
 import { ConferenceDetails } from "./ConferenceDetails";
 import { ConferenceParticipants } from "./ConferenceParticipants";
 import { ConferenceHistorySummary } from "./ConferenceHistorySummary";
 import type { ConferenceViewProps } from "./types";
+import "./conference-overview.css";
 
 /**
  * Собирает представление ожидания, запланированной и завершённой встречи.
@@ -48,6 +49,101 @@ export function ConferenceOverview(props: ConferenceViewProps) {
     editingSchedule,
     setEditingSchedule,
   } = props.controls;
+  const awaitingAdmission =
+    membership?.admissionState === "waiting" ||
+    membership?.admissionState === "rejected" ||
+    membership?.status === "waiting" ||
+    membership?.status === "rejected";
+
+  if (awaitingAdmission)
+    return (
+      <div className="conference-waiting-page">
+        <Brand to={user?.guestConferenceId ? "/" : "/app"} />
+        <div className="conference-waiting-content">
+          <WaitingRoomPanel
+            conferenceId={id}
+            membership={membership}
+            participants={people}
+            active={conference.status === "active"}
+            closed={closed}
+            standalone
+          />
+          <Link
+            className="button button-secondary conference-waiting-back"
+            to={user?.guestConferenceId ? "/" : "/conferences"}
+          >
+            <ArrowLeft size={18} />
+            {user?.guestConferenceId ? "На главную" : "К встречам"}
+          </Link>
+          {!closed &&
+            membership?.status === "left" &&
+            membership.admissionState === "waiting" &&
+            conference.status !== "scheduled" && (
+              <Link
+                className="button button-primary"
+                to={
+                  user?.guestConferenceId
+                    ? `/i/${conference.inviteCode}`
+                    : `/conferences/${id}/join`
+                }
+              >
+                Присоединиться снова
+              </Link>
+            )}
+          <section className="content-card conference-waiting-context">
+            <h2>{conference.title}</h2>
+            <p className="muted">
+              Имя во встрече: {membership?.displayName || user?.displayName}
+            </p>
+          </section>
+          {!closed &&
+            membership?.admissionState !== "rejected" &&
+            membership?.status !== "rejected" && (
+              <p className="conference-waiting-hint">
+                Камера, микрофон и чат будут доступны после допуска.
+              </p>
+            )}
+        </div>
+      </div>
+    );
+
+  if (closed && admitted && membership)
+    return (
+      <div className="conference-history-chat">
+        <Link
+          className="back-link"
+          to={user?.guestConferenceId ? "/" : `/history/${id}`}
+        >
+          <ArrowLeft size={17} />
+          {user?.guestConferenceId ? "На главную" : "К материалам встречи"}
+        </Link>
+        <section className="page-heading">
+          <div>
+            <h1>{conference.title}</h1>
+            <p>Чат завершённой встречи</p>
+          </div>
+          <span className="conference-readonly-badge">Только чтение</span>
+        </section>
+        <div className="conference-history-chat-card">
+          <ChatPanel
+            key={`${id}:${focusMessageId || "latest"}`}
+            conferenceId={id}
+            membership={membership}
+            focusMessageId={focusMessageId}
+            onLatest={latestMessages}
+            readOnly
+            readOnlyReason="Встреча завершена. Сообщения сохранены, отправка новых сообщений недоступна."
+          />
+          <p className="conference-history-chat-access">
+            История доступна только участникам с сохранённым доступом.
+          </p>
+          <div className="conference-readonly-composer">
+            <LockKeyhole size={18} aria-hidden="true" />
+            <span>Чат завершённой встречи доступен только для чтения</span>
+          </div>
+        </div>
+      </div>
+    );
 
   return (
     <>
@@ -191,3 +287,5 @@ export function ConferenceOverview(props: ConferenceViewProps) {
     </>
   );
 }
+import { Link } from "react-router";
+import { ArrowLeft, LockKeyhole } from "lucide-react";

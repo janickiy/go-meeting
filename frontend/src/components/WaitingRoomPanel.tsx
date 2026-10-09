@@ -18,12 +18,15 @@ export function WaitingRoomPanel({
   participants,
   active,
   closed = false,
+  standalone = false,
 }: {
   conferenceId: string;
   membership?: Participant | null;
   participants: Participant[];
   active: boolean;
   closed?: boolean;
+  /** Показывает лаконичный экран ожидания без оформления встроенной карточки. */
+  standalone?: boolean;
 }) {
   const client = useQueryClient();
   const mutation = useMutation({
@@ -62,39 +65,60 @@ export function WaitingRoomPanel({
   if (waiting || rejected)
     return (
       <section
-        className="content-card waiting-room"
+        className={
+          standalone
+            ? "waiting-room waiting-room-standalone"
+            : "content-card waiting-room"
+        }
         data-testid="waiting-room"
         role="status"
       >
         <span className="meeting-icon">
           <Clock3 size={25} />
         </span>
-        <h2>
-          {closed
-            ? "Встреча закрыта"
-            : rejected
-              ? "Вход во встречу отклонён"
-              : membership?.status === "left"
-                ? "Запрос на вход приостановлен"
-                : "Вы в зале ожидания"}
-        </h2>
+        {standalone ? (
+          <h1>
+            {closed
+              ? "Встреча завершена"
+              : rejected
+                ? "Запрос отклонён"
+                : membership?.status === "left"
+                  ? "Запрос на вход приостановлен"
+                  : "Вы в зале ожидания"}
+          </h1>
+        ) : (
+          <h2>
+            {closed
+              ? "Встреча закрыта"
+              : rejected
+                ? "Вход во встречу отклонён"
+                : membership?.status === "left"
+                  ? "Запрос на вход приостановлен"
+                  : "Вы в зале ожидания"}
+          </h2>
+        )}
         <p>
           {closed
-            ? "Встреча завершена. Допуск в неё больше недоступен."
+            ? "Присоединиться к этой встрече больше нельзя."
             : membership?.status === "left"
               ? "Присоединитесь снова, чтобы организатор увидел ваш запрос."
               : rejected
                 ? "Организатор отклонил ваш запрос. Камера, чат и файлы встречи недоступны."
-                : !active
-                  ? "Организатор рассмотрит запрос после начала встречи. Камера, микрофон и чат пока недоступны."
-                  : "Организатор скоро рассмотрит ваш запрос. Пока вас не пригласили, камера, микрофон и чат недоступны."}
+                : standalone && active
+                  ? "Организатор увидит ваш запрос. Как только вас допустят, страница обновится."
+                  : !active
+                    ? "Организатор рассмотрит запрос после начала встречи. Камера, микрофон и чат пока недоступны."
+                    : "Организатор скоро рассмотрит ваш запрос. Пока вас не пригласили, камера, микрофон и чат недоступны."}
         </p>
-        {!rejected && !closed && membership?.status !== "left" && (
-          <p className="field-hint">
-            Можно оставить эту страницу открытой. Допуск обновится
-            автоматически, в том числе после переподключения.
-          </p>
-        )}
+        {!standalone &&
+          !rejected &&
+          !closed &&
+          membership?.status !== "left" && (
+            <p className="field-hint">
+              Можно оставить эту страницу открытой. Допуск обновится
+              автоматически, в том числе после переподключения.
+            </p>
+          )}
       </section>
     );
   const moderator =

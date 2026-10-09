@@ -2,11 +2,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import {
   Bell,
+  ArrowLeft,
   CalendarDays,
   ChevronRight,
   Clapperboard,
   Moon,
-  Mail,
   Search,
   Palette,
   Mic,
@@ -63,11 +63,15 @@ export function SettingsPage() {
   const prefix = useId();
   const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const [horizontalTabs, setHorizontalTabs] = useState(
-    () => window.matchMedia?.("(max-width: 680px)").matches ?? false,
+    () => window.matchMedia?.("(max-width: 767px)").matches ?? false,
   );
+  const [mobileSectionOpen, setMobileSectionOpen] = useState(() =>
+    Boolean(window.location.hash),
+  );
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => setName(user?.displayName || ""), [user?.displayName]);
   useEffect(() => {
-    const media = window.matchMedia?.("(max-width: 680px)");
+    const media = window.matchMedia?.("(max-width: 767px)");
     if (!media) return;
     const update = () => setHorizontalTabs(media.matches);
     media.addEventListener?.("change", update);
@@ -124,12 +128,14 @@ export function SettingsPage() {
     }
   }
   return (
-    <div className="account-dialog-layout">
+    <div
+      className={`account-dialog-layout ${mobileSectionOpen ? "account-mobile-section" : "account-mobile-categories"}`}
+    >
       <div
         className="account-dialog-tabs"
         role="tablist"
         aria-label="Разделы настроек"
-        aria-orientation={horizontalTabs ? "horizontal" : "vertical"}
+        aria-orientation="vertical"
       >
         {tabs.map(({ id, label, Icon }, index) => (
           <button
@@ -143,11 +149,21 @@ export function SettingsPage() {
             ref={(node) => {
               tabButtons.current[index] = node;
             }}
-            onClick={() => setActiveSection(id)}
+            onClick={() => {
+              setActiveSection(id);
+              setMobileSectionOpen(true);
+              if (horizontalTabs)
+                requestAnimationFrame(() => panel.current?.focus());
+            }}
             onKeyDown={(event) => changeTab(event, index)}
           >
             <Icon size={18} aria-hidden="true" />
             <span>{label}</span>
+            <ChevronRight
+              className="account-tab-chevron"
+              size={18}
+              aria-hidden="true"
+            />
           </button>
         ))}
       </div>
@@ -157,7 +173,22 @@ export function SettingsPage() {
         id={`${prefix}-${activeSection}-panel`}
         aria-labelledby={`${prefix}-${activeSection}-tab`}
         tabIndex={0}
+        ref={panel}
       >
+        <button
+          className="account-settings-back"
+          type="button"
+          onClick={() => {
+            setMobileSectionOpen(false);
+            requestAnimationFrame(() =>
+              tabButtons.current[
+                tabs.findIndex((tab) => tab.id === activeSection)
+              ]?.focus(),
+            );
+          }}
+        >
+          <ArrowLeft size={18} aria-hidden="true" /> Все настройки
+        </button>
         {activeSection === "profile" && (
           <section
             className="content-card account-card"
@@ -178,9 +209,7 @@ export function SettingsPage() {
             </div>
             <form onSubmit={(event) => void saveProfile(event)}>
               <label className="field">
-                <span>
-                  <UserRound size={17} aria-hidden="true" /> Имя для встреч
-                </span>
+                <span>Имя для встреч</span>
                 <input
                   autoComplete="name"
                   value={name}
@@ -194,12 +223,10 @@ export function SettingsPage() {
                 />
               </label>
               <p id="profile-name-hint" className="field-hint">
-                Имя будет видно другим участникам новых встреч.
+                От 1 до 100 символов.
               </p>
               <label className="field">
-                <span>
-                  <Mail size={17} aria-hidden="true" /> Email
-                </span>
+                <span>Email</span>
                 <input
                   type="email"
                   value={user?.email || ""}
@@ -236,6 +263,10 @@ export function SettingsPage() {
         )}
         {activeSection === "appearance" && (
           <div className="appearance-settings" id="appearance-settings">
+            <div className="account-settings-section-heading">
+              <h2>Оформление</h2>
+              <p>Настройте Meetrix под себя</p>
+            </div>
             <fieldset className="appearance-theme-block">
               <legend>Тема</legend>
               <div className="appearance-theme-options">
@@ -293,6 +324,10 @@ export function SettingsPage() {
                   ))}
                 </select>
               </label>
+              <div className="appearance-text-example">
+                <strong>Удобный размер для важных разговоров</strong>
+                <p>Все ваши встречи и сообщения — в одном месте.</p>
+              </div>
             </section>
             <p className="field-hint">
               Оформление применяется сразу и сохраняется для вашего аккаунта в

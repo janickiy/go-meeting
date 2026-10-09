@@ -56,7 +56,7 @@ describe("обновлённый кабинет", () => {
       </MemoryRouter>,
     );
     expect(
-      screen.getByRole("heading", { name: "Добро пожаловать, Александр!" }),
+      screen.getByRole("heading", { name: "Добро пожаловать, Александр." }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Запланировать" })).toHaveAttribute(
       "href",
@@ -74,9 +74,7 @@ describe("обновлённый кабинет", () => {
       scope: "all",
       status: "finished",
     });
-    expect(
-      screen.getByText("Записи и материалы — в истории каждой встречи."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Открыть материалы")).toBeInTheDocument();
     expect(document.querySelector("img")).toBeNull();
   });
   it("в полном списке не запускает дополнительную загрузку последних встреч", () => {

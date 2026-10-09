@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
 import { ApiError, api } from "../api";
 import { useAuth } from "../auth";
 import { Button, ErrorNotice, Loading } from "../components/ui";
@@ -47,7 +48,6 @@ export function AdminPage() {
     <div className="admin-page">
       <header className="page-heading admin-heading">
         <div>
-          <span className="eyebrow">ЭКСПЛУАТАЦИЯ</span>
           <h1>Состояние сервиса</h1>
           <p>Сводка по встречам, обработке записей и зависимостям.</p>
         </div>
@@ -56,7 +56,7 @@ export function AdminPage() {
           busy={summary.isFetching}
           onClick={() => void summary.refetch()}
         >
-          Обновить
+          <RefreshCw size={17} aria-hidden="true" /> Обновить
         </Button>
       </header>
       {summary.isPending ? (

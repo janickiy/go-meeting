@@ -58,9 +58,11 @@ function show(
 
 it("открывает серверную форму из результата создания вместо mailto и объясняет вход гостей", () => {
   show(<ShareConference conference={meeting} onClose={() => {}} />);
-  const button = screen.getByRole("button", { name: "Пригласить по email" });
+  const button = screen.getByRole("button", { name: "Пригласить участников" });
   expect(button).not.toHaveAttribute("href");
-  expect(screen.getByText(/даже без аккаунта/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/По ссылке можно присоединиться без аккаунта/),
+  ).toBeInTheDocument();
   fireEvent.click(button);
   expect(
     screen.getByRole("dialog", { name: "Пригласить участников" }),

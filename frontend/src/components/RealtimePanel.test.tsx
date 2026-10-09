@@ -339,7 +339,7 @@ it("показывает настоящих участников без пото
       "Борис Волков",
     ),
   ).toBeInTheDocument();
-  expect(screen.getByText("Б")).toBeInTheDocument();
+  expect(screen.getByText("БВ")).toBeInTheDocument();
   expect(screen.queryByLabelText("Рука поднята")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Организатор")).toBeInTheDocument();
   expect(screen.getAllByTestId("participant-placeholder")).toHaveLength(2);

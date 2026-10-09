@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { FolderMinus } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import {
@@ -204,6 +205,10 @@ function FolderManageModalContent({
         />
       ) : (
         <>
+          <div className="folder-delete-symbol" aria-hidden="true">
+            <FolderMinus size={26} />
+          </div>
+          <h3>{folder?.name}</h3>
           <p>
             Удалить папку «{folder?.name}»? Чаты и встречи сохранятся. Будут
             удалены только ссылки на них в этой папке.

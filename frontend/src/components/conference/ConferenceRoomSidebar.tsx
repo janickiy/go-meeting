@@ -19,7 +19,6 @@ export function ConferenceRoomSidebar(props: ActiveConferenceViewProps) {
     people,
     live,
     onlinePeople,
-    capabilities,
     captionsEnabled,
     owner,
   } = props.data;
@@ -180,11 +179,6 @@ export function ConferenceRoomSidebar(props: ActiveConferenceViewProps) {
             live={live}
           />
         </div>
-      )}
-      {capabilities.isSuccess && !captionsEnabled && (
-        <p className="conference-feature-note">
-          Субтитры отключены для этой установки.
-        </p>
       )}
     </aside>
   );

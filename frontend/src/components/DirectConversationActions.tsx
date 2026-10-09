@@ -56,18 +56,25 @@ export function DirectUserInfoModal({
   return (
     <Modal
       title="Информация о пользователе"
+      className="personal-info-modal"
       onClose={onClose}
       returnFocus={returnFocus}
     >
       <div className="personal-user-info">
         <ConversationAvatar conversation={conversation} large />
         <h3>{conversation.peer.displayName}</h3>
+        <p>Участник вашей переписки</p>
         <dl>
           <dt>Имя</dt>
           <dd>{conversation.peer.displayName}</dd>
           <dt>Идентификатор пользователя</dt>
           <dd className="personal-user-id">{conversation.peer.id}</dd>
         </dl>
+      </div>
+      <div className="personal-confirm-actions">
+        <Button variant="outline" onClick={onClose}>
+          Закрыть
+        </Button>
       </div>
     </Modal>
   );
@@ -323,9 +330,14 @@ export function DirectConversationActions({
       {(dialog === "clear" || dialog === "hide") && (
         <Modal
           title={dialog === "clear" ? "Очистить историю?" : "Удалить чат?"}
+          className="personal-confirm-modal"
           onClose={close}
           returnFocus={returnFocus}
         >
+          <div className="personal-confirm-symbol" aria-hidden="true">
+            {dialog === "clear" ? <Eraser size={26} /> : <Trash2 size={26} />}
+          </div>
+          <h3>Переписка с {conversation.peer.displayName}</h3>
           <p>
             {dialog === "clear"
               ? `Переписка с пользователем «${conversation.peer.displayName}» будет очищена только у вас. История собеседника сохранится. Отменить очистку нельзя.`

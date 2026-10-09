@@ -1,10 +1,10 @@
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import { ErrorNotice, Loading } from "../components/ui";
+import { Brand, ErrorNotice, Loading } from "../components/ui";
 import { PreJoinPage } from "./PreJoinPage";
 
-/** Invitation metadata is public; joining creates a separate, scoped guest session. */
+/** Показывает общедоступные сведения приглашения; вход создаёт отдельную гостевую сессию встречи. */
 export function InvitePage() {
   const { code = "" } = useParams();
   const valid = /^[A-Za-z0-9_-]{32}$/.test(code);
@@ -17,12 +17,18 @@ export function InvitePage() {
   if (valid && query.isPending)
     return (
       <main className="invite-entry-page">
+        <div className="invite-entry-brand">
+          <Brand />
+        </div>
         <Loading />
       </main>
     );
   if (!valid || query.isError || !query.data)
     return (
       <main className="invite-entry-page">
+        <div className="invite-entry-brand">
+          <Brand />
+        </div>
         <section className="invite-entry-error">
           <h1>Приглашение недоступно</h1>
           <p>Проверьте ссылку или попросите организатора прислать новую.</p>

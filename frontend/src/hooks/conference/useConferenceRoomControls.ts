@@ -30,7 +30,9 @@ export function useConferenceRoomControls(
   );
   const [utility, setUtility] = useState<"recording" | "invite" | null>(null);
   const [invitationBusy, setInvitationBusy] = useState(false);
-  const [confirm, setConfirm] = useState<"finish" | "cancel" | null>(null);
+  const [confirm, setConfirm] = useState<"finish" | "cancel" | "leave" | null>(
+    null,
+  );
   const [editingSchedule, setEditingSchedule] = useState(false);
 
   useEffect(() => {

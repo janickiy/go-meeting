@@ -12,8 +12,10 @@ import {
   ArrowUp,
   Folder,
   FolderPlus,
+  LockKeyhole,
   Pencil,
   Plus,
+  Search,
   Trash2,
 } from "lucide-react";
 import { api } from "../api";
@@ -28,7 +30,8 @@ import {
   useFolderVisibility,
 } from "../folders";
 import type { FolderItem, FolderItemFilters, PersonalFolder } from "../types";
-import { Button, ErrorNotice, Loading } from "../components/ui";
+import { Button, ErrorNotice } from "../components/ui";
+import { MessagingSkeleton } from "../components/MessagingSkeleton";
 import { ItemActions } from "../components/ItemActions";
 import { FolderManageModal } from "../components/FolderModals";
 import { FolderPicker } from "../components/FolderPicker";
@@ -89,7 +92,6 @@ function FolderList() {
     <section className="folders-page" aria-label="Папки">
       <header className="folders-heading">
         <div>
-          <p className="eyebrow">ЛИЧНОЕ ПРОСТРАНСТВО</p>
           <h1>Папки</h1>
           <p className="muted">Соберите нужные чаты и встречи в одном месте.</p>
         </div>
@@ -107,7 +109,7 @@ function FolderList() {
           Повторить загрузку
         </Button>
       )}
-      {list.isPending && <Loading />}
+      {list.isPending && <MessagingSkeleton />}
       <div className="folder-list" aria-busy={order.isPending || undefined}>
         {items.map((folder, index) => (
           <div className="folder-row" key={folder.id}>
@@ -167,8 +169,16 @@ function FolderList() {
           <FolderPlus size={48} aria-hidden="true" />
           <h2>У вас пока нет папок</h2>
           <p>Создайте папку и добавьте в неё чаты или встречи.</p>
+          <Button onClick={() => setManage({ mode: "create" })}>
+            <Plus size={18} />
+            Создать папку
+          </Button>
         </div>
       )}
+      <p className="folder-private-note">
+        <LockKeyhole size={16} aria-hidden="true" />
+        Ваши папки видны только вам
+      </p>
       {manage && (
         <FolderManageModal {...manage} onClose={() => setManage(null)} />
       )}
@@ -315,7 +325,7 @@ function FolderDetail({ id }: { id: string }) {
           Повторить загрузку
         </Button>
       )}
-      {meta.isPending && <Loading />}
+      {meta.isPending && <MessagingSkeleton />}
       {folder && (
         <>
           <div className="folder-toolbar">
@@ -347,10 +357,11 @@ function FolderDetail({ id }: { id: string }) {
               ))}
             </div>
             <label className="folder-detail-search">
-              Поиск в папке
+              <Search size={18} aria-hidden="true" />
               <input
+                aria-label="Поиск в папке"
                 value={text}
-                placeholder="Название или собеседник"
+                placeholder="Найти в папке"
                 onChange={(event) => setText(event.target.value)}
               />
             </label>
@@ -361,7 +372,7 @@ function FolderDetail({ id }: { id: string }) {
               Повторить загрузку
             </Button>
           )}
-          {entries.isPending && <Loading />}
+          {entries.isPending && <MessagingSkeleton />}
           {(["conference", "conversation"] as const).map((kind) => {
             const section = items.filter((entry) => entry.type === kind);
             return (
@@ -373,7 +384,10 @@ function FolderDetail({ id }: { id: string }) {
                     kind === "conference" ? "Встречи в папке" : "Чаты в папке"
                   }
                 >
-                  <h2>{kind === "conference" ? "Встречи" : "Чаты"}</h2>
+                  <h2>
+                    {kind === "conference" ? "Встречи" : "Чаты"}{" "}
+                    <span>{section.length}</span>
+                  </h2>
                   <div className="folder-list">
                     {section.map((entry) => (
                       <div

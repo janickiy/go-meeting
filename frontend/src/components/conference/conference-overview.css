@@ -1,0 +1,142 @@
+.conference-waiting-page {
+  min-height: 100dvh;
+  padding: 32px 40px;
+  background: var(--canvas);
+}
+.conference-waiting-content {
+  max-width: 520px;
+  margin: 5vh auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+}
+.waiting-room-standalone {
+  padding: 24px 24px 0;
+  margin: 0;
+  text-align: center;
+  border: 0;
+  background: transparent;
+}
+.waiting-room-standalone .meeting-icon {
+  margin: 0 auto 20px;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.waiting-room-standalone h1 {
+  font-size: calc(24px * var(--text-scale));
+  margin: 0 0 12px;
+}
+.waiting-room-standalone p {
+  color: var(--muted);
+  font-size: calc(14px * var(--text-scale));
+  line-height: 1.6;
+  margin: 0;
+}
+.conference-waiting-back {
+  align-self: center;
+}
+.conference-waiting-context {
+  padding: 24px;
+}
+.conference-waiting-context h2 {
+  margin: 0 0 10px;
+  font-size: calc(18px * var(--text-scale));
+}
+.conference-waiting-context p,
+.conference-waiting-hint {
+  font-size: calc(13px * var(--text-scale));
+  color: var(--muted);
+  margin: 0;
+}
+.conference-waiting-hint {
+  line-height: 1.6;
+}
+.conference-history-chat {
+  width: 100%;
+  min-width: 0;
+}
+.conference-readonly-badge {
+  display: inline-flex;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+.conference-history-chat-card {
+  max-width: 920px;
+  margin-inline: auto;
+  padding: 24px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+.conference-history-chat-card .chat-panel {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
+}
+.conference-history-chat-card .chat-panel-heading {
+  display: none;
+}
+.conference-history-chat-card .chat-readonly-note {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 0 16px;
+  font-size: calc(13px * var(--text-scale));
+  color: var(--text);
+  background: var(--surface-soft);
+}
+.conference-history-chat-card .chat-messages {
+  max-height: none;
+  min-height: 200px;
+  padding: 0;
+  border: 0;
+}
+.conference-history-chat-access {
+  border-top: 1px solid var(--border);
+  margin: 24px 0 0;
+  padding-top: 16px;
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+.conference-readonly-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: calc(13px * var(--text-scale));
+  line-height: 1.6;
+}
+.conference-readonly-composer svg {
+  flex: 0 0 auto;
+}
+@media (max-width: 767px) {
+  .conference-waiting-page {
+    padding: 20px 16px;
+  }
+  .conference-waiting-content {
+    margin-block: 32px;
+  }
+  .waiting-room-standalone {
+    padding-inline: 8px;
+  }
+  .conference-history-chat-card {
+    padding: 16px 12px;
+  }
+}

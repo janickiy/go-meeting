@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import "./folders.css";
 
 export interface ItemAction {
@@ -16,14 +16,17 @@ export interface ItemAction {
   run: () => void;
   disabled?: boolean;
   danger?: boolean;
+  pressed?: boolean;
 }
-/** One keyboard menu shared by folder rows and conversation actions. */
+/** Открывает доступное с клавиатуры меню действий и возвращает фокус к его кнопке. */
 export function ItemActions({
   label,
   actions,
+  triggerIcon,
 }: {
   label: string;
   actions: ItemAction[];
+  triggerIcon?: ReactNode;
 }) {
   const id = useId();
   const root = useRef<HTMLDivElement>(null),
@@ -66,7 +69,7 @@ export function ItemActions({
   useLayoutEffect(() => {
     if (!open || !position || focused.current) return;
     menu.current
-      ?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')
+      ?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)')
       ?.focus();
     focused.current = true;
   }, [open, position]);
@@ -94,7 +97,7 @@ export function ItemActions({
     }
     const items = Array.from(
       menu.current?.querySelectorAll<HTMLElement>(
-        '[role="menuitem"]:not(:disabled)',
+        '[role^="menuitem"]:not(:disabled)',
       ) || [],
     );
     const index = items.indexOf(document.activeElement as HTMLElement);
@@ -126,7 +129,7 @@ export function ItemActions({
         aria-controls={open ? id : undefined}
         onClick={() => setOpen(!open)}
       >
-        <MoreVertical size={20} aria-hidden="true" />
+        {triggerIcon || <MoreHorizontal size={20} aria-hidden="true" />}
       </button>
       {open && (
         <div
@@ -141,9 +144,12 @@ export function ItemActions({
             <button
               key={action.label}
               type="button"
-              role="menuitem"
+              role={
+                action.pressed === undefined ? "menuitem" : "menuitemcheckbox"
+              }
               tabIndex={-1}
               disabled={action.disabled}
+              aria-checked={action.pressed}
               className={action.danger ? "item-action-danger" : undefined}
               onClick={() => {
                 setOpen(false);

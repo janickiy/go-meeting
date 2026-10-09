@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Video,
   VideoOff,
+  Ellipsis,
 } from "lucide-react";
 import type { useRealtime } from "../realtime";
 import { useMedia } from "../useMedia";
@@ -34,6 +35,8 @@ import { meetingShortcut } from "../conferenceShortcuts";
 import { initials } from "../utils";
 import { useSpeakingParticipants } from "../useSpeakingParticipants";
 import { onlineParticipants } from "../presence";
+import { ItemActions, type ItemAction } from "./ItemActions";
+import { ConferenceDevicesModal } from "./conference/ConferenceDevicesModal";
 
 /**
  * MediaTile воспроизводит существующий поток и показывает состояние участника.
@@ -308,6 +311,9 @@ export function RealtimePanel({
   participants = [],
   controls,
   reconnectTarget,
+  controlsTarget,
+  endControls,
+  moreActions = [],
 }: {
   conferenceId: string;
   membership: Participant;
@@ -316,9 +322,13 @@ export function RealtimePanel({
   participants?: Participant[];
   controls?: ReactNode;
   reconnectTarget?: HTMLElement | null;
+  controlsTarget?: HTMLElement | null;
+  endControls?: ReactNode;
+  moreActions?: ItemAction[];
 }) {
   const { user } = useAuth();
   const openSettings = useAccountSettings();
+  const [devicesOpen, setDevicesOpen] = useState(false);
   const media = useMedia(live, conferenceId, {
     ...membership,
     version: membership.mediaPolicyVersion,
@@ -486,6 +496,8 @@ export function RealtimePanel({
       <span>Переподключиться</span>
     </Button>
   );
+  const renderControls = (children: ReactNode) =>
+    controlsTarget ? createPortal(children, controlsTarget) : children;
   return (
     <section
       className="content-card realtime-panel"
@@ -577,147 +589,204 @@ export function RealtimePanel({
           {media.view.status}
         </p>
         {media.view.error && <ErrorNotice>{media.view.error}</ErrorNotice>}
-        <div
-          className="meeting-actions conference-control-bar"
-          aria-label="Управление медиасвязью"
-        >
-          {!media.running && (
-            <>
-              <Button
-                disabled={!live.state || !online}
-                onClick={
-                  /**
-                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   *
-                   * @returns вычисленное значение: media.start().
-                   */ () => media.start(true, preferences)
-                }
-              >
-                <Video size={17} />
-                {media.view.error
-                  ? "Подключить медиасвязь снова"
-                  : hasSelection
-                    ? "Подключить с выбранными устройствами"
-                    : "Включить камеру и микрофон"}
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={!live.state || !online}
-                onClick={
-                  /**
-                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   *
-                   * @returns вычисленное значение: media.start(false).
-                   */ () => media.start(false)
-                }
-              >
-                Подключиться без камеры и микрофона
-              </Button>
-            </>
-          )}
-          {media.running && (
-            <>
-              <Button
-                variant="secondary"
-                disabled={busy || membership.microphoneBlocked}
-                aria-pressed={media.view.microphoneEnabled}
-                aria-label={
-                  media.view.microphoneEnabled
-                    ? "Выключить микрофон"
-                    : "Включить микрофон"
-                }
-                aria-keyshortcuts={shortcutsEnabled ? "M" : undefined}
-                onClick={
-                  /**
-                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   *
-                   * @returns вычисленное значение: void media.microphone(!media.view.microphoneEnabled).
-                   */ () => void media.microphone(!media.view.microphoneEnabled)
-                }
-              >
-                <span
-                  className={`media-tile-microphone media-control-microphone ${localAudioLevel > 0 ? "media-microphone-speaking" : ""}`}
-                  style={{ "--audio-level": localAudioLevel } as CSSProperties}
-                  data-audio-level={localAudioLevel}
-                  aria-hidden="true"
+        {renderControls(
+          <div
+            className="meeting-actions conference-control-bar"
+            aria-label="Управление медиасвязью"
+          >
+            {!media.running && (
+              <>
+                <Button
+                  disabled={!live.state || !online}
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: media.start().
+                     */ () => media.start(true, preferences)
+                  }
                 >
-                  {media.view.microphoneEnabled ? (
-                    <Mic size={17} />
-                  ) : (
-                    <MicOff size={17} />
-                  )}
-                </span>
-                Микрофон
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={busy || membership.cameraBlocked}
-                aria-pressed={media.view.cameraEnabled}
-                aria-label={
-                  media.view.cameraEnabled
-                    ? "Выключить камеру"
-                    : "Включить камеру"
-                }
-                aria-keyshortcuts={shortcutsEnabled ? "V" : undefined}
-                onClick={
-                  /**
-                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   *
-                   * @returns вычисленное значение: void media.camera(!media.view.cameraEnabled).
-                   */ () => void media.camera(!media.view.cameraEnabled)
-                }
-              >
-                {media.view.cameraEnabled ? (
                   <Video size={17} />
-                ) : (
-                  <VideoOff size={17} />
-                )}
-                Камера
-              </Button>
-              <Button
-                variant="secondary"
-                aria-pressed={media.view.screenSharing}
-                aria-label={
-                  media.view.screenSharing
-                    ? "Остановить демонстрацию"
-                    : "Показать экран"
-                }
-                disabled={
-                  busy || membership.screenBlocked || membership.cameraBlocked
-                }
-                onClick={
-                  /**
-                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                   *
-                   *
-                   * @returns вычисленное значение: void (media.view.screenSharing ? media.stopScreen() : media.startScreen()).
-                   */ () =>
-                    void (media.view.screenSharing
-                      ? media.stopScreen()
-                      : media.startScreen())
-                }
-              >
-                <MonitorUp size={17} />
-                {media.view.screenSharing ? "Остановить экран" : "Экран"}
-              </Button>
-            </>
-          )}
-          {openSettings && (
+                  {media.view.error
+                    ? "Подключить медиасвязь снова"
+                    : hasSelection
+                      ? "Подключить с выбранными устройствами"
+                      : "Включить камеру и микрофон"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={!live.state || !online}
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: media.start(false).
+                     */ () => media.start(false)
+                  }
+                >
+                  Подключиться без камеры и микрофона
+                </Button>
+              </>
+            )}
+            {media.running && (
+              <>
+                <Button
+                  variant="secondary"
+                  disabled={busy || membership.microphoneBlocked}
+                  aria-pressed={media.view.microphoneEnabled}
+                  aria-label={
+                    media.view.microphoneEnabled
+                      ? "Выключить микрофон"
+                      : "Включить микрофон"
+                  }
+                  aria-keyshortcuts={shortcutsEnabled ? "M" : undefined}
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: void media.microphone(!media.view.microphoneEnabled).
+                     */ () =>
+                      void media.microphone(!media.view.microphoneEnabled)
+                  }
+                >
+                  <span
+                    className={`media-tile-microphone media-control-microphone ${localAudioLevel > 0 ? "media-microphone-speaking" : ""}`}
+                    style={
+                      { "--audio-level": localAudioLevel } as CSSProperties
+                    }
+                    data-audio-level={localAudioLevel}
+                    aria-hidden="true"
+                  >
+                    {media.view.microphoneEnabled ? (
+                      <Mic size={17} />
+                    ) : (
+                      <MicOff size={17} />
+                    )}
+                  </span>
+                  Микрофон
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy || membership.cameraBlocked}
+                  aria-pressed={media.view.cameraEnabled}
+                  aria-label={
+                    media.view.cameraEnabled
+                      ? "Выключить камеру"
+                      : "Включить камеру"
+                  }
+                  aria-keyshortcuts={shortcutsEnabled ? "V" : undefined}
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: void media.camera(!media.view.cameraEnabled).
+                     */ () => void media.camera(!media.view.cameraEnabled)
+                  }
+                >
+                  {media.view.cameraEnabled ? (
+                    <Video size={17} />
+                  ) : (
+                    <VideoOff size={17} />
+                  )}
+                  Камера
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="room-screen-control"
+                  aria-pressed={media.view.screenSharing}
+                  aria-label={
+                    media.view.screenSharing
+                      ? "Остановить демонстрацию"
+                      : "Показать экран"
+                  }
+                  disabled={
+                    busy || membership.screenBlocked || membership.cameraBlocked
+                  }
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: void (media.view.screenSharing ? media.stopScreen() : media.startScreen()).
+                     */ () =>
+                      void (media.view.screenSharing
+                        ? media.stopScreen()
+                        : media.startScreen())
+                  }
+                >
+                  <MonitorUp size={17} />
+                  {media.view.screenSharing ? "Остановить экран" : "Экран"}
+                </Button>
+              </>
+            )}
             <Button
               variant="secondary"
+              className="room-devices-control"
               aria-haspopup="dialog"
-              onClick={(event) => openSettings(event.currentTarget)}
+              onClick={() => setDevicesOpen(true)}
             >
-              <Settings size={17} />
-              Настройки
+              <Settings size={20} />
+              Устройства
             </Button>
-          )}
-          {controls}
-        </div>
+            {controls}
+            <ItemActions
+              label="Ещё"
+              triggerIcon={
+                <>
+                  <Ellipsis size={22} />
+                  <span>Ещё</span>
+                </>
+              }
+              actions={[
+                {
+                  label: media.view.screenSharing
+                    ? "Остановить экран"
+                    : "Показать экран",
+                  icon: <MonitorUp size={18} />,
+                  disabled:
+                    !media.running ||
+                    busy ||
+                    membership.screenBlocked ||
+                    membership.cameraBlocked,
+                  run: () =>
+                    void (media.view.screenSharing
+                      ? media.stopScreen()
+                      : media.startScreen()),
+                },
+                ...moreActions,
+                {
+                  label: "Устройства",
+                  icon: <Settings size={18} />,
+                  run: () => setDevicesOpen(true),
+                },
+                ...(openSettings
+                  ? [
+                      {
+                        label: "Настройки аккаунта",
+                        icon: <Settings size={18} />,
+                        run: () =>
+                          openSettings(document.activeElement as HTMLElement),
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Переподключиться",
+                  icon: <RefreshCw size={18} />,
+                  disabled: !online,
+                  run: () => {
+                    media.stop();
+                    live.reconnect();
+                  },
+                },
+              ]}
+            />
+            {endControls}
+          </div>,
+        )}
         {(membership.microphoneBlocked ||
           membership.cameraBlocked ||
           membership.screenBlocked) && (
@@ -843,6 +912,12 @@ export function RealtimePanel({
           STUN/TURN.
         </p>
       </div>
+      {devicesOpen && (
+        <ConferenceDevicesModal
+          audioLevel={localAudioLevel}
+          onClose={() => setDevicesOpen(false)}
+        />
+      )}
     </section>
   );
 }

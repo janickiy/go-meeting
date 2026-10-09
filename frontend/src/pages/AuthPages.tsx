@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { SubmitEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Link as LinkIcon, Video } from "lucide-react";
 import { api, errorMessage } from "../api";
 import { useAuth } from "../auth";
 import {
@@ -12,7 +12,8 @@ import {
   SuccessMark,
 } from "../components/ui";
 import { passwordLength, safeNext, utf8Bytes } from "../utils";
-import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
+import { PRODUCT_NAME } from "../brand";
+import "./meetings-design.css";
 
 /**
  * AuthPage показывает форму входа либо регистрации и обрабатывает проверку данных и ошибки API.
@@ -94,192 +95,216 @@ export function AuthPage({ register = false }: { register?: boolean }) {
     }
   }
   return (
-    <div className="auth-page">
-      <Link className="auth-back" to="/">
-        <ArrowLeft size={16} />
-        На главную
-      </Link>
-      <div className={`auth-card ${register ? "register-card" : ""}`}>
+    <div className="auth-page auth-design-page">
+      <header className="auth-design-header">
         <Brand />
-        <p className="auth-tagline">{PRODUCT_TAGLINE}</p>
-        <div className="auth-heading">
-          <h1>{register ? "Создайте аккаунт" : "Вход в аккаунт"}</h1>
+        <Link className="auth-back" to="/">
+          <ArrowLeft size={16} aria-hidden="true" />
+          На главную
+        </Link>
+      </header>
+      <main className="auth-design-layout">
+        <aside className="auth-scenery-caption" aria-label="О сервисе">
+          <span className="eyebrow">БЛИЖЕ К ВАЖНОМУ</span>
+          <h2>
+            Ближе
+            <br />
+            к команде.
+            <br />
+            <em>Ближе к идеям.</em>
+          </h2>
           <p>
-            {register
-              ? "Начните проводить встречи уже сегодня"
-              : "Рады видеть вас снова!"}
+            Встречи, разговоры и материалы.
+            <br />
+            Соберите рабочий день в одном месте.
           </p>
-        </div>
-        <ErrorNotice>
-          {error ||
-            (!register && auth.expired
-              ? "Сессия завершилась. Войдите снова, чтобы продолжить."
-              : null)}
-        </ErrorNotice>
-        <form onSubmit={submit} noValidate>
-          <label className="field" htmlFor="email">
-            Email
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              required
-              value={email}
-              onChange={
-                /**
-                 * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                 *
-                 * @args
-                 *   - event — проверенный конверт события комнаты.
-                 *
-                 * @returns вычисленное значение: setEmail(event.target.value).
-                 */ (event) => setEmail(event.target.value)
-              }
-              disabled={busy}
-            />
-          </label>
-          <label className="field" htmlFor="password">
-            Пароль
-            <PasswordInput
-              id="password"
-              placeholder={register ? "Минимум 8 символов" : "Введите пароль"}
-              autoComplete={register ? "new-password" : "current-password"}
-              required
-              value={password}
-              onChange={
-                /**
-                 * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                 *
-                 * @args
-                 *   - event — проверенный конверт события комнаты.
-                 *
-                 * @returns вычисленное значение: setPassword(event.target.value).
-                 */ (event) => setPassword(event.target.value)
-              }
-              disabled={busy}
-            />
-          </label>
-          {register ? (
-            <>
-              <p className="field-hint password-hint">
-                От 8 до 128 символов. Цифры и спецсимволы необязательны.
-              </p>
-              <label className="field" htmlFor="displayName">
-                Как к вам обращаться?{" "}
-                <span className="muted">(необязательно)</span>
-                <input
-                  id="displayName"
-                  autoComplete="nickname"
-                  placeholder="Александр"
-                  value={name}
-                  onChange={
-                    /**
-                     * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-                     *
-                     * @args
-                     *   - event — проверенный конверт события комнаты.
-                     *
-                     * @returns вычисленное значение: setName(event.target.value).
-                     */ (event) => setName(event.target.value)
-                  }
-                  disabled={busy}
-                />
-              </label>
-            </>
-          ) : (
-            <div className="recovery">
-              <button
-                type="button"
-                className="text-button"
-                onClick={
+          <div className="auth-design-story-note">
+            <span>
+              <Video size={22} aria-hidden="true" />
+            </span>
+            <div>
+              <strong>Хорошая работа начинается с разговора.</strong>
+              <small>{PRODUCT_NAME} · Встречи. Идеи. Результаты.</small>
+            </div>
+          </div>
+        </aside>
+        <div className={`auth-card ${register ? "register-card" : ""}`}>
+          <p className="auth-tagline">
+            {register ? "НАЧНЁМ ЗНАКОМСТВО" : "С ВОЗВРАЩЕНИЕМ"}
+          </p>
+          <div className="auth-heading">
+            <h1>{register ? "Создайте аккаунт" : `Вход в ${PRODUCT_NAME}`}</h1>
+            <p>
+              {register
+                ? "Проводите встречи и продолжайте общение."
+                : "Ваши встречи и разговоры уже здесь."}
+            </p>
+          </div>
+          <ErrorNotice>
+            {error ||
+              (!register && auth.expired
+                ? "Сессия завершилась. Войдите снова, чтобы продолжить."
+                : null)}
+          </ErrorNotice>
+          <form onSubmit={submit} noValidate>
+            <label className="field" htmlFor="email">
+              Email
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                required
+                value={email}
+                onChange={
                   /**
-                   * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
                    *
+                   * @args
+                   *   - event — проверенный конверт события комнаты.
                    *
-                   * @returns вычисленное значение: setRecovery(!recovery).
-                   */ () => setRecovery(!recovery)
+                   * @returns вычисленное значение: setEmail(event.target.value).
+                   */ (event) => setEmail(event.target.value)
                 }
-              >
-                Забыли пароль?
-              </button>
-              {recovery && (
-                <p className="field-hint" role="status">
-                  Восстановление пароля пока недоступно. Обратитесь к
-                  администратору сервиса.
+                disabled={busy}
+              />
+            </label>
+            <label className="field" htmlFor="password">
+              Пароль
+              <PasswordInput
+                id="password"
+                placeholder={register ? "Минимум 8 символов" : "Введите пароль"}
+                autoComplete={register ? "new-password" : "current-password"}
+                required
+                value={password}
+                onChange={
+                  /**
+                   * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                   *
+                   * @args
+                   *   - event — проверенный конверт события комнаты.
+                   *
+                   * @returns вычисленное значение: setPassword(event.target.value).
+                   */ (event) => setPassword(event.target.value)
+                }
+                disabled={busy}
+              />
+            </label>
+            {register ? (
+              <>
+                <p className="field-hint password-hint">
+                  От 8 до 128 символов. Цифры и спецсимволы необязательны.
                 </p>
-              )}
-            </div>
+                <label className="field" htmlFor="displayName">
+                  Ваше имя · необязательно
+                  <input
+                    id="displayName"
+                    autoComplete="nickname"
+                    placeholder="Как к вам обращаться?"
+                    value={name}
+                    onChange={
+                      /**
+                       * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                       *
+                       * @args
+                       *   - event — проверенный конверт события комнаты.
+                       *
+                       * @returns вычисленное значение: setName(event.target.value).
+                       */ (event) => setName(event.target.value)
+                    }
+                    disabled={busy}
+                  />
+                </label>
+              </>
+            ) : (
+              <div className="recovery">
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={
+                    /**
+                     * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
+                     *
+                     *
+                     * @returns вычисленное значение: setRecovery(!recovery).
+                     */ () => setRecovery(!recovery)
+                  }
+                >
+                  Забыли пароль?
+                </button>
+                {recovery && (
+                  <p className="field-hint" role="status">
+                    Восстановление пароля пока недоступно. Обратитесь к
+                    администратору сервиса.
+                  </p>
+                )}
+              </div>
+            )}
+            <Button type="submit" busy={busy} className="full-width">
+              {register ? "Зарегистрироваться" : "Войти"}
+              <ArrowRight size={17} aria-hidden="true" />
+            </Button>
+          </form>
+          <p className="auth-switch">
+            {register ? (
+              <>
+                Уже есть аккаунт? <Link to={`/login${nextQuery}`}>Войти</Link>
+              </>
+            ) : (
+              <>
+                Нет аккаунта?{" "}
+                <Link to={`/register${nextQuery}`}>Создать аккаунт</Link>
+              </>
+            )}
+          </p>
+          {register ? null : (
+            <>
+              <div className="divider">
+                <span>или</span>
+              </div>
+              <div
+                className="social-placeholders"
+                aria-label="Будущие способы входа"
+              >
+                <button
+                  type="button"
+                  className="social-placeholder"
+                  disabled
+                  aria-describedby="social-availability"
+                >
+                  <strong aria-hidden="true">G</strong>
+                  <span>Google</span>
+                  <small>Позже</small>
+                </button>
+                <button
+                  type="button"
+                  className="social-placeholder"
+                  disabled
+                  aria-describedby="social-availability"
+                >
+                  <strong aria-hidden="true">⊞</strong>
+                  <span>Microsoft</span>
+                  <small>Позже</small>
+                </button>
+              </div>
+              <p id="social-availability" className="social-availability-note">
+                Вход через Google и Microsoft пока недоступен.
+              </p>
+            </>
           )}
-          <Button type="submit" busy={busy} className="full-width">
-            {register ? "Зарегистрироваться" : "Войти"}
-          </Button>
-        </form>
-        {register ? (
-          <>
-            <p className="auth-note">
-              Email нужен только для входа. Гостевой доступ
-              <br />и подтверждение email пока не поддерживаются.
-            </p>
-            <p className="auth-switch">
-              Уже есть аккаунт? <Link to={`/login${nextQuery}`}>Войти</Link>
-            </p>
-          </>
-        ) : (
-          <>
-            <div className="divider">
-              <span>или</span>
-            </div>
-            <div
-              className="social-placeholders"
-              aria-label="Будущие способы входа"
-            >
-              <button
-                type="button"
-                className="social-placeholder"
-                disabled
-                aria-describedby="social-availability"
-              >
-                <strong aria-hidden="true">G</strong>
-                <span>Продолжить с Google</span>
-                <small>Скоро</small>
-              </button>
-              <button
-                type="button"
-                className="social-placeholder"
-                disabled
-                aria-describedby="social-availability"
-              >
-                <strong aria-hidden="true">⊞</strong>
-                <span>Продолжить с Microsoft</span>
-                <small>Скоро</small>
-              </button>
-            </div>
-            <p id="social-availability" className="social-availability-note">
-              Эти способы входа появятся позже.
+          <div className="auth-invitation-note">
+            <LinkIcon size={17} aria-hidden="true" />
+            <p>
+              Чтобы присоединиться по приглашению,
               <br />
-              Сейчас используйте email и пароль.
+              создавать аккаунт необязательно.
             </p>
-            <p className="auth-switch">
-              Нет аккаунта?{" "}
-              <Link to={`/register${nextQuery}`}>Зарегистрироваться</Link>
-            </p>
-          </>
-        )}
-      </div>
-      <p className="auth-footer">Одно место. Все ваши встречи.</p>
-      <aside className="auth-scenery-caption" aria-label="О сервисе">
-        <strong>
-          Хорошие идеи
-          <br />
-          начинаются со встречи.
-        </strong>
-        <p>
-          {PRODUCT_NAME} — пространство для разговоров,
-          <br />
-          совместной работы и новых решений.
-        </p>
-      </aside>
+          </div>
+        </div>
+      </main>
+      <p className="auth-footer">
+        {PRODUCT_NAME} — одно место для вашей команды.
+      </p>
     </div>
   );
 }
@@ -294,22 +319,21 @@ export function RegistrationSuccess() {
   const [params] = useSearchParams();
   const next = safeNext(params.get("next"));
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-design-page auth-design-success">
+      <Brand />
       <div className="auth-card registration-success">
-        <Brand />
         <SuccessMark />
-        <h1>Аккаунт создан!</h1>
+        <span className="eyebrow">ПРИЯТНО ПОЗНАКОМИТЬСЯ</span>
+        <h1>Вы в {PRODUCT_NAME}.</h1>
         <p>
-          Добро пожаловать в {PRODUCT_NAME}.
-          <br />
-          Теперь вы можете создавать
-          <br />и управлять своими конференциями.
+          Аккаунт создан. Теперь можно собирать команду, встречаться и сохранять
+          важное.
         </p>
         <Link
           className="button button-primary full-width"
           to={user ? next : `/login?next=${encodeURIComponent(next)}`}
         >
-          {user ? "Перейти в приложение" : "Войти в приложение"}
+          {user ? "Перейти в приложение" : "Войти в аккаунт"}
           <ArrowRight size={17} />
         </Link>
       </div>

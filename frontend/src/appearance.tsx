@@ -115,6 +115,10 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = preferences.theme;
+    document.documentElement.dataset.textSize = String(preferences.textSize);
+    document.documentElement.dataset.largeText = String(
+      preferences.textSize >= 150,
+    );
     document.documentElement.style.setProperty(
       "--text-scale",
       String(preferences.textSize / 100),

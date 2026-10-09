@@ -255,7 +255,7 @@ test("тёмная комната: настоящие пустые плитки,
   );
   await expect(
     page.getByRole("region", { name: "Реакции", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await page.keyboard.press("h");
   expect(removedRequests).toEqual([]);
   await expect(page.getByTestId("participant-placeholder")).toHaveCount(4);
@@ -650,14 +650,57 @@ test("настройки аккаунта из конференции сохра
   );
   const rail = page.locator(".conference-stage-rail");
   const beforeChat = await rail.isVisible();
-  const settings = page.getByRole("button", { name: "Настройки", exact: true });
+  const deviceTrigger = page.getByRole("button", {
+    name: "Устройства",
+    exact: true,
+  });
+  await deviceTrigger.click();
+  const deviceDialog = page.getByRole("dialog", {
+    name: "Настройки устройств",
+    exact: true,
+  });
+  await expect(deviceDialog).toBeVisible();
+  await expect(
+    deviceDialog.getByRole("combobox", { name: "Микрофон", exact: true }),
+  ).toBeVisible();
+  expect(await mediaState()).toEqual(beforeMedia);
+  expect(isolated.connections()).toBe(1);
+  await page.screenshot({
+    path: info.outputPath("conference-devices.png"),
+    fullPage: true,
+  });
+  await deviceDialog
+    .getByRole("button", { name: "Готово", exact: true })
+    .click();
+  await expect(deviceDialog).toHaveCount(0);
+  await expect(deviceTrigger).toBeFocused();
+  const leave = page.getByRole("button", {
+    name: "Покинуть конференцию",
+    exact: true,
+  });
+  await leave.click();
+  const confirmation = page.getByRole("dialog", {
+    name: "Выйти из встречи?",
+    exact: true,
+  });
+  await expect(confirmation).toBeVisible();
+  expect(await mediaState()).toEqual(beforeMedia);
+  await confirmation
+    .getByRole("button", { name: "Вернуться к встрече", exact: true })
+    .click();
+  await expect(confirmation).toHaveCount(0);
+  await expect(leave).toBeFocused();
+  const settings = page.getByRole("button", { name: "Ещё", exact: true });
   await expect(
     page.getByRole("button", { name: "Отключить медиа", exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Устройства", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await settings.click();
+  await page
+    .getByRole("menuitem", { name: "Настройки аккаунта", exact: true })
+    .click();
   const dialog = page.getByRole("dialog", {
     name: "Настройки аккаунта",
     exact: true,
@@ -723,9 +766,12 @@ test("мобильный гость открывает общие настрой
   });
   await page.goto(`/conferences/${room.id}`);
   const beforeURL = page.url();
-  const settings = page.getByRole("button", { name: "Настройки", exact: true });
+  const settings = page.getByRole("button", { name: "Ещё", exact: true });
   await expect(settings).toBeEnabled();
   await settings.click();
+  await page
+    .getByRole("menuitem", { name: "Настройки аккаунта", exact: true })
+    .click();
   const dialog = page.getByRole("dialog", {
     name: "Настройки аккаунта",
     exact: true,

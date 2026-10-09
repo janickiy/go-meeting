@@ -1,0 +1,246 @@
+/* Формы встречи используют размеры, строки переключателей и нижнюю панель второго макета. */
+.modal.meeting-design-modal {
+  width: min(520px, 100%);
+  max-width: 520px;
+  padding: 28px 32px 0;
+  border-radius: 12px;
+  overflow: auto;
+}
+.meeting-design-modal > h2 {
+  margin: 6px 40px 28px 0;
+  font-size: calc(24px * var(--text-scale));
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+}
+.meeting-design-modal .modal-close {
+  top: 22px;
+  right: 24px;
+}
+.meeting-design-modal .field {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 20px;
+  font-size: calc(14px * var(--text-scale));
+}
+.meeting-design-modal .field input,
+.meeting-design-modal .field select,
+.meeting-design-modal .field textarea {
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 13px 14px;
+  background: var(--surface);
+  font-size: calc(15px * var(--text-scale));
+}
+.meeting-design-modal .field-hint {
+  margin: 0;
+  font-size: calc(13px * var(--text-scale));
+  line-height: 1.6;
+  color: var(--muted);
+}
+.meeting-design-modal .modal-description {
+  margin: 0 0 20px;
+  font-size: calc(15px * var(--text-scale));
+  line-height: 1.6;
+}
+.meeting-create-options {
+  border-block: 1px solid var(--border);
+  padding: 4px 0;
+}
+.meeting-option-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  cursor: pointer;
+}
+.meeting-option-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+.meeting-option-copy {
+  flex: 1;
+  min-width: 0;
+}
+.meeting-option-copy strong {
+  display: block;
+  font-size: calc(14px * var(--text-scale));
+  line-height: 1.5;
+  font-weight: 550;
+}
+.meeting-option-copy small {
+  display: block;
+  font-size: calc(12px * var(--text-scale));
+  line-height: 1.5;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.meeting-switch {
+  appearance: none;
+  position: relative;
+  margin: 0;
+  width: 48px;
+  height: 44px;
+  flex: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.meeting-switch::before {
+  content: "";
+  position: absolute;
+  inset: 11px 2px;
+  background: #8c99aa;
+  border-radius: 16px;
+}
+.meeting-switch::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 13px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px #0002;
+}
+.meeting-switch:checked::before {
+  background: var(--primary);
+}
+.meeting-switch:checked::after {
+  left: 26px;
+}
+.meeting-switch:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.meeting-design-modal .meeting-waiting-policy {
+  padding: 0 0 16px 52px;
+  font-size: calc(12px * var(--text-scale));
+}
+.meeting-create-options .schedule-fields {
+  padding: 0 0 16px 52px;
+}
+.meeting-create-options .schedule-fields .field-hint {
+  margin: -12px 0 20px;
+}
+.meeting-inline-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 20px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: calc(13px * var(--text-scale));
+  line-height: 1.55;
+}
+.meeting-inline-note > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.meeting-dialog-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin: 28px -32px 0;
+  padding: 20px 32px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.meeting-dialog-footer > .button {
+  min-height: 48px;
+  margin: 0;
+}
+.meeting-dialog-footer > .button-primary {
+  flex: 1;
+}
+.meeting-share-modal .share-content {
+  padding: 0 0 28px;
+}
+.meeting-share-modal .share-content > .success-mark {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+}
+.meeting-share-modal .share-content > h3 {
+  margin: 0 0 8px;
+  font-size: calc(20px * var(--text-scale));
+  letter-spacing: -0.02em;
+}
+.meeting-share-modal .share-subtitle {
+  margin: 0 0 24px;
+  font-size: calc(14px * var(--text-scale));
+  line-height: 1.6;
+}
+.meeting-share-modal .share-content > .field {
+  text-align: left;
+  margin-bottom: 8px;
+}
+.meeting-share-modal .share-content > .field-hint {
+  text-align: left;
+  margin: 0 0 20px;
+}
+.meeting-share-modal .share-content > .button {
+  margin: 12px 0 0;
+  min-height: 48px;
+}
+.meeting-design-modal .copy-link {
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.meeting-design-modal .copy-link > input {
+  border: 0;
+  background: transparent;
+  min-width: 0;
+  font-size: calc(13px * var(--text-scale));
+}
+@media (max-width: 767px) {
+  .modal.meeting-design-modal {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    padding: 20px 16px 0;
+  }
+  .meeting-design-modal > h2 {
+    font-size: calc(22px * var(--text-scale));
+  }
+  .meeting-design-modal .modal-close {
+    top: 16px;
+    right: 12px;
+  }
+  .meeting-design-modal .field input,
+  .meeting-design-modal .field select,
+  .meeting-design-modal .field textarea {
+    font-size: calc(16px * var(--text-scale));
+  }
+  .meeting-option-icon {
+    display: none;
+  }
+  .meeting-create-options .schedule-fields,
+  .meeting-design-modal .meeting-waiting-policy {
+    padding-left: 0;
+  }
+  .meeting-dialog-footer {
+    margin-inline: -16px;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+}

@@ -214,16 +214,16 @@ test("explicit offline logout closes other tabs and blocks stale cookie restorat
     .getByRole("button", { name: "Выйти из аккаунта", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Вход в аккаунт", exact: true }),
+    page.getByRole("heading", { name: "Вход в Meetrix", exact: true }),
   ).toBeVisible();
   await expect(
-    other.getByRole("heading", { name: "Вход в аккаунт", exact: true }),
+    other.getByRole("heading", { name: "Вход в Meetrix", exact: true }),
   ).toBeVisible();
   const refreshesBeforeReload = state.refreshes;
   state.offlineLogout = false;
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Вход в аккаунт", exact: true }),
+    page.getByRole("heading", { name: "Вход в Meetrix", exact: true }),
   ).toBeVisible();
   await expect.poll(() => state.logouts).toBeGreaterThanOrEqual(2);
   expect(state.refreshes).toBe(refreshesBeforeReload);

@@ -1,5 +1,6 @@
-.group-modal {
-  width: min(540px, calc(100vw - 32px));
+.modal.group-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-width: 560px;
 }
 .group-modal form,
 .group-user-picker {
@@ -7,7 +8,7 @@
   gap: 12px;
 }
 .group-modal h3 {
-  font-size: 16px;
+  font-size: calc(16px * var(--text-scale));
   margin: 8px 0;
 }
 .group-modal .field-hint {
@@ -35,7 +36,7 @@
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   color: var(--muted);
 }
 .group-avatar-picker {
@@ -44,7 +45,7 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--primary-soft);
   color: var(--primary);
@@ -67,9 +68,9 @@
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  border-radius: 20px;
+  border-radius: 6px;
   background: var(--primary-soft);
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .group-selected-users button {
   background: none;
@@ -87,8 +88,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 4px;
+  padding: 10px 6px;
+  border-radius: 6px;
   cursor: pointer;
+}
+.group-search-users label:hover {
+  background: var(--surface-soft);
 }
 .group-search-users label > span:nth-child(2) {
   flex: 1;
@@ -119,22 +124,31 @@
 }
 .group-identity p,
 .group-identity small {
-  font-size: 13px;
+  font-size: calc(13px * var(--text-scale));
   color: var(--muted);
 }
 .group-info-actions {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 0 24px;
 }
 .group-info-actions .button {
   justify-content: flex-start;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 6px;
+}
+.group-info-actions .button:hover {
+  background: var(--surface-soft);
 }
 .group-back {
   margin-bottom: 20px;
 }
 .group-members {
   display: grid;
-  gap: 12px;
+  gap: 0;
   margin: 16px 0;
 }
 .group-members li {
@@ -142,8 +156,50 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--border);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+.group-members-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.group-members-heading > span {
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+.group-member-name strong {
+  font-size: calc(13px * var(--text-scale));
+}
+.group-member-presence {
+  margin-left: auto;
+  font-size: calc(12px * var(--text-scale));
+  color: var(--muted);
+}
+.group-member-presence.is-online {
+  color: var(--success);
+}
+.group-member-avatar .avatar {
+  border-radius: 8px;
+}
+.group-danger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.group-avatar-field {
+  margin-bottom: 12px;
+}
+.group-avatar-picker {
+  width: 72px;
+  height: 72px;
+  border-style: dashed;
+  border-color: var(--primary);
   border-radius: 12px;
 }
 .group-member-name {
@@ -172,7 +228,7 @@
 .group-member-name small {
   color: var(--muted);
   margin-top: 4px;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
 }
 .group-member-controls {
   display: flex;
@@ -181,13 +237,13 @@
   flex-wrap: wrap;
 }
 .group-member-controls .button {
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale));
   min-height: 36px;
 }
 .group-confirmation {
   border: 1px solid var(--border);
   padding: 14px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 .group-confirmation .button {
   margin: 4px;
@@ -201,17 +257,23 @@
   flex: 1;
   min-width: 0;
   border: 0;
-  border-radius: 8px;
-  background: var(--surface-soft);
+  border-radius: 6px;
+  background: transparent;
   color: var(--text);
-  padding: 9px 6px;
+  min-height: 40px;
+  padding: 9px 4px;
   font: inherit;
-  font-size: 12px;
+  font-size: calc(11px * var(--text-scale));
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .personal-filters button[aria-pressed="true"] {
   background: var(--primary-soft);
   color: var(--primary);
+  font-weight: 600;
+}
+.personal-filters button:hover {
+  background: var(--surface-soft);
 }
 .personal-header-copy {
   flex: 1;
@@ -223,9 +285,9 @@
   overflow-wrap: anywhere;
 }
 .personal-header-copy small {
-  font-size: 12px;
+  font-size: calc(11px * var(--text-scale));
   color: var(--muted);
-  margin-top: 5px;
+  margin-top: 3px;
 }
 @media (max-width: 760px) {
   .group-modal {

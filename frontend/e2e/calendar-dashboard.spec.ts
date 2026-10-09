@@ -145,7 +145,7 @@ test("кабинет и недельный календарь: реальные 
   const requests = await installCalendarFixture(page);
   await page.goto("/app");
   await expect(
-    page.getByRole("heading", { name: "Добро пожаловать, Александр!" }),
+    page.getByRole("heading", { name: "Добро пожаловать, Александр." }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Недавние встречи" }),
@@ -195,12 +195,66 @@ test("кабинет и недельный календарь: реальные 
   });
 });
 
+for (const width of [390, 834, 1440]) {
+  test(`главная с крупным текстом в тёмной теме: ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    await installCalendarFixture(page);
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "go-recorder.appearance.v1:calendar-owner",
+        JSON.stringify({ version: 1, theme: "dark", textSize: 200 }),
+      );
+    });
+    await page.goto("/app");
+    await expect(
+      page.getByRole("heading", { name: "Добро пожаловать, Александр." }),
+    ).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await expect(
+      page.getByRole("link", { name: "Запланировать" }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("dashboard-dark-200.png"),
+      fullPage: true,
+    });
+    if (width === 390) {
+      await page
+        .getByRole("button", { name: "Открыть меню", exact: true })
+        .click();
+      await expect(
+        page.getByRole("dialog", { name: "Меню Meetrix" }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(
+        page.getByRole("button", { name: "Открыть меню", exact: true }),
+      ).toBeFocused();
+    } else {
+      await expect(
+        page
+          .getByRole("navigation", { name: "Основная навигация" })
+          .getByRole("link", { name: "Записи", exact: true }),
+      ).toBeVisible();
+    }
+  });
+}
+
 test("мобильный календарь: список без горизонтального переполнения и без чужой модерации", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCalendarFixture(page, false);
   await page.goto("/calendar");
+  await page
+    .locator(".calendar-day-strip")
+    .getByRole("button", { name: "вт 6", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: /Продуктовая встреча,/ }).last(),
   ).toBeVisible();

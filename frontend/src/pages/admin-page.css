@@ -1,6 +1,17 @@
 .admin-page {
   display: grid;
   gap: 24px;
+  min-width: 0;
+  max-width: 1240px;
+  margin-inline: auto;
+}
+
+.admin-page .content-card {
+  margin: 0;
+  min-width: 0;
+  padding: 20px;
+  border: 0;
+  box-shadow: none;
 }
 
 .admin-heading {
@@ -23,6 +34,8 @@
 
 .admin-page h2 {
   margin: 0 0 16px;
+  font-size: calc(17px * var(--text-scale));
+  font-weight: 600;
 }
 
 .admin-metrics {
@@ -39,12 +52,14 @@
 
 .admin-metric dt {
   color: var(--muted);
+  font-size: calc(13px * var(--text-scale));
+  line-height: 1.5;
 }
 
 .admin-metric dd {
   margin: 12px 0 0;
-  font-size: calc(clamp(1.6rem, 2vw, 2.1rem) * var(--text-scale));
-  font-weight: 700;
+  font-size: calc(28px * var(--text-scale));
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -63,11 +78,11 @@
   gap: 12px;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .admin-health-status {
-  border-radius: 999px;
+  border-radius: 5px;
   padding: 4px 10px;
   font-size: calc(0.85rem * var(--text-scale));
   font-weight: 600;
@@ -75,17 +90,18 @@
 }
 
 .admin-health-status.is-ready {
-  color: #17643d;
-  background: #e6f6ec;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
 }
 
 .admin-health-status.is-down {
-  color: #8e2020;
-  background: #ffeded;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
 }
 
 .admin-table-wrap {
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .admin-failures {
@@ -97,12 +113,25 @@
 .admin-failures th,
 .admin-failures td {
   padding: 12px 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
+  font-size: calc(13px * var(--text-scale));
+}
+
+.admin-failures thead {
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.admin-failures tbody tr:hover {
+  background: var(--surface-soft);
 }
 
 .admin-failures code {
   overflow-wrap: anywhere;
+  border-radius: 4px;
+  background: var(--surface-soft);
+  padding: 2px 4px;
 }
 
 .admin-empty {
@@ -112,6 +141,47 @@
 
 .admin-denied {
   max-width: 650px;
+}
+
+.admin-heading {
+  margin-bottom: 0;
+}
+.admin-as-of,
+.admin-build {
+  font-size: calc(12px * var(--text-scale));
+}
+.admin-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.admin-health-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 24px;
+}
+.admin-health-status {
+  font-size: calc(12px * var(--text-scale));
+}
+.admin-failures thead {
+  background: transparent;
+}
+.admin-failures th {
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+@media (max-width: 1100px) {
+  .admin-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .admin-metrics,
+  .admin-health-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+html[data-large-text="true"] .admin-metrics,
+html[data-large-text="true"] .admin-health-list {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (max-width: 600px) {

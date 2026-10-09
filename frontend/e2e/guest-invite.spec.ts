@@ -215,7 +215,9 @@ test("signed in invitation displays the account name and uses its existing membe
   const writes = await fixture(page, true);
   await page.goto(`/i/${code}`);
   await expect(
-    page.getByRole("heading", { name: "Анна Смирнова" }),
+    page
+      .locator(".prejoin-signed-in strong")
+      .getByText("Анна Смирнова", { exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Имя на встрече")).toHaveCount(0);
   await page.getByRole("button", { name: "Подключиться", exact: true }).click();

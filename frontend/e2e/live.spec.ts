@@ -30,24 +30,27 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
       .getByLabel("Email", { exact: true })
       .fill(`${name}-${stamp}@example.test`);
     await target.getByLabel("Пароль", { exact: true }).fill(password);
-    await target.getByLabel(/Как к вам обращаться/).fill(name);
+    await target.getByLabel(/Ваше имя/).fill(name);
     await target
       .getByRole("button", { name: "Зарегистрироваться", exact: true })
       .click();
     await expect(
-      target.getByRole("heading", { name: "Аккаунт создан!" }),
+      target.getByRole("heading", { name: "Вы в Meetrix." }),
     ).toBeVisible();
     await target.getByRole("link", { name: "Перейти в приложение" }).click();
   }
   await register(page, "Организатор");
-  await page.getByRole("link", { name: "Новая конференция" }).click();
-  await page.getByLabel("Название конференции").fill(`Frontend E2E ${stamp}`);
+  await page.getByRole("link", { name: "Новая встреча" }).click();
+  await page.getByLabel("Название встречи").fill(`Frontend E2E ${stamp}`);
   await page
-    .getByRole("button", { name: "Создать конференцию", exact: true })
+    .getByRole("button", { name: "Создать встречу", exact: true })
     .click();
   const invitation = await page.getByLabel("Ссылка-приглашение").inputValue();
   expect(new URL(invitation).pathname).toMatch(/^\/i\/[A-Za-z0-9_-]{32}$/);
-  await page.getByRole("link", { name: "Перейти в конференцию" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Открыть встречу", exact: true })
+    .click();
   const conferenceURL = page.url();
   await page.getByRole("button", { name: "Начать конференцию" }).click();
   await expect(
@@ -71,6 +74,10 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
       other.getByRole("button", { name: "Завершить конференцию", exact: true }),
     ).toHaveCount(0);
     await other.getByRole("button", { name: "Покинуть конференцию" }).click();
+    await other
+      .getByRole("dialog")
+      .getByRole("button", { name: "Выйти", exact: true })
+      .click();
     await expect(
       other.getByRole("button", { name: "Присоединиться", exact: true }),
     ).toBeVisible();
@@ -87,11 +94,11 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
       .click();
     await page.getByRole("button", { name: "Да, завершить" }).click();
     await expect(
-      page.getByRole("heading", { name: "Встреча закрыта" }),
+      page.getByText("Чат завершённой встречи", { exact: true }),
     ).toBeVisible();
     await other.reload();
     await expect(
-      other.getByRole("heading", { name: "Встреча закрыта" }),
+      other.getByText("Чат завершённой встречи", { exact: true }),
     ).toBeVisible();
     await other.goto(invitation);
     await expect(other.getByText("Встреча завершена.")).toBeVisible();

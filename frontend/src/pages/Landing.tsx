@@ -1,8 +1,14 @@
 import { Link } from "react-router";
-import { ArrowRight, CalendarDays, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowRight,
+  CirclePlay,
+  Link as LinkIcon,
+  MessageCircle,
+} from "lucide-react";
 import { useAuth } from "../auth";
 import { Brand } from "../components/ui";
 import { PRODUCT_NAME } from "../brand";
+import "./meetings-design.css";
 
 /**
  * Landing показывает приветственную страницу Meet и переходы к регистрации и входу.
@@ -13,7 +19,7 @@ import { PRODUCT_NAME } from "../brand";
 export function Landing() {
   const { user } = useAuth();
   return (
-    <div className="landing">
+    <div className="landing landing-design-page">
       <header className="landing-header">
         <Brand />
         <nav aria-label="Аккаунт">
@@ -27,7 +33,7 @@ export function Landing() {
                 Войти
               </Link>
               <Link className="button button-primary" to="/register">
-                Зарегистрироваться
+                Создать аккаунт <ArrowRight size={17} aria-hidden="true" />
               </Link>
             </>
           )}
@@ -36,56 +42,17 @@ export function Landing() {
       <main className="hero">
         <div className="hero-copy">
           <span className="eyebrow">
-            <span className="online-dot" />
-            Место для ваших встреч
+            {PRODUCT_NAME.toUpperCase()} · ВСТРЕЧИ. ИДЕИ. РЕЗУЛЬТАТЫ.
           </span>
           <h1>
-            Встречайтесь
+            Работайте вместе.
             <br />
-            без границ<span className="blue-dot">.</span>
+            <em>Где бы вы ни были.</em>
           </h1>
           <p className="hero-subtitle">
-            Простые и удобные конференции
-            <br className="desktop-only" /> для работы, обучения и общения.
+            Встречи, разговоры и важные материалы — в одном спокойном
+            пространстве для вашей команды.
           </p>
-          <div className="hero-features">
-            {[
-              {
-                Icon: ShieldCheck,
-                title: "Защищённый доступ",
-                text: "Ваш аккаунт и права участников под контролем",
-              },
-              {
-                Icon: Users,
-                title: "Встречи без лишних шагов",
-                text: "Создайте конференцию и поделитесь ссылкой",
-              },
-              {
-                Icon: CalendarDays,
-                title: "Всё в одном месте",
-                text: "Участники, приглашения и история встреч",
-              },
-            ].map(
-              /**
-               * Обработчик map преобразует текущий элемент в данные или представление результирующего списка.
-               *
-               * @args
-               *   - объект параметров: Icon — свойство текущего компонента; title — название встречи или диалога; text — обычный текст сообщения.
-               *
-               * @returns преобразованное значение текущего элемента для результирующего набора.
-               */ ({ Icon, title, text }) => (
-                <div className="hero-feature" key={title}>
-                  <span className="feature-icon">
-                    <Icon size={23} />
-                  </span>
-                  <div>
-                    <strong>{title}</strong>
-                    <p>{text}</p>
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
           <Link
             to={user ? "/app" : "/register"}
             className="button button-primary hero-cta"
@@ -94,12 +61,10 @@ export function Landing() {
             <ArrowRight size={18} />
           </Link>
           <span className="hero-note">
-            Видеосвязь, совместная работа и материалы встреч в одном месте.
+            По приглашению можно войти без аккаунта.
           </span>
         </div>
         <div className="hero-visual">
-          <div className="hero-orbit orbit-one" />
-          <div className="hero-orbit orbit-two" />
           <img
             src="/media/meet-laptop.png"
             alt="Ноутбук с четырьмя участниками видеовстречи — иллюстрация"
@@ -107,20 +72,39 @@ export function Landing() {
             height="1024"
             fetchPriority="high"
           />
-          <div className="hero-floating">
-            <span className="floating-check">
-              <ShieldCheck size={22} />
-            </span>
-            <span>
-              <strong>Ваша следующая встреча</strong>
-              <small>начинается здесь</small>
-            </span>
-          </div>
         </div>
       </main>
+      <section
+        className="landing-design-features"
+        aria-label="Возможности Meetrix"
+      >
+        {[
+          {
+            Icon: LinkIcon,
+            title: "Просто присоединиться",
+            text: "Создайте встречу и поделитесь ссылкой.",
+          },
+          {
+            Icon: MessageCircle,
+            title: "Разговор продолжается",
+            text: "Личные и групповые чаты для рабочих вопросов.",
+          },
+          {
+            Icon: CirclePlay,
+            title: "Важное остаётся",
+            text: "Записи и материалы завершённых встреч.",
+          },
+        ].map(({ Icon, title, text }) => (
+          <article key={title}>
+            <Icon size={24} aria-hidden="true" />
+            <h2>{title}</h2>
+            <p>{text}</p>
+          </article>
+        ))}
+      </section>
       <footer className="landing-footer">
-        <span>{PRODUCT_NAME} — быть рядом стало проще.</span>
-        <span>Создавайте. Приглашайте. Встречайтесь.</span>
+        <strong>{PRODUCT_NAME}</strong>
+        <span>Одно место для вашей команды.</span>
       </footer>
     </div>
   );

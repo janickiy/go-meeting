@@ -2,18 +2,19 @@
   height: 690px;
 }
 .account-dialog-panel.account-media-panel {
-  padding: 18px;
-  background: var(--surface-soft);
+  padding: 32px;
+  background: var(--surface);
 }
 .device-settings {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 20px;
   font-size: calc(14px * var(--text-scale, 1));
 }
 .device-card {
-  padding: 22px;
-  border-radius: 18px;
+  padding: 4px 0 16px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
   background: var(--surface);
   min-width: 0;
 }
@@ -39,11 +40,11 @@
   flex: 1;
   width: 100%;
   min-width: 0;
-  min-height: 42px;
+  min-height: 44px;
   padding: 10px 30px 10px 12px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background-color: var(--surface-soft);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background-color: var(--surface);
   color: var(--text);
   font: inherit;
   text-overflow: ellipsis;
@@ -65,10 +66,10 @@
   justify-content: center;
   gap: 7px;
   padding: 10px 14px;
-  min-height: 42px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--surface-soft);
+  min-height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 600;
@@ -89,7 +90,7 @@
   position: relative;
   align-items: center;
   gap: 16px;
-  min-height: 48px;
+  min-height: 60px;
   padding: 10px 0;
   line-height: 1.45;
   cursor: pointer;
@@ -134,7 +135,7 @@
   transition: transform 0.15s;
 }
 .device-toggle-row input:checked + .device-switch {
-  background: #0ab854;
+  background: var(--primary);
 }
 .device-toggle-row input:checked + .device-switch::after {
   transform: translateX(18px);
@@ -148,20 +149,20 @@
 }
 .device-level {
   display: flex;
-  gap: 5px;
+  gap: 3px;
   flex-shrink: 0;
 }
 .device-level i {
-  width: 6px;
-  height: 16px;
+  width: 4px;
+  height: 14px;
   background: var(--surface-soft);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
 }
 .device-level i.lit,
 .device-level-playing i {
-  background: #0ab854;
-  border-color: #0ab854;
+  background: var(--success);
+  border-color: var(--success);
 }
 .device-output-label {
   display: block;
@@ -196,8 +197,8 @@
   aspect-ratio: 16 / 9;
   max-height: 320px;
   overflow: hidden;
-  border-radius: 12px;
-  background: #181d27;
+  border-radius: 10px;
+  background: #242127;
   position: relative;
 }
 .device-camera-preview video {
@@ -215,7 +216,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #d8dfeb;
+  color: #f4f0f6;
 }
 .device-camera-select {
   display: flex;
@@ -229,13 +230,13 @@
 .device-camera-select select {
   flex: 0 1 70%;
 }
-@media (max-width: 680px) {
+@media (max-width: 767px) {
   .account-dialog-panel.account-media-panel {
-    padding: 12px;
+    padding: 20px 16px;
   }
   .device-card {
-    padding: 16px;
-    border-radius: 14px;
+    padding: 4px 0 16px;
+    border-radius: 0;
   }
   .device-select-row .device-select {
     flex-basis: 100%;

@@ -2,7 +2,7 @@
   margin-top: 10px;
 }
 .conference-invitation-form {
-  margin-top: 24px;
+  margin-top: 20px;
   text-align: left;
 }
 .conference-invitation-form .field {
@@ -87,9 +87,10 @@
   max-width: 100%;
   border: 1px solid var(--border, #e2eaf8);
   border-radius: 20px;
-  padding: 5px 7px 5px 11px;
-  background: var(--surface, #f4f6fb);
-  font-size: calc(11px * var(--text-scale));
+  padding: 2px 4px 2px 8px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: calc(13px * var(--text-scale));
 }
 .invitation-selected span {
   overflow-wrap: anywhere;
@@ -103,6 +104,27 @@
   padding: 5px;
   color: inherit;
   background: transparent;
+  width: 44px;
+  height: 44px;
+}
+.invitation-form-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--text-scale));
+}
+.invitation-form-divider::before,
+.invitation-form-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--border);
+}
+.conference-invitations > .field-hint {
+  margin: 0;
+  font-size: calc(13px * var(--text-scale));
 }
 .invitation-selected button:hover {
   background: #172b4b12;

@@ -278,8 +278,8 @@ it("hides optional panels behind server flags and never mounts media while waiti
   expect(screen.queryByRole("tab", { name: "Субтитры" })).toBeNull();
   expect(screen.queryByTestId("analytics-panel")).toBeNull();
   expect(
-    screen.getByText("Субтитры отключены для этой установки."),
-  ).toBeInTheDocument();
+    screen.queryByText("Субтитры отключены для этой установки."),
+  ).not.toBeInTheDocument();
   view.unmount();
   fixture.membership.status = "waiting";
   fixture.membership.admissionState = "waiting";
@@ -356,17 +356,43 @@ it("при завершении переключается на историю �
     "data-focus-message",
     "saved-message",
   );
-  await waitFor(() => expect(screen.getByText("2 мин")).toBeInTheDocument());
+  await waitFor(() => expect(historyRequest).toHaveBeenCalled());
   expect(
-    screen.getByRole("region", { name: "История встречи" }),
-  ).toBeInTheDocument();
-  expect(screen.getByText("Алиса")).toBeInTheDocument();
+    screen.getByRole("link", { name: "К материалам встречи" }),
+  ).toHaveAttribute("href", "/history/room");
+  expect(screen.getByText("Чат завершённой встречи")).toBeInTheDocument();
+  expect(screen.getByText("Только чтение")).toBeInTheDocument();
+  expect(screen.queryByTestId("analytics-panel")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Пригласить участников" }),
+  ).not.toBeInTheDocument();
   expect(fixture.realtimeEnabled).toEqual([true, false]);
   expect(fixture.realtimeOwnersCreated).toBe(1);
   expect(fixture.realtimeMaxOwners).toBe(1);
   view.unmount();
   view.client.clear();
   historyRequest.mockRestore();
+});
+
+it("в ожидании показывает только имя встречи и безопасный выход без материалов", () => {
+  fixture.membership.status = "waiting";
+  fixture.membership.admissionState = "waiting";
+  const view = page();
+  expect(
+    view.container.querySelector(".conference-waiting-page"),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Имя во встрече: Алиса")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "К встречам" })).toHaveAttribute(
+    "href",
+    "/conferences",
+  );
+  expect(screen.queryByRole("textbox", { name: "Сообщение" })).toBeNull();
+  expect(screen.queryByTestId("analytics-panel")).toBeNull();
+  expect(screen.queryByTestId("realtime-panel")).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: "К материалам встречи" }),
+  ).toBeNull();
+  view.client.clear();
 });
 
 it("перед повторным входом открывает проверку устройств без подключения медиа", () => {

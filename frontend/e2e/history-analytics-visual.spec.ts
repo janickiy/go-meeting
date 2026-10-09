@@ -8,6 +8,7 @@ const user = {
   displayName: "Алексей Петров",
   createdAt,
   updatedAt: createdAt,
+  isAdmin: true,
 };
 const conference = {
   id: "visual-room",
@@ -49,7 +50,14 @@ const recording = {
  * @args page — браузерная страница теста.
  * @return Завершение установки фикстур API.
  */
-async function visualFixture(page: Page) {
+async function visualFixture(
+  page: Page,
+  overview: {
+    admission?: "waiting" | "rejected";
+    closed?: boolean;
+    chat?: "default" | "empty" | "loading" | "error";
+  } = {},
+) {
   await page.addInitScript(() => {
     sessionStorage.setItem(
       "meet.session.v1",
@@ -99,9 +107,48 @@ async function visualFixture(page: Page) {
     if (path === "/notifications")
       return reply({
         status: "success",
-        items: [],
-        unreadCount: 0,
+        items: [
+          {
+            id: "visual-notification",
+            eventId: "visual-event",
+            userId: user.id,
+            type: "recording.ready",
+            payload: { conferenceId: conference.id, title: conference.title },
+            createdAt,
+            readAt: null,
+          },
+        ],
+        unreadCount: 1,
         nextCursor: null,
+      });
+    if (path === "/admin/summary")
+      return reply({
+        status: "success",
+        item: {
+          asOf: createdAt,
+          activeConferences: 3,
+          joinedParticipants: 18,
+          activeRecordings: 2,
+          queuedJobs: 4,
+          failedJobs24h: 1,
+          failedRecordings24h: 0,
+          failedTranscriptions24h: 1,
+          apiReady: true,
+          mediaWorkerReady: true,
+          dependencies: {
+            postgres: true,
+            redis: true,
+            rabbitmq: true,
+            minio: false,
+          },
+          recentFailures: [
+            {
+              kind: "transcription",
+              code: "provider_unavailable",
+              at: createdAt,
+            },
+          ],
+        },
       });
     if (path === "/me/conferences" && url.searchParams.get("view") === "active")
       return reply({ status: "success", items: [], nextCursor: null });
@@ -115,8 +162,62 @@ async function visualFixture(page: Page) {
         ],
         nextCursor: null,
       });
+    if (path === `/conferences/${conference.id}`)
+      return reply({
+        status: "success",
+        item: {
+          ...conference,
+          status:
+            overview.admission && !overview.closed ? "active" : "finished",
+        },
+      });
     if (path === `/conferences/${conference.id}/participants/me`)
-      return reply({ status: "success", item: member });
+      return reply({
+        status: "success",
+        item: overview.admission
+          ? {
+              ...member,
+              status: overview.admission,
+              admissionState: overview.admission,
+              role: "participant",
+            }
+          : member,
+      });
+    if (path === `/conferences/${conference.id}/participants`)
+      return reply({ status: "success", items: [member], nextCursor: null });
+    if (path === `/conferences/${conference.id}/chat/read`)
+      return reply({
+        status: "success",
+        item: { lastReadMessageId: "archive-message", unreadCount: 0 },
+      });
+    if (path === `/conferences/${conference.id}/messages`) {
+      if (overview.chat === "loading") return;
+      if (overview.chat === "error") return reply({ code: "forbidden" }, 403);
+      return reply({
+        status: "success",
+        items:
+          overview.chat === "empty"
+            ? []
+            : [
+                {
+                  id: "archive-message",
+                  sequence: "1",
+                  conferenceId: conference.id,
+                  senderId: "other",
+                  senderName: "Мария Соколова",
+                  text: "Итоги встречи сохранены. Спасибо команде за обсуждение!",
+                  createdAt,
+                  updatedAt: createdAt,
+                  deletedAt: null,
+                  version: 1,
+                  attachments: [],
+                },
+              ],
+        nextCursor: null,
+        unreadCount: 0,
+        lastReadMessageId: "archive-message",
+      });
+    }
     if (path === `/conferences/${conference.id}/history`)
       return reply({
         status: "success",
@@ -182,6 +283,34 @@ async function visualFixture(page: Page) {
             text: "Следующий шаг — согласовать план работ и проверить ключевые сценарии.",
           },
         ],
+      });
+    if (path.endsWith("/summary"))
+      return reply({
+        status: "success",
+        enabled: true,
+        providerMode: "http",
+        canRegenerate: true,
+        item: {
+          id: "visual-summary",
+          recordingId: recording.uuid,
+          status: "ready",
+          summary:
+            "Команда согласовала последовательность запуска приложения и финальную проверку пользовательских сценариев.",
+          keyPoints: [
+            "Проверить регистрацию и переход к встрече",
+            "Завершить проверку клавиатурной навигации",
+          ],
+          actionItems: [
+            {
+              text: "Собрать обратную связь по запуску",
+              assignee: "Мария",
+              sourceSegmentIds: [],
+            },
+          ],
+          topics: ["Запуск", "Доступность"],
+          createdAt,
+          updatedAt: createdAt,
+        },
       });
     if (path.endsWith("/analytics"))
       return reply({
@@ -311,6 +440,7 @@ test("история, материалы, настройки и аналитик
     await page.goto(url);
     if (url === "/app/settings") {
       await expect(settings).toBeVisible();
+      await settings.getByRole("tab", { name: "Профиль", exact: true }).click();
       await expect(
         settings.getByRole("heading", {
           name: "Настройки аккаунта",
@@ -336,3 +466,167 @@ test("история, материалы, настройки и аналитик
     });
   }
 });
+
+for (const [state, heading] of [
+  ["waiting", "Вы в зале ожидания"],
+  ["rejected", "Запрос отклонён"],
+  ["closed", "Встреча завершена"],
+] as const) {
+  test(`зал ожидания: ${state}, без медиа и материалов`, async ({
+    page,
+  }, info) => {
+    const requests: string[] = [];
+    page.on("request", (request) =>
+      requests.push(new URL(request.url()).pathname),
+    );
+    await visualFixture(page, {
+      admission: state === "rejected" ? "rejected" : "waiting",
+      closed: state === "closed",
+    });
+    await page.setViewportSize({
+      width: state === "waiting" ? 1440 : 390,
+      height: 900,
+    });
+    await page.goto(`/conferences/${conference.id}`);
+    await expect(
+      page.getByRole("heading", { name: heading, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "К встречам", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".sidebar")).toBeHidden();
+    await expect(page.locator(".app-chrome")).toBeHidden();
+    await expect(page.locator("video, audio, textarea")).toHaveCount(0);
+    expect(
+      requests.some((path) =>
+        /\/(recordings|history|messages|analytics|participants)$/.test(path),
+      ),
+    ).toBe(false);
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      )
+      .toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`waiting-${state}.png`),
+      fullPage: true,
+    });
+  });
+}
+
+for (const chat of ["default", "empty", "loading", "error"] as const) {
+  test(`архив чата: ${chat}, без редактора и управляющих панелей`, async ({
+    page,
+  }, info) => {
+    await visualFixture(page, { chat });
+    await page.setViewportSize({
+      width: chat === "default" ? 1440 : 390,
+      height: 1000,
+    });
+    await page.goto(`/conferences/${conference.id}`);
+    await expect(
+      page.getByText("Чат завершённой встречи", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "К материалам встречи" }),
+    ).toHaveAttribute("href", `/history/${conference.id}`);
+    await expect(
+      page.getByText("Только чтение", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("textarea, video, audio")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Начать запись", exact: true }),
+    ).toHaveCount(0);
+    if (chat === "default")
+      await expect(
+        page.getByText(
+          "Итоги встречи сохранены. Спасибо команде за обсуждение!",
+        ),
+      ).toBeVisible();
+    if (chat === "empty")
+      await expect(page.getByText("В чате пока нет сообщений")).toBeVisible();
+    if (chat === "loading")
+      await expect(page.locator(".messaging-skeleton")).toBeVisible();
+    if (chat === "error")
+      await expect(
+        page.getByRole("button", { name: "Повторить загрузку чата" }),
+      ).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      )
+      .toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`history-chat-${chat}.png`),
+      fullPage: true,
+    });
+  });
+}
+
+for (const [width, theme, textSize] of [
+  [1440, "light", 100],
+  [834, "dark", 100],
+  [390, "light", 100],
+  [390, "dark", 200],
+] as const) {
+  test(`материалы, уведомления и операции соответствуют компоновке макетов: ${width} ${theme} ${textSize}`, async ({
+    page,
+  }, info) => {
+    await visualFixture(page);
+    await page.addInitScript(
+      ({ theme, textSize }) =>
+        localStorage.setItem(
+          "go-recorder.appearance.v1:visual-user",
+          JSON.stringify({ version: 1, theme, textSize }),
+        ),
+      { theme, textSize },
+    );
+    await page.setViewportSize({ width, height: 1000 });
+    for (const [path, name, ready] of [
+      ["/history/visual-room", "history-overview", "Обзор встречи"],
+      [
+        "/history/visual-room?section=transcript&tab=transcript",
+        "transcript",
+        "Расшифровка встречи",
+      ],
+      [
+        "/history/visual-room?section=summary&tab=summary",
+        "summary",
+        "Итоги встречи",
+      ],
+      ["/notifications", "notifications", "Уведомления"],
+      ["/admin", "admin", "Состояние сервиса"],
+      ["/analytics?conference=visual-room", "analytics", "Аналитика встречи"],
+    ]) {
+      await page.goto(path);
+      await expect(
+        page.getByRole("heading", { name: ready, exact: true }).first(),
+      ).toBeVisible();
+      if (name === "transcript")
+        await expect(
+          page.getByText("Обсудим итоги квартала и планы на следующий период."),
+        ).toBeVisible();
+      if (name === "summary")
+        await expect(
+          page.getByText("Собрать обратную связь по запуску"),
+        ).toBeVisible();
+      if (name === "admin")
+        await expect(page.getByText("provider_unavailable")).toBeVisible();
+      if (name === "analytics")
+        await expect(page.getByRole("table")).toBeVisible();
+      if (name === "notifications")
+        await expect(page.locator(".notification-page-icon")).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        )
+        .toBe(true);
+      await page.screenshot({
+        path: info.outputPath(`${name}-${width}.png`),
+        fullPage: true,
+      });
+    }
+  });
+}

@@ -105,7 +105,7 @@ test("default camera and microphone, immediate guest admission, real media and c
     await expect
       .poll(() =>
         guest
-          .locator(".invite-entry-preview video")
+          .locator(".prejoin-video-frame video")
           .evaluate((video: HTMLVideoElement) => video.videoWidth),
       )
       .toBeGreaterThan(0);

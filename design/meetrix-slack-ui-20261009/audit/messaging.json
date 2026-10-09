@@ -1,0 +1,133 @@
+{
+  "scope": "Аудит кода для дизайна: личные и групповые чаты, папки, настройки, уведомления. Ни frontend, ни backend не изменялись.",
+  "sourceRoot": "/Users/aleksandranickij/htdocs/go-recorder",
+  "brief": "/Users/aleksandranickij/Documents/PROMPT_MEETRIX_ADAPTIVE_UI_UX_DESIGN.md",
+  "contractRule": "Фактический код имеет приоритет над примерами брифа. История не возвращается в навигацию; Интеграции и Безопасность не возвращаются в настройки.",
+  "routes": [
+    {"path":"/personal","screen":"Список личных и групповых переписок; пустая выбранная область","auth":"Зарегистрированная учётная запись","source":"frontend/src/App.tsx:230"},
+    {"path":"/personal/:id","screen":"Личный или групповой чат по type из API","auth":"Активный участник диалога","source":"frontend/src/App.tsx:231"},
+    {"path":"/folders","screen":"Все личные папки","auth":"Зарегистрированная учётная запись","source":"frontend/src/App.tsx:228"},
+    {"path":"/folders/:id","screen":"Встречи и переписки в своей папке","auth":"Владелец папки","source":"frontend/src/App.tsx:229"},
+    {"path":"/notifications","screen":"Полный список уведомлений","auth":"Зарегистрированная учётная запись","source":"frontend/src/App.tsx:249"},
+    {"path":"/app/settings | /settings","screen":"Модальное окно Настройки аккаунта; обычный клик Настройки открывает поверх текущего экрана","source":"frontend/src/components/Layout.tsx:56"},
+    {"path":"/history | /history/:id","screen":"Совместимые прямые маршруты материалов встреч; отсутствуют в основном меню","source":"frontend/src/App.tsx:247"}
+  ],
+  "navigation": {
+    "actualWorkspace":["Главная /app","Встречи /conferences","Личные /personal","Календарь /calendar","Записи /recordings"],
+    "actualConditional":["Аналитика /analytics только capabilities.meetingAnalytics","Администрирование /admin только user.isAdmin"],
+    "personalSpace":["Папки /folders"],
+    "service":["Настройки как модальный сценарий","Уведомления из topbar","Профиль и выход"],
+    "source":"frontend/src/components/Layout.tsx:157",
+    "proposed":"Сохранить текущие разделы. В Личные заменить единственную CTA Создать группу меню Новый чат с вариантами Личный/Группа; личный сценарий уже поддержан API, но новая точка входа требует frontend wiring. Не добавлять Историю в Ещё."
+  },
+  "personalChat": {
+    "list": {
+      "fields":["id","type direct/group","displayName или name","initials или приватный group avatar","preview","lastMessageAt","unreadCount","direct notificationsEnabled","group lastSender"],
+      "filters":["Все","Личные type=direct","Группы type=group","Новые unreadOnly=true"],
+      "search":"По имени собеседника или названию группы; 0–100 символов; задержка 300 мс; URL search/filter сохраняются при переходах",
+      "pagination":"cursor before; frontend запрашивает 50; кнопка Ещё переписки; сервер максимум 100",
+      "sources":["frontend/src/pages/PersonalPage.tsx:89","frontend/src/pages/PersonalPage.tsx:164","internal/domain/personal/groups.go:134","internal/infrastructure/postgres/personal_repository.go:152"]
+    },
+    "directStart": {
+      "api":["GET /api/v1/users?search=...","POST /api/v1/conversations/direct {userId}"],
+      "currentEntry":"Написать участнику из информации о чате встречи; отдельной CTA Новый личный чат в PersonalPage сейчас нет",
+      "searchConstraints":"Имя 2–100 символов; до 20 результатов; без самого себя и гостей",
+      "sources":["frontend/src/components/ConferenceChatInfo.tsx:690","frontend/src/api.ts:1105","internal/infrastructure/postgres/personal_repository.go:224"]
+    },
+    "directActions":[
+      {"label":"Информация","effect":"Стандартный Modal; имя, инициалы, UUID. Клик имени/аватара header открывает тот же сценарий.","limits":"API не даёт email, фото или присутствие собеседника; не рисовать эти поля","source":"frontend/src/components/DirectConversationActions.tsx:44"},
+      {"label":"Без уведомлений / Включить уведомления","api":"PATCH /api/v1/conversations/:id/preferences {notificationsEnabled}","effect":"Личная настройка; не меняет настройки собеседника. BellOff в списке и подпись в header.","source":"frontend/src/components/DirectConversationActions.tsx:274"},
+      {"label":"Добавить в папку","effect":"Открывает универсальный FolderPicker; множественное членство","source":"frontend/src/components/DirectConversationActions.tsx:287"},
+      {"label":"Очистить историю","api":"POST /api/v1/conversations/:id/clear-history","effect":"Необратимая очистка видимой истории только для себя. Диалог остаётся. Подтверждение, отмена по умолчанию.","source":"frontend/src/components/DirectConversationActions.tsx:325"},
+      {"label":"Удалить чат","api":"POST /api/v1/conversations/:id/hide","effect":"Скрывает у себя из списка/папок и очищает свою историю. Новый входящий ответ возвращает диалог. История собеседника не меняется.","source":"frontend/src/components/DirectConversationActions.tsx:330"}
+    ],
+    "messages": {
+      "supported":["Текст","Unicode emoji: 64 существующих варианта","Ответ с цитатой","Редактировать своё сообщение","Удалить своё сообщение с подтверждением","Пометка изменено","Удалённое сообщение как tombstone","Разделители по датам","Вложения","Непрочитанные счётчики и личный курсор чтения","Пагинация старых сообщений","Отправка с pending/повтором при ошибке"],
+      "unsupported":["Голосовые сообщения","Звонок из личного чата","Стикер-паки/GIF","Статус печатает","Галочки прочитано собеседником","Закрепление/Важное в личных и групповых чатах","Модерация чужих сообщений в группах через текущий UI","Форвард сообщений","Email/last seen для собеседника"],
+      "textLimit":"4000 Unicode codepoints; можно отправить только файл без текста",
+      "attachments":"До 5 файлов, каждый от 1 байта до 10 МиБ; JPG/JPEG/PNG/WebP/PDF/TXT/CSV. Прогресс, ошибка, повтор, отмена/убрать из очереди. Ссылка скачивания через backend, для group авторизованный content endpoint.",
+      "api":"/api/v1/conversations/:id/messages (GET/POST), /messages/:messageId (PATCH/DELETE), /read (POST), /chat/read (GET), /attachments/init (POST), /attachments/:id/content (PUT), /attachments/:id/finalize (POST), /attachments/:id/download (GET)",
+      "sources":["frontend/src/components/ChatPanel.tsx:104","frontend/src/components/ChatPanel.tsx:430","frontend/src/components/ChatPanel.tsx:724","frontend/src/components/AttachmentUploader.tsx:16","frontend/src/emoji.ts:2","internal/transport/http/chat_routes.go:40"]
+    },
+    "realtime": {
+      "transport":"userWSTicket → /api/v1/ws; message create/update/delete, read, membership, prefs, clear/hide, folder events; REST fallback/refetch",
+      "retry":"Exponential 1–30 seconds + jitter; refresh on reconnect; notices for messages outside active conversation; 6 second dismiss timer",
+      "gap":"Hook returns unread/notice/dismiss only. A visible connecting/reconnecting/failed indicator requires frontend connection-state plumbing; no backend protocol change needed. Do not imply already-present delivery/read receipts.",
+      "source":"frontend/src/personalRealtime.ts:206"
+    },
+    "states":["Первичная загрузка списка/истории","Нет переписок","Нет групп","Нет непрочитанных","Поиск ничего не нашёл","Диалог не выбран","Пустой диалог","Отправляется","Отправка не удалась + повтор","Файл загружается/готов/ошибка/повтор","Доступ отозван → возврат в список","Сохранение действия","Ошибка действия","Подтверждение очистки/удаления","Офлайн/переподключение — дизайн состояния с frontend gap"]
+  },
+  "groups": {
+    "fields":["Название 1–50 символов","Описание 0–200 символов","Аватар PNG/JPEG до 2 МиБ","memberCount максимум 100 вместе с владельцем","myRole owner/admin/member","Список участников: id/displayName/role/nullable online"],
+    "create":"Зарегистрированный пользователь; можно создать без приглашённых, выбрать до 99 пользователей; поиск минимум 2 символа. clientRequestId защищает повтор. Если группа создана, но avatar upload не удался, Повторить загрузку / Открыть без аватара.",
+    "actionsByRole": {
+      "member":["Открыть информацию и список участников","Поиск среди участников","Читать/отправлять сообщения","Выйти из группы","Добавить в свою папку"],
+      "admin":["Все действия member","Добавить участников до общего лимита 100","Изменить название/описание/аватар","Убрать обычного member"],
+      "owner":["Все действия admin","Назначить/снять admin","Убрать admin/member","Передать владение участнику (сам становится admin)","Удалить группу для всех"]
+    },
+    "leaveConstraint":"Владелец при memberCount>1 сначала передаёт владение; единственный владелец может выйти с удалением группы. Удаление/выход — отдельное подтверждение.",
+    "presence":"Только в member list, только при online===true/false и доступной свежей сети; null/error/offline query → Статус недоступен. Не экстраполировать на direct peer.",
+    "api":["POST /api/v1/conversations/group","PATCH/DELETE /api/v1/conversations/:id","GET/POST /api/v1/conversations/:id/members","PATCH/DELETE /api/v1/conversations/:id/members/:userId","POST /api/v1/conversations/:id/ownership","POST /api/v1/conversations/:id/leave","PUT/DELETE /api/v1/conversations/:id/avatar","GET /api/v1/conversations/:id/avatar/content"],
+    "sources":["internal/domain/personal/groups.go:18","internal/infrastructure/postgres/group_repository.go:37","internal/infrastructure/postgres/group_repository.go:214","internal/infrastructure/postgres/group_repository.go:253","internal/infrastructure/postgres/group_repository.go:289","internal/infrastructure/postgres/group_repository.go:323","frontend/src/components/GroupChats.tsx:283","frontend/src/components/GroupChats.tsx:665"],
+    "states":["Создание","Валидация","Поиск участников загрузка/пусто/ошибка","Лимит участников","Частичный успех: группа создана, аватар не загружен","Информация загрузка/ошибка","Участник удалён/права изменены","Подтверждение исключения/выхода/передачи/удаления","Потеря доступа"]
+  },
+  "folders": {
+    "kind":"Универсальные личные папки со ссылками на доступные встречи и direct/group чаты; не группы чатов и не совместные папки",
+    "fields":["name 1–50 Unicode codepoints NFC","position","itemCount","conversationCount","conferenceCount"],
+    "limits":"До 100 папок. Имена уникальны с case folding. Поиск элементов 0–100 символов. Элемент может входить в несколько папок. Папка не выдаёт приглашение или права на исходный объект.",
+    "listActions":["Создать","Открыть","Переименовать","Переместить выше/ниже","Удалить папку (подтверждение; встречи/чаты сохраняются)"],
+    "detailActions":["Назад к папкам","Фильтры Все/Встречи/Чаты","Поиск по названию/собеседнику","Добавить существующие элементы","Открыть исходный объект","Добавить элемент в другую папку","Удалить ссылку из текущей папки","Ещё элементы по cursor"],
+    "api":["GET/POST /api/v1/folders","PUT /api/v1/folders/order","GET/PATCH/DELETE /api/v1/folders/:id","GET /api/v1/folders/:id/items","GET /api/v1/folder-items","PUT/DELETE /api/v1/folders/:id/items/:kind/:itemId"],
+    "states":["Загрузка","Пустой список","Пустая папка","Поиск без результата","Папка недоступна → список","Элемент потерял доступ → скрыт","Дубликат имени","Достигнут лимит 100","Сохранение/ошибка","Перестановка","Удаление/подтверждение"],
+    "sources":["internal/domain/folders/folders.go:15","internal/transport/http/folder_routes.go:30","frontend/src/pages/FoldersPage.tsx:45","frontend/src/components/FolderModals.tsx:71","frontend/src/components/FolderModals.tsx:204"]
+  },
+  "settings": {
+    "presentation":"Настройки аккаунта в standard Modal над активной страницей. Desktop nav | panel, гостям только Аудио/Видео/Оформление. Нельзя размонтировать активную встречу при открытии.",
+    "sections": {
+      "Профиль":{"fields":["Имя 1–100 символов, редактируется","Email readonly","Дата регистрации","Аватар только инициалы"],"action":"Сохранить имя; pending/error/saved; email/photo/password менять нельзя"},
+      "Аудио":{"fields":["Микрофон select","Проверить/остановить + уровень RMS","Подключаться с выключенным микрофоном","Шумоподавление при browser support","Динамик select + Проверить","Источник звука уведомлений select + Проверить"],"limits":"Устройства/настройки сохраняются в браузере; HTTPS; output select только setSinkId/selectAudioOutput support; permission denied/no device/busy/removed/loading states"},
+      "Видео":{"fields":["Предпросмотр камеры","Камера select","Подключаться с выключенной камерой","Видеть себя на звонке","Скрыть видео участников"],"limits":"Нет размытия/виртуальных фонов, ручного разрешения, beauty filters. Preview owns stream and stops on close/switch"},
+      "Уведомления":{"events":["Приглашения и изменения встреч","Напоминания о встречах","Готовность записи","Расшифровка и итоги встречи"],"channels":["Email","Push"],"limits":"Состояния каналов из integration capabilities: noop disabled, mock явно тестовый, http/smtp доступны. Push настройка не означает регистрацию web-push устройства. Приглашения организатора приходят отдельно от автоматических уведомлений."},
+      "Оформление":{"themes":["Светлая по умолчанию","Тёмная"],"textPercent":[75,90,100,110,125,150,200],"storage":"Мгновенно локально по аккаунту в этом браузере; нет синхронизации между устройствами; storage error сохраняет только до reload"}
+    },
+    "excluded":["Интеграции","Безопасность","Изменить email","Загрузить фото профиля","Изменить пароль","Язык","Часовой пояс","Системная auto theme"],
+    "sources":["frontend/src/pages/AccountPages.tsx:40","frontend/src/pages/AccountPages.tsx:100","frontend/src/pages/AccountPages.tsx:297","frontend/src/components/DeviceSettings.tsx:318","frontend/src/components/DeviceSettings.tsx:495","frontend/src/components/IntegrationsSettings.tsx:199","frontend/src/appearance.tsx:14"]
+  },
+  "notifications": {
+    "surfaces":"Topbar bell с unread badge (99+), сейчас стандартный wide Modal; отдельная страница /notifications существует",
+    "fields":["Тип события → человекочитаемый заголовок","Дата/время","readAt/unread style","Ссылка Открыть встречу только если conferenceId есть"],
+    "actions":["Открыть встречу + пометить прочитанным","Отметить одно как прочитанное","Ещё уведомления cursor 30","Повторить загрузку"],
+    "api":["GET /api/v1/notifications?limit=30&cursor=...","POST /api/v1/notifications/:notificationId/read","GET /api/v1/notifications/events (SSE)","GET/PUT /api/v1/notifications/preferences"],
+    "limits":"Нет отметить все, удалить, фильтра Все/Непрочитанные в текущем контракте списка. Личные message notices — отдельный WS toast, не автоматически долговечные rows notification inbox.",
+    "states":["Непрочитанное","Прочитанное","Пусто","Загрузка","Ошибка + повтор","Mark-read pending/error","Следующая страница"],
+    "sources":["frontend/src/components/NotificationBell.tsx:48","frontend/src/pages/NotificationsPage.tsx:17","internal/transport/http/notification_routes.go:14","internal/transport/http/integration_routes.go:45"]
+  },
+  "uxFindings": [
+    {"id":"MSG-01","severity":"medium","finding":"Личные переписки нельзя начать из главного экрана Личные: единственная CTA создаёт группу; existing direct API используется только из участника встречи.","design":"Меню Новый чат → Личный / Группа; единый поиск людей с тем же GET users. Отметить как новую frontend-точку входа, а не новый backend.","source":"frontend/src/pages/PersonalPage.tsx:162"},
+    {"id":"MSG-02","severity":"medium","finding":"На tablet 768 двухколоночная personal-page сохраняет 260–340px list до breakpoint 760; после shell и внутренних полей чат становится узким.","design":"На 768 tablet свернуть глобальный sidebar до icon rail и ограничить list 272px; при оставшейся ширине conversation <420px показывать list/detail раздельно. Mobile всегда single pane.","source":"frontend/src/pages/personal.css:3"},
+    {"id":"MSG-03","severity":"medium","finding":"Действия сообщения имеют min-height26px и текст10px; group role controls36px, delete-chip около22px. Не достигают brief target44px.","design":"44×44px все touch actions; message actions compact desktop menu и mobile context sheet, с клавиатурной альтернативой long press.","sources":["frontend/src/styles.css:346","frontend/src/components/group-chats.css:183","frontend/src/components/group-chats.css:74"]},
+    {"id":"MSG-04","severity":"medium","finding":"В личных/групповых стилях font-size12/13/24px фиксированы и не умножены на --text-scale; общий body scale не масштабирует явно заданный размер.","design":"Все типографические токены учитывают 75–200%; карточки/кнопки увеличиваются по контенту; проверить 200% без потери actions.","sources":["frontend/src/pages/personal.css:25","frontend/src/pages/personal.css:79","frontend/src/components/group-chats.css:209","frontend/src/appearance.css:2"]},
+    {"id":"MSG-05","severity":"medium","finding":"WS reconnection silent, hook не возвращает connection status; интерфейс может выглядеть актуальным при восстановлении.","design":"Неблокирующая строка Переподключаемся и offline state композера с retry; требуется frontend instrumentation.","source":"frontend/src/personalRealtime.ts:401"},
+    {"id":"MSG-06","severity":"low","finding":"Group user picker после поиска без результатов показывает пустой ul; нет ясного пустого состояния.","design":"Никого не нашли + изменить имя. Аналогичное empty для фильтра участников.","source":"frontend/src/components/GroupChats.tsx:227"},
+    {"id":"SET-01","severity":"medium","finding":"В mobile settings остаются горизонтальные tabs внутри 600px modal; brief требует category list → subsection и full screen формы.","design":"Mobile fullscreen settings, категории списком, subsection с back. Desktop modal сохраняется. Не изменять фактические настройки.","source":"frontend/src/components/account-settings-modal.css:251"},
+    {"id":"STATE-01","severity":"low","finding":"Главные списки применяют Loading spinner, без стабильного skeleton каркаса.","design":"Skeleton list rows/message placeholders/notification rows одинаковой высоты; содержимое с aria-busy и один status announcement.","sources":["frontend/src/pages/PersonalPage.tsx:207","frontend/src/pages/FoldersPage.tsx:109","frontend/src/pages/NotificationsPage.tsx:55"]}
+  ],
+  "reuse": [
+    {"component":"Modal","keep":"dialog role/aria-modal, label, Escape, focus trap/restore, safe autofocus","source":"frontend/src/components/ui.tsx:182"},
+    {"component":"ItemActions","keep":"Arrow/Home/End/Escape keyboard menu, focus restoration, viewport placement","source":"frontend/src/components/ItemActions.tsx:21"},
+    {"component":"MessageThread","keep":"Single shared behavior for meeting/direct/group, permissions remain contextual","source":"frontend/src/components/ChatPanel.tsx:84"},
+    {"component":"EmojiPicker","keep":"64 labels, arrow-grid navigation, Escape, focus return","source":"frontend/src/components/EmojiPicker.tsx:15"},
+    {"component":"FolderPicker/FolderItems/FolderManageModal","keep":"Reused across meetings and conversations; own references only","source":"frontend/src/components/FolderPicker.tsx:24"},
+    {"component":"Settings tabs","keep":"aria tabs, roving focus, Arrow/Home/End; add mobile category-list presentation","source":"frontend/src/pages/AccountPages.tsx:83"}
+  ],
+  "implementationReadyDesignRecommendations": {
+    "desktop1440":"Global sidebar240; topbar72; content padding32. Messaging list320 and conversation flexible with minimum420; header72; composer pinned min64; message text14–16 and metadata12. Group info drawer360 or modal560; settings modal960 nav216/content. Notifications popover400 and page link.",
+    "laptop1024":"Sidebar208 or collapsed80 depending remaining content; padding24. Messaging list272, body minimum420. Reduce spacing, never text below14 for body. All actions44.",
+    "tablet768":"Icon rail72 and topbar64; padding16; messaging single pane when content cannot accommodate list272+thread420. Folder rows stack metadata. Dialog max720 and 24px padding; group/info as inset sheet.",
+    "mobile390":"Topbar56, bottom-nav64 + safe area. List screen then conversation fullscreen; hide redundant bottom nav during active conversation to expose composer and safe-area. Conversation top56, composer min56 plus queued uploads; respects visualViewport keyboard. Group create and settings fullscreen. Action menu bottom sheet with44–48px rows; notification full page.",
+    "messageStyle":"Incoming bubble neutral surface, own bubble pale blue/turquoise under brand tokens; max-width desktop70% / mobile86%; radius16 except tail corner4; gap4 grouped /16 new sender. No fake read ticks; pending/error only from existing request state.",
+    "states":"Create separate loading/empty/no-result/error/reconnect artboards for major screens. Replace technical failure strings with user-facing status and next action; do not imply server data exists.",
+    "accessibility":"44×44 target minimum, focus ring3px offset2, contrast4.5:1 text/3:1 controls, non-color unread and mute cues, pointer+keyboard menus, aria-live polite only status changes, focus restore and cancel-first destructive dialogs, reduced motion, test long Cyrillic names and200% text.",
+    "priority":["P1 messaging mobile pane/composer/touch sizes","P1 permissions-correct menus/destructive confirmations","P1 unify scale-aware typography","P2 new direct-chat entry backed by existing API","P2 folders/notifications responsive list states","P2 settings category navigation and device errors","P2 explicit realtime reconnect state plumbing"]
+  }
+}

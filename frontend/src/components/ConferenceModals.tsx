@@ -2,7 +2,14 @@ import { useState } from "react";
 import type { SubmitEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Info, Link as LinkIcon, Mail, Video } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  DoorOpen,
+  Info,
+  Mail,
+  Video,
+} from "lucide-react";
 import { api } from "../api";
 import type { Conference } from "../types";
 import { inviteCode, inviteLink } from "../utils";
@@ -11,6 +18,7 @@ import { ScheduleFields } from "./ScheduleFields";
 import { localSchedule, toLocalInput } from "../collaboration";
 import { PRODUCT_NAME } from "../brand";
 import { ConferenceInviteContent } from "./ConferenceInvitations";
+import "./meeting-modals.css";
 
 /**
  * ShareConference показывает результат создания встречи и действия копирования ссылки и перехода в комнату.
@@ -40,6 +48,7 @@ export function ShareConference({
       <Modal
         key="invite"
         title="Пригласить участников"
+        className="meeting-design-modal"
         onClose={() => {
           if (!invitationBusy) onClose();
         }}
@@ -60,19 +69,27 @@ export function ShareConference({
       </Modal>
     );
   return (
-    <Modal key="share" title="Конференция создана!" onClose={onClose} wide>
+    <Modal
+      key="share"
+      title="Встреча создана"
+      onClose={onClose}
+      className="meeting-design-modal meeting-share-modal"
+    >
       <div className="share-content">
         <SuccessMark />
-        <p className="share-subtitle">
-          Поделитесь ссылкой, чтобы пригласить участников.
-        </p>
+        <h3>{conference.title}</h3>
+        <p className="share-subtitle">Пригласите коллег и начните разговор.</p>
+        <label className="field">Ссылка-приглашение</label>
         <CopyLink value={link} />
+        <p className="field-hint">
+          По ссылке можно присоединиться без аккаунта.
+        </p>
         <Link
           className="button button-primary full-width"
           to={`/conferences/${conference.id}`}
         >
           <Video size={19} />
-          Перейти в конференцию
+          Открыть встречу
         </Link>
         <Button
           variant="secondary"
@@ -80,12 +97,8 @@ export function ShareConference({
           onClick={() => setInviting(true)}
         >
           <Mail size={19} />
-          Пригласить по email
+          Пригласить участников
         </Button>
-        <p className="info-line">
-          <Info size={20} />
-          По ссылке может присоединиться любой участник, даже без аккаунта.
-        </p>
       </div>
     </Modal>
   );
@@ -200,96 +213,91 @@ export function CreateConference() {
       <ShareConference key={created.id} conference={created} onClose={close} />
     );
   return (
-    <Modal title="Новая конференция" onClose={close}>
+    <Modal
+      title="Новая встреча"
+      onClose={close}
+      className="meeting-design-modal meeting-create-modal"
+    >
       <form onSubmit={submit} noValidate>
         <label className="field" htmlFor="conference-title">
-          Название конференции
+          Название встречи
           <input
             id="conference-title"
             data-autofocus
-            placeholder="Обсуждение проекта"
+            placeholder="Например, обсуждение проекта"
             value={title}
-            onChange={
-              /**
-               * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               * @args
-               *   - event — проверенный конверт события комнаты.
-               *
-               * @returns вычисленное значение: setTitle(event.target.value).
-               */ (event) => setTitle(event.target.value)
-            }
+            maxLength={200}
+            onChange={(event) => setTitle(event.target.value)}
             disabled={mutation.isPending}
           />
         </label>
-        <label className="checkbox-field">
-          <input
-            type="checkbox"
-            checked={waitingRoom}
-            onChange={
-              /**
-               * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               * @args
-               *   - event — проверенный конверт события комнаты.
-               *
-               * @returns вычисленное значение: setWaitingRoom(event.target.checked).
-               */ (event) => setWaitingRoom(event.target.checked)
-            }
-            disabled={mutation.isPending}
-          />
+        <div className="meeting-create-options">
+          <label className="meeting-option-row">
+            <span className="meeting-option-icon">
+              <CalendarDays size={21} aria-hidden="true" />
+            </span>
+            <span className="meeting-option-copy">
+              <strong>Запланировать встречу</strong>
+              <small>Выберите дату и время заранее</small>
+            </span>
+            <input
+              className="meeting-switch"
+              type="checkbox"
+              checked={planned}
+              onChange={(event) => setPlanned(event.target.checked)}
+              disabled={mutation.isPending}
+            />
+          </label>
+          {planned && (
+            <ScheduleFields
+              value={scheduledAt}
+              onChange={setScheduledAt}
+              duration={duration}
+              onDuration={setDuration}
+              disabled={mutation.isPending}
+            />
+          )}
+          <label className="meeting-option-row">
+            <span className="meeting-option-icon">
+              <DoorOpen size={21} aria-hidden="true" />
+            </span>
+            <span className="meeting-option-copy">
+              <strong>Зал ожидания</strong>
+              <small>Для участников без допуска</small>
+            </span>
+            <input
+              className="meeting-switch"
+              type="checkbox"
+              checked={waitingRoom}
+              onChange={(event) => setWaitingRoom(event.target.checked)}
+              disabled={mutation.isPending}
+            />
+          </label>
+          <p className="field-hint meeting-waiting-policy">
+            Участники с действующей ссылкой-приглашением входят без ожидания.
+          </p>
+        </div>
+        <p className="meeting-inline-note">
+          <Info size={18} aria-hidden="true" />
           <span>
-            <strong>Зал ожидания</strong>
-            <small>Организатор приглашает участников войти во встречу.</small>
+            Встречу запускает организатор. Запись можно включить после начала
+            встречи.
           </span>
-        </label>
-        <label className="checkbox-field">
-          <input
-            type="checkbox"
-            checked={planned}
-            onChange={
-              /**
-               * onChange обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
-               *
-               * @args
-               *   - event — проверенный конверт события комнаты.
-               *
-               * @returns вычисленное значение: setPlanned(event.target.checked).
-               */ (event) => setPlanned(event.target.checked)
-            }
-            disabled={mutation.isPending}
-          />
-          <span>
-            <strong>Запланировать встречу</strong>
-            <small>Выбрать дату и время заранее.</small>
-          </span>
-        </label>
-        {planned && (
-          <ScheduleFields
-            value={scheduledAt}
-            onChange={setScheduledAt}
-            duration={duration}
-            onDuration={setDuration}
-            disabled={mutation.isPending}
-          />
-        )}
-        <p className="field-hint">
-          Запись можно включить после начала встречи. Встречу запускает
-          организатор — она не начнётся автоматически.
         </p>
         <ErrorNotice error={mutation.error}>{validation || null}</ErrorNotice>
-        <Button type="submit" busy={mutation.isPending} className="full-width">
-          Создать конференцию
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={close}
-          disabled={mutation.isPending}
-          className="full-width"
-        >
-          Отмена
-        </Button>
+        <footer className="meeting-dialog-footer">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={close}
+            disabled={mutation.isPending}
+          >
+            Отмена
+          </Button>
+          <Button type="submit" busy={mutation.isPending}>
+            Создать встречу <ArrowRight size={18} aria-hidden="true" />
+          </Button>
+        </footer>
       </form>
     </Modal>
   );
@@ -355,6 +363,7 @@ export function EditSchedule({
   return (
     <Modal
       title="Изменить расписание"
+      className="meeting-design-modal"
       onClose={
         /**
          * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
@@ -404,9 +413,19 @@ export function EditSchedule({
           disabled={mutation.isPending}
         />
         <ErrorNotice error={mutation.error}>{validation || null}</ErrorNotice>
-        <Button type="submit" busy={mutation.isPending}>
-          Сохранить расписание
-        </Button>
+        <footer className="meeting-dialog-footer">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={mutation.isPending}
+          >
+            Отмена
+          </Button>
+          <Button type="submit" busy={mutation.isPending}>
+            Сохранить расписание
+          </Button>
+        </footer>
       </form>
     </Modal>
   );
@@ -452,7 +471,11 @@ export function JoinByLink({
     navigate(`/i/${code}`);
   }
   return (
-    <Modal title="Присоединиться по ссылке" onClose={onClose}>
+    <Modal
+      title="Присоединиться по ссылке"
+      onClose={onClose}
+      className="meeting-design-modal"
+    >
       <p className="modal-description">
         Попросите организатора поделиться приглашением.
       </p>
@@ -477,10 +500,14 @@ export function JoinByLink({
           />
         </label>
         <ErrorNotice>{error || null}</ErrorNotice>
-        <Button className="full-width" type="submit">
-          <LinkIcon size={18} />
-          Открыть приглашение
-        </Button>
+        <footer className="meeting-dialog-footer">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button type="submit">
+            Открыть приглашение <ArrowRight size={18} />
+          </Button>
+        </footer>
       </form>
     </Modal>
   );

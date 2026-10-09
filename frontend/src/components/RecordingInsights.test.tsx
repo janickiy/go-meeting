@@ -55,7 +55,11 @@ let clients: QueryClient[] = [];
  * @args url — адрес с глубокой ссылкой; membership — проверяемые права.
  * @return Кеш и контейнер для проверки позиции видео.
  */
-function show(url = "/conferences/room?recording=record", membership = member) {
+function show(
+  url = "/conferences/room?recording=record",
+  membership = member,
+  materialOnly = false,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -69,6 +73,7 @@ function show(url = "/conferences/room?recording=record", membership = member) {
             conferenceId="room"
             membership={membership}
             recordings={[record]}
+            materialOnly={materialOnly}
           />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -125,6 +130,30 @@ afterEach(() => {
 });
 
 describe("приватные материалы записи", () => {
+  it("в полноширинной расшифровке разворачивает запись при переходе к фрагменту", async () => {
+    const { container } = show(
+      "/history/room?section=transcript&recording=record",
+      member,
+      true,
+    );
+    const seek = await screen.findByRole("button", { name: "Перейти к 00:42" });
+    const video = container.querySelector("video")!;
+    expect(video).not.toBeVisible();
+    expect(
+      screen.queryByRole("tablist", { name: "Материалы записи" }),
+    ).toBeNull();
+    Object.defineProperties(video, {
+      readyState: { value: 1, configurable: true },
+      duration: { value: 90, configurable: true },
+    });
+    fireEvent.click(seek);
+    expect(video).toBeVisible();
+    expect(video.currentTime).toBe(42.5);
+    expect(video.autoplay).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "Свернуть запись" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
   it("переходит к миллисекундам глубокой ссылки только после metadata", async () => {
     const { container } = show(
       "/conferences/room?recording=record&t=42500&segment=segment",
