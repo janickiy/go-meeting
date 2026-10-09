@@ -24,7 +24,7 @@ function Destination() {
   );
 }
 
-describe("вход и будущие провайдеры Meetrix", () => {
+describe("вход и будущие провайдеры MeetSpace", () => {
   it("показывает явно недоступные заглушки без ссылок и входа", () => {
     render(
       <MemoryRouter>

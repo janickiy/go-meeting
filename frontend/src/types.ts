@@ -727,6 +727,15 @@ export interface PersonalPeer {
   id: string;
   displayName: string;
 }
+/** Подтверждённое сервером присутствие собеседника в доступной личной переписке.
+ * @params conversationId — проверенный диалог; peerId — собеседник, определённый сервером;
+ * online — наличие живой физической сессии; отсутствие подтверждения передаётся ошибкой API.
+ */
+export interface PersonalPeerPresence {
+  conversationId: string;
+  peerId: string;
+  online: boolean;
+}
 interface ConversationSummary {
   id: string;
   createdAt: string;

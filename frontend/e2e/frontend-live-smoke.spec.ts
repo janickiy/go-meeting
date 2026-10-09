@@ -66,7 +66,7 @@ async function staticOverlay(
     if (url.pathname.startsWith("/api/") || request.method() !== "GET")
       return route.continue();
     const asset =
-      /^\/(?:assets\/[^/]+|media\/[^/]+|brand-mark\.svg|favicon\.svg|version\.json)$/.test(
+      /^\/(?:assets\/[^/]+|media\/[^/]+|branding\/meetspace-[a-z-]+\.svg|brand-mark\.svg|favicon\.svg|version\.json)$/.test(
         url.pathname,
       );
     const document =

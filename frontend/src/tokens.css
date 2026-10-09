@@ -1,4 +1,4 @@
-/* Палитра второго варианта Meetrix: компоненты используют роли, а не случайные цвета.
+/* Палитра второго варианта MeetSpace: компоненты используют роли, а не случайные цвета.
    Breakpoints: mobile <=767px, tablet 768–1023px; CSS media не принимает var(). */
 :root {
   --text-scale: 1;
@@ -61,6 +61,7 @@
   --text-lg: calc(18px * var(--text-scale));
   --text-title: calc(26px * var(--text-scale));
   --workspace-shell-height: 108px;
+  --workspace-gutter: 32px;
   --sidebar-width: 248px;
   --z-nav: 20;
   --z-drawer: 60;

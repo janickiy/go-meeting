@@ -313,6 +313,52 @@ async function expectNoOverflow(page: Page) {
 
 for (const viewport of [
   { width: 1440, height: 1000 },
+  { width: 834, height: 1112 },
+  { width: 390, height: 844 },
+]) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const textSize of [100, 200]) {
+      test(`поиск и выбор встречи одинаковой высоты: ${viewport.width}px/${theme}/${textSize}%`, async ({
+        page,
+      }, info) => {
+        await page.setViewportSize(viewport);
+        await recordingsFixture(page);
+        await page.addInitScript(
+          ({ actor, theme, textSize }) => {
+            localStorage.setItem(
+              `go-recorder.appearance.v1:${encodeURIComponent(actor)}`,
+              JSON.stringify({ version: 1, theme, textSize }),
+            );
+          },
+          { actor: user.id, theme, textSize },
+        );
+        await page.goto(`/recordings?conference=${conferenceId}`);
+        await expect(page.locator("html")).toHaveAttribute(
+          "data-text-size",
+          String(textSize),
+        );
+        const search = (await page
+          .locator(".recordings-search")
+          .boundingBox())!;
+        const select = (await page
+          .getByRole("combobox", { name: "Встреча", exact: true })
+          .boundingBox())!;
+        expect(Math.abs(search.height - select.height)).toBeLessThanOrEqual(
+          0.5,
+        );
+        expect(search.height).toBeGreaterThanOrEqual(44);
+        await expectNoOverflow(page);
+        await page.screenshot({
+          path: info.outputPath("recordings-matching-controls.png"),
+          fullPage: true,
+        });
+      });
+    }
+  }
+}
+
+for (const viewport of [
+  { width: 1440, height: 1000 },
   { width: 390, height: 844 },
   { width: 844, height: 390 },
 ]) {

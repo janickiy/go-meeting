@@ -1,5 +1,6 @@
 /* Плоская библиотека записей использует общие темы и реальные превью API. */
 .recordings-page {
+  --recordings-control-height: max(44px, calc(28px * var(--text-scale) + 16px));
   min-width: 0;
   max-width: none;
   margin: 0 auto;
@@ -23,6 +24,8 @@
   align-items: center;
   gap: 9px;
   min-width: 0;
+  height: var(--recordings-control-height);
+  box-sizing: border-box;
   color: var(--muted);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -36,30 +39,52 @@
   grid-column: 1 / -1;
   width: max-content;
   max-width: 100%;
-  padding: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--surface-soft);
 }
 .recordings-meeting-views button {
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: 7px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 5px;
   background: transparent;
   color: var(--muted);
   font: inherit;
   font-size: calc(13px * var(--text-scale));
+  font-weight: 500;
+  white-space: normal;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .recordings-meeting-views button[aria-pressed="true"] {
   background: var(--surface);
-  color: var(--text);
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  box-shadow: 0 1px 3px #33203910;
   font-weight: 600;
+}
+/* Общие правила тёмной темы не должны менять оформление активного сегмента. */
+:root[data-theme="dark"]
+  .recordings-page
+  .recordings-meeting-views
+  button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: transparent;
+  border-bottom-color: var(--primary);
 }
 .recordings-search input {
   width: 100%;
   min-width: 0;
-  min-height: 44px;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -89,6 +114,12 @@
   color: var(--text);
   font: inherit;
   font-size: calc(13px * var(--text-scale));
+}
+/* Высота учитывает рамку: поиск и список встреч совпадают по внешним границам. */
+.recordings-conference-selector select {
+  height: var(--recordings-control-height);
+  min-height: var(--recordings-control-height);
+  box-sizing: border-box;
 }
 .recordings-selection-note {
   grid-column: 1 / -1;
@@ -722,6 +753,14 @@
   .recording-detail-file > a {
     min-width: 44px;
     min-height: 44px;
+  }
+}
+@media (max-width: 767px) {
+  .recordings-meeting-views {
+    width: 100%;
+  }
+  .recordings-meeting-views button {
+    flex: 1 1 auto;
   }
 }
 html[data-large-text="true"] .recording-detail-layout,

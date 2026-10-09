@@ -37,6 +37,8 @@ async function readMeter(tile: Locator) {
       fill: parseFloat(fill.height) / microphoneHeight,
       animation: border.animationName,
       microphoneAnimation: getComputedStyle(microphone).animationName,
+      borderColor: border.borderTopColor,
+      microphoneFillColor: fill.backgroundColor,
     };
   });
 }
@@ -78,6 +80,8 @@ test("громкость синхронно меняет рамку и запо�
       expect(meter.fill).toBeCloseTo(meter.level, 1);
       expect(meter.animation).toBe("none");
       expect(meter.microphoneAnimation).toBe("none");
+      expect(meter.borderColor).toBe("rgb(66, 216, 139)");
+      expect(meter.microphoneFillColor).toBe("rgb(66, 216, 139)");
     }
     await expect(page.locator(".media-tile-screen")).toHaveAttribute(
       "data-audio-level",

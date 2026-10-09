@@ -68,17 +68,16 @@
   position: relative;
   margin-right: 12px;
 }
-.notification-count {
+.notification-dot {
   position: absolute;
-  top: -4px;
-  right: -8px;
-  min-width: 18px;
-  padding: 2px 4px;
-  border-radius: 12px;
-  color: white;
-  background: var(--blue);
-  font-size: calc(10px * var(--text-scale));
-  line-height: 1.4;
+  top: 10px;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 3px var(--surface);
+  pointer-events: none;
 }
 .notification-list {
   display: grid;

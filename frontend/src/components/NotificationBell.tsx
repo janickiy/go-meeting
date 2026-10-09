@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link } from "react-router";
 import {
   useInfiniteQuery,
@@ -54,6 +54,7 @@ export function NotificationBell() {
   const { user } = useAuth();
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const unreadDescriptionId = useId();
   const query = useInfiniteQuery({
     queryKey: ["notifications", user?.id],
     initialPageParam: undefined as string | undefined,
@@ -120,6 +121,7 @@ export function NotificationBell() {
       <button
         className="icon-button notification-bell"
         aria-label="Уведомления"
+        aria-describedby={unread > 0 ? unreadDescriptionId : undefined}
         onClick={
           /**
            * onClick обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
@@ -129,14 +131,14 @@ export function NotificationBell() {
            */ () => setOpen(true)
         }
       >
-        <Bell size={21} />
+        <Bell size={21} aria-hidden="true" />
         {unread > 0 && (
-          <span
-            className="notification-count"
-            aria-label={`${unread} непрочитанных уведомлений`}
-          >
-            {unread > 99 ? "99+" : unread}
-          </span>
+          <>
+            <span className="notification-dot" aria-hidden="true" />
+            <span id={unreadDescriptionId} className="sr-only">
+              {unread} непрочитанных уведомлений
+            </span>
+          </>
         )}
       </button>
       {open && (

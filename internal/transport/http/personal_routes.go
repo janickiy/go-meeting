@@ -13,7 +13,7 @@ func RegisterPersonalRoutes(router gin.IRouter, h *personalapp.Handler, chat *ch
 	for _, v := range []struct {
 		Method, Path, Scope string
 		Limit               int
-	}{{"GET", "/users", "personal_search", 30}, {"GET", "/conversations", "personal_list", 120}, {"POST", "/conversations/direct", "personal_create", 30}, {"GET", "/conversations/:id", "personal_detail", 120}, {"POST", "/conversations/:id/read", "personal_read", 30},
+	}{{"GET", "/users", "personal_search", 30}, {"GET", "/conversations", "personal_list", 120}, {"POST", "/conversations/direct", "personal_create", 30}, {"GET", "/conversations/:id", "personal_detail", 120}, {"GET", "/conversations/:id/peer-presence", "personal_peer_presence", 120}, {"POST", "/conversations/:id/read", "personal_read", 30},
 		{"POST", "/conversations/group", "group_create", 20}, {"PATCH", "/conversations/:id", "group_metadata", 30}, {"DELETE", "/conversations/:id", "group_delete", 20},
 		{"GET", "/conversations/:id/members", "group_members", 120}, {"POST", "/conversations/:id/members", "group_add", 30},
 		{"DELETE", "/conversations/:id/members/:userId", "group_remove", 30}, {"PATCH", "/conversations/:id/members/:userId", "group_role", 30},
@@ -32,6 +32,7 @@ func RegisterPersonalRoutes(router gin.IRouter, h *personalapp.Handler, chat *ch
 	g.POST("/conversations/direct", h.Create)
 	g.POST("/conversations/group", h.CreateGroup)
 	g.GET("/conversations/:id", h.Get)
+	g.GET("/conversations/:id/peer-presence", h.PeerPresence)
 	g.PATCH("/conversations/:id/preferences", h.SetDirectPreferences)
 	g.POST("/conversations/:id/clear-history", h.ClearDirectHistory)
 	g.POST("/conversations/:id/hide", h.HideDirectConversation)

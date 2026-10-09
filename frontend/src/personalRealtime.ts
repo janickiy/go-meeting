@@ -71,6 +71,7 @@ export function revokePersonalConversation(
     "personal-chat",
     "personal-chat-read",
     "personal-detail",
+    "personal-peer-presence",
     "group-members",
   ]) {
     void client.cancelQueries({ queryKey: [key, id, userId] });

@@ -21,6 +21,7 @@ import type {
   Items,
   LoginResponse,
   Participant,
+  PersonalPeerPresence,
   User,
   ParticipantMediaState,
   ModerationAction,
@@ -1100,6 +1101,15 @@ export const api = {
   personalConversation: (id: string, signal?: AbortSignal) =>
     request<Item<PersonalConversation>>(
       `/conversations/${encodeURIComponent(id)}`,
+      { signal },
+    ),
+  /** Читает присутствие только собеседника доступной личной переписки, не всей директории пользователей.
+   * @args id — идентификатор диалога; signal — отмена запроса при закрытии окна или смене аккаунта.
+   * @return Подтверждённые идентификаторы и статус; отказ доступа или сбой сервиса отклоняет Promise.
+   */
+  personalPeerPresence: (id: string, signal?: AbortSignal) =>
+    request<Item<PersonalPeerPresence>>(
+      `/conversations/${encodeURIComponent(id)}/peer-presence`,
       { signal },
     ),
   createPersonalConversation: (userId: string) =>

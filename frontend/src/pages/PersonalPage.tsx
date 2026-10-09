@@ -28,9 +28,12 @@ import { useAuth } from "../auth";
 import { chatTime } from "../chatPresentation";
 import { ConversationActions } from "../components/FolderPicker";
 import { DirectUserInfoModal } from "../components/DirectConversationActions";
+import { PersonalPeerStatus } from "../components/PersonalPeerStatus";
+import { PersonalPeerPresenceProvider } from "../usePersonalPeerPresence";
 import { MessageThread } from "../components/ChatPanel";
 import { ItemActions } from "../components/ItemActions";
 import { NewDirectChatModal } from "../components/NewDirectChatModal";
+import { UnreadMessageCount } from "../components/UnreadMessageCount";
 import { Button, ErrorNotice } from "../components/ui";
 import { MessagingSkeleton } from "../components/MessagingSkeleton";
 import {
@@ -57,6 +60,7 @@ export function PersonalPage() {
   const [newDirect, setNewDirect] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [userInfoOpen, setUserInfoOpen] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const infoTrigger = useRef<HTMLButtonElement>(null);
   const userInfoTrigger = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLElement>(null);
@@ -68,26 +72,42 @@ export function PersonalPage() {
       const visibleHeight =
         (viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0);
       const keyboard = visibleHeight < window.innerHeight - 100;
+      setKeyboardOpen(keyboard);
+      const footerHeight =
+        document.querySelector(".workspace-footer")?.getBoundingClientRect()
+          .height ?? 0;
       const bottom = id
         ? 0
         : keyboard
           ? 12
-          : (document
-              .querySelector(".mobile-bottom-nav")
-              ?.getBoundingClientRect().height ?? 64) + 20;
+          : Math.max(
+              footerHeight,
+              (document
+                .querySelector(".mobile-bottom-nav")
+                ?.getBoundingClientRect().height ?? 64) + 20,
+            );
+      // Прокрутка страницы не должна увеличивать переписку и снова выталкивать футер за экран.
+      const documentTop = element.getBoundingClientRect().top + window.scrollY;
       element.style.setProperty(
         "--personal-mobile-height",
-        `${Math.max(180, visibleHeight - element.getBoundingClientRect().top - bottom)}px`,
+        `${Math.max(180, visibleHeight - documentTop - bottom)}px`,
       );
     };
     measure();
     viewport?.addEventListener("resize", measure);
     viewport?.addEventListener("scroll", measure);
     window.addEventListener("resize", measure);
+    const footer = document.querySelector(".workspace-footer");
+    const footerResize =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(measure);
+    if (footer) footerResize?.observe(footer);
     return () => {
       viewport?.removeEventListener("resize", measure);
       viewport?.removeEventListener("scroll", measure);
       window.removeEventListener("resize", measure);
+      footerResize?.disconnect();
     };
   }, [id]);
   const { user } = useAuth();
@@ -108,6 +128,7 @@ export function PersonalPage() {
     if (!id || !user) return;
     revokePersonalConversation(client, id, user.id);
     setInfoOpen(false);
+    setUserInfoOpen(false);
     navigate(`/personal${location.search}`, { replace: true });
   }, [client, id, user, navigate, location.search]);
   const paramSearch = params.get("search") || "";
@@ -166,263 +187,267 @@ export function PersonalPage() {
     setUserInfoOpen(false);
   }, [id]);
   return (
-    <section
-      className={`personal-page ${id ? "personal-selected" : ""}`}
-      ref={root}
-      aria-label="Личные"
+    <PersonalPeerPresenceProvider
+      conversation={selected?.type === "direct" ? selected : undefined}
     >
-      <aside className="personal-sidebar">
-        <div className="section-heading">
-          <h1>Личные</h1>
-          <ItemActions
-            label="Новый чат"
-            triggerIcon={<SquarePen size={20} aria-hidden="true" />}
-            actions={[
-              {
-                label: "Личный чат",
-                icon: <MessageCircle size={18} />,
-                run: () => setNewDirect(true),
-              },
-              {
-                label: "Создать группу",
-                icon: <Users size={18} />,
-                run: () => setCreating(true),
-              },
-            ]}
-          />
-        </div>
-        <label className="personal-search">
-          <Search size={18} />
-          <input
-            type="search"
-            aria-label="Поиск переписок"
-            value={search}
-            placeholder="Найти переписку"
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </label>
-        <div
-          className="personal-filters"
-          role="group"
-          aria-label="Фильтр переписок"
-        >
-          {(
-            [
-              ["all", "Все"],
-              ["direct", "Личные"],
-              ["group", "Группы"],
-              ["unread", "Новые"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              type="button"
-              key={value}
-              aria-pressed={filter === value}
-              onClick={() => {
-                const next = new URLSearchParams(params);
-                if (value === "all") next.delete("filter");
-                else next.set("filter", value);
-                setParams(next);
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <ErrorNotice error={list.error} />
-        {list.isError && (
-          <Button variant="outline" onClick={() => void list.refetch()}>
-            Повторить загрузку
-          </Button>
-        )}
-        {list.isPending && <MessagingSkeleton rows={4} />}
-        <nav className="personal-conversations" aria-label="Переписки">
-          {conversations.map((c) => (
-            <div className="personal-conversation-row" key={c.id}>
-              <NavLink
-                to={`/personal/${c.id}${location.search}`}
-                className={({ isActive }) =>
-                  `personal-conversation ${isActive ? "selected" : ""}`
-                }
-              >
-                <ConversationAvatar conversation={c} />
-                <span className="personal-preview">
-                  <strong>{conversationName(c)}</strong>
-                  <span>
-                    {c.type === "group" && c.preview && c.lastSender
-                      ? `${c.lastSender.id === user?.id ? "Вы" : c.lastSender.displayName}: `
-                      : ""}
-                    {c.preview || "Начните переписку"}
-                  </span>
-                </span>
-                <span className="personal-meta">
-                  <time>
-                    {c.lastMessageAt ? chatTime(c.lastMessageAt) : ""}
-                  </time>
-                  {c.unreadCount > 0 && (
-                    <span className="count-badge">{c.unreadCount}</span>
-                  )}
-                  {c.type === "direct" && c.notificationsEnabled === false && (
-                    <BellOff size={14} aria-label="Уведомления отключены" />
-                  )}
-                </span>
-              </NavLink>
-              <ConversationActions conversation={c} />
-            </div>
-          ))}
-          {!list.isPending && !list.isError && !conversations.length && (
-            <div className="messaging-empty">
-              <MessageCircle aria-hidden="true" />
-              <h3>
-                {search
-                  ? "Переписки не найдены"
-                  : filter === "group"
-                    ? "Пока нет групп. Создайте группу для общения с командой."
-                    : filter === "unread"
-                      ? "Непрочитанных сообщений нет."
-                      : "Пока нет переписок"}
-              </h3>
-              {!search && filter === "all" && (
-                <>
-                  <p>Начните разговор с коллегой или создайте группу.</p>
-                  <Button onClick={() => setNewDirect(true)}>Новый чат</Button>
-                </>
-              )}
-            </div>
-          )}
-        </nav>
-        {list.hasNextPage && (
-          <Button
-            variant="outline"
-            busy={list.isFetchingNextPage}
-            onClick={() => void list.fetchNextPage()}
-          >
-            Ещё переписки
-          </Button>
-        )}
-        <footer className="personal-list-footer">
-          Переписки доступны только участникам
-        </footer>
-      </aside>
-      <div className="personal-content">
-        {!id ? (
-          <div className="personal-placeholder">
-            <MessagesSquare size={40} />
-            <h2>Разговор начинается здесь</h2>
-            <p>
-              Выберите переписку или начните новую.
-              <br />
-              Команда всегда рядом.
-            </p>
-            <Button onClick={() => setNewDirect(true)}>
-              <SquarePen size={18} />
-              Новый чат
-            </Button>
-            <small>Личные разговоры и группы в одном месте</small>
+      <section
+        className={`personal-page ${id ? "personal-selected" : ""}`}
+        data-keyboard-open={keyboardOpen || undefined}
+        ref={root}
+        aria-label="Личные"
+      >
+        <aside className="personal-sidebar">
+          <div className="section-heading">
+            <h1>Личные</h1>
+            <ItemActions
+              label="Новый чат"
+              triggerIcon={<SquarePen size={20} aria-hidden="true" />}
+              actions={[
+                {
+                  label: "Личный чат",
+                  icon: <MessageCircle size={18} />,
+                  run: () => setNewDirect(true),
+                },
+                {
+                  label: "Создать группу",
+                  icon: <Users size={18} />,
+                  run: () => setCreating(true),
+                },
+              ]}
+            />
           </div>
-        ) : (
-          <>
-            <header className="personal-header">
-              <Link
-                className="personal-back"
-                to={`/personal${location.search}`}
-                aria-label="Назад к перепискам"
+          <label className="personal-search">
+            <Search size={18} />
+            <input
+              type="search"
+              aria-label="Поиск переписок"
+              value={search}
+              placeholder="Найти переписку"
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          <div
+            className="personal-filters"
+            role="group"
+            aria-label="Фильтр переписок"
+          >
+            {(
+              [
+                ["all", "Все"],
+                ["direct", "Личные"],
+                ["group", "Группы"],
+                ["unread", "Новые"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                aria-pressed={filter === value}
+                onClick={() => {
+                  const next = new URLSearchParams(params);
+                  if (value === "all") next.delete("filter");
+                  else next.set("filter", value);
+                  setParams(next);
+                }}
               >
-                <ArrowLeft />
-              </Link>
-              {selected?.type === "direct" ? (
-                <button
-                  ref={userInfoTrigger}
-                  type="button"
-                  className="personal-peer-button"
-                  aria-label={`Информация о пользователе: ${selected.peer.displayName}`}
-                  onClick={() => setUserInfoOpen(true)}
+                {label}
+              </button>
+            ))}
+          </div>
+          <ErrorNotice error={list.error} />
+          {list.isError && (
+            <Button variant="outline" onClick={() => void list.refetch()}>
+              Повторить загрузку
+            </Button>
+          )}
+          {list.isPending && <MessagingSkeleton rows={4} />}
+          <nav className="personal-conversations" aria-label="Переписки">
+            {conversations.map((c) => (
+              <div className="personal-conversation-row" key={c.id}>
+                <NavLink
+                  to={`/personal/${c.id}${location.search}`}
+                  className={({ isActive }) =>
+                    `personal-conversation ${isActive ? "selected" : ""}`
+                  }
                 >
-                  <ConversationAvatar conversation={selected} />
-                  <span className="personal-header-copy">
-                    <strong>{selected.peer.displayName}</strong>
-                    <small>
-                      {selected.notificationsEnabled === false
-                        ? "Без уведомлений"
-                        : "Личная переписка"}
-                    </small>
+                  <ConversationAvatar conversation={c} />
+                  <span className="personal-preview">
+                    <strong>{conversationName(c)}</strong>
+                    <span>
+                      {c.type === "group" && c.preview && c.lastSender
+                        ? `${c.lastSender.id === user?.id ? "Вы" : c.lastSender.displayName}: `
+                        : ""}
+                      {c.preview || "Начните переписку"}
+                    </span>
                   </span>
-                </button>
-              ) : (
-                <button
-                  ref={infoTrigger}
-                  type="button"
-                  className="personal-peer-button"
-                  aria-label="Информация о группе"
-                  disabled={!selected}
-                  onClick={() => setInfoOpen(true)}
-                >
-                  {selected && <ConversationAvatar conversation={selected} />}
-                  <span className="personal-header-copy">
-                    <strong>
-                      {selected ? conversationName(selected) : "Переписка"}
-                    </strong>
-                    {selected?.type === "group" && (
-                      <small>{selected.memberCount} участн.</small>
-                    )}
+                  <span className="personal-meta">
+                    <time>
+                      {c.lastMessageAt ? chatTime(c.lastMessageAt) : ""}
+                    </time>
+                    <UnreadMessageCount count={c.unreadCount} />
+                    {c.type === "direct" &&
+                      c.notificationsEnabled === false && (
+                        <BellOff size={14} aria-label="Уведомления отключены" />
+                      )}
                   </span>
-                </button>
-              )}
-              {selected && (
-                <ConversationActions
-                  conversation={selected}
-                  onGroupInfo={() => setInfoOpen(true)}
-                />
-              )}
-            </header>
-            {connection.data === "reconnecting" && (
-              <div className="personal-reconnect" role="status">
-                <RefreshCw size={16} aria-hidden="true" />
-                Переподключаемся… Сообщения обновятся автоматически.
+                </NavLink>
+                <ConversationActions conversation={c} />
+              </div>
+            ))}
+            {!list.isPending && !list.isError && !conversations.length && (
+              <div className="messaging-empty">
+                <MessageCircle aria-hidden="true" />
+                <h3>
+                  {search
+                    ? "Переписки не найдены"
+                    : filter === "group"
+                      ? "Пока нет групп. Создайте группу для общения с командой."
+                      : filter === "unread"
+                        ? "Непрочитанных сообщений нет."
+                        : "Пока нет переписок"}
+                </h3>
+                {!search && filter === "all" && (
+                  <>
+                    <p>Начните разговор с коллегой или создайте группу.</p>
+                    <Button onClick={() => setNewDirect(true)}>
+                      Новый чат
+                    </Button>
+                  </>
+                )}
               </div>
             )}
-            <ErrorNotice error={detail.error} />
-            {detail.isPending ? (
-              <MessagingSkeleton rows={4} />
-            ) : (
-              selected && (
-                <MessageThread
-                  key={`${id}:${selected.type === "direct" ? selected.historyClearedThrough || 0 : 0}:${threadVersion.data}`}
-                  scopeId={id}
-                  transport={personalChatAPI}
-                  personal
-                  composerPlaceholder={
-                    selected.type === "group"
-                      ? "Напишите в группу…"
-                      : "Напишите сообщение…"
-                  }
-                  requireAuthenticatedDownloads={selected.type === "group"}
-                  onAccessDenied={
-                    selected.type === "group" ? revoke : undefined
-                  }
-                />
-              )
-            )}
-          </>
+          </nav>
+          {list.hasNextPage && (
+            <Button
+              variant="outline"
+              busy={list.isFetchingNextPage}
+              onClick={() => void list.fetchNextPage()}
+            >
+              Ещё переписки
+            </Button>
+          )}
+        </aside>
+        <div className="personal-content">
+          {!id ? (
+            <div className="personal-placeholder">
+              <MessagesSquare size={40} />
+              <h2>Разговор начинается здесь</h2>
+              <p>
+                Выберите переписку или начните новую.
+                <br />
+                Команда всегда рядом.
+              </p>
+              <Button onClick={() => setNewDirect(true)}>
+                <SquarePen size={18} />
+                Новый чат
+              </Button>
+              <small>Личные разговоры и группы в одном месте</small>
+            </div>
+          ) : (
+            <>
+              <header className="personal-header">
+                <Link
+                  className="personal-back"
+                  to={`/personal${location.search}`}
+                  aria-label="Назад к перепискам"
+                >
+                  <ArrowLeft />
+                </Link>
+                {selected?.type === "direct" ? (
+                  <button
+                    ref={userInfoTrigger}
+                    type="button"
+                    className="personal-peer-button"
+                    aria-label={`Информация о пользователе: ${selected.peer.displayName}`}
+                    onClick={() => setUserInfoOpen(true)}
+                  >
+                    <ConversationAvatar conversation={selected} />
+                    <span className="personal-header-copy">
+                      <strong>{selected.peer.displayName}</strong>
+                      <PersonalPeerStatus
+                        conversation={selected}
+                        onAccessDenied={revoke}
+                      />
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    ref={infoTrigger}
+                    type="button"
+                    className="personal-peer-button"
+                    aria-label="Информация о группе"
+                    disabled={!selected}
+                    onClick={() => setInfoOpen(true)}
+                  >
+                    {selected && <ConversationAvatar conversation={selected} />}
+                    <span className="personal-header-copy">
+                      <strong>
+                        {selected ? conversationName(selected) : "Переписка"}
+                      </strong>
+                      {selected?.type === "group" && (
+                        <small>{selected.memberCount} участн.</small>
+                      )}
+                    </span>
+                  </button>
+                )}
+                {selected && (
+                  <ConversationActions
+                    conversation={selected}
+                    onGroupInfo={() => setInfoOpen(true)}
+                  />
+                )}
+              </header>
+              {connection.data === "reconnecting" && (
+                <div className="personal-reconnect" role="status">
+                  <RefreshCw size={16} aria-hidden="true" />
+                  Переподключаемся… Сообщения обновятся автоматически.
+                </div>
+              )}
+              <ErrorNotice error={detail.error} />
+              {detail.isPending ? (
+                <MessagingSkeleton rows={4} />
+              ) : (
+                selected && (
+                  <MessageThread
+                    key={`${id}:${selected.type === "direct" ? selected.historyClearedThrough || 0 : 0}:${threadVersion.data}`}
+                    scopeId={id}
+                    transport={personalChatAPI}
+                    personal
+                    composerPlaceholder={
+                      selected.type === "group"
+                        ? "Напишите в группу…"
+                        : "Напишите сообщение…"
+                    }
+                    requireAuthenticatedDownloads={selected.type === "group"}
+                    onAccessDenied={
+                      selected.type === "group" ? revoke : undefined
+                    }
+                  />
+                )
+              )}
+            </>
+          )}
+        </div>
+        {creating && <GroupCreateModal onClose={() => setCreating(false)} />}
+        {newDirect && (
+          <NewDirectChatModal onClose={() => setNewDirect(false)} />
         )}
-      </div>
-      {creating && <GroupCreateModal onClose={() => setCreating(false)} />}
-      {newDirect && <NewDirectChatModal onClose={() => setNewDirect(false)} />}
-      {userInfoOpen && selected?.type === "direct" && (
-        <DirectUserInfoModal
-          conversation={selected}
-          onClose={() => setUserInfoOpen(false)}
-          returnFocus={() => userInfoTrigger.current}
-        />
-      )}
-      {infoOpen && selected?.type === "group" && (
-        <GroupInfoModal
-          group={selected}
-          onClose={() => setInfoOpen(false)}
-          returnFocus={() => infoTrigger.current}
-        />
-      )}
-    </section>
+        {userInfoOpen && selected?.type === "direct" && (
+          <DirectUserInfoModal
+            conversation={selected}
+            onClose={() => setUserInfoOpen(false)}
+            returnFocus={() => userInfoTrigger.current}
+          />
+        )}
+        {infoOpen && selected?.type === "group" && (
+          <GroupInfoModal
+            group={selected}
+            onClose={() => setInfoOpen(false)}
+            returnFocus={() => infoTrigger.current}
+          />
+        )}
+      </section>
+    </PersonalPeerPresenceProvider>
   );
 }
 

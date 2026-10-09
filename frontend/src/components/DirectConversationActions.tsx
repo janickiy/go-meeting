@@ -16,6 +16,7 @@ import {
   updateDirectConversation,
 } from "../directConversations";
 import { revokePersonalConversation } from "../personalRealtime";
+import { usePersonalPeerPresence } from "../usePersonalPeerPresence";
 import type { DirectConversation } from "../types";
 import { ConversationAvatar } from "./GroupChats";
 import { FolderPicker } from "./FolderPicker";
@@ -39,10 +40,10 @@ interface DirectConversationOperation {
 
 /**
  * Показывает доступные публичные сведения собеседника в стандартном диалоге.
- * Электронная почта и присутствие не выдумываются: API личных чатов их не раскрывает.
+ * Присутствие читается отдельным защищённым запросом; ошибки и неизвестные ответы не считаются офлайн.
  *
  * @args conversation — личный диалог; onClose — закрытие окна; returnFocus — элемент открытия.
- * @return Стандартное модальное окно с публичным именем и идентификатором собеседника.
+ * @return Стандартное модальное окно с публичным именем, идентификатором и подтверждённым статусом.
  */
 export function DirectUserInfoModal({
   conversation,
@@ -53,6 +54,23 @@ export function DirectUserInfoModal({
   onClose: () => void;
   returnFocus?: () => HTMLElement | null;
 }) {
+  const { user } = useAuth();
+  const client = useQueryClient();
+  const presence = usePersonalPeerPresence(conversation);
+  const denied = presence.denied;
+  useEffect(() => {
+    if (!denied || !user) return;
+    revokePersonalConversation(client, conversation.id, user.id);
+    onClose();
+  }, [denied, client, conversation.id, user, onClose]);
+  const online = presence.online;
+  const statusText = presence.isPending
+    ? "Проверяем статус…"
+    : online === true
+      ? "В сети"
+      : online === false
+        ? "не в сети."
+        : "Статус временно недоступен.";
   return (
     <Modal
       title="Информация о пользователе"
@@ -64,6 +82,14 @@ export function DirectUserInfoModal({
         <ConversationAvatar conversation={conversation} large />
         <h3>{conversation.peer.displayName}</h3>
         <p>Участник вашей переписки</p>
+        <p
+          className={`personal-user-presence${online === true ? " personal-user-presence-online" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="personal-user-presence-dot" aria-hidden="true" />
+          {statusText}
+        </p>
         <dl>
           <dt>Имя</dt>
           <dd>{conversation.peer.displayName}</dd>

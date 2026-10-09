@@ -24,11 +24,13 @@ import { useAuth } from "../auth";
 import { initials } from "../utils";
 import { Brand, Loading } from "./ui";
 import { NotificationBell } from "./NotificationBell";
+import { UnreadMessageCount } from "./UnreadMessageCount";
 import { useNotificationStream } from "../notifications";
 import { useCapabilities } from "../useCapabilities";
-import { PRODUCT_NAME } from "../brand";
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
 import { AccountSettingsModal } from "./AccountSettingsModal";
 import { AccountSettingsContext } from "./AccountSettingsContext";
+import { Copyright } from "./Copyright";
 
 /**
  * Layout объединяет навигацию, поиск и личный профиль, не управляя соединениями комнаты.
@@ -232,7 +234,6 @@ export function Layout() {
           Перейти к содержимому
         </a>
         <div className="app-chrome">
-          <span className="chrome-tagline">Место для ваших встреч</span>
           <div className="chrome-context">
             <LayoutGrid size={16} aria-hidden="true" />
             <span>{PRODUCT_NAME}</span>
@@ -268,6 +269,10 @@ export function Layout() {
               <X />
             </button>
           </div>
+          <p className="sidebar-tagline">
+            <span>{PRODUCT_TAGLINE.replace(/\s+в одном месте\.$/, "")}</span>{" "}
+            <strong>в одном месте.</strong>
+          </p>
           <p className="sidebar-caption">Рабочее пространство</p>
           <nav className="sidebar-nav" aria-label="Основная навигация">
             {items.map(({ to, label, Icon, ...props }) => (
@@ -284,13 +289,8 @@ export function Layout() {
               >
                 <Icon size={22} aria-hidden="true" />
                 <span className="nav-label-text">{label}</span>
-                {to === "/personal" && personal.unread > 0 && (
-                  <span
-                    className="count-badge"
-                    aria-label={`${personal.unread} непрочитанных личных сообщений`}
-                  >
-                    {personal.unread}
-                  </span>
+                {to === "/personal" && (
+                  <UnreadMessageCount count={personal.unread} />
                 )}
               </NavLink>
             ))}
@@ -412,6 +412,9 @@ export function Layout() {
               <Outlet />
             </Suspense>
           </main>
+          <footer className="workspace-footer">
+            <Copyright />
+          </footer>
           <nav className="mobile-bottom-nav" aria-label="Быстрая навигация">
             <NavLink to="/app" end aria-label="Главная — быстрая навигация">
               <Home size={20} />
@@ -425,7 +428,10 @@ export function Layout() {
               to="/personal"
               aria-label={`Личные — быстрая навигация${personal.unread ? `, непрочитанных: ${personal.unread}` : ""}`}
             >
-              <MessageCircle size={20} />
+              <span className="mobile-nav-message-icon">
+                <MessageCircle size={20} aria-hidden="true" />
+                <UnreadMessageCount count={personal.unread} />
+              </span>
               Личные
             </NavLink>
             <NavLink to="/recordings" aria-label="Записи — быстрая навигация">

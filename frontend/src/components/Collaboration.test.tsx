@@ -340,7 +340,11 @@ describe("notifications", /**
       item: { ...notification, readAt: "2026-10-01T10:01:00Z" },
     });
     show(<NotificationBell />);
-    await screen.findByLabelText("1 непрочитанных уведомлений");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Уведомления" }),
+      ).toHaveAccessibleDescription("1 непрочитанных уведомлений"),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Уведомления" }));
     expect(screen.getByText("Запись встречи готова")).toBeVisible();
     fireEvent.click(

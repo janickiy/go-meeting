@@ -15,7 +15,7 @@ import "./accessibility.css";
 import "./tokens.css";
 import "./workspace.css";
 import "./appearance.css";
-import { PRODUCT_NAME } from "./brand";
+import { PRODUCT_DESCRIPTION, PRODUCT_TAGLINE } from "./brand";
 import { ApiError } from "./api";
 import { AuthProvider } from "./auth";
 import { AppearanceProvider } from "./appearance";
@@ -26,7 +26,10 @@ import { installRecordingAudioUnlock } from "./recordingAnnouncement";
 
 const stopTelemetry = installClientTelemetry();
 const stopRecordingAudioUnlock = installRecordingAudioUnlock();
-document.title = `${PRODUCT_NAME} — встречи без границ`;
+document.title = PRODUCT_DESCRIPTION;
+document
+  .querySelector('meta[name="description"]')
+  ?.setAttribute("content", `${PRODUCT_DESCRIPTION} ${PRODUCT_TAGLINE}`);
 if (import.meta.hot) import.meta.hot.dispose(stopTelemetry);
 if (import.meta.hot) import.meta.hot.dispose(stopRecordingAudioUnlock);
 

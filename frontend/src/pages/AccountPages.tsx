@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { useAuth } from "../auth";
+import { PRODUCT_NAME } from "../brand";
 import { formatDate } from "../utils";
 import { useConferences } from "../queries";
 import { Button, ErrorNotice, Loading } from "../components/ui";
@@ -265,7 +266,7 @@ export function SettingsPage() {
           <div className="appearance-settings" id="appearance-settings">
             <div className="account-settings-section-heading">
               <h2>Оформление</h2>
-              <p>Настройте Meetrix под себя</p>
+              <p>Настройте {PRODUCT_NAME} под себя</p>
             </div>
             <fieldset className="appearance-theme-block">
               <legend>Тема</legend>

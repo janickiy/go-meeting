@@ -7,11 +7,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth";
 import { Brand } from "../components/ui";
-import { PRODUCT_NAME } from "../brand";
+import { Copyright } from "../components/Copyright";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
 import "./meetings-design.css";
 
 /**
- * Landing показывает приветственную страницу Meet и переходы к регистрации и входу.
+ * Landing показывает приветственную страницу MeetSpace и переходы к регистрации и входу.
  *
  *
  * @returns JSX-представление компонента для текущих свойств и состояния.
@@ -41,18 +42,9 @@ export function Landing() {
       </header>
       <main className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">
-            {PRODUCT_NAME.toUpperCase()} · ВСТРЕЧИ. ИДЕИ. РЕЗУЛЬТАТЫ.
-          </span>
-          <h1>
-            Работайте вместе.
-            <br />
-            <em>Где бы вы ни были.</em>
-          </h1>
-          <p className="hero-subtitle">
-            Встречи, разговоры и важные материалы — в одном спокойном
-            пространстве для вашей команды.
-          </p>
+          <span className="eyebrow">{PRODUCT_NAME}</span>
+          <h1>{PRODUCT_TAGLINE}</h1>
+          <p className="hero-subtitle">{PRODUCT_DESCRIPTION}</p>
           <Link
             to={user ? "/app" : "/register"}
             className="button button-primary hero-cta"
@@ -76,7 +68,7 @@ export function Landing() {
       </main>
       <section
         className="landing-design-features"
-        aria-label="Возможности Meetrix"
+        aria-label={`Возможности ${PRODUCT_NAME}`}
       >
         {[
           {
@@ -104,7 +96,7 @@ export function Landing() {
       </section>
       <footer className="landing-footer">
         <strong>{PRODUCT_NAME}</strong>
-        <span>Одно место для вашей команды.</span>
+        <Copyright />
       </footer>
     </div>
   );

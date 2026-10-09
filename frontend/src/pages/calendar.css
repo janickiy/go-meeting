@@ -1,7 +1,7 @@
 .calendar-page {
   min-width: 0;
-  max-width: 1320px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 .calendar-page .page-heading {
   align-items: center;
@@ -62,26 +62,37 @@
 }
 .calendar-view-switch {
   display: flex;
-  gap: 3px;
-  padding: 4px;
-  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 7px;
   background: var(--surface-soft);
   border: 1px solid var(--border);
 }
 .calendar-view-switch button {
+  min-width: 0;
+  max-width: 100%;
   min-height: 44px;
-  padding: 8px 15px;
+  padding: 10px 14px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-bottom: 2px solid transparent;
+  border-radius: 5px;
   color: var(--muted);
   background: transparent;
   font: inherit;
-  font-size: calc(12px * var(--text-scale));
+  font-size: calc(13px * var(--text-scale));
+  font-weight: 500;
+  white-space: normal;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .calendar-view-switch button[aria-pressed="true"] {
-  color: var(--text);
+  color: var(--primary);
   background: var(--surface);
+  border-bottom-color: var(--primary);
+  box-shadow: 0 1px 3px #33203910;
   font-weight: 600;
 }
 .calendar-zone {
@@ -505,9 +516,6 @@
   }
   .calendar-toolbar {
     gap: 10px;
-  }
-  .calendar-view-switch button {
-    padding: 8px 10px;
   }
   .calendar-grid-scroll {
     display: none;

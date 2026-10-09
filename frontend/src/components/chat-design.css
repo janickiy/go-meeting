@@ -160,11 +160,12 @@
   padding: 0;
 }
 .conference-stage-rail .chat-panel .chat-compose-row {
+  --room-chat-input-height: max(44px, calc(21px * var(--text-scale) + 20px));
   grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
   grid-template-rows: auto;
   align-items: center;
-  gap: 0;
-  min-height: 76px;
+  gap: 4px;
+  min-height: 62px;
   padding: 8px;
 }
 .conference-stage-rail .chat-compose-field {
@@ -172,15 +173,37 @@
   grid-row: 1;
 }
 .conference-stage-rail .chat-panel .chat-compose-field textarea {
-  min-height: 44px;
+  display: block;
+  min-height: var(--room-chat-input-height);
   max-height: 88px;
   padding: 10px 4px;
   font-size: calc(14px * var(--text-scale));
-  line-height: 24px;
+  line-height: 1.5;
+}
+/* Пустой редактор остаётся компактным и учитывает крупный текст; многострочный черновик растёт как прежде. */
+.conference-stage-rail
+  .chat-panel
+  .chat-compose-field
+  textarea:placeholder-shown {
+  max-height: var(--room-chat-input-height);
 }
 .conference-stage-rail .chat-compose-row .emoji-picker {
   grid-column: 3;
   grid-row: 1;
+  align-self: center;
+  justify-self: center;
+}
+.conference-stage-rail .chat-compose-row .emoji-picker-trigger {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+.conference-room-page
+  .conference-stage-rail
+  .chat-uploads-compact
+  > .chat-attachment-trigger {
+  border-color: transparent;
 }
 .conference-stage-rail .chat-send-button.button,
 .conference-stage-rail .chat-uploads-compact > .button {

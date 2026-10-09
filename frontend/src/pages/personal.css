@@ -359,12 +359,12 @@
   flex: 1;
 }
 .personal-conversation-row .item-actions {
-  margin-right: 4px;
+  margin-right: 0;
 }
 
 /* Рабочая область, список и диалог повторяют пропорции макета «Общение». */
 .workspace-main:has(> .personal-page) {
-  padding: 16px;
+  padding: 16px var(--workspace-gutter);
   max-width: none;
   width: 100%;
   container-type: inline-size;
@@ -372,6 +372,22 @@
 .personal-page {
   height: calc(100dvh - var(--workspace-shell-height, 108px) - 32px);
   min-height: 440px;
+}
+/* Футер занимает свою строку; переписка заполняет оставшуюся высоту без прокрутки всей страницы. */
+@media (min-width: 768px) {
+  .workspace:has(.personal-page) {
+    height: calc(100dvh - 52px);
+    min-height: 0;
+  }
+  .workspace-main:has(> .personal-page) {
+    display: flex;
+    min-height: 0;
+  }
+  .workspace-main > .personal-page {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
 }
 .personal-sidebar {
   min-width: 0;
@@ -425,13 +441,28 @@
   padding: 0 8px;
 }
 .personal-conversation-row {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
   position: relative;
   border-radius: 6px;
 }
+.personal-conversation-row:hover {
+  background: var(--surface-soft);
+}
+.personal-conversation-row:has(.selected) {
+  background: var(--primary-soft);
+  box-shadow: inset 3px 0 var(--primary);
+}
 .personal-conversation {
   gap: 12px;
-  padding: 10px 12px;
+  min-width: 0;
+  padding: 10px 6px 10px 12px;
+}
+.personal-conversation-row .personal-conversation:hover,
+.personal-conversation-row .personal-conversation.selected {
+  background: transparent;
+  box-shadow: none;
 }
 .personal-conversation .personal-avatar {
   flex-basis: 44px;
@@ -445,22 +476,14 @@
   font-size: calc(12px * var(--text-scale));
 }
 .personal-meta {
+  flex-shrink: 0;
   min-width: 38px;
   font-size: calc(12px * var(--text-scale));
 }
-.personal-meta .count-badge {
-  min-width: 20px;
-  min-height: 20px;
-  padding: 0 5px;
-  border-radius: 6px;
-  color: #fff;
-  background: var(--primary);
-}
 .personal-conversation-row > .item-actions,
 .personal-conversation-row > .personal-direct-actions {
-  position: absolute;
-  top: 13px;
-  right: 4px;
+  position: relative;
+  justify-self: center;
   opacity: 0;
 }
 .personal-conversation-row:hover > .item-actions,
@@ -469,19 +492,8 @@
 .personal-conversation-row:focus-within > .personal-direct-actions {
   opacity: 1;
 }
-.personal-conversation-row:hover .personal-meta,
-.personal-conversation-row:focus-within .personal-meta {
-  visibility: hidden;
-}
 .personal-conversation-row .item-actions > .icon-button {
-  background: var(--surface);
-}
-.personal-list-footer {
-  border-top: 1px solid var(--border);
-  padding: 14px;
-  font-size: calc(12px * var(--text-scale));
-  text-align: center;
-  color: var(--muted);
+  background: transparent;
 }
 .personal-header {
   min-height: 72px;
@@ -505,6 +517,10 @@
 .personal-header-copy small {
   font-size: calc(12px * var(--text-scale));
   margin-top: 4px;
+}
+.personal-header-copy .personal-peer-status-online {
+  color: var(--success);
+  font-weight: 500;
 }
 .personal-thread .chat-messages {
   padding-top: 20px;
@@ -559,6 +575,22 @@
   margin: 0;
   color: var(--muted);
   font-size: calc(13px * var(--text-scale));
+}
+.personal-user-info > .personal-user-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+.personal-user-info > .personal-user-presence-online {
+  color: var(--success);
+}
+.personal-user-presence-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
 }
 .personal-reconnect {
   display: flex;
@@ -627,7 +659,10 @@
     padding-bottom: 0;
   }
   .workspace-main:has(> .personal-page) {
-    padding: 0;
+    padding: 0 var(--workspace-gutter);
+  }
+  .workspace-main:has(> .personal-page.personal-selected) {
+    padding-inline: 0;
   }
   .personal-page {
     height: var(--personal-mobile-height, calc(100dvh - 150px));
@@ -670,20 +705,11 @@
   .personal-conversation-row > .item-actions,
   .personal-conversation-row > .personal-direct-actions {
     opacity: 1;
-    top: 38px;
-    right: 2px;
   }
   .personal-conversation-row .item-actions > .icon-button {
-    min-height: 32px;
-    height: 32px;
-    width: 32px;
-  }
-  .personal-conversation-row .personal-meta {
-    padding-bottom: 20px;
-  }
-  .personal-conversation-row:hover .personal-meta,
-  .personal-conversation-row:focus-within .personal-meta {
-    visibility: visible;
+    min-height: 44px;
+    height: 44px;
+    width: 44px;
   }
 }
 [data-large-text="true"] .personal-page {

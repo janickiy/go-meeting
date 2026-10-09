@@ -408,8 +408,8 @@
 }
 
 .content-card:has(.notifications-page-list) {
-  max-width: 880px;
-  margin-inline: auto;
+  max-width: none;
+  margin-inline: 0;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -490,8 +490,8 @@
 
 .notifications-page {
   width: 100%;
-  max-width: 880px;
-  margin-inline: auto;
+  max-width: none;
+  margin-inline: 0;
 }
 .notifications-count {
   border-radius: 4px;

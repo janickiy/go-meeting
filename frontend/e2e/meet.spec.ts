@@ -395,7 +395,9 @@ test("landing, login, registration and success match the reference at desktop si
   await mockApi(page, { empty: true });
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Работайте вместе. Где бы вы ни были." }),
+    page.getByRole("heading", {
+      name: "Встречи, чаты и совместная работа в одном месте.",
+    }),
   ).toBeVisible();
   const hero = page.getByRole("img");
   await expect(hero).toBeVisible();
@@ -437,7 +439,7 @@ test("landing, login, registration and success match the reference at desktop si
     .getByRole("button", { name: "Зарегистрироваться", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Вы в Meetrix." }),
+    page.getByRole("heading", { name: "Вы в MeetSpace." }),
   ).toBeVisible();
   await page.screenshot({
     path: info.outputPath("04-success.png"),
@@ -669,7 +671,7 @@ test("handles errors without leaking server details or pretending registration f
     .getByRole("button", { name: "Зарегистрироваться", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Вы в Meetrix." }),
+    page.getByRole("heading", { name: "Вы в MeetSpace." }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Войти в аккаунт" }),
@@ -718,7 +720,7 @@ test("registration counts characters, not bytes, and accepts eight plain letters
   await password.fill("abcdefgh");
   await submit.click();
   await expect(
-    page.getByRole("heading", { name: "Вы в Meetrix." }),
+    page.getByRole("heading", { name: "Вы в MeetSpace." }),
   ).toBeVisible();
   expect(
     writes.filter(
@@ -763,7 +765,7 @@ test("mobile layouts, menu, keyboard dialog dismissal and deep-link refresh", /*
   });
   await page.getByRole("button", { name: "Открыть меню" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Меню Meetrix" }),
+    page.getByRole("dialog", { name: "Меню MeetSpace" }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(

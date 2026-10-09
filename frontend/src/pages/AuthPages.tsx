@@ -12,7 +12,8 @@ import {
   SuccessMark,
 } from "../components/ui";
 import { passwordLength, safeNext, utf8Bytes } from "../utils";
-import { PRODUCT_NAME } from "../brand";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
+import { Copyright } from "../components/Copyright";
 import "./meetings-design.css";
 
 /**
@@ -113,18 +114,14 @@ export function AuthPage({ register = false }: { register?: boolean }) {
             <br />
             <em>Ближе к идеям.</em>
           </h2>
-          <p>
-            Встречи, разговоры и материалы.
-            <br />
-            Соберите рабочий день в одном месте.
-          </p>
+          <p>{PRODUCT_TAGLINE}</p>
           <div className="auth-design-story-note">
             <span>
               <Video size={22} aria-hidden="true" />
             </span>
             <div>
               <strong>Хорошая работа начинается с разговора.</strong>
-              <small>{PRODUCT_NAME} · Встречи. Идеи. Результаты.</small>
+              <small>{PRODUCT_DESCRIPTION}</small>
             </div>
           </div>
         </aside>
@@ -302,9 +299,10 @@ export function AuthPage({ register = false }: { register?: boolean }) {
           </div>
         </div>
       </main>
-      <p className="auth-footer">
-        {PRODUCT_NAME} — одно место для вашей команды.
-      </p>
+      <footer className="auth-footer">
+        <span>{PRODUCT_DESCRIPTION}</span>
+        <Copyright />
+      </footer>
     </div>
   );
 }

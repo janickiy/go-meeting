@@ -313,7 +313,7 @@ test("mobile settings replaces the navigation drawer without losing the route or
     exact: true,
   });
   await opener.click();
-  const drawer = page.getByRole("dialog", { name: "Меню Meetrix" });
+  const drawer = page.getByRole("dialog", { name: "Меню MeetSpace" });
   await expect(drawer).toBeVisible();
   await drawer.getByRole("link", { name: "Настройки", exact: true }).click();
   const dialog = settingsDialog(page);

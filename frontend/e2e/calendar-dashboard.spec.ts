@@ -229,7 +229,7 @@ for (const width of [390, 834, 1440]) {
         .getByRole("button", { name: "Открыть меню", exact: true })
         .click();
       await expect(
-        page.getByRole("dialog", { name: "Меню Meetrix" }),
+        page.getByRole("dialog", { name: "Меню MeetSpace" }),
       ).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(

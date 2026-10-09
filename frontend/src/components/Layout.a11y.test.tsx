@@ -17,6 +17,7 @@ const adminState = vi.hoisted(() => ({
   isAdmin: false,
   analytics: false,
   capabilityError: false,
+  unread: 2,
 }));
 vi.mock("../auth", () => ({
   useAuth: () => ({
@@ -31,7 +32,11 @@ vi.mock("../auth", () => ({
 }));
 vi.mock("../notifications", () => ({ useNotificationStream: vi.fn() }));
 vi.mock("../personalRealtime", () => ({
-  usePersonalRealtime: () => ({ unread: 2, notice: null, dismiss: vi.fn() }),
+  usePersonalRealtime: () => ({
+    unread: adminState.unread,
+    notice: null,
+    dismiss: vi.fn(),
+  }),
 }));
 vi.mock("../useCapabilities", () => ({
   useCapabilities: () => ({
@@ -56,6 +61,7 @@ afterEach(() => {
   adminState.isAdmin = false;
   adminState.analytics = false;
   adminState.capabilityError = false;
+  adminState.unread = 2;
 });
 
 function showLayout() {
@@ -71,6 +77,40 @@ function showLayout() {
 }
 
 describe("навигация приложения", () => {
+  it("показывает оформленный слоган под логотипом и копирайт в футере", () => {
+    const { container } = showLayout();
+    expect(container.querySelector(".app-chrome")).not.toHaveTextContent(
+      "Встречи, чаты",
+    );
+    expect(container.querySelector(".sidebar-tagline")).toHaveTextContent(
+      "Встречи, чаты и совместная работа в одном месте.",
+    );
+    expect(
+      container.querySelector(".sidebar-tagline strong"),
+    ).toHaveTextContent("в одном месте.");
+    const footer = container.querySelector(".workspace-footer") as HTMLElement;
+    expect(footer).toHaveTextContent(
+      "© 2026 Яницкий Александр. Все права защищены.",
+    );
+    expect(
+      within(footer).getByRole("link", { name: "Яницкий Александр" }),
+    ).toHaveAttribute("href", "https://janickiy.com/");
+  });
+  it("показывает общий счётчик личных и групповых сообщений в основной и мобильной навигации", () => {
+    showLayout();
+    for (const name of ["Основная навигация", "Быстрая навигация"]) {
+      expect(
+        within(screen.getByRole("navigation", { name })).getByLabelText(
+          "2 непрочитанных сообщений",
+        ),
+      ).toHaveTextContent("2");
+    }
+  });
+  it("не отображает нулевые счётчики сообщений в навигации", () => {
+    adminState.unread = 0;
+    const { container } = showLayout();
+    expect(container.querySelector(".message-unread-count")).toBeNull();
+  });
   it("не использует устаревшие возможности после ошибки обновления", () => {
     adminState.analytics = true;
     adminState.capabilityError = true;
@@ -135,7 +175,7 @@ describe("навигация приложения", () => {
     expect(button).toHaveAttribute("aria-expanded", "false");
     await user.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
-    const drawer = screen.getByRole("dialog", { name: "Меню Meetrix" });
+    const drawer = screen.getByRole("dialog", { name: "Меню MeetSpace" });
     expect(drawer).toBeInTheDocument();
     expect(within(drawer).queryByRole("link", { name: "История" })).toBeNull();
     expect(

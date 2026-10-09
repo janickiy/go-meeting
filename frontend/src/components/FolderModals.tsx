@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FolderMinus } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { PRODUCT_NAME } from "../brand";
 import {
   folderAccessDenied,
   invalidateFolders,
@@ -89,7 +90,7 @@ export function FolderNameForm({
           maxLength={100}
           disabled={mutation.isPending}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Проект Meetrix"
+          placeholder={`Проект ${PRODUCT_NAME}`}
         />
       </label>
       <p className="folder-hint">

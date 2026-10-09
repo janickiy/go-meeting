@@ -20,6 +20,42 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+}
+/* Готовые векторные логотипы сохраняют пропорции и выбираются по фону поверхности. */
+.brand-meetspace {
+  width: calc(176px * var(--text-scale));
+  max-width: 100%;
+  gap: 0;
+}
+.brand-meetspace .brand-mark {
+  display: none;
+}
+.brand-meetspace .brand-lockup {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+.brand-meetspace .brand-lockup > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.brand-meetspace .brand-lockup > .brand-logo-dark {
+  display: none;
+}
+:root[data-theme="dark"] .brand-meetspace .brand-logo-light,
+:is(.sidebar, .workspace-mobile-brand, .conference-waiting-page)
+  .brand-meetspace
+  .brand-logo-light {
+  display: none;
+}
+:root[data-theme="dark"] .brand-meetspace .brand-lockup > .brand-logo-dark,
+:is(.sidebar, .workspace-mobile-brand, .conference-waiting-page)
+  .brand-meetspace
+  .brand-lockup
+  > .brand-logo-dark {
+  display: block;
 }
 .button {
   min-height: 44px;
@@ -156,12 +192,6 @@ body {
   background: var(--chrome);
   color: var(--sidebar-text);
 }
-.chrome-tagline {
-  width: calc(var(--sidebar-width) - 32px);
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  color: var(--sidebar-muted);
-}
 .chrome-context {
   display: flex;
   align-items: center;
@@ -209,7 +239,30 @@ body {
   overflow-y: auto;
 }
 .sidebar-head {
-  padding: 0 10px 26px;
+  padding: 0 10px 12px;
+}
+/* Слоган становится частью логотипного блока, а не мелкой подписью в верхней полосе. */
+.sidebar-tagline {
+  margin: 0 10px 24px;
+  padding-left: 12px;
+  border-left: 2px solid #a57bdd;
+  font-size: calc(13px * var(--text-scale));
+  line-height: 1.55;
+  letter-spacing: -0.15px;
+  color: #d7c8e2;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.sidebar-tagline > span,
+.sidebar-tagline > strong {
+  display: block;
+}
+.sidebar-tagline > strong {
+  margin-top: 4px;
+  color: #fff;
+  font-size: calc(15px * var(--text-scale));
+  font-weight: 600;
+  letter-spacing: -0.3px;
 }
 .sidebar .brand {
   font-size: calc(22px * var(--text-scale));
@@ -262,6 +315,47 @@ body {
 .nav-active .count-badge {
   color: #fff;
   background: #6b3f78;
+}
+/* Числовые индикаторы личных и групповых сообщений повторяют второй макет. */
+.message-unread-count {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: calc(20px * var(--text-scale));
+  min-height: calc(20px * var(--text-scale));
+  padding: 0 calc(5px * var(--text-scale));
+  border-radius: 6px;
+  font-size: calc(12px * var(--text-scale));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  white-space: nowrap;
+  color: var(--primary-contrast);
+  background: var(--primary);
+}
+.sidebar .message-unread-count {
+  margin-left: auto;
+  color: var(--sidebar-bg);
+  background: var(--sidebar-selection);
+}
+.sidebar .nav-active .message-unread-count {
+  color: #fff;
+  background: #6b3f78;
+}
+.mobile-nav-message-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.mobile-nav-message-icon .message-unread-count {
+  position: absolute;
+  top: -8px;
+  left: 14px;
+  min-width: calc(18px * var(--text-scale));
+  min-height: calc(18px * var(--text-scale));
+  padding: 0 calc(4px * var(--text-scale));
+  font-size: calc(10px * var(--text-scale));
+  border-radius: 5px;
 }
 .sidebar-personal-caption {
   margin-top: 18px;
@@ -335,7 +429,7 @@ body {
 }
 .workspace-top {
   min-height: 64px;
-  padding: 0 32px;
+  padding: 0 var(--workspace-gutter);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   gap: 16px;
@@ -392,20 +486,40 @@ body {
 .workspace-main {
   width: 100%;
   min-width: 0;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 28px 32px 40px;
+  max-width: none;
+  margin: 0;
+  padding: 28px var(--workspace-gutter) 40px;
   flex: 1;
 }
 .workspace-footer {
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  padding: 14px 32px;
+  padding: 14px var(--workspace-gutter);
   color: var(--muted);
   font-size: calc(10px * var(--text-scale));
   border-top: 1px solid var(--border);
   margin: 0;
+}
+.copyright {
+  margin: 0;
+  font-size: calc(12px * var(--text-scale));
+  line-height: 1.6;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.copyright a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+.copyright a:hover {
+  color: var(--primary);
+  text-decoration-color: currentColor;
+}
+.auth-footer .copyright {
+  margin-top: 8px;
 }
 .workspace-footer > span:first-child {
   color: var(--text);
@@ -703,10 +817,10 @@ body {
   }
   .workspace-top,
   .workspace-footer {
-    padding-inline: 24px;
+    padding-inline: var(--workspace-gutter);
   }
   .workspace-main {
-    padding: 28px 24px;
+    padding: 28px var(--workspace-gutter);
   }
   .topbar-profile-text {
     max-width: 140px;
@@ -719,6 +833,7 @@ body {
 @media (min-width: 768px) and (max-width: 1023px) {
   :root {
     --sidebar-width: 76px;
+    --workspace-gutter: 24px;
   }
   .sidebar {
     padding: 18px 10px;
@@ -728,6 +843,16 @@ body {
   }
   .sidebar .brand {
     justify-content: center;
+  }
+  .sidebar .brand-meetspace {
+    width: 100%;
+    min-height: 44px;
+  }
+  .sidebar .brand-meetspace .brand-mark {
+    display: flex;
+  }
+  .sidebar .brand-meetspace .brand-lockup {
+    display: none;
   }
   .sidebar .brand > span:last-child,
   .sidebar .nav-label-text,
@@ -742,7 +867,7 @@ body {
     white-space: nowrap;
   }
   .sidebar-caption,
-  .chrome-tagline {
+  .sidebar-tagline {
     display: none;
   }
   .sidebar-personal-caption + nav {
@@ -757,19 +882,18 @@ body {
   .nav-item {
     position: relative;
   }
-  .sidebar .count-badge {
+  .sidebar .count-badge,
+  .sidebar .message-unread-count {
     position: absolute;
     top: 0;
     right: 0;
     font-size: 10px;
   }
 }
-:root[data-text-size="200"] .chrome-tagline {
-  display: none;
-}
 @media (max-width: 767px) {
   :root {
     --workspace-shell-height: 64px;
+    --workspace-gutter: 16px;
   }
   .app-shell {
     display: block;
@@ -810,7 +934,7 @@ body {
     z-index: calc(var(--z-drawer) - 1);
   }
   .workspace-top {
-    padding: env(safe-area-inset-top) 16px 0;
+    padding: env(safe-area-inset-top) var(--workspace-gutter) 0;
     min-height: 64px;
     gap: 12px;
     color: var(--sidebar-text);
@@ -829,6 +953,8 @@ body {
   }
   .workspace-mobile-brand {
     display: block;
+    flex: 1;
+    min-width: 0;
   }
   .workspace-mobile-brand .brand {
     color: #fff;
@@ -839,15 +965,24 @@ body {
     color: var(--sidebar-bg);
   }
   .workspace-account {
+    flex: none;
     gap: 8px;
   }
   .topbar-profile-text {
     display: none;
   }
   .workspace-main {
-    padding: 24px 16px calc(96px + env(safe-area-inset-bottom));
+    padding: 24px var(--workspace-gutter);
   }
   .workspace-footer {
+    display: flex;
+    justify-content: center;
+    padding: 14px var(--workspace-gutter)
+      calc(88px + env(safe-area-inset-bottom));
+    text-align: center;
+  }
+  .app-shell:has(.personal-page.personal-selected) .workspace-footer,
+  .app-shell:has(.personal-page[data-keyboard-open="true"]) .workspace-footer {
     display: none;
   }
   .mobile-bottom-nav {
@@ -878,6 +1013,17 @@ body {
   }
   .mobile-bottom-nav .active {
     color: var(--primary);
+  }
+  /* Крупный текст перераспределяет ширину пунктов, не разрывая короткие названия по буквам. */
+  [data-large-text="true"] .mobile-bottom-nav {
+    overflow-x: auto;
+  }
+  [data-large-text="true"] .mobile-bottom-nav a,
+  [data-large-text="true"] .mobile-bottom-nav button {
+    flex: 1 1 auto;
+    min-width: min-content;
+    white-space: nowrap;
+    overflow-wrap: normal;
   }
   .page-heading h1 {
     font-size: calc(24px * var(--text-scale));

@@ -35,7 +35,7 @@ test("real Go API: register, create, invite, join, leave, rejoin and finish", /*
       .getByRole("button", { name: "Зарегистрироваться", exact: true })
       .click();
     await expect(
-      target.getByRole("heading", { name: "Вы в Meetrix." }),
+      target.getByRole("heading", { name: "Вы в MeetSpace." }),
     ).toBeVisible();
     await target.getByRole("link", { name: "Перейти в приложение" }).click();
   }

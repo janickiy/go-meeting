@@ -44,7 +44,7 @@ test("local Compose: prejoin gates entry, history opens, notifications load and 
       .getByRole("button", { name: "Зарегистрироваться", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Вы в Meetrix." }),
+      page.getByRole("heading", { name: "Вы в MeetSpace." }),
     ).toBeVisible();
     await page.getByRole("link", { name: "Перейти в приложение" }).click();
     token = await page.evaluate(() => {

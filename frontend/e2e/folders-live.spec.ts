@@ -86,7 +86,7 @@ test("personal folders organize direct/group/meeting independently, sync devices
   test.setTimeout(120000);
   page.setDefaultTimeout(10000);
   const { alice, bob, conversationId, groupId, meetingId } = fixture!;
-  const name = `Проект Meetrix ${Date.now()}`,
+  const name = `Проект MeetSpace ${Date.now()}`,
     second = `Работа ${Date.now()}`,
     renamed = `Команда проекта ${Date.now()}`;
   for (const actor of [alice, bob]) {
@@ -408,7 +408,7 @@ test("focused folder geometry and readable cards on the final CSS", async ({
   });
   const created = await page.request.post(`${fixture!.url}/api/v1/folders`, {
     headers: { Authorization: `Bearer ${alice.token}` },
-    data: { name: `Проект Meetrix · UI ${Date.now()}` },
+    data: { name: `Проект MeetSpace · UI ${Date.now()}` },
   });
   expect(created.ok()).toBeTruthy();
   const folder = (await created.json()).item;

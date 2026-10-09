@@ -1,7 +1,7 @@
 .folders-page {
   min-width: 0;
-  max-width: 1040px;
-  margin-inline: auto;
+  max-width: none;
+  margin-inline: 0;
 }
 .folders-heading {
   display: flex;

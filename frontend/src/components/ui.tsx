@@ -20,20 +20,50 @@ import type { ConferenceStatus } from "../types";
 import { PRODUCT_NAME } from "../brand";
 
 /**
- * Brand показывает фирменный знак Meet со ссылкой на указанную страницу.
- *
- * @args
- *   - объект параметров: to — верхняя граница фильтра либо локальный путь согласно типу.
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
+ * Brand показывает предоставленный логотип MeetSpace и ведёт на указанную страницу.
+ * Светлая и тёмная версии выбираются стилями по фону; узкая панель использует отдельный знак.
+ * @args to — локальный путь перехода по логотипу; по умолчанию приветственная страница.
+ * @return доступная ссылка с логотипом либо текстовым названием при собственном build-time имени.
  */
 export function Brand({ to = "/" }: { to?: string }) {
+  const meetspace = PRODUCT_NAME === "MeetSpace";
   return (
-    <Link to={to} className="brand" aria-label={`${PRODUCT_NAME} — главная`}>
+    <Link
+      to={to}
+      className={`brand${meetspace ? " brand-meetspace" : ""}`}
+      aria-label={`${PRODUCT_NAME} — главная`}
+    >
       <span className="brand-mark">
-        <img src="/brand-mark.svg" width="32" height="36" alt="" />
+        <img
+          src="/branding/meetspace-symbol-color.svg"
+          width="32"
+          height="36"
+          alt=""
+        />
       </span>
-      <span>{PRODUCT_NAME}</span>
+      <span className={meetspace ? "brand-lockup" : undefined}>
+        {meetspace ? (
+          <>
+            <img
+              className="brand-logo-light"
+              src="/branding/meetspace-horizontal-light-no-tagline.svg"
+              width="900"
+              height="230"
+              alt=""
+            />
+            <img
+              className="brand-logo-dark"
+              src="/branding/meetspace-horizontal-dark-no-tagline.svg"
+              width="900"
+              height="230"
+              alt=""
+            />
+            <span className="sr-only">{PRODUCT_NAME}</span>
+          </>
+        ) : (
+          PRODUCT_NAME
+        )}
+      </span>
     </Link>
   );
 }

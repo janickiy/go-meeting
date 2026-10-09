@@ -1,5 +1,6 @@
 /* Комната использует отдельную тёмную поверхность; серверные состояния не зависят от оформления. */
 .conference-room-page {
+  --room-speaking-accent: #42d88b;
   color: var(--room-text);
   background: var(--room-bg);
   height: 100dvh;
@@ -312,7 +313,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border: 3px solid #ffd12a;
+  border: 3px solid var(--room-speaking-accent);
   border-radius: inherit;
   pointer-events: none;
   z-index: 3;
@@ -331,7 +332,7 @@
   border-radius: 6px;
   color: color-mix(
     in srgb,
-    var(--room-text) calc(var(--audio-level, 0) * 100%),
+    var(--room-bg) calc(var(--audio-level, 0) * 100%),
     var(--room-muted)
   );
   transition: color 50ms linear;
@@ -341,13 +342,13 @@
   position: absolute;
   inset: auto 0 0;
   height: calc(var(--audio-level, 0) * 100%);
-  background: #ffd12a;
+  background: var(--room-speaking-accent, #42d88b);
   pointer-events: none;
   z-index: -1;
   transition: height 50ms linear;
 }
 .media-tile-microphone > svg {
-  /* Контрастный контур читается и над жёлтой заливкой, и над тёмным фоном. */
+  /* Контур остаётся читаемым над зелёной заливкой и тёмным фоном. */
   filter: drop-shadow(0 0 1px #161b24);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -649,7 +650,7 @@
 }
 .conference-stage-panel-chat .chat-composer {
   flex-shrink: 1;
-  padding: 12px 10px;
+  padding: 12px;
   background: var(--surface);
 }
 .conference-stage-panel-chat .chat-readonly-note,
