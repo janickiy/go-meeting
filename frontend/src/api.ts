@@ -3,6 +3,7 @@ import type {
   PersonalConversation,
   PersonalPeer,
   DirectConversation,
+  DirectConversationHideReceipt,
   GroupConversation,
   GroupMember,
   GroupRole,
@@ -1106,6 +1107,40 @@ export const api = {
       method: "POST",
       body: { userId },
     }),
+  /**
+   * Сохраняет настройку уведомлений только для текущего участника личного диалога.
+   * @args id — идентификатор диалога; notificationsEnabled — требуемое состояние; signal — отмена запроса при закрытии интерфейса.
+   * @return Диалог с подтверждённой личной настройкой; отказ доступа или сетевой сбой отклоняет Promise.
+   */
+  setPersonalConversationNotifications: (
+    id: string,
+    notificationsEnabled: boolean,
+    signal?: AbortSignal,
+  ) =>
+    request<Item<DirectConversation>>(
+      `/conversations/${encodeURIComponent(id)}/preferences`,
+      { method: "PATCH", body: { notificationsEnabled }, signal },
+    ),
+  /**
+   * Скрывает прежнюю историю только у текущего пользователя, не удаляя сообщения собеседника.
+   * @args id — идентификатор диалога; signal — отмена запроса при закрытии интерфейса.
+   * @return Диалог с личным порогом видимых сообщений и обновлённым счётчиком непрочитанных.
+   */
+  clearPersonalConversationHistory: (id: string, signal?: AbortSignal) =>
+    request<Item<DirectConversation>>(
+      `/conversations/${encodeURIComponent(id)}/clear-history`,
+      { method: "POST", body: {}, signal },
+    ),
+  /**
+   * Удаляет личный диалог из списка текущего пользователя, сохраняя данные собеседника.
+   * @args id — идентификатор диалога; signal — отмена запроса при закрытии интерфейса.
+   * @return Подтверждение сервера; отказ доступа или сетевой сбой отклоняет Promise.
+   */
+  hidePersonalConversation: (id: string, signal?: AbortSignal) =>
+    request<DirectConversationHideReceipt>(
+      `/conversations/${encodeURIComponent(id)}/hide`,
+      { method: "POST", body: {}, signal },
+    ),
   createGroup: (body: {
     clientRequestId: string;
     name: string;

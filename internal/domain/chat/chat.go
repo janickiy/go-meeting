@@ -70,11 +70,13 @@ type Message struct {
 func (Message) TableName() string { return "chat_messages" }
 
 // ReplyPreview передаёт краткое представление исходного сообщения для ответа, учитывая мягкое удаление.
+//   - Sequence: последовательность исходного сообщения для персональной фильтрации очищенной истории.
 //   - ID: уникальный идентификатор данной сущности.
 //   - Text: обычный текст сообщения, подлежащий проверке или обработке.
 //   - SenderName: сохранённое отображаемое имя отправителя.
 //   - Deleted: признак мягкого удаления исходного сообщения.
 type ReplyPreview struct {
+	Sequence   int64  `json:"sequence,string,omitempty"`
 	ID         string `json:"id"`
 	Text       string `json:"text"`
 	SenderName string `json:"senderName"`

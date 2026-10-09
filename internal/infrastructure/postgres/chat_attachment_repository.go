@@ -24,6 +24,19 @@ func (r *ChatRepository) InitAttachment(ctx context.Context, userID, conferenceI
 			if attachment.Filename != request.Filename || attachment.Size != request.Size || attachment.MimeType != request.MimeType {
 				return apperrors.New(apperrors.ErrConflict, "clientRequestId was used for a different attachment")
 			}
+			if r.direct && attachment.Status == "attached" && attachment.MessageID != nil {
+				cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+				if err != nil {
+					return err
+				}
+				var visible int64
+				if err := r.messages(tx).Where("conversation_id=? AND id=? AND sequence>?", conferenceID, *attachment.MessageID, cutoff).Count(&visible).Error; err != nil {
+					return err
+				}
+				if visible != 1 {
+					return apperrors.ErrNotFound
+				}
+			}
 			return nil
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -157,7 +170,11 @@ func (r *ChatRepository) DownloadAttachment(ctx context.Context, userID, confere
 			return apperrors.ErrNotFound
 		}
 		var count int64
-		if err := r.messages(tx).Where(r.sql("id=? AND conference_id=? AND deleted_at IS NULL"), *a.MessageID, conferenceID).Count(&count).Error; err != nil {
+		cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+		if err != nil {
+			return err
+		}
+		if err := r.messages(tx).Where(r.sql("id=? AND conference_id=? AND deleted_at IS NULL AND sequence>?"), *a.MessageID, conferenceID, cutoff).Count(&count).Error; err != nil {
 			return err
 		}
 		if count != 1 {

@@ -59,7 +59,11 @@ func (r *PersonalRepository) GetOrCreate(ctx context.Context, user, target strin
 				return err
 			}
 			id = row.ID
-			return nil
+			if err := authorizeDirect(tx, user, id, true); err != nil {
+				return err
+			}
+			return tx.Table("conversation_members").Where("conversation_id=? AND user_id=? AND hidden_at IS NOT NULL", id, user).
+				Updates(map[string]any{"hidden_at": nil, "updated_at": gorm.Expr("clock_timestamp()")}).Error
 		}
 		return tx.Exec("INSERT INTO conversation_members(conversation_id,user_id) VALUES(?,?),(?,?)", id, lo, id, hi).Error
 	})
@@ -71,20 +75,21 @@ func (r *PersonalRepository) GetOrCreate(ctx context.Context, user, target strin
 }
 
 // A bounded page uses one projection (including sender/member count/unread), not per-row calls.
-const personalUnreadSQL = `(SELECT count(*) FROM conversation_messages x WHERE x.conversation_id=c.id AND x.sequence>m.last_read_sequence AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL)`
-const personalProjection = `SELECT c.id,c.type,c.created_at,c.updated_at,c.last_message_at,c.last_message_id,
- COALESCE(c.last_message_at,c.created_at) AS activity_at,u.id AS peer_id,
+const personalUnreadSQL = `(SELECT count(*) FROM conversation_messages x WHERE x.conversation_id=c.id AND x.sequence>GREATEST(m.last_read_sequence,m.history_cleared_through) AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL)`
+const personalActivitySQL = `COALESCE(lm.created_at,c.created_at)`
+const personalProjection = `SELECT c.id,c.type,c.created_at,c.updated_at,lm.created_at AS last_message_at,lm.id AS last_message_id,
+ ` + personalActivitySQL + ` AS activity_at,u.id AS peer_id,
  COALESCE(NULLIF(u.display_name,''),'Пользователь') AS peer_name,
- COALESCE(c.name,'') AS name,c.description,c.created_by,c.avatar_version,m.role AS my_role,
+ COALESCE(c.name,'') AS name,c.description,c.created_by,c.avatar_version,m.role AS my_role,m.notifications_enabled,m.history_cleared_through,
  CASE WHEN c.type='group' THEN (SELECT count(*) FROM conversation_members gm WHERE gm.conversation_id=c.id AND gm.left_at IS NULL) ELSE 0 END AS member_count,
  lm.sender_user_id AS last_sender_id,COALESCE(NULLIF(su.display_name,''),'Пользователь') AS last_sender_name,
  CASE WHEN lm.deleted_at IS NOT NULL THEN 'Сообщение удалено' ELSE COALESCE(NULLIF(left(lm.text,160),''),CASE WHEN lm.id IS NULL THEN '' ELSE 'Вложение' END) END AS preview,
  ` + personalUnreadSQL + ` AS unread_count
  FROM conversation_members m JOIN conversations c ON c.id=m.conversation_id
  LEFT JOIN users u ON c.type='direct' AND u.id=CASE WHEN c.user_low_id=m.user_id THEN c.user_high_id ELSE c.user_low_id END
- LEFT JOIN conversation_messages lm ON lm.id=c.last_message_id
+ LEFT JOIN conversation_messages lm ON lm.id=c.last_message_id AND lm.sequence>m.history_cleared_through
  LEFT JOIN users su ON su.id=lm.sender_user_id
- WHERE m.user_id=? AND m.left_at IS NULL AND c.deleted_at IS NULL AND c.type IN('direct','group')`
+ WHERE m.user_id=? AND m.left_at IS NULL AND m.hidden_at IS NULL AND c.deleted_at IS NULL AND c.type IN('direct','group')`
 
 type personalRow struct {
 	ID, Type, PeerName, Preview, Name, Description, MyRole, LastSenderName string
@@ -93,13 +98,16 @@ type personalRow struct {
 	LastMessageAt                                                          *time.Time
 	LastMessageID                                                          *string
 	UnreadCount, MemberCount                                               int64
+	NotificationsEnabled                                                   bool
+	HistoryClearedThrough                                                  int64
 }
 
 func (row personalRow) view() personal.Conversation {
 	item := personal.Conversation{ID: row.ID, Type: row.Type, Name: row.Name, Description: row.Description,
 		CreatedBy: row.CreatedBy, UpdatedAt: row.UpdatedAt, MemberCount: row.MemberCount, AvatarVersion: row.AvatarVersion,
 		CreatedAt: row.CreatedAt, ActivityAt: row.ActivityAt, LastMessageAt: row.LastMessageAt, LastMessageID: row.LastMessageID,
-		Preview: row.Preview, UnreadCount: row.UnreadCount}
+		Preview: row.Preview, UnreadCount: row.UnreadCount, NotificationsEnabled: row.NotificationsEnabled,
+		HistoryClearedThrough: row.HistoryClearedThrough}
 	if row.Type == "direct" && row.PeerID != nil {
 		item.Peer = &personal.Peer{ID: *row.PeerID, DisplayName: row.PeerName}
 	}
@@ -171,10 +179,10 @@ func (r *PersonalRepository) ListFiltered(ctx context.Context, user, cursor stri
 		if _, e = uuid.Parse(c.ID); e != nil {
 			return page, apperrors.ErrInvalidInput
 		}
-		query += " AND (COALESCE(c.last_message_at,c.created_at),c.id)<(?,?)"
+		query += " AND (" + personalActivitySQL + ",c.id)<(?,?)"
 		args = append(args, c.At, c.ID)
 	}
-	query += " ORDER BY COALESCE(c.last_message_at,c.created_at) DESC,c.id DESC LIMIT ?"
+	query += " ORDER BY " + personalActivitySQL + " DESC,c.id DESC LIMIT ?"
 	args = append(args, limit+1)
 	var rows []personalRow
 	if err = r.db.WithContext(ctx).Raw(query, args...).Scan(&rows).Error; err != nil {
@@ -190,7 +198,7 @@ func (r *PersonalRepository) ListFiltered(ctx context.Context, user, cursor stri
 		page.Items = append(page.Items, row.view())
 	}
 	// The sidebar badge stays the total across all active direct/group conversations.
-	err = r.db.WithContext(ctx).Raw(`SELECT count(*) FROM conversation_members m JOIN conversations c ON c.id=m.conversation_id AND c.deleted_at IS NULL JOIN conversation_messages x ON x.conversation_id=m.conversation_id AND x.sequence>m.last_read_sequence AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL WHERE m.user_id=? AND m.left_at IS NULL`, user).Scan(&page.UnreadCount).Error
+	err = r.db.WithContext(ctx).Raw(`SELECT count(*) FROM conversation_members m JOIN conversations c ON c.id=m.conversation_id AND c.deleted_at IS NULL JOIN conversation_messages x ON x.conversation_id=m.conversation_id AND x.sequence>GREATEST(m.last_read_sequence,m.history_cleared_through) AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL WHERE m.user_id=? AND m.left_at IS NULL AND m.hidden_at IS NULL`, user).Scan(&page.UnreadCount).Error
 	return page, err
 }
 func (r *PersonalRepository) Members(ctx context.Context, id string) ([]string, error) {

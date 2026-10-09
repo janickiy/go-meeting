@@ -1,5 +1,5 @@
 import axe from "axe-core";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   afterAll,
@@ -109,9 +109,10 @@ describe("навигация приложения", () => {
       screen.getByRole("navigation", { name: "Настройки приложения" }),
     ).toHaveTextContent("Настройки");
     expect(screen.getByRole("main")).toHaveAttribute("id", "workspace-main");
-    expect(screen.getByRole("link", { name: "История" })).toHaveAttribute(
+    expect(screen.queryByRole("link", { name: "История" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Записи" })).toHaveAttribute(
       "href",
-      "/history",
+      "/recordings",
     );
     expect(screen.queryByRole("link", { name: "Уведомления" })).toBeNull();
     expect(
@@ -134,9 +135,12 @@ describe("навигация приложения", () => {
     expect(button).toHaveAttribute("aria-expanded", "false");
     await user.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
+    const drawer = screen.getByRole("dialog", { name: "Меню Meetrix" });
+    expect(drawer).toBeInTheDocument();
+    expect(within(drawer).queryByRole("link", { name: "История" })).toBeNull();
     expect(
-      screen.getByRole("dialog", { name: "Меню Meetrix" }),
-    ).toBeInTheDocument();
+      within(drawer).getByRole("link", { name: "Записи" }),
+    ).toHaveAttribute("href", "/recordings");
     const menuAudit = await axe.run(document.body, {
       runOnly: {
         type: "tag",

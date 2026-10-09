@@ -265,9 +265,9 @@ func (h *UserHandler) run(ctx context.Context, cancel context.CancelFunc, conn *
 			return
 		case data := <-queue:
 			op, stop := context.WithTimeout(ctx, cfg.WriteTimeout+2*time.Second)
-			err := h.deliver(op, id.UserID, data, func() error {
+			err := h.deliver(op, id.UserID, data, func(outbound []byte) error {
 				_ = conn.SetWriteDeadline(time.Now().Add(cfg.WriteTimeout))
-				return conn.WriteMessage(ws.TextMessage, data)
+				return conn.WriteMessage(ws.TextMessage, outbound)
 			})
 			stop()
 			if err != nil {

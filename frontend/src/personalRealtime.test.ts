@@ -14,6 +14,31 @@ const event = (kind = "message.created", version = 1, id = "m") =>
     },
   });
 describe("account message stream", () => {
+  it("принимает скрытие только с точным безопасным личным порогом", () => {
+    const envelope = (historyClearedThrough: unknown, hidden: unknown = true) =>
+      JSON.stringify({
+        type: "conversation.hidden",
+        data: {
+          type: "direct",
+          conversationId: "chat",
+          hidden,
+          historyClearedThrough,
+        },
+      });
+    const seen = new Map<string, number>();
+    expect(acceptPersonalEvent(envelope(0), seen)).not.toBeNull();
+    expect(acceptPersonalEvent(envelope(10), seen)).not.toBeNull();
+    for (const cutoff of [
+      undefined,
+      null,
+      -1,
+      1.5,
+      "10",
+      Number.MAX_SAFE_INTEGER + 1,
+    ])
+      expect(acceptPersonalEvent(envelope(cutoff), seen)).toBeNull();
+    expect(acceptPersonalEvent(envelope(10, false), seen)).toBeNull();
+  });
   it("deduplicates retries and old versions while accepting edits/deletes", () => {
     const seen = new Map<string, number>();
     expect(acceptPersonalEvent(event(), seen)).not.toBeNull();

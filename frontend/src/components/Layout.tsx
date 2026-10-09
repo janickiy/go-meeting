@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Home,
   Folder,
-  History,
   LogOut,
   Menu,
   CirclePlay,
@@ -161,7 +160,6 @@ export function Layout() {
     { to: "/personal", label: "Личные", Icon: MessageCircle },
     { to: "/calendar", label: "Календарь", Icon: CalendarDays },
     { to: "/recordings", label: "Записи", Icon: CirclePlay },
-    { to: "/history", label: "История", Icon: History },
     ...(capabilities.isSuccess &&
     !capabilities.isError &&
     capabilities.data.capabilities.meetingAnalytics

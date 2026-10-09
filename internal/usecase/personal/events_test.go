@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/janickiy/go-recorder/internal/domain/chat"
 	"github.com/janickiy/go-recorder/internal/domain/realtime"
 )
@@ -87,5 +88,38 @@ func TestGroupReadTypeAndLookupFailure(t *testing.T) {
 	}
 	if len(bus.events["owner"]) != 1 {
 		t.Fatal("published on failed lookup")
+	}
+}
+
+// TestPrivateConversationActionsReachOnlyActor проверяет адресность личных
+// настроек: собеседник не получает сведения об очистке, скрытии или mute.
+func TestPrivateConversationActionsReachOnlyActor(t *testing.T) {
+	bus := &eventBus{events: map[string][]realtime.Envelope{}}
+	events := &Events{Members: eventMembers{ids: []string{"actor", "peer"}, kind: "direct"}, Bus: bus}
+	id := uuid.NewString()
+	for _, kind := range []string{"conversation.preferences.updated", "conversation.history.cleared", "conversation.hidden"} {
+		data := map[string]any{"conversationId": id, "type": "direct", "userId": "actor", "historyClearedThrough": int64(10)}
+		if err := events.PublishUser(context.Background(), "actor", kind, data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(bus.events["actor"]) != 3 || len(bus.events["peer"]) != 0 {
+		t.Fatal("personal actions escaped actor channel", bus.events)
+	}
+	for _, data := range []any{
+		map[string]string{"conversationId": id, "type": "direct", "userId": "peer"},
+		map[string]string{"conversationId": id, "type": "group", "userId": "actor"},
+		map[string]string{"conversationId": "invalid", "type": "direct", "userId": "actor"},
+		map[string]string{"conversationId": id, "type": "direct"},
+	} {
+		if err := events.PublishUser(context.Background(), "actor", "conversation.hidden", data); err == nil {
+			t.Fatal("invalid actor-only payload accepted", data)
+		}
+	}
+	if err := events.PublishUser(context.Background(), "actor", "message.created", map[string]string{"conversationId": id, "type": "direct", "userId": "actor"}); err == nil {
+		t.Fatal("private event helper accepted a message")
+	}
+	if len(bus.events["actor"]) != 3 {
+		t.Fatal("invalid action published")
 	}
 }

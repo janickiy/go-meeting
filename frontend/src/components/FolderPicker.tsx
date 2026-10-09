@@ -20,6 +20,7 @@ import type {
 import { Button, ErrorNotice, Loading, Modal } from "./ui";
 import { FolderNameForm } from "./FolderModals";
 import { ItemActions } from "./ItemActions";
+import { DirectConversationActions } from "./DirectConversationActions";
 import "./folders.css";
 
 /** Each checkbox is an idempotent mapping write; folders never grant access. */
@@ -203,6 +204,22 @@ function FolderPickerContent({
   );
 }
 export function ConversationActions({
+  conversation,
+}: {
+  conversation: PersonalConversation;
+}) {
+  return conversation.type === "direct" ? (
+    <DirectConversationActions
+      key={conversation.id}
+      conversation={conversation}
+    />
+  ) : (
+    <FolderConversationActions conversation={conversation} />
+  );
+}
+
+/** Сохраняет прежнее меню папок для групповых переписок. */
+function FolderConversationActions({
   conversation,
 }: {
   conversation: PersonalConversation;

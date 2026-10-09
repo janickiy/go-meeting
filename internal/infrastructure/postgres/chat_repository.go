@@ -82,21 +82,29 @@ func (r *ChatRepository) messageQuery(tx *gorm.DB) *gorm.DB {
 	}
 	return r.messages(tx).Select("chat_messages.*, p.display_name AS sender_name").Joins(r.sql("JOIN conference_participants p ON p.conference_id=chat_messages.conference_id AND p.user_id=chat_messages.sender_user_id"))
 }
-func (r *ChatRepository) loadMessage(tx *gorm.DB, conferenceID, id string) (chat.Message, error) {
+func (r *ChatRepository) loadMessage(tx *gorm.DB, conferenceID, id, userID string) (chat.Message, error) {
 	var message chat.Message
-	err := r.messageQuery(tx).Where(r.sql("chat_messages.id=? AND chat_messages.conference_id=?"), id, conferenceID).Take(&message).Error
+	cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+	if err != nil {
+		return message, err
+	}
+	err = r.messageQuery(tx).Where(r.sql("chat_messages.id=? AND chat_messages.conference_id=? AND sequence>?"), id, conferenceID, cutoff).Take(&message).Error
 	if err != nil {
 		return message, mapNotFound(err)
 	}
 	rows := []chat.Message{message}
-	err = r.decorateMessages(tx, rows)
+	err = r.decorateMessages(tx, rows, cutoff)
 	return rows[0], err
 }
-func (r *ChatRepository) decorateMessages(tx *gorm.DB, items []chat.Message) error {
+func (r *ChatRepository) decorateMessages(tx *gorm.DB, items []chat.Message, cutoffs ...int64) error {
 	if len(items) == 0 {
 		return nil
 	}
 	ids := make([]string, 0, len(items))
+	var cutoff int64
+	if len(cutoffs) > 0 {
+		cutoff = cutoffs[0]
+	}
 	replyIDs := []string{}
 	for i := range items {
 		items[i].Attachments = []chat.Attachment{}
@@ -116,11 +124,11 @@ func (r *ChatRepository) decorateMessages(tx *gorm.DB, items []chat.Message) err
 	replies := map[string]chat.ReplyPreview{}
 	if len(replyIDs) > 0 {
 		var rows []chat.Message
-		if err := r.messageQuery(tx).Where(r.sql("chat_messages.conference_id=? AND chat_messages.id IN ?"), r.messageScope(items[0]), replyIDs).Find(&rows).Error; err != nil {
+		if err := r.messageQuery(tx).Where(r.sql("chat_messages.conference_id=? AND chat_messages.id IN ? AND sequence>?"), r.messageScope(items[0]), replyIDs, cutoff).Find(&rows).Error; err != nil {
 			return err
 		}
 		for _, m := range rows {
-			replies[m.ID] = chat.ReplyPreview{ID: m.ID, Text: m.Text, SenderName: m.SenderName, Deleted: m.DeletedAt != nil}
+			replies[m.ID] = chat.ReplyPreview{ID: m.ID, Sequence: m.Sequence, Text: m.Text, SenderName: m.SenderName, Deleted: m.DeletedAt != nil}
 		}
 	}
 	for i := range items {
@@ -134,6 +142,9 @@ func (r *ChatRepository) decorateMessages(tx *gorm.DB, items []chat.Message) err
 		if items[i].ReplyTo != nil {
 			if reply, ok := replies[*items[i].ReplyTo]; ok {
 				items[i].ReplyPreview = &reply
+			} else if cutoff > 0 {
+				items[i].ReplyTo = nil
+				items[i].ReplyPreview = nil
 			}
 		}
 	}
@@ -144,7 +155,17 @@ func (r *ChatRepository) readState(tx *gorm.DB, userID, conferenceID string) (ch
 	if err := tx.Table(r.readTable()).Select("last_read_message_id,last_read_sequence").Where(r.sql("conference_id=? AND user_id=?"), conferenceID, userID).Scan(&state).Error; err != nil {
 		return state, err
 	}
-	err := r.messages(tx).Where(r.sql("conference_id=? AND sequence>? AND sender_user_id<>? AND deleted_at IS NULL"), conferenceID, state.LastReadSequence, userID).Count(&state.UnreadCount).Error
+	cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+	if err != nil {
+		return state, err
+	}
+	if cutoff > state.LastReadSequence {
+		state.LastReadSequence = cutoff
+	}
+	err = r.messages(tx).Where(r.sql("conference_id=? AND sequence>? AND sender_user_id<>? AND deleted_at IS NULL"), conferenceID, state.LastReadSequence, userID).Count(&state.UnreadCount).Error
+	if cutoff > 0 && state.LastReadSequence <= cutoff {
+		state.LastReadMessageID = nil
+	}
 	return state, err
 }
 func (r *ChatRepository) List(ctx context.Context, userID, conferenceID, cursor string, limit int) (chat.Page, error) {
@@ -160,7 +181,11 @@ func (r *ChatRepository) List(ctx context.Context, userID, conferenceID, cursor 
 		if _, err := r.authorize(tx, userID, conferenceID, false, false); err != nil {
 			return err
 		}
-		query := r.messageQuery(tx).Where(r.sql("chat_messages.conference_id=?"), conferenceID)
+		cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+		if err != nil {
+			return err
+		}
+		query := r.messageQuery(tx).Where(r.sql("chat_messages.conference_id=? AND sequence>?"), conferenceID, cutoff)
 		if before > 0 {
 			query = query.Where("sequence<?", before)
 		}
@@ -174,7 +199,7 @@ func (r *ChatRepository) List(ctx context.Context, userID, conferenceID, cursor 
 		for i, j := 0, len(page.Items)-1; i < j; i, j = i+1, j-1 {
 			page.Items[i], page.Items[j] = page.Items[j], page.Items[i]
 		}
-		if err := r.decorateMessages(tx, page.Items); err != nil {
+		if err := r.decorateMessages(tx, page.Items, cutoff); err != nil {
 			return err
 		}
 		if err := r.markImportant(tx, userID, conferenceID, page.Items); err != nil {
@@ -223,7 +248,7 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 			if message.RequestFingerprint != fingerprint {
 				return apperrors.New(apperrors.ErrConflict, "clientRequestId was already used for a different message")
 			}
-			message, err = r.loadMessage(tx, conferenceID, message.ID)
+			message, err = r.loadMessage(tx, conferenceID, message.ID, userID)
 			return err
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -232,10 +257,14 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 		if _, err := r.authorize(tx, userID, conferenceID, false, true); err != nil {
 			return err
 		}
+		cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+		if err != nil {
+			return err
+		}
 		var replyTo *string
 		if request.ReplyTo != "" {
 			var reply chat.Message
-			if err := r.messages(tx).Where(r.sql("id=? AND conference_id=? AND deleted_at IS NULL"), request.ReplyTo, conferenceID).Take(&reply).Error; err != nil {
+			if err := r.messages(tx).Where(r.sql("id=? AND conference_id=? AND deleted_at IS NULL AND sequence>?"), request.ReplyTo, conferenceID, cutoff).Take(&reply).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return apperrors.New(apperrors.ErrInvalidInput, "reply target is unavailable in this conference")
 				}
@@ -277,9 +306,13 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 			if err := tx.Table("conversations").Where("id=?", conferenceID).Updates(map[string]any{"last_message_at": message.CreatedAt, "last_message_id": message.ID, "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
 				return err
 			}
+			if err := tx.Table("conversation_members").Where("conversation_id=? AND hidden_at IS NOT NULL", conferenceID).
+				Updates(map[string]any{"hidden_at": nil, "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
+				return err
+			}
 		}
 		created = true
-		message, err = r.loadMessage(tx, conferenceID, message.ID)
+		message, err = r.loadMessage(tx, conferenceID, message.ID, userID)
 		return err
 	})
 	if err != nil {
@@ -294,7 +327,11 @@ func (r *ChatRepository) Edit(ctx context.Context, userID, conferenceID, id, tex
 			return err
 		}
 		var message chat.Message
-		if err := r.messages(tx).Clauses(clause.Locking{Strength: "UPDATE"}).Where(r.sql("id=? AND conference_id=?"), id, conferenceID).Take(&message).Error; err != nil {
+		cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+		if err != nil {
+			return err
+		}
+		if err := r.messages(tx).Clauses(clause.Locking{Strength: "UPDATE"}).Where(r.sql("id=? AND conference_id=? AND sequence>?"), id, conferenceID, cutoff).Take(&message).Error; err != nil {
 			return mapNotFound(err)
 		}
 		if message.SenderID != userID {
@@ -315,8 +352,7 @@ func (r *ChatRepository) Edit(ctx context.Context, userID, conferenceID, id, tex
 		if err := r.messages(tx).Where("id=?", id).Updates(map[string]any{"text": text, "version": gorm.Expr("version+1"), "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
 			return err
 		}
-		var err error
-		item, err = r.loadMessage(tx, conferenceID, id)
+		item, err = r.loadMessage(tx, conferenceID, id, userID)
 		return err
 	})
 	if err != nil {
@@ -332,7 +368,11 @@ func (r *ChatRepository) Delete(ctx context.Context, userID, conferenceID, id st
 			return err
 		}
 		var message chat.Message
-		if err := r.messages(tx).Clauses(clause.Locking{Strength: "UPDATE"}).Where(r.sql("id=? AND conference_id=?"), id, conferenceID).Take(&message).Error; err != nil {
+		cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+		if err != nil {
+			return err
+		}
+		if err := r.messages(tx).Clauses(clause.Locking{Strength: "UPDATE"}).Where(r.sql("id=? AND conference_id=? AND sequence>?"), id, conferenceID, cutoff).Take(&message).Error; err != nil {
 			return mapNotFound(err)
 		}
 		if message.SenderID != userID && p.Role != conferences.Owner && p.Role != conferences.CoHost {
@@ -343,7 +383,7 @@ func (r *ChatRepository) Delete(ctx context.Context, userID, conferenceID, id st
 				return err
 			}
 		}
-		item, err = r.loadMessage(tx, conferenceID, id)
+		item, err = r.loadMessage(tx, conferenceID, id, userID)
 		return err
 	})
 	if err != nil {
@@ -372,7 +412,11 @@ func (r *ChatRepository) MarkRead(ctx context.Context, userID, conferenceID, mes
 			return err
 		}
 		var message chat.Message
-		if err := r.messages(tx).Select("id,sequence").Where(r.sql("id=? AND conference_id=?"), messageID, conferenceID).Take(&message).Error; err != nil {
+		cutoff, err := r.historyCutoff(tx, userID, conferenceID)
+		if err != nil {
+			return err
+		}
+		if err := r.messages(tx).Select("id,sequence").Where(r.sql("id=? AND conference_id=? AND sequence>?"), messageID, conferenceID, cutoff).Take(&message).Error; err != nil {
 			return mapNotFound(err)
 		}
 		if r.direct {

@@ -29,12 +29,13 @@ func (r *FolderRepository) Account(ctx context.Context, actor string) error {
 
 // These are the canonical eligible sets for counts, items and picker. Inactive
 // mappings remain stored, but never become authorization grants.
-const folderConversationsSQL = `SELECT c.id, COALESCE(c.last_message_at,c.created_at) AS activity_at,
+const folderConversationsSQL = `SELECT c.id, COALESCE(lm.created_at,c.created_at) AS activity_at,
  CASE WHEN c.type='group' THEN c.name ELSE COALESCE(NULLIF(peer.display_name,''),'Пользователь') END AS label
  FROM conversation_members m JOIN conversations c ON c.id=m.conversation_id
  JOIN users actor ON actor.id=m.user_id AND actor.guest_conference_id IS NULL
  LEFT JOIN users peer ON c.type='direct' AND peer.id=CASE WHEN c.user_low_id=m.user_id THEN c.user_high_id ELSE c.user_low_id END
- WHERE m.user_id=? AND m.left_at IS NULL AND c.deleted_at IS NULL AND c.type IN('direct','group')`
+ LEFT JOIN conversation_messages lm ON lm.id=c.last_message_id AND lm.sequence>m.history_cleared_through
+ WHERE m.user_id=? AND m.left_at IS NULL AND m.hidden_at IS NULL AND c.deleted_at IS NULL AND c.type IN('direct','group')`
 const folderConferencesSQL = `SELECT c.id,COALESCE(c.finished_at,c.scheduled_at,c.created_at) AS activity_at,c.title AS label
  FROM conference_participants p JOIN conferences c ON c.id=p.conference_id
  JOIN users actor ON actor.id=p.user_id AND actor.guest_conference_id IS NULL
@@ -354,7 +355,8 @@ type folderItemRow struct {
 const folderPersonalJSON = `jsonb_build_object('id',p.id,'type',p.type,'peer',CASE WHEN p.type='direct' THEN jsonb_build_object('id',p.peer_id,'displayName',p.peer_name) ELSE NULL END,
  'name',p.name,'description',p.description,'createdBy',p.created_by,'updatedAt',p.updated_at,'memberCount',p.member_count,'myRole',CASE WHEN p.type='group' THEN p.my_role ELSE '' END,
  'avatarVersion',p.avatar_version,'lastSender',CASE WHEN p.last_sender_id IS NULL THEN NULL ELSE jsonb_build_object('id',p.last_sender_id,'displayName',p.last_sender_name) END,
- 'createdAt',p.created_at,'lastMessageAt',p.last_message_at,'lastMessageId',p.last_message_id,'preview',p.preview,'unreadCount',p.unread_count)`
+ 'createdAt',p.created_at,'lastMessageAt',p.last_message_at,'lastMessageId',p.last_message_id,'preview',p.preview,'unreadCount',p.unread_count,
+ 'notificationsEnabled',p.notifications_enabled,'historyClearedThrough',p.history_cleared_through)`
 const folderConferenceJSON = `jsonb_build_object('id',c.id,'ownerId',c.owner_id,'title',c.title,'inviteCode','','inviteUrl','','status',c.status,
  'createdAt',c.created_at,'updatedAt',c.updated_at,'startedAt',c.started_at,'finishedAt',c.finished_at,'waitingRoomEnabled',c.waiting_room_enabled,
  'scheduledAt',c.scheduled_at,'plannedDurationMin',c.planned_duration_min,'participantCount',CASE WHEN p.admission_state='admitted' AND p.status IN('joined','left') THEN

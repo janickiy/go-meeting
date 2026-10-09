@@ -12,11 +12,19 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ArrowLeft, Info, MessageCircle, Plus, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  BellOff,
+  Info,
+  MessageCircle,
+  Plus,
+  Search,
+} from "lucide-react";
 import { api, ApiError, personalChatAPI } from "../api";
 import { useAuth } from "../auth";
 import { chatTime } from "../chatPresentation";
 import { ConversationActions } from "../components/FolderPicker";
+import { DirectUserInfoModal } from "../components/DirectConversationActions";
 import { MessageThread } from "../components/ChatPanel";
 import { Button, ErrorNotice, Loading } from "../components/ui";
 import {
@@ -41,7 +49,9 @@ export function PersonalPage() {
     : "all";
   const [creating, setCreating] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [userInfoOpen, setUserInfoOpen] = useState(false);
   const infoTrigger = useRef<HTMLButtonElement>(null);
+  const userInfoTrigger = useRef<HTMLButtonElement>(null);
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -71,6 +81,13 @@ export function PersonalPage() {
     };
   }, [id]);
   const { user } = useAuth();
+  const threadVersion = useQuery({
+    queryKey: ["personal-thread-version", id, user?.id],
+    queryFn: () => 0,
+    initialData: 0,
+    staleTime: Infinity,
+    enabled: false,
+  });
   const revoke = useCallback(() => {
     if (!id || !user) return;
     revokePersonalConversation(client, id, user.id);
@@ -128,7 +145,10 @@ export function PersonalPage() {
   useEffect(() => {
     if (inaccessible && detail.data?.item.type === "group") revoke();
   }, [inaccessible, detail.data, revoke]);
-  useEffect(() => setInfoOpen(false), [id]);
+  useEffect(() => {
+    setInfoOpen(false);
+    setUserInfoOpen(false);
+  }, [id]);
   return (
     <section
       className={`personal-page ${id ? "personal-selected" : ""}`}
@@ -207,6 +227,9 @@ export function PersonalPage() {
                   </span>
                 </span>
                 <span className="personal-meta">
+                  {c.type === "direct" && c.notificationsEnabled === false && (
+                    <BellOff size={14} aria-label="Уведомления отключены" />
+                  )}
                   <time>
                     {c.lastMessageAt ? chatTime(c.lastMessageAt) : ""}
                   </time>
@@ -256,15 +279,35 @@ export function PersonalPage() {
               >
                 <ArrowLeft />
               </Link>
-              {selected && <ConversationAvatar conversation={selected} />}
-              <div className="personal-header-copy">
-                <strong>
-                  {selected ? conversationName(selected) : "Переписка"}
-                </strong>
-                {selected?.type === "group" && (
-                  <small>{selected.memberCount} участн.</small>
-                )}
-              </div>
+              {selected?.type === "direct" ? (
+                <button
+                  ref={userInfoTrigger}
+                  type="button"
+                  className="personal-peer-button"
+                  aria-label={`Информация о пользователе: ${selected.peer.displayName}`}
+                  onClick={() => setUserInfoOpen(true)}
+                >
+                  <ConversationAvatar conversation={selected} />
+                  <span className="personal-header-copy">
+                    <strong>{selected.peer.displayName}</strong>
+                    {selected.notificationsEnabled === false && (
+                      <small>Без уведомлений</small>
+                    )}
+                  </span>
+                </button>
+              ) : (
+                <>
+                  {selected && <ConversationAvatar conversation={selected} />}
+                  <div className="personal-header-copy">
+                    <strong>
+                      {selected ? conversationName(selected) : "Переписка"}
+                    </strong>
+                    {selected?.type === "group" && (
+                      <small>{selected.memberCount} участн.</small>
+                    )}
+                  </div>
+                </>
+              )}
               {selected && <ConversationActions conversation={selected} />}
               {selected?.type === "group" && (
                 <button
@@ -284,7 +327,7 @@ export function PersonalPage() {
             ) : (
               selected && (
                 <MessageThread
-                  key={id}
+                  key={`${id}:${selected.type === "direct" ? selected.historyClearedThrough || 0 : 0}:${threadVersion.data}`}
                   scopeId={id}
                   transport={personalChatAPI}
                   personal
@@ -299,6 +342,13 @@ export function PersonalPage() {
         )}
       </div>
       {creating && <GroupCreateModal onClose={() => setCreating(false)} />}
+      {userInfoOpen && selected?.type === "direct" && (
+        <DirectUserInfoModal
+          conversation={selected}
+          onClose={() => setUserInfoOpen(false)}
+          returnFocus={() => userInfoTrigger.current}
+        />
+      )}
       {infoOpen && selected?.type === "group" && (
         <GroupInfoModal
           group={selected}

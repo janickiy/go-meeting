@@ -58,6 +58,41 @@ describe("API contract", /**
  *
  * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
  */ () => {
+  it("сохраняет личные действия отдельными командами, не удаляя общий ресурс чата", async () => {
+    const fetch = fetchResponse(200, { status: "success", item: {} });
+    const controller = new AbortController();
+    await api.setPersonalConversationNotifications(
+      "direct/id",
+      false,
+      controller.signal,
+    );
+    expect(fetch.mock.calls[0][0]).toBe(
+      "/api/v1/conversations/direct%2Fid/preferences",
+    );
+    expect(fetch.mock.calls[0][1]).toMatchObject({
+      method: "PATCH",
+      signal: controller.signal,
+      body: JSON.stringify({ notificationsEnabled: false }),
+    });
+    await api.clearPersonalConversationHistory("direct/id", controller.signal);
+    expect(fetch.mock.calls[1][0]).toBe(
+      "/api/v1/conversations/direct%2Fid/clear-history",
+    );
+    expect(fetch.mock.calls[1][1]).toMatchObject({
+      method: "POST",
+      signal: controller.signal,
+      body: "{}",
+    });
+    await api.hidePersonalConversation("direct/id", controller.signal);
+    expect(fetch.mock.calls[2][0]).toBe(
+      "/api/v1/conversations/direct%2Fid/hide",
+    );
+    expect(fetch.mock.calls[2][1]).toMatchObject({
+      method: "POST",
+      signal: controller.signal,
+      body: "{}",
+    });
+  });
   it("binds personal list cursors to server filters without changing legacy defaults", async () => {
     const fetch = fetchResponse(200, { status: "success", items: [] });
     const controller = new AbortController();

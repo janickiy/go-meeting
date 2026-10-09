@@ -65,8 +65,27 @@ func (r *ChatRepository) authorize(tx *gorm.DB, user, id string, locked, write b
 	if err := authorizeDirect(tx, user, id, locked); err != nil {
 		return conferences.Participant{}, err
 	}
+	var visible int64
+	if err := tx.Table("conversation_members").Where("conversation_id=? AND user_id=? AND hidden_at IS NULL", id, user).Count(&visible).Error; err != nil {
+		return conferences.Participant{}, err
+	}
+	if visible != 1 {
+		return conferences.Participant{}, apperrors.ErrForbidden
+	}
 	// Direct conversations have no moderator. The ID is used only to address the reader's account stream.
 	return conferences.Participant{ID: user, Role: conferences.ParticipantRole}, nil
+}
+
+// historyCutoff возвращает персональную границу очищенной истории после проверки доступа.
+// @args: tx — транзакция; user — текущий читатель; id — область чата.
+// @return: последняя скрытая последовательность; для чата конференции всегда ноль.
+func (r *ChatRepository) historyCutoff(tx *gorm.DB, user, id string) (int64, error) {
+	if !r.direct {
+		return 0, nil
+	}
+	var cutoff int64
+	err := tx.Table("conversation_members").Select("history_cleared_through").Where("conversation_id=? AND user_id=?", id, user).Scan(&cutoff).Error
+	return cutoff, err
 }
 func authorizeDirect(tx *gorm.DB, user, id string, locked bool) error {
 	var row struct{ ID string }
