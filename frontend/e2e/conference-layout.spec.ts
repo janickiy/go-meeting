@@ -48,6 +48,7 @@ const people = [
  * guest — ограниченная сессия гостя текущей конференции.
  * nameSuffix — добавление к именам для проверки переноса длинного текста.
  * waitingRoomEnabled — серверный признак включённого зала ожидания.
+ * startedAt — время начала для проверки таймера в верхней панели.
  * @return Управление снимком, счётчик соединений и журналы ошибок браузера.
  */
 async function fixture(
@@ -59,6 +60,7 @@ async function fixture(
     guest = false,
     nameSuffix = "",
     waitingRoomEnabled = true,
+    startedAt = room.startedAt as string | null,
   } = {},
 ) {
   const denied: string[] = [];
@@ -172,7 +174,7 @@ async function fixture(
     if (method === "GET" && path === `/conferences/${room.id}`)
       return respond({
         status: "success",
-        item: { ...room, waitingRoomEnabled },
+        item: { ...room, waitingRoomEnabled, startedAt },
       });
     if (method === "GET" && path === `/conferences/${room.id}/participants/me`)
       return respond({ status: "success", item: localPerson });
@@ -277,7 +279,7 @@ test("тёмная комната: настоящие пустые плитки,
   ).toHaveCount(0);
   await expect(
     page
-      .locator(".conference-control-bar")
+      .locator(".room-header")
       .getByRole("button", { name: "Переподключиться", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("h");
@@ -858,7 +860,7 @@ for (const { name, width, height, textSize } of [
   { name: "mobile", width: 390, height: 844, textSize: 100 },
   { name: "mobile-200", width: 390, height: 844, textSize: 200 },
 ]) {
-  test(`переподключение вместо меню и прямой доступ к управлению: ${name}`, async ({
+  test(`переподключение в верхней панели и прямой доступ к управлению: ${name}`, async ({
     page,
     baseURL,
   }, info) => {
@@ -866,6 +868,7 @@ for (const { name, width, height, textSize } of [
     const isolated = await fixture(page, new URL(baseURL!).origin, {
       count: 2,
       canvas: true,
+      startedAt: "2026-10-05T19:20:00Z",
     });
     await page.addInitScript((size) => {
       localStorage.setItem(
@@ -886,7 +889,6 @@ for (const { name, width, height, textSize } of [
       "Участники",
       "Чат",
       "Показать экран",
-      "Переподключиться",
       "Покинуть конференцию",
     ])
       await expect(
@@ -899,10 +901,34 @@ for (const { name, width, height, textSize } of [
     await expect(
       page.getByRole("region", { name: "Реакции", exact: true }),
     ).toHaveCount(0);
-    const reconnect = controls.getByRole("button", {
+    const header = page.locator(".room-header");
+    const reconnect = header.getByRole("button", {
       name: "Переподключиться",
       exact: true,
     });
+    await expect(
+      page.getByRole("button", { name: "Переподключиться", exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      controls.getByRole("button", { name: "Переподключиться", exact: true }),
+    ).toHaveCount(0);
+    await expect(reconnect).toBeInViewport();
+    const invite = header.getByRole("button", {
+      name: "Пригласить",
+      exact: true,
+    });
+    await expect(invite).toBeVisible();
+    const reconnectBox = (await reconnect.boundingBox())!;
+    const inviteBox = (await invite.boundingBox())!;
+    expect(reconnectBox.x).toBeGreaterThan(inviteBox.x + inviteBox.width);
+    expect(
+      Math.abs(
+        reconnectBox.y +
+          reconnectBox.height / 2 -
+          inviteBox.y -
+          inviteBox.height / 2,
+      ),
+    ).toBeLessThan(1.1);
     await expect(reconnect).toHaveAttribute("title", "Переподключиться");
     await expect(reconnect.locator(".lucide-refresh-cw")).toBeVisible();
     await expectNoOverflow(page);

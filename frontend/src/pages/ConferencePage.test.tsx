@@ -28,6 +28,7 @@ const fixture = vi.hoisted(() => ({
   realtimeEnabled: [] as boolean[],
   mediaMounts: 0,
   mediaUnmounts: 0,
+  reconnectTarget: null as HTMLElement | null | undefined,
 }));
 
 beforeEach(() => {
@@ -47,6 +48,7 @@ beforeEach(() => {
   fixture.realtimeEnabled = [];
   fixture.mediaMounts = 0;
   fixture.mediaUnmounts = 0;
+  fixture.reconnectTarget = null;
 });
 
 vi.mock("../auth", () => ({
@@ -125,7 +127,14 @@ vi.mock("../useCapabilities", () => ({
 vi.mock("../components/RealtimePanel", async () => {
   const { useEffect } = await import("react");
   return {
-    RealtimePanel: ({ controls }: { controls?: import("react").ReactNode }) => {
+    RealtimePanel: ({
+      controls,
+      reconnectTarget,
+    }: {
+      controls?: import("react").ReactNode;
+      reconnectTarget?: HTMLElement | null;
+    }) => {
+      fixture.reconnectTarget = reconnectTarget;
       useEffect(() => {
         fixture.mediaMounts++;
         return () => {
@@ -234,6 +243,22 @@ it("предлагает организатору приглашать со ст
   expect(
     screen.getByRole("textbox", { name: "Email участников" }),
   ).toBeInTheDocument();
+  view.client.clear();
+});
+
+it("направляет кнопку переподключения в верхний ряд после приглашения", () => {
+  const view = page();
+  const target = fixture.reconnectTarget;
+  expect(target).toBeInstanceOf(HTMLElement);
+  expect(target).toHaveClass("room-reconnect-slot");
+  const header = target?.closest(".room-header");
+  const actions = header?.querySelector(".room-header-actions");
+  expect(actions?.lastElementChild).toBe(target);
+  expect(screen.getByRole("button", { name: "Пригласить" }).parentElement).toBe(
+    actions,
+  );
+  expect(target?.closest(".room-footer")).toBeNull();
+  expect(fixture.mediaMounts).toBe(1);
   view.client.clear();
 });
 

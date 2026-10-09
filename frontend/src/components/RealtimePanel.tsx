@@ -492,9 +492,7 @@ export function RealtimePanel({
       }}
     >
       <RefreshCw size={20} aria-hidden="true" />
-      <span className={reconnectTarget ? undefined : "sr-only"}>
-        Переподключиться
-      </span>
+      <span className="sr-only">Переподключиться</span>
     </Button>
   );
   const renderControls = (children: ReactNode) =>

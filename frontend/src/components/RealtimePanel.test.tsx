@@ -367,11 +367,22 @@ it("renders one reconnect action in the header slot and stops media before recon
   );
   const button = screen.getByRole("button", { name: "Переподключиться" });
   expect(host).toContainElement(button);
+  expect(
+    screen.getAllByRole("button", { name: "Переподключиться" }),
+  ).toHaveLength(1);
+  expect(button.closest(".conference-control-bar")).toBeNull();
+  expect(button).toHaveClass("room-header-reconnect");
+  expect(button.querySelector(".sr-only")).toHaveTextContent(
+    "Переподключиться",
+  );
   expect(screen.queryByText("Состояние медиасвязи")).toBeNull();
   expect(mediaRef.current.diagnostics).not.toHaveBeenCalled();
   fireEvent.click(button);
   expect(mediaRef.current.stop).toHaveBeenCalledOnce();
   expect(view.live.reconnect).toHaveBeenCalledOnce();
+  expect(
+    vi.mocked(mediaRef.current.stop).mock.invocationCallOrder[0],
+  ).toBeLessThan(vi.mocked(view.live.reconnect).mock.invocationCallOrder[0]);
   view.unmount();
   host.remove();
 });
