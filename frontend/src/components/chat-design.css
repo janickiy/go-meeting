@@ -134,11 +134,11 @@
   display: none;
 }
 .conference-stage-rail .chat-panel .chat-message {
-  padding-inline: 12px;
+  padding-inline: var(--room-panel-gutter, 16px);
   gap: 8px;
 }
 .conference-stage-rail .chat-panel .chat-message-own {
-  padding-inline-start: 10px;
+  padding-inline-start: calc(var(--room-panel-gutter, 16px) - 2px);
 }
 .conference-stage-rail .chat-message-tools > .item-actions > .icon-button {
   width: 32px;
@@ -158,6 +158,9 @@
 .conference-stage-rail .chat-day-label > span {
   border: 0;
   padding: 0;
+}
+.conference-stage-rail .chat-panel .chat-day-label {
+  padding-inline: var(--room-panel-gutter, 16px);
 }
 .conference-stage-rail .chat-panel .chat-compose-row {
   --room-chat-input-height: max(44px, calc(21px * var(--text-scale) + 20px));

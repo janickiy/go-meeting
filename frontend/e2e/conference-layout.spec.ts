@@ -46,16 +46,24 @@ const people = [
  * @args page — изолированная страница; origin — адрес локального Vite;
  * count — начальное число участников; canvas — тестовые видеопотоки вместо SFU;
  * guest — ограниченная сессия гостя текущей конференции.
+ * nameSuffix — добавление к именам для проверки переноса длинного текста.
+ * waitingRoomEnabled — серверный признак включённого зала ожидания.
  * @return Управление снимком, счётчик соединений и журналы ошибок браузера.
  */
 async function fixture(
   page: Page,
   origin: string,
-  { count = 4, canvas = false, guest = false } = {},
+  {
+    count = 4,
+    canvas = false,
+    guest = false,
+    nameSuffix = "",
+    waitingRoomEnabled = true,
+  } = {},
 ) {
   const denied: string[] = [];
   const errors: string[] = [];
-  const localPerson: PresenceParticipant = guest
+  const basePerson: PresenceParticipant = guest
     ? {
         ...people[0],
         userId: "guest",
@@ -63,7 +71,12 @@ async function fixture(
         role: "guest",
       }
     : people[0];
-  const participants = [localPerson, ...people.slice(1)];
+  const participants = [basePerson, ...people.slice(1)].map((person) =>
+    nameSuffix
+      ? { ...person, displayName: person.displayName + nameSuffix }
+      : person,
+  );
+  const localPerson = participants[0];
   let current = participants.slice(0, count);
   let socket: WebSocketRoute | undefined;
   let sequence = 0;
@@ -157,7 +170,10 @@ async function fixture(
         unreadCount: 0,
       });
     if (method === "GET" && path === `/conferences/${room.id}`)
-      return respond({ status: "success", item: room });
+      return respond({
+        status: "success",
+        item: { ...room, waitingRoomEnabled },
+      });
     if (method === "GET" && path === `/conferences/${room.id}/participants/me`)
       return respond({ status: "success", item: localPerson });
     if (
@@ -255,6 +271,14 @@ test("тёмная комната: настоящие пустые плитки,
   );
   await expect(
     page.getByRole("region", { name: "Реакции", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Ещё", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .locator(".conference-control-bar")
+      .getByRole("button", { name: "Переподключиться", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("h");
   expect(removedRequests).toEqual([]);
@@ -467,6 +491,57 @@ for (const layout of [
   });
 }
 
+for (const size of [
+  { name: "desktop", width: 1440, height: 1000, textSize: 100 },
+  { name: "mobile", width: 390, height: 844, textSize: 100 },
+  { name: "mobile-200", width: 390, height: 844, textSize: 200 },
+]) {
+  for (const waitingRoomEnabled of [true, false]) {
+    test(`подпись доступа по центру футера — ${size.name}, зал ожидания: ${waitingRoomEnabled}`, async ({
+      page,
+      baseURL,
+    }, info) => {
+      await page.setViewportSize(size);
+      const isolated = await fixture(page, new URL(baseURL!).origin, {
+        count: 2,
+        waitingRoomEnabled,
+      });
+      await page.addInitScript((textSize) => {
+        localStorage.setItem(
+          "go-recorder.appearance.v1:owner",
+          JSON.stringify({ version: 1, theme: "light", textSize }),
+        );
+      }, size.textSize);
+      await page.goto(`/meetings/${room.id}`);
+      const footer = page.locator(".room-footer");
+      const label = footer.getByText("Доступно по приглашению", {
+        exact: true,
+      });
+      if (waitingRoomEnabled) {
+        await expect(label).toBeInViewport();
+        const footerBox = (await footer.boundingBox())!;
+        const labelBox = (await label.boundingBox())!;
+        expect(
+          Math.abs(
+            footerBox.x + footerBox.width / 2 - labelBox.x - labelBox.width / 2,
+          ),
+        ).toBeLessThan(1.1);
+      } else {
+        await expect(label).toHaveCount(0);
+        await expect(footer.locator(".room-footer-meta")).toHaveCount(0);
+      }
+      await page.screenshot({
+        path: info.outputPath(
+          `access-note-${size.name}-${waitingRoomEnabled}.png`,
+        ),
+      });
+      await expectNoOverflow(page);
+      expect(isolated.errors).toEqual([]);
+      expect(isolated.denied).toEqual([]);
+    });
+  }
+}
+
 test("короткая видеообласть прокручивается с клавиатуры, не пряча кнопки управления", async ({
   page,
   baseURL,
@@ -650,30 +725,8 @@ test("настройки аккаунта из конференции сохра
   );
   const rail = page.locator(".conference-stage-rail");
   const beforeChat = await rail.isVisible();
-  const deviceTrigger = page.getByRole("button", {
-    name: "Устройства",
-    exact: true,
-  });
-  await deviceTrigger.click();
-  const deviceDialog = page.getByRole("dialog", {
-    name: "Настройки устройств",
-    exact: true,
-  });
-  await expect(deviceDialog).toBeVisible();
-  await expect(
-    deviceDialog.getByRole("combobox", { name: "Микрофон", exact: true }),
-  ).toBeVisible();
-  expect(await mediaState()).toEqual(beforeMedia);
-  expect(isolated.connections()).toBe(1);
-  await page.screenshot({
-    path: info.outputPath("conference-devices.png"),
-    fullPage: true,
-  });
-  await deviceDialog
-    .getByRole("button", { name: "Готово", exact: true })
-    .click();
-  await expect(deviceDialog).toHaveCount(0);
-  await expect(deviceTrigger).toBeFocused();
+  await expect(page.getByRole("region", { name: "Реакции" })).toHaveCount(0);
+  await expect(page.locator(".room-footer .reaction-buttons")).toHaveCount(0);
   const leave = page.getByRole("button", {
     name: "Покинуть конференцию",
     exact: true,
@@ -690,17 +743,14 @@ test("настройки аккаунта из конференции сохра
     .click();
   await expect(confirmation).toHaveCount(0);
   await expect(leave).toBeFocused();
-  const settings = page.getByRole("button", { name: "Ещё", exact: true });
+  const settings = page.getByRole("button", { name: "Настройки", exact: true });
   await expect(
     page.getByRole("button", { name: "Отключить медиа", exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Устройства", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await settings.click();
-  await page
-    .getByRole("menuitem", { name: "Настройки аккаунта", exact: true })
-    .click();
   const dialog = page.getByRole("dialog", {
     name: "Настройки аккаунта",
     exact: true,
@@ -765,13 +815,12 @@ test("мобильный гость открывает общие настрой
     guest: true,
   });
   await page.goto(`/conferences/${room.id}`);
+  await expect(page.getByRole("region", { name: "Реакции" })).toHaveCount(0);
+  await expect(page.locator(".room-footer .reaction-buttons")).toHaveCount(0);
   const beforeURL = page.url();
-  const settings = page.getByRole("button", { name: "Ещё", exact: true });
+  const settings = page.getByRole("button", { name: "Настройки", exact: true });
   await expect(settings).toBeEnabled();
   await settings.click();
-  await page
-    .getByRole("menuitem", { name: "Настройки аккаунта", exact: true })
-    .click();
   const dialog = page.getByRole("dialog", {
     name: "Настройки аккаунта",
     exact: true,
@@ -803,3 +852,263 @@ test("мобильный гость открывает общие настрой
   expect(isolated.denied).toEqual([]);
   expect(isolated.errors).toEqual([]);
 });
+
+for (const { name, width, height, textSize } of [
+  { name: "desktop", width: 1440, height: 1000, textSize: 100 },
+  { name: "mobile", width: 390, height: 844, textSize: 100 },
+  { name: "mobile-200", width: 390, height: 844, textSize: 200 },
+]) {
+  test(`переподключение вместо меню и прямой доступ к управлению: ${name}`, async ({
+    page,
+    baseURL,
+  }, info) => {
+    await page.setViewportSize({ width, height });
+    const isolated = await fixture(page, new URL(baseURL!).origin, {
+      count: 2,
+      canvas: true,
+    });
+    await page.addInitScript((size) => {
+      localStorage.setItem(
+        "go-recorder.appearance.v1:owner",
+        JSON.stringify({ version: 1, theme: "light", textSize: size }),
+      );
+    }, textSize);
+    await page.goto(`/conferences/${room.id}`);
+    await page
+      .getByRole("button", { name: "Включить камеру и микрофон", exact: true })
+      .click();
+    await expect(
+      page.getByTestId("local-media").locator("video"),
+    ).toBeVisible();
+    const controls = page.locator(".conference-control-bar");
+    for (const label of [
+      "Настройки",
+      "Участники",
+      "Чат",
+      "Показать экран",
+      "Переподключиться",
+      "Покинуть конференцию",
+    ])
+      await expect(
+        controls.getByRole("button", { name: label, exact: true }),
+      ).toBeVisible();
+    await expect(
+      controls.getByRole("button", { name: "Ещё", exact: true }),
+    ).toHaveCount(0);
+    await expect(controls.getByRole("menu")).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: "Реакции", exact: true }),
+    ).toHaveCount(0);
+    const reconnect = controls.getByRole("button", {
+      name: "Переподключиться",
+      exact: true,
+    });
+    await expect(reconnect).toHaveAttribute("title", "Переподключиться");
+    await expect(reconnect.locator(".lucide-refresh-cw")).toBeVisible();
+    await expectNoOverflow(page);
+    await page.screenshot({
+      path: info.outputPath(`conference-controls-${name}.png`),
+      fullPage: true,
+    });
+    const beforeURL = page.url();
+    expect(isolated.connections()).toBe(1);
+    await reconnect.click();
+    await expect.poll(() => isolated.connections()).toBe(2);
+    await expect(page.getByTestId("local-media")).toHaveCount(0);
+    await expect(
+      controls.getByRole("button", {
+        name: "Включить камеру и микрофон",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    expect(page.url()).toBe(beforeURL);
+    await expectNoOverflow(page);
+    expect(isolated.denied).toEqual([]);
+    expect(isolated.errors).toEqual([]);
+    expect(
+      await page.evaluate(
+        () =>
+          (window as Window & { layoutDeviceCalls?: number }).layoutDeviceCalls,
+      ),
+    ).toBe(0);
+  });
+}
+
+for (const size of [
+  {
+    name: "desktop",
+    width: 1440,
+    height: 1000,
+    textSize: 100,
+    theme: "light",
+    count: 1,
+  },
+  {
+    name: "desktop-dark",
+    width: 1440,
+    height: 1000,
+    textSize: 100,
+    theme: "dark",
+    count: 4,
+  },
+  {
+    name: "narrow-200",
+    width: 1024,
+    height: 768,
+    textSize: 200,
+    theme: "dark",
+    count: 4,
+  },
+  {
+    name: "tablet",
+    width: 834,
+    height: 1000,
+    textSize: 100,
+    theme: "light",
+    count: 4,
+  },
+  {
+    name: "mobile",
+    width: 390,
+    height: 844,
+    textSize: 100,
+    theme: "light",
+    count: 1,
+  },
+  {
+    name: "mobile-200",
+    width: 390,
+    height: 844,
+    textSize: 200,
+    theme: "dark",
+    count: 4,
+  },
+  {
+    name: "landscape",
+    width: 844,
+    height: 390,
+    textSize: 100,
+    theme: "light",
+    count: 4,
+  },
+]) {
+  test(`правая панель: отступы, длинные имена, поиск и прокрутка — ${size.name}`, async ({
+    page,
+    baseURL,
+  }, info) => {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    const isolated = await fixture(page, new URL(baseURL!).origin, {
+      count: size.count,
+      nameSuffix:
+        size.textSize === 200
+          ? " — ОченьДлинноеИмяУчастникаДляПроверкиПереноса"
+          : "",
+    });
+    await page.addInitScript(({ theme, textSize }) => {
+      localStorage.setItem(
+        "go-recorder.appearance.v1:owner",
+        JSON.stringify({ version: 1, theme, textSize }),
+      );
+    }, size);
+    await page.goto(`/meetings/${room.id}`);
+    if (size.name === "landscape") {
+      const media = page.getByRole("region", {
+        name: "Медиапотоки встречи",
+        exact: true,
+      });
+      await media.focus();
+      await page.keyboard.press("End");
+      await expect
+        .poll(() => media.evaluate((element) => element.scrollTop))
+        .toBeGreaterThan(0);
+    }
+    await page.getByRole("button", { name: "Чат", exact: true }).click();
+    const message = page.getByRole("textbox", {
+      name: "Сообщение",
+      exact: true,
+    });
+    await message.fill("Черновик сохраняется при переключении вкладок");
+    await page
+      .getByRole("tab", { name: `Участники (${size.count})`, exact: true })
+      .click();
+    const rail = page.locator(".conference-stage-rail");
+    const panel = page.locator("#meeting-panel-participants");
+    const search = panel.getByRole("textbox", {
+      name: "Поиск участника",
+      exact: true,
+    });
+    await expect(search).toBeVisible();
+    await expect(search).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const tabsBox = (await rail.getByRole("tablist").boundingBox())!;
+    const searchBox = (await panel
+      .locator(".room-participant-search")
+      .boundingBox())!;
+    const headingBox = (await rail
+      .locator(".room-panel-header strong")
+      .boundingBox())!;
+    expect(searchBox.y - tabsBox.y - tabsBox.height).toBeGreaterThanOrEqual(12);
+    expect(Math.abs(searchBox.x - headingBox.x)).toBeLessThan(1.1);
+    expect(
+      await panel.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    for (const identity of await panel
+      .locator(".room-participant-identity")
+      .all()) {
+      const name = (await identity.locator("strong").boundingBox())!;
+      const icons = (await identity
+        .locator(".room-participant-media")
+        .boundingBox())!;
+      expect(name.x + name.width).toBeLessThanOrEqual(icons.x - 10);
+      expect(
+        await identity.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+    }
+    const invite = panel.getByRole("button", {
+      name: "Пригласить участников",
+      exact: true,
+    });
+    const finish = panel.getByRole("button", {
+      name: "Завершить конференцию",
+      exact: true,
+    });
+    await finish.scrollIntoViewIfNeeded();
+    await expect(finish).toBeInViewport();
+    await expect(rail.getByRole("tablist")).toBeInViewport();
+    const inviteBox = (await invite.boundingBox())!;
+    const finishBox = (await finish.boundingBox())!;
+    expect(Math.abs(inviteBox.x - searchBox.x)).toBeLessThan(1.1);
+    expect(Math.abs(inviteBox.width - searchBox.width)).toBeLessThan(1.1);
+    expect(Math.abs(finishBox.width - inviteBox.width)).toBeLessThan(1.1);
+    expect(finishBox.y - inviteBox.y - inviteBox.height).toBeGreaterThanOrEqual(
+      7,
+    );
+    await search.fill("Алексей");
+    await expect(panel.locator(".room-participant-row")).toHaveCount(1);
+    await search.focus();
+    await expect(panel.locator(".room-participant-search")).toHaveCSS(
+      "outline-style",
+      "solid",
+    );
+    await expect(search).toHaveCSS("box-shadow", "none");
+    await page.screenshot({
+      path: info.outputPath(`sidebar-participants-${size.name}.png`),
+      fullPage: true,
+    });
+    await page.getByRole("tab", { name: "Чат", exact: true }).click();
+    await expect(message).toHaveValue(
+      "Черновик сохраняется при переключении вкладок",
+    );
+    await page
+      .getByRole("tab", { name: `Участники (${size.count})`, exact: true })
+      .click();
+    await expect(search).toHaveValue("Алексей");
+    await expectNoOverflow(page);
+    expect(isolated.connections()).toBe(1);
+    expect(isolated.denied).toEqual([]);
+    expect(isolated.errors).toEqual([]);
+  });
+}

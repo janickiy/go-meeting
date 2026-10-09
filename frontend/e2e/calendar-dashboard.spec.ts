@@ -125,9 +125,15 @@ async function installCalendarFixture(page: Page, owner = true) {
               status: "finished",
               finishedAt: "2026-10-01T12:00:00Z",
             }))
-          : cancelled
-            ? meetings.slice(1)
-            : meetings;
+          : url.searchParams.get("view") === "active"
+            ? meetings.map((meeting) => ({
+                ...meeting,
+                status: "active",
+                startedAt: meeting.scheduledAt,
+              }))
+            : cancelled
+              ? meetings.slice(1)
+              : meetings;
       return respond({ status: "success", items: rows, nextCursor: null });
     }
     if (path === "/conferences/product/cancel" && request.method() === "POST") {
@@ -196,6 +202,42 @@ test("кабинет и недельный календарь: реальные 
 });
 
 for (const width of [390, 834, 1440]) {
+  test(`список встреч без кнопок открытия: ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    await installCalendarFixture(page);
+    await page.goto("/conferences");
+    const list = page.locator("#conference-list");
+    for (const tab of ["Предстоящие", "Активные"]) {
+      await page.getByRole("tab", { name: tab, exact: true }).click();
+      await expect(
+        list.getByRole("link", { name: "Продуктовая встреча", exact: true }),
+      ).toHaveAttribute("href", "/meetings/product");
+      await expect(
+        list.getByRole("link", { name: "Открыть", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        list.getByRole("button", { name: "Открыть", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        list.getByRole("button", {
+          name: "Действия с конференцией: Продуктовая встреча",
+          exact: true,
+        }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+    }
+    await page.screenshot({
+      path: info.outputPath("conferences-without-open-buttons.png"),
+      fullPage: true,
+    });
+  });
+
   test(`главная с крупным текстом в тёмной теме: ${width}px`, async ({
     page,
   }, testInfo) => {

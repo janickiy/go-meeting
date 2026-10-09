@@ -17,7 +17,6 @@ import {
   RefreshCw,
   Video,
   VideoOff,
-  Ellipsis,
 } from "lucide-react";
 import type { useRealtime } from "../realtime";
 import { useMedia } from "../useMedia";
@@ -35,8 +34,6 @@ import { meetingShortcut } from "../conferenceShortcuts";
 import { initials } from "../utils";
 import { useSpeakingParticipants } from "../useSpeakingParticipants";
 import { onlineParticipants } from "../presence";
-import { ItemActions, type ItemAction } from "./ItemActions";
-import { ConferenceDevicesModal } from "./conference/ConferenceDevicesModal";
 
 /**
  * MediaTile воспроизводит существующий поток и показывает состояние участника.
@@ -296,12 +293,17 @@ export const MediaTile = memo(function MediaTile({
 
 // Захват с физических устройств всегда требует явного действия пользователя.
 /**
- * RealtimePanel показывает состояние связи, локальные и удалённые медиа и действия устройств и экрана.
- *
- * @args
- *   - объект параметров: conferenceId — идентификатор конференции и области данных; membership — свойство текущего компонента; live — свойство текущего компонента.
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
+ * RealtimePanel показывает медиапотоки, присутствие и прямые кнопки управления встречей.
+ * Настройки открываются общим диалогом без пересоздания медиа; переподключение сначала
+ * освобождает текущую медиасессию и затем обновляет канал встречи.
+ * @args conferenceId — идентификатор встречи; membership — членство и ограничения устройств;
+ * live — общий канал событий; shortcutsEnabled — разрешение горячих клавиш микрофона и камеры;
+ * participants — доступные сведения об участниках; controls — кнопки чата и участников;
+ * reconnectTarget — необязательный отдельный контейнер кнопки переподключения;
+ * controlsTarget — контейнер общей панели управления вне видеоколонки;
+ * endControls — завершающие действия, например выход из встречи.
+ * @return Панель потоков и состояния связи; кнопки монтируются в указанные контейнеры
+ * или остаются внутри панели, если контейнеры не заданы.
  */
 export function RealtimePanel({
   conferenceId,
@@ -313,7 +315,6 @@ export function RealtimePanel({
   reconnectTarget,
   controlsTarget,
   endControls,
-  moreActions = [],
 }: {
   conferenceId: string;
   membership: Participant;
@@ -324,11 +325,9 @@ export function RealtimePanel({
   reconnectTarget?: HTMLElement | null;
   controlsTarget?: HTMLElement | null;
   endControls?: ReactNode;
-  moreActions?: ItemAction[];
 }) {
   const { user } = useAuth();
   const openSettings = useAccountSettings();
-  const [devicesOpen, setDevicesOpen] = useState(false);
   const media = useMedia(live, conferenceId, {
     ...membership,
     version: membership.mediaPolicyVersion,
@@ -482,7 +481,7 @@ export function RealtimePanel({
       className={
         reconnectTarget
           ? "room-header-action room-header-reconnect"
-          : "realtime-reconnect"
+          : "room-reconnect-control"
       }
       aria-label="Переподключиться"
       title="Переподключиться"
@@ -492,8 +491,10 @@ export function RealtimePanel({
         live.reconnect();
       }}
     >
-      <RefreshCw size={16} aria-hidden="true" />
-      <span>Переподключиться</span>
+      <RefreshCw size={20} aria-hidden="true" />
+      <span className={reconnectTarget ? undefined : "sr-only"}>
+        Переподключиться
+      </span>
     </Button>
   );
   const renderControls = (children: ReactNode) =>
@@ -514,7 +515,6 @@ export function RealtimePanel({
           >
             {online ? live.status : "Нет сети"}
           </span>
-          {!reconnectTarget && reconnectButton}
         </div>
       </div>
       {reconnectTarget && createPortal(reconnectButton, reconnectTarget)}
@@ -723,67 +723,19 @@ export function RealtimePanel({
                 </Button>
               </>
             )}
-            <Button
-              variant="secondary"
-              className="room-devices-control"
-              aria-haspopup="dialog"
-              onClick={() => setDevicesOpen(true)}
-            >
-              <Settings size={20} />
-              Устройства
-            </Button>
+            {openSettings && (
+              <Button
+                variant="secondary"
+                className="room-settings-control"
+                aria-haspopup="dialog"
+                onClick={(event) => openSettings(event.currentTarget)}
+              >
+                <Settings size={20} aria-hidden="true" />
+                Настройки
+              </Button>
+            )}
             {controls}
-            <ItemActions
-              label="Ещё"
-              triggerIcon={
-                <>
-                  <Ellipsis size={22} />
-                  <span>Ещё</span>
-                </>
-              }
-              actions={[
-                {
-                  label: media.view.screenSharing
-                    ? "Остановить экран"
-                    : "Показать экран",
-                  icon: <MonitorUp size={18} />,
-                  disabled:
-                    !media.running ||
-                    busy ||
-                    membership.screenBlocked ||
-                    membership.cameraBlocked,
-                  run: () =>
-                    void (media.view.screenSharing
-                      ? media.stopScreen()
-                      : media.startScreen()),
-                },
-                ...moreActions,
-                {
-                  label: "Устройства",
-                  icon: <Settings size={18} />,
-                  run: () => setDevicesOpen(true),
-                },
-                ...(openSettings
-                  ? [
-                      {
-                        label: "Настройки аккаунта",
-                        icon: <Settings size={18} />,
-                        run: () =>
-                          openSettings(document.activeElement as HTMLElement),
-                      },
-                    ]
-                  : []),
-                {
-                  label: "Переподключиться",
-                  icon: <RefreshCw size={18} />,
-                  disabled: !online,
-                  run: () => {
-                    media.stop();
-                    live.reconnect();
-                  },
-                },
-              ]}
-            />
+            {!reconnectTarget && reconnectButton}
             {endControls}
           </div>,
         )}
@@ -822,9 +774,15 @@ export function RealtimePanel({
           present.length > 0) && (
           <div
             className={`media-grid ${showingScreen ? "media-grid-sharing" : pairedTiles ? "media-grid-pair" : ""}`}
-            role={pairedTiles ? "region" : undefined}
-            aria-label={pairedTiles ? "Видео участников" : undefined}
-            tabIndex={pairedTiles ? 0 : undefined}
+            role="region"
+            aria-label={
+              showingScreen
+                ? "Демонстрация экрана"
+                : pairedTiles
+                  ? "Видео участников"
+                  : "Медиапотоки встречи"
+            }
+            tabIndex={0}
           >
             {localScreen && (
               <MediaTile local screen stream={localScreen} name="Ваш экран" />
@@ -912,12 +870,6 @@ export function RealtimePanel({
           STUN/TURN.
         </p>
       </div>
-      {devicesOpen && (
-        <ConferenceDevicesModal
-          audioLevel={localAudioLevel}
-          onClose={() => setDevicesOpen(false)}
-        />
-      )}
     </section>
   );
 }

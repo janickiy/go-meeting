@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { Dashboard } from "./Dashboard";
 import type { Conference, ConferenceFilters } from "../types";
 
@@ -75,6 +75,10 @@ describe("обновлённый кабинет", () => {
       status: "finished",
     });
     expect(screen.getByText("Открыть материалы")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Открыть" })).toHaveAttribute(
+      "href",
+      "/meetings/upcoming",
+    );
     expect(document.querySelector("img")).toBeNull();
   });
   it("в полном списке не запускает дополнительную загрузку последних встреч", () => {
@@ -93,5 +97,69 @@ describe("обновлённый кабинет", () => {
       screen.getByText(/Поиск работает по загруженным встречам/),
     ).toBeInTheDocument();
     expect(screen.queryByText("Недавние встречи")).not.toBeInTheDocument();
+  });
+
+  it.each(["created", "scheduled", "active"] as const)(
+    "убирает отдельную кнопку открытия в полном списке для состояния %s, сохраняя название и меню",
+    (status) => {
+      list.mockReturnValue({
+        data: { pages: [{ items: [{ ...scheduled, status }] }] },
+        isPending: false,
+        isError: false,
+        hasNextPage: false,
+        error: null,
+      });
+      render(
+        <MemoryRouter
+          initialEntries={[
+            `/conferences?view=${status === "active" ? "active" : "upcoming"}`,
+          ]}
+        >
+          <Routes>
+            <Route path="/conferences" element={<Dashboard all />} />
+            <Route
+              path="/meetings/:id"
+              element={<p>Встреча открыта по названию</p>}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(
+        screen.queryByRole("link", { name: "Открыть" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Открыть" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", {
+          name: `Действия с конференцией: ${scheduled.title}`,
+        }),
+      ).toBeEnabled();
+      const title = screen.getByRole("link", { name: scheduled.title });
+      expect(title).toHaveAttribute("href", "/meetings/upcoming");
+      fireEvent.click(title);
+      expect(
+        screen.getByText("Встреча открыта по названию"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("сохраняет доступ к материалам завершённой встречи", () => {
+    render(
+      <MemoryRouter initialEntries={["/conferences?view=past"]}>
+        <Dashboard all />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("link", { name: "Материалы" })).toHaveAttribute(
+      "href",
+      "/history/past",
+    );
+    expect(screen.getByRole("link", { name: past.title })).toHaveAttribute(
+      "href",
+      "/history/past",
+    );
+    expect(
+      screen.queryByRole("link", { name: "Открыть" }),
+    ).not.toBeInTheDocument();
   });
 });

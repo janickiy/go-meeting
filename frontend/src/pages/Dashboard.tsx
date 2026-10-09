@@ -32,14 +32,18 @@ const views: { id: NonNullable<ConferenceFilters["view"]>; label: string }[] = [
 /**
  * MeetingRow показывает время и фактическое состояние одной встречи.
  * @args conference — запись сервера с проверенным доступом текущего пользователя.
+ * actions — показывать меню действий; showOpenAction — показывать отдельный переход
+ * «Открыть» для незавершённой встречи. Ссылка в названии остаётся доступной всегда.
  * @return Ссылка на комнату либо материалы завершённой встречи.
  */
 function MeetingRow({
   conference,
   actions = false,
+  showOpenAction = true,
 }: {
   conference: Conference;
   actions?: boolean;
+  showOpenAction?: boolean;
 }) {
   const { user } = useAuth();
   const past = ["finished", "cancelled"].includes(conference.status);
@@ -91,14 +95,16 @@ function MeetingRow({
       </div>
       <StatusBadge status={conference.status} />
       <div className="dashboard-meeting-action">
-        <Link className="button button-outline" to={target}>
-          {past ? (
-            <FolderOpen size={16} aria-hidden="true" />
-          ) : (
-            <ArrowRight size={16} aria-hidden="true" />
-          )}
-          {past ? "Материалы" : "Открыть"}
-        </Link>
+        {(past || showOpenAction) && (
+          <Link className="button button-outline" to={target}>
+            {past ? (
+              <FolderOpen size={16} aria-hidden="true" />
+            ) : (
+              <ArrowRight size={16} aria-hidden="true" />
+            )}
+            {past ? "Материалы" : "Открыть"}
+          </Link>
+        )}
         {actions && <ConferenceChatActions conference={conference} />}
       </div>
     </article>
@@ -539,7 +545,12 @@ export function Dashboard({
             ) : visible.length ? (
               <div className="conference-list">
                 {visible.map((item) => (
-                  <MeetingRow key={item.id} conference={item} actions={all} />
+                  <MeetingRow
+                    key={item.id}
+                    conference={item}
+                    actions={all}
+                    showOpenAction={!all}
+                  />
                 ))}
               </div>
             ) : (

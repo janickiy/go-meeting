@@ -15,7 +15,6 @@ import { RecordingNotice } from "../RecordingNotice";
 import { RecordingPanel } from "../RecordingPanel";
 import { ConferenceInviteContent } from "../ConferenceInvitations";
 import { Button, ErrorNotice, Modal } from "../ui";
-import { ReactionsPanel } from "../ReactionsPanel";
 import { MeetingClock } from "./MeetingClock";
 import { ConferenceRoomSidebar } from "./ConferenceRoomSidebar";
 import type { ActiveConferenceViewProps } from "./types";
@@ -127,7 +126,7 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
               </span>
             </button>
           )}
-        {recordingAccess && !activeRecording && (
+        {recordingAccess && (
           <button
             className="room-header-action"
             onClick={(event) => {
@@ -183,36 +182,6 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
             live={live}
             participants={people}
             controlsTarget={controlsTarget}
-            moreActions={[
-              {
-                label: "Участники",
-                icon: <Users size={18} />,
-                run: () => {
-                  panelTrigger.current =
-                    document.activeElement as HTMLButtonElement;
-                  setStagePanel("participants");
-                  setPanelOpen(true);
-                },
-              },
-              {
-                label: "Пригласить",
-                icon: <LinkIcon size={18} />,
-                run: () => setUtility("invite"),
-              },
-              ...(recordingAccess
-                ? [
-                    {
-                      label: "Запись",
-                      icon: <Circle size={18} />,
-                      run: () => {
-                        recordingOpener.current =
-                          document.activeElement as HTMLElement;
-                        setUtility("recording");
-                      },
-                    },
-                  ]
-                : []),
-            ]}
             endControls={
               <Button
                 variant="danger"
@@ -260,13 +229,14 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
       </section>
       <footer className="room-footer">
         <div ref={setControlsTarget} />
-        <div className="room-footer-meta">
-          <span>
-            <ShieldCheck size={14} />
-            Доступ по приглашению
-          </span>
-          <ReactionsPanel conferenceId={id} participants={people} live={live} />
-        </div>
+        {conference.waitingRoomEnabled === true && (
+          <div className="room-footer-meta">
+            <span>
+              <ShieldCheck size={14} aria-hidden="true" />
+              Доступно по приглашению
+            </span>
+          </div>
+        )}
       </footer>
       {utility && (utility !== "recording" || recordingAccess) && (
         <Modal
@@ -294,7 +264,11 @@ export function ActiveConferenceRoom(props: ActiveConferenceViewProps) {
               conference={conference}
               membership={membership}
               showHistory={false}
-              onStarted={() => setUtility(null)}
+              onStarted={() => {
+                // После запуска возвращаем фокус к новой кнопке остановки записи.
+                recordingOpener.current = null;
+                setUtility(null);
+              }}
             />
           ) : (
             <ConferenceInviteContent

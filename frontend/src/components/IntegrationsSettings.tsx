@@ -86,7 +86,7 @@ export function IntegrationsSettings({
             />
           )
         )}
-        <p className="field-hint">
+        <p className="field-hint notification-invitation-hint">
           Личные приглашения, отправленные организатором, приходят отдельно.
         </p>
       </section>
@@ -209,6 +209,7 @@ function PreferencesForm({
   });
   return (
     <form
+      className="preferences-form"
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate();
@@ -226,7 +227,11 @@ function PreferencesForm({
                   setDraft({ ...draft, [name]: event.target.checked })
                 }
               />
-              {preferenceLabels[name]}
+              <span className="preference-copy">
+                <span className="preference-title">
+                  {preferenceLabels[name]}
+                </span>
+              </span>
             </label>
           ),
         )}
@@ -243,25 +248,29 @@ function PreferencesForm({
                 setDraft({ ...draft, [name]: event.target.checked })
               }
             />
-            {preferenceLabels[name]}{" "}
-            <span className="field-hint">{modes[capabilities[name]]}</span>
+            <span className="preference-copy">
+              <span className="preference-title">{preferenceLabels[name]}</span>
+              <span className="field-hint">{modes[capabilities[name]]}</span>
+            </span>
           </label>
         ))}
       </fieldset>
-      <p className="field-hint">
-        Push требует зарегистрированного поддерживаемого устройства. Этот
-        браузер не запрашивает разрешение, если доставка не настроена.
-      </p>
-      {(capabilities.email === "mock" || capabilities.push === "mock") && (
-        <p className="demo-notice">
-          Тестовый канал не отправляет реальные сообщения.
+      <div className="preferences-actions">
+        <p className="field-hint">
+          Push требует зарегистрированного поддерживаемого устройства. Этот
+          браузер не запрашивает разрешение, если доставка не настроена.
         </p>
-      )}
-      <ErrorNotice error={save.error} />
-      <Button busy={save.isPending} type="submit">
-        Сохранить настройки
-      </Button>
-      {save.isSuccess && <p role="status">Настройки сохранены.</p>}
+        {(capabilities.email === "mock" || capabilities.push === "mock") && (
+          <p className="demo-notice">
+            Тестовый канал не отправляет реальные сообщения.
+          </p>
+        )}
+        <ErrorNotice error={save.error} />
+        <Button busy={save.isPending} type="submit">
+          Сохранить настройки
+        </Button>
+        {save.isSuccess && <p role="status">Настройки сохранены.</p>}
+      </div>
     </form>
   );
 }

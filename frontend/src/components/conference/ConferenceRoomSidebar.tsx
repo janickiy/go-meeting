@@ -119,7 +119,7 @@ export function ConferenceRoomSidebar(props: ActiveConferenceViewProps) {
         id="meeting-panel-participants"
         role="tabpanel"
         aria-labelledby="meeting-tab-participants"
-        className="conference-stage-panel"
+        className="conference-stage-panel conference-stage-panel-participants"
         hidden={stagePanel !== "participants"}
       >
         <ParticipantsPanel
@@ -149,20 +149,22 @@ export function ConferenceRoomSidebar(props: ActiveConferenceViewProps) {
           active
           closed={false}
         />
-        <Button variant="outline" onClick={() => setUtility("invite")}>
-          <LinkIcon size={16} />
-          Пригласить участников
-        </Button>
-        {owner && (
-          <Button
-            variant="danger"
-            disabled={mutation.isPending}
-            onClick={() => setConfirm("finish")}
-          >
-            <Square size={15} />
-            Завершить конференцию
+        <div className="room-participant-actions">
+          <Button variant="outline" onClick={() => setUtility("invite")}>
+            <LinkIcon size={16} aria-hidden="true" />
+            Пригласить участников
           </Button>
-        )}
+          {owner && (
+            <Button
+              variant="danger"
+              disabled={mutation.isPending}
+              onClick={() => setConfirm("finish")}
+            >
+              <Square size={15} aria-hidden="true" />
+              Завершить конференцию
+            </Button>
+          )}
+        </div>
       </div>
       {captionsEnabled && (
         <div

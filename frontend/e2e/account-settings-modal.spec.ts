@@ -29,10 +29,14 @@ type FixtureState = {
 };
 
 /** Полностью подменяет API настроек и не позволяет неизвестным запросам попасть на сервер.
- * @args page — изолированная браузерная страница теста.
+ * @args page — изолированная браузерная страница теста;
+ * email — доступность тестового канала email, без обращения к почтовому серверу.
  * @return Состояние фикстуры с журналом запросов и текущей тестовой учётной записью.
  */
-async function accountFixture(page: Page): Promise<FixtureState> {
+async function accountFixture(
+  page: Page,
+  { email = "noop" }: { email?: "noop" | "smtp" } = {},
+): Promise<FixtureState> {
   const state: FixtureState = {
     user: { ...firstUser },
     requests: [],
@@ -141,7 +145,7 @@ async function accountFixture(page: Page): Promise<FixtureState> {
       return reply({ status: "success", items: [], nextCursor: null });
     if (path === "/integrations/capabilities" && method === "GET")
       return reply({
-        email: "noop",
+        email,
         push: "noop",
         calendar: "noop",
         calendarOAuthConfigured: false,
@@ -258,6 +262,162 @@ async function auditDialog(page: Page) {
         details: any?.map(({ data }) => data),
       })),
     }));
+  });
+}
+
+for (const size of [
+  { name: "desktop", width: 1440, height: 1000, textSize: 100, theme: "light" },
+  {
+    name: "desktop-short",
+    width: 1280,
+    height: 600,
+    textSize: 100,
+    theme: "light",
+  },
+  {
+    name: "desktop-200",
+    width: 1440,
+    height: 900,
+    textSize: 200,
+    theme: "dark",
+  },
+  { name: "tablet", width: 834, height: 768, textSize: 100, theme: "dark" },
+  {
+    name: "tablet-200",
+    width: 834,
+    height: 768,
+    textSize: 200,
+    theme: "light",
+  },
+  { name: "mobile", width: 390, height: 844, textSize: 100, theme: "light" },
+  { name: "mobile-200", width: 390, height: 844, textSize: 200, theme: "dark" },
+  {
+    name: "landscape-200",
+    width: 844,
+    height: 390,
+    textSize: 200,
+    theme: "light",
+  },
+]) {
+  test(`настройки: закреплённый заголовок, начало вкладки и отступы — ${size.name}`, async ({
+    page,
+  }, info) => {
+    const fixture = await accountFixture(page, { email: "smtp" });
+    await page.setViewportSize(size);
+    await page.addInitScript(
+      ({ key, theme, textSize }) => {
+        localStorage.setItem(
+          key,
+          JSON.stringify({ version: 1, theme, textSize }),
+        );
+      },
+      { ...size, key: appearanceKey(firstUser.id) },
+    );
+    await page.goto("/app/settings");
+    const dialog = settingsDialog(page);
+    const heading = dialog.getByRole("heading", {
+      name: "Настройки аккаунта",
+      exact: true,
+    });
+    const close = dialog.getByRole("button", {
+      name: "Закрыть окно",
+      exact: true,
+    });
+    await expect(heading).toBeInViewport();
+    for (const tabName of [
+      "Аудио",
+      "Видео",
+      "Уведомления",
+      "Профиль",
+      "Оформление",
+    ]) {
+      await selectTab(dialog, tabName);
+      const panel = dialog.getByRole("tabpanel", {
+        name: tabName,
+        exact: true,
+      });
+      await expect
+        .poll(() => panel.evaluate((element) => element.scrollTop))
+        .toBe(0);
+      await assertFitsViewport(page, dialog);
+      const panelBox = (await panel.boundingBox())!;
+      const headingBox = (await heading.boundingBox())!;
+      const dialogBox = (await dialog.boundingBox())!;
+      expect(panelBox.y).toBeGreaterThanOrEqual(
+        headingBox.y + headingBox.height,
+      );
+      expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(
+        dialogBox.y + dialogBox.height + 1,
+      );
+      expect(
+        await panel.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+      ).toBe(true);
+      const headerBefore = await heading.boundingBox();
+      await panel.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+      await expect(close).toBeInViewport();
+      expect(await heading.boundingBox()).toEqual(headerBefore);
+      expect(await dialog.evaluate((element) => element.scrollTop)).toBe(0);
+    }
+    await selectTab(dialog, "Уведомления");
+    const panel = dialog.getByRole("tabpanel", {
+      name: "Уведомления",
+      exact: true,
+    });
+    await expect(
+      panel.getByRole("heading", { name: "Уведомления", exact: true }),
+    ).toBeInViewport();
+    const options = panel.locator(".preference-option");
+    await expect(options).toHaveCount(6);
+    for (const option of await options.all()) {
+      const copy = (await option.locator(".preference-copy").boundingBox())!;
+      const toggle = (await option.locator("input").boundingBox())!;
+      const row = (await option.boundingBox())!;
+      expect(copy.x + copy.width).toBeLessThanOrEqual(toggle.x - 10);
+      expect(toggle.x + toggle.width).toBeLessThanOrEqual(
+        row.x + row.width + 1,
+      );
+      expect(toggle.y).toBeGreaterThanOrEqual(row.y);
+    }
+    const save = panel.getByRole("button", {
+      name: "Сохранить настройки",
+      exact: true,
+    });
+    await save.scrollIntoViewIfNeeded();
+    const hint = panel.locator(".preferences-actions > .field-hint");
+    const hintBox = (await hint.boundingBox())!;
+    const saveBox = (await save.boundingBox())!;
+    expect(saveBox.y - hintBox.y - hintBox.height).toBeGreaterThanOrEqual(11);
+    await expect(save).toBeInViewport();
+    await expect(close).toBeInViewport();
+    await panel
+      .getByRole("checkbox", { name: "Напоминания о встречах", exact: true })
+      .uncheck();
+    await save.click();
+    await expect(panel.getByRole("status")).toContainText(
+      "Настройки сохранены.",
+    );
+    expect(fixture.notificationWrites).toContainEqual(
+      expect.objectContaining({ reminder: false }),
+    );
+    await panel.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await page.screenshot({
+      path: info.outputPath(`account-notifications-${size.name}-top.png`),
+    });
+    await panel.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await page.screenshot({
+      path: info.outputPath(`account-notifications-${size.name}-bottom.png`),
+    });
+    expect(fixture.unexpected).toEqual([]);
+    await close.click();
+    await expect(dialog).toHaveCount(0);
   });
 }
 

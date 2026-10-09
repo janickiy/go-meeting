@@ -19,6 +19,7 @@ const fixture = vi.hoisted(() => ({
   analytics: true,
   capabilitiesError: false,
   conferenceStatus: "active",
+  waitingRoomEnabled: true as boolean | undefined,
   ownerId: "other",
   guest: false,
   realtimeOwners: 0,
@@ -37,6 +38,7 @@ beforeEach(() => {
   fixture.capabilitiesError = false;
   fixture.membership.role = "participant";
   fixture.conferenceStatus = "active";
+  fixture.waitingRoomEnabled = true;
   fixture.ownerId = "other";
   fixture.guest = false;
   fixture.realtimeOwners = 0;
@@ -67,6 +69,7 @@ vi.mock("../queries", () => ({
         ownerId: fixture.ownerId,
         createdAt: "2026-10-01T10:00:00Z",
         inviteCode: "a".repeat(32),
+        waitingRoomEnabled: fixture.waitingRoomEnabled,
       },
     },
   }),
@@ -194,6 +197,7 @@ it("puts media first and supports roving tab keys and safe H/C shortcuts", async
   const view = page();
   const stage = screen.getByRole("region", { name: "Активная встреча" });
   expect(stage.querySelector("[data-testid='realtime-panel']")).not.toBeNull();
+  expect(screen.queryByTestId("reactions-panel")).not.toBeInTheDocument();
   const chat = screen.getByRole("tab", { name: "Чат" });
   const participants = screen.getByRole("tab", { name: /Участники/ });
   const captions = screen.getByRole("tab", { name: "Субтитры" });
@@ -270,6 +274,21 @@ it("допускает форму соорганизатору только во
   ).not.toBeInTheDocument();
   left.client.clear();
 });
+
+it.each([true, false, undefined])(
+  "показывает подпись доступа только при включённом зале ожидания: %s",
+  (waitingRoomEnabled) => {
+    fixture.waitingRoomEnabled = waitingRoomEnabled;
+    const view = page();
+    const label = screen.queryByText("Доступно по приглашению");
+    if (waitingRoomEnabled === true) expect(label).toBeInTheDocument();
+    else {
+      expect(label).not.toBeInTheDocument();
+      expect(view.container.querySelector(".room-footer-meta")).toBeNull();
+    }
+    view.client.clear();
+  },
+);
 
 it("hides optional panels behind server flags and never mounts media while waiting", () => {
   fixture.captions = false;

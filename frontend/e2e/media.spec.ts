@@ -339,10 +339,20 @@ test("two browsers exchange audio/video through the SFU and recreate media after
       await expect(
         alice.getByTestId("remote-media").locator("video"),
       ).toHaveCount(1);
-      await bob
-        .getByRole("button", { name: "Устройства", exact: true })
+      await bob.getByRole("button", { name: "Настройки", exact: true }).click();
+      const settingsDialog = bob.getByRole("dialog", {
+        name: "Настройки аккаунта",
+        exact: true,
+      });
+      await settingsDialog
+        .getByRole("tab", { name: "Видео", exact: true })
         .click();
-      await bob.getByLabel("Выбор камеры").selectOption({ index: 1 });
+      await settingsDialog
+        .getByRole("combobox", { name: "Камера", exact: true })
+        .selectOption({ index: 1 });
+      await settingsDialog
+        .getByRole("button", { name: "Закрыть окно", exact: true })
+        .click();
       await expect
         .poll(
           /**

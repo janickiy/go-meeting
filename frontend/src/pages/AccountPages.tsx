@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import {
   Bell,
@@ -70,6 +70,10 @@ export function SettingsPage() {
     Boolean(window.location.hash),
   );
   const panel = useRef<HTMLDivElement>(null);
+  // Новый раздел начинается с заголовка, а не с прокрутки предыдущей вкладки.
+  useLayoutEffect(() => {
+    if (panel.current) panel.current.scrollTop = 0;
+  }, [activeSection, mobileSectionOpen]);
   useEffect(() => setName(user?.displayName || ""), [user?.displayName]);
   useEffect(() => {
     const media = window.matchMedia?.("(max-width: 767px)");

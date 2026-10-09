@@ -83,6 +83,19 @@ describe("профиль в настройках", () => {
     expect(profile).toHaveAttribute("tabindex", "0");
   });
 
+  it("показывает новую вкладку с начала, не перенося прокрутку предыдущей", () => {
+    render(<SettingsPage />);
+    const panel = screen.getByRole("tabpanel");
+    panel.scrollTop = 240;
+    fireEvent.click(screen.getByRole("tab", { name: "Уведомления" }));
+    expect(screen.getByRole("tabpanel").scrollTop).toBe(0);
+    panel.scrollTop = 100;
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Уведомления" }), {
+      key: "Home",
+    });
+    expect(screen.getByRole("tabpanel").scrollTop).toBe(0);
+  });
+
   it("показывает реальный email только для чтения без вымышленных полей профиля", () => {
     render(<SettingsPage />);
     expect(screen.getByRole("textbox", { name: "Email" })).toHaveValue(

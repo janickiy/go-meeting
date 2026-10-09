@@ -11,6 +11,7 @@ import type { useMedia } from "../useMedia";
 import type { useRealtime } from "../realtime";
 import type { Participant, PresenceParticipant } from "../types";
 import { MediaTile, RealtimePanel } from "./RealtimePanel";
+import { AccountSettingsContext } from "./AccountSettingsContext";
 
 const mediaRef = vi.hoisted(() => ({
   current: null as unknown as ReturnType<typeof useMedia>,
@@ -250,6 +251,46 @@ function panel(member?: Partial<Participant>, others: Participant[] = []) {
   };
 }
 
+it.each([true, false])(
+  "кнопка настроек передаёт свой элемент общему диалогу без изменения медиасвязи (медиа запущено: %s)",
+  (running) => {
+    mediaRef.current.running = running;
+    const openSettings = vi.fn();
+    const view = panel();
+    view.rerender(
+      <AccountSettingsContext.Provider value={openSettings}>
+        <RealtimePanel
+          conferenceId="room"
+          membership={view.membership}
+          live={view.live}
+        />
+      </AccountSettingsContext.Provider>,
+    );
+    const settings = screen.getByRole("button", {
+      name: /^Настройки$/,
+    });
+    expect(settings).toBeEnabled();
+    expect(settings).toHaveAttribute("aria-haspopup", "dialog");
+    expect(settings.querySelector(".lucide-settings")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Устройства$/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(settings);
+    expect(openSettings).toHaveBeenCalledExactlyOnceWith(settings);
+    for (const command of [
+      mediaRef.current.start,
+      mediaRef.current.stop,
+      mediaRef.current.microphone,
+      mediaRef.current.camera,
+      mediaRef.current.startScreen,
+      mediaRef.current.stopScreen,
+      view.live.reconnect,
+    ])
+      expect(command).not.toHaveBeenCalled();
+    view.unmount();
+  },
+);
+
 it("uses the same mic and camera controls for M/V, but ignores typing and moderation blocks", () => {
   const view = panel();
   fireEvent.keyDown(window, { key: "m" });
@@ -290,6 +331,26 @@ it("explains offline state and offers a reconnect when the network returns", () 
   fireEvent(window, new Event("online"));
   expect(screen.queryByText("Нет подключения к сети")).toBeNull();
   expect(view.live.reconnect).not.toHaveBeenCalled();
+});
+
+it("заменяет меню одной кнопкой переподключения в панели и останавливает медиа до обновления связи", () => {
+  const view = panel();
+  const reconnect = screen.getByRole("button", { name: "Переподключиться" });
+  expect(reconnect.closest(".conference-control-bar")).not.toBeNull();
+  expect(reconnect).toHaveClass("room-reconnect-control");
+  expect(reconnect).toHaveAttribute("title", "Переподключиться");
+  expect(reconnect).not.toHaveAttribute("aria-haspopup");
+  expect(reconnect.querySelector(".lucide-refresh-cw")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Ещё" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  fireEvent.click(reconnect);
+  expect(mediaRef.current.stop).toHaveBeenCalledOnce();
+  expect(view.live.reconnect).toHaveBeenCalledOnce();
+  expect(
+    vi.mocked(mediaRef.current.stop).mock.invocationCallOrder[0],
+  ).toBeLessThan(vi.mocked(view.live.reconnect).mock.invocationCallOrder[0]);
+  expect(mediaRef.current.start).not.toHaveBeenCalled();
+  view.unmount();
 });
 
 it("renders one reconnect action in the header slot and stops media before reconnecting", () => {

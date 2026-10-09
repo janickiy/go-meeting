@@ -1,8 +1,5 @@
-.account-dialog-layout:has(.account-media-panel) {
-  height: 690px;
-}
 .account-dialog-panel.account-media-panel {
-  padding: 32px;
+  padding: var(--account-panel-gutter, 32px);
   background: var(--surface);
 }
 .device-settings {
