@@ -236,7 +236,7 @@ func (r *ConferenceRepository) Join(ctx context.Context, id string, user users.U
 			if missing && !hasInvite {
 				return apperrors.New(apperrors.ErrForbidden, "inviteCode is required for a new membership")
 			}
-			if !missing && (participant.Status == conferences.Kicked || participant.Status == conferences.Rejected || participant.AdmissionState == conferences.AdmissionKicked || participant.AdmissionState == conferences.AdmissionRejected) {
+			if !missing && participant.IsRejectedOrKicked() {
 				return apperrors.New(apperrors.ErrForbidden, "this membership cannot rejoin the conference")
 			}
 			if !missing {

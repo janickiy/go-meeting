@@ -125,7 +125,7 @@ func (r *ConferenceInvitationRepository) Invite(ctx context.Context, actor, conf
 				userID = &account.ID
 				var membership d.Participant
 				err := tx.Where("conference_id=? AND user_id=?", conference, account.ID).Take(&membership).Error
-				if err == nil && (membership.Status == d.Kicked || membership.Status == d.Rejected || membership.AdmissionState == d.AdmissionKicked || membership.AdmissionState == d.AdmissionRejected) {
+				if err == nil && membership.IsRejectedOrKicked() {
 					return apperrors.ErrForbidden
 				}
 				if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {

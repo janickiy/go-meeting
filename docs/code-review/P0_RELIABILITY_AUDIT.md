@@ -1,5 +1,160 @@
 # P0-аудит надёжности и жизненного цикла ресурсов
 
+## Повторный аудит — 10 октября 2026
+
+Это актуальный результат выполнения `CODE_REVIEW_AND_OPTIMIZATION.md`. Материалы от 6 октября ниже сохранены **как история**, их восемь исправлений и замеры не считаются новыми результатами. База текущего аудита: `a0781257debba3f911ee180067cc0fad5bb06204`. Проверялось рабочее дерево поверх этого commit; существовавшие до начала изменения интерфейса, брендинга и deployment-документации сохранены без вмешательства.
+
+### 1. Executive summary
+
+Подтверждены и точечно исправлены **два новых P0 High**:
+
+1. Завершившийся live-аудиодекодер оставлял `Decode` и слот обработки ждать следующий RTP-пакет, если канал оставался открытым и тихим.
+2. Ошибка удаления вложения оставляла producer MinIO SDK заблокированным на отправке результата перечисления: одна горутина на каждый неудачный повтор.
+
+Кроме этого, исходный security gate выявил известные уязвимости Go/HTTP2. Выполнено обновление безопасности Go 1.26.6 → 1.26.9 и `x/net` 0.57.0 → 0.60.0 с требуемыми совместимыми зависимостями. Это отдельная группа защиты зависимостей, а не заявление о воспроизведённой эксплуатации всех scanner findings в приложении. Pion, архитектура и UI не переделывались.
+
+Нагрузки и проверки проводились локально, на отдельных тестовых данных. Удалённый сервер и уже работающие сервисы Docker **не обновлялись и не перезапускались**. Числа и последовательность замеров: [P0_BEFORE_AFTER.md](P0_BEFORE_AFTER.md).
+
+### 2. Исходный gate и среда
+
+До изменения production-кода выполнены:
+
+| Проверка | Исходный результат | Финальный результат |
+| --- | --- | --- |
+| `go test ./...` | PASS | PASS, повтор с `-count=1` |
+| `go test -race ./...` | PASS | PASS, повтор с `-count=1` |
+| `go vet ./...` | PASS | PASS |
+| staticcheck v0.7.0 | PASS | PASS |
+| frontend lint (существующий) | PASS | PASS |
+| gofmt / shell syntax / diff whitespace | PASS | PASS |
+| govulncheck v1.8.0 | FAIL: 11 symbol findings | 0 вызываемых / 0 импортированных уязвимых пакетов; 1 неиспользуемая module-only запись |
+| `go mod verify`, `go build ./cmd/...` | Дополнительные финальные проверки | PASS; также cross-build linux/amd64, CGO=0 |
+
+macOS 27.0.1 arm64; начальный Go `go1.26.6 darwin/arm64`, финальный `go1.26.9`. FFmpeg на хосте 9.0.2; изолированный Linux worker fixture — FFmpeg 6.1.2. Реальные Pion/UDP; временные PostgreSQL, Redis, RabbitMQ и MinIO с тестовыми данными; S3 fault fixture использует реальный SDK и имитирует только HTTP/XML-ответы. Обычный `go test ./...` пропускает opt-in integration cases: их отдельные фактические запуски перечислены ниже.
+
+Evidence root: `tmp/p0-audit-20261010/` (локальные ignored-артефакты, не часть Git). `baseline-*.log` записаны до production-правок; `final-*.log` — после. Старые before-логи не перезаписывались. Исходные версии двух функций также проверены через Go overlay без отката рабочего дерева. Gate security был красным: не следует трактовать исходный gate как полностью зелёный.
+
+### 3. P0-20261010-01 — live decoder не освобождает слот после выхода процесса
+
+- **Severity:** P0 High, зависание слотов ограниченного live-worker при повторении ошибки.
+- **Функция:** `internal/infrastructure/ffmpeg/live_audio.go`, `LiveAudio.Decode`.
+- **Lifecycle:** track → FFmpeg + stdin/stdout reader → child exit/EOF → reader завершён, но основной select ждёт `packets`/ctx → `Wait` не вызван до нового RTP или внешней отмены.
+- **Воспроизведение:** настоящий helper process читает Ogg header, выходит с кодом 0 или 23; RTP-канал открыт, но пуст. Исходная функция не завершает `Decode` за 3 s в обоих случаях. Stack содержит основной select и `exec.Cmd.watchCtx`. Тест отменяет ctx и присоединяет вызов после фиксации сбоя.
+- **Исправление:** единственный stdout reader закрывает `outputDone`; основной owner наблюдает его, закрывает writer/stdin, забирает reader result и вызывает единственный `cmd.Wait`. Не добавлен второй Wait и не маскируется ненулевой exit.
+- **Проверка:** `TestLiveAudioReapsEarlyExitWithoutMorePackets`, exit0/23, race ×10, фактическая проверка PID reaped; независимый review. Существующие cancel/timeout/compositor tests также проходят.
+- **Риск/контракт:** штатный EOF остаётся успехом, ненулевой exit — ошибкой; PCM callback обязан соблюдать контекст. Произвольный сторонний child, закрывший stdout, но намеренно не завершившийся, не моделировался этим helper; его верхняя граница по-прежнему задаётся caller context.
+- **Evidence:** `recording/live-early-exit-before.log`, последующие early-exit logs и `recording/review.md`.
+
+### 4. P0-20261010-02 — MinIO attachment cleanup оставляет producer
+
+- **Severity:** P0 High, повторяемое накопление SDK goroutines при сбое удаления вложений.
+- **Функция:** `internal/infrastructure/storage/s3/attachments.go`, `CleanAttachmentObjects`.
+- **Lifecycle:** channel-based `ListObjects` → ошибка `RemoveObject` → ранний return → listing producer пытается отправить результат/ошибку в заполненный канал. Cancel после return не разблокирует эту отправку SDK.
+- **Воспроизведение:** 12 cleanup с AccessDenied и последующей отменой каждого ctx: всего goroutines **4 → 16**, SDK goroutines **0 → 12** после GC/cooldown. Pprof показывает оставшийся `ListObjects` producer / channel send.
+- **Исправление:** синхронный `ListObjectsIter`, который заканчивается при early return. В конце возвращается `ctx.Err()`: при отмене iterator может закончиться без отдельного error item. Канонический UUID, prefix, безопасный namespace и исключение `keep` не изменены.
+- **Проверка:** расширены `TestRemovalFailureReleasesSDKGoroutines` и `TestRemovalSuccessAndCancellation`; race S3/chat ×3, независимый race review. После тех же 12 ошибок: **4 → 4**, SDK **0 → 0**.
+- **Риск:** частичная очистка по-прежнему возвращает ошибку и может быть повторена; отмена больше не выглядит успешным завершением.
+- **Evidence:** `recording/storage-before/`, `recording/storage-after/`, `recording/attachment-*-growth.txt` и fault logs.
+
+### 5. Уязвимости зависимостей
+
+Исходный govulncheck показал 11 symbol advisories. В частности, [GO-2026-6617](https://pkg.go.dev/vuln/GO-2026-6617) (HPACK crash), [GO-2026-6611](https://pkg.go.dev/vuln/GO-2026-6611) (HTTP2 CPU exhaustion), [GO-2026-6603](https://pkg.go.dev/vuln/GO-2026-6603) (trailer memory exhaustion) относятся к надёжности ресурсов. Scanner call graph консервативен: входящий API работает за proxy, а исходящий HTTP-клиент может использовать HTTP2. DoS against production не выполнялся; все findings не объявляются доказанными application-level P0.
+
+Go patch обновлён согласованно в `go.mod`, CI, Makefile и шести Dockerfiles; multiarch manifest `golang:1.26.9-alpine3.23` проверен. `go mod tidy` подтянул минимумы `x/crypto`0.57, `x/sys`0.48, `x/text`0.42, `x/sync`0.23; уже используемый `x/text` классифицирован как direct dependency. Major upgrades нет.
+
+Финальный scanner: **0 symbol findings, 0 package findings**. Осталась module-only [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932) про unmaintained `x/crypto/openpgp`; приложение этот пакет не импортирует и не вызывает, исправленной версии у advisory нет. Это не скрытый зелёным статусом найденный runtime P0. См. `final-govulncheck-verbose.log`.
+
+### 6. Владельцы ресурсов: goroutines, contexts и timers
+
+Инвентаризация starts сохранена в `lifecycle-startpoints.txt`, ресурсных open points — в `resource-openpoints.txt`; детали — `media/review.md`, `realtime/findings.md`, `recording/review.md`.
+
+| Семейство / owner | Запуск, контекст, остановка и join |
+| --- | --- |
+| Conference WS | handler/reservation → session/read + единственный writer; socket close выпускает read; Unregister ограничен 5 s; writer timer/ticker Stop; handler ждёт writer |
+| Global account WS | socket owner + reader + Redis reader; lifetime cancel → socket/PubSub Close → join обоих → release reservation/physical lease; auth и ping tickers Stop |
+| Hub | 3 постоянных worker: critical receive, low-priority receive, janitor; sync.Once shutdown; failed PubSub generation закрывается перед acknowledged retry в существующем worker |
+| SFU manager / peer | admission fence и closeWG; отдельный peer ctx, PC.Close, остановка sender/receiver, WG.Wait; owner явно отменяет peer при Leave/Shutdown; shutdown закрывает admission до detach; network cleanup вне registry lock |
+| Track / subscription | track ctx, unpublish cancels PLI worker; unsubscribe cancels и sender.Stop; RTP/RTCP permanent read error возвращает управление, не busy loop |
+| Media-worker | фиксированные heartbeat/sweep/watchdog + ctx/ticker Stop; bounded failedPeers worker; room gates удаляются по refcount |
+| Legacy WebRTC | session ctx, PC.Close выпускает RTP; UDP conn Close; wait/keyframe timers Stop; monitor process Done; Start/Stop handshake и один Wait |
+| FFmpeg / composer | caller/session ctx; CommandContext, bounded terminate/kill grace, один Wait; pipe readers joined; bounded queues и stderr; ранний live EOF исправлен выше |
+| Live captions | global/session slots, ctx deadlines, track queue/input; input close/cancel и WG join; renewal ticker Stop; tap Body Close; provider socket Close освобождает reader |
+| Jobs / content providers | фиксированные worker pools; bounded job ctx; claim/finish timeout; AI semaphore/MaxChunks; provider Body Close и HTTP timeout |
+| Notification SSE / SMTP | bounded SSE clients/queue, expiry/ctx, write deadline, PubSub Close; SMTP ctx socket deadline и cancellation close; writer/client closed |
+| Maintenance / runtime | retention, attachment cleanup, notification, personal assets и room-control tickers отменяются с app ctx; batches/operation deadlines ограничены; runtime checks и profiling shutdown закрывают listener |
+
+`server → session → peer → track/subscription` — цепочка **владения и явной остановки**, не единое наследование Go context: SFU peer создаёт собственный context от Background, отменяемый owner через Leave/Shutdown; track/subscription уже наследуют peer context. Это позволяет не привязывать долгоживущий peer к короткому HTTP join request. Negotiation timer30 ms, PLI throttle500 ms, peer watchdog100 ms очищаются при отмене. Redis retry backoff100 ms…2 s останавливается при shutdown. Callback OnStarted/OnFailed ограничен5 s и не удерживает session lock. Новых подтверждённых data races/global-lock deadlocks не выявлено.
+
+### 7. Очереди и backpressure
+
+| Очередь / реестр | Предел | Поведение переполнения |
+| --- | --- | --- |
+| WS critical outbound / controls | default64 / 8 | disconnect slow_client / control overflow, critical signal не silently dropped |
+| WS low priority / Hub low | 8 / 128 | drop только recoverable events |
+| Account WS / pong | default64 / 1 | закрытие slow socket / coalesce |
+| WS handlers | default1000 sockets | reject excess admission, release reservation on failure |
+| SFU rooms / peers / publications | default100 / 10 per room / 4 per peer | reject over limit |
+| SFU emit / renegotiation / PLI | 128 / 1 / 1 | disconnect on critical overflow / revision coalesce / keyframe coalesce |
+| RTP subscription | default128, max4096 | realtime drop + keyframe request |
+| Recording egress / audio tap | default2048 max8192 / ≤256 | fail только перегруженный egress, не всю комнату |
+| Composite jobs / frames / tracks | 4 / 512 / 64 | ошибка с сохранёнными durable chunks / backpressure / reject |
+| Caption input / packets | 1 / configured LiveQueue + session limits | bounded backpressure/cancel |
+| Rabbit worker / failed messages | QoS1; quarantine TTL7d, 10000 / 64MiB | serial handler; bounded retry/failure retention |
+
+Основная durable Rabbit command queue не имеет `x-max-length/bytes`: при длительном outage backlog может расти **в брокере**. Это отмечено как capacity/overflow policy follow-up; незаметно удалять критические commands ради лимита нельзя. In-process необоснованная неограниченная realtime очередь не подтверждена. Policy tombstones живой комнаты и durable history не считаются утечкой только по факту сохранения, но требуют отдельной cardinality/retention оценки.
+
+### 8. FD, файлы, HTTP, Redis/RabbitMQ и error paths
+
+Проверены FFmpeg launch points, pipes, media UDP, HTTP Body, MinIO streams, provider WS, Redis PubSub, Rabbit channels/consumer recovery, SQL pool/rows/transactions. Долгоживущий media tap намеренно не имеет total HTTP timeout: request ctx/lease и header timeout ограничивают его lifecycle. Обычные providers имеют timeout и ограниченные response sizes. SQL имеет bounded pool и statement/lock timeouts; failed initialization закрывает pool там, где ownership уже установлен.
+
+Проверены partial join/admission/SDP failure, ICE failure/late callback, stopped offer, queue/DB start rollback, failed compositor, malformed input, timeout/cancel, disk-full `/dev/full`, MinIO deletion errors и failure isolation. Rabbit real-broker race cases проверяют blocked write/RPC cancellation, connection poison/reconnect, confirms/ack/nack, quarantine и drain. Redis fault cases проверяют PubSub disconnect и Prune failure с восстановлением admission и terminal shutdown race.
+
+Часть файлов failed recording сохраняется **намеренно для recovery**, а не удаляется безусловно; health/admission контролирует свободное место. Доказательства тестов cleanup касаются принадлежащих тесту завершённых/отменённых temporary artifacts, не требуют удаления recoverable данных пользователя.
+
+### 9. pprof и измерения
+
+Существующий profiling endpoint выключен по умолчанию и слушает только `127.0.0.1`, отдельный mux. Heap/allocs/goroutine/mutex/block/CPU доступны; CPU/trace duration ограничен 60 s, server WriteTimeout65 s, app ctx закрывает listener. Проверены start/cancel и failed bind. Публичные порты/маршруты pprof не добавлялись.
+
+Snapshots снимаются после прогрева, GC/cooldown/повторного GC. Независимые процессы/workloads **не складываются**; RSS high-water не равен retained heap. В SFU и WS warm→end goroutine diff0; media registry0. MinIO before profile содержит +12 producer, after0. Короткие idle CPU profiles не показывают busy loop (0 samples); SFU также измеряет process CPU ≈0.0023 s за2.03 s. Это разрешение короткого локального замера, не обещание zero CPU на сервере.
+
+### 10. Нагрузки и регрессии
+
+- Conference WS: 20 warmup +1000 ticket/state/disconnect cycles через2 API; account WS: ещё20+1000 ticket/PubSub/presence cycles. Повторены после обновления Go, также под race. Каждый checkpoint проверяет cleanup, а не только HTTP-ответы.
+- Дополнительные longer workloads: conference3020 на macOS PASS, account3020 на Linux arm64 PASS. Два account-прогона macOS остановились на2495 успешных циклах из-за TCP dial timeout к localhost до handshake; причина не доказана. Этот отказ сохранён и не скрывается стандартными1020-cycle PASS; подробности в before/after §3.
+- Reconnect:100 одновременных WS; исходная тестовая фикстура ошибочно использовала heartbeat150+150 ms. Зафиксированы close1001 `presence_timeout`, без data race. **Только burst test** переведён на рабочие1+4 s/TTL5 s до создания Hub; production timeout не менялся. После этого три race-повтора и общий extended run PASS,100 active с последующим cleanup0. Исходный красный лог сохранён.
+- SFU:100 lifecycle с2/3/5 peers, real audio/video RTP, reconnect каждый10-й цикл;100 camera/mic/screen churn. Повторены на финальных зависимостях. После leave G2/FD6, rooms/peers/tracks/subscriptions0.
+- FFmpeg:17 segment starts,14 successful finalize,15 cancel/timeout,6 malformed/disk-full,6 live cancel в изолированном Linux fixture; повтор Go1.26.9 PASS. Это счётчики сценариев компонентов, не17 полных конференций.
+- Сквозная запись: API→PostgreSQL/Redis→Rabbit→SFU→FFmpeg→MinIO PASS;44 decoded video frames,11.25 s mixed audio, expired lease, conference auto-stop и egress failure isolation. Retention с versioning PASS.
+- Финальные uncached whole-repo tests/race/vet/staticcheck PASS. Extended realtime race:37 top-level tests (18 integration,7 Redis,8 WS,4 Hub), предупреждений race нет. S3/chat race×3, early-exit race×10 PASS.
+
+### 11. Границы и оставшиеся P0
+
+Неразрешённых **подтверждённых application-level** P0 в проверенных сценариях нет. Остаётся открытая диагностика длинного account WS stress на macOS: два TCP dial timeout после2495 циклов при стабильных ресурсных счётчиках; тот же3020-cycle workload на Linux проходит. Это ограничение валидации, а не доказанная утечка и не утверждение, что все дополнительные тесты зелёные. Это также не сертификат отсутствия всех ошибок: не проводились production soak, WAN/TURN/browser-device стресс, многодневная нагрузка, максимальная вместимость, полный chaos всех инфраструктурных сочетаний. Рабочий сервер не подвергался нагрузке. Короткая серия heap samples сама по себе недостаточна для вывода о вечном плато; дополнительные WS series и интерпретация drift описываются в before/after отчёте. Неизмеренные показатели явно отмечены там.
+
+### 12. P1 follow-up — не реализовано
+
+1. Rabbit durable backlog: согласовать capacity/overflow/admission при долгом outage, не теряя critical commands.
+2. ICE-TCP initial/pre-STUN connections: дополнительно испытать shutdown через mux closer (Pion ограничивает initial STUN lifetime30 s).
+3. Long-lived room moderation tombstones: измерить cardinality без ослабления запрета повторного входа исключённых участников.
+4. Bootstrap cleanup workers до установки всех defer; ошибка запуска обычно завершает процесс, повторяемое accumulation в обычном lifecycle не доказано.
+5. Длинный soak с более точным heap sampling и реальными browser/TURN/network failures; singleton HTTP/S3 idle transport close как cleanup-hardening.
+6. Отдельно локализовать повторяемый localhost dial timeout macOS long account WS test, прежде чем переносить вывод о границах этой среды на приложение; Linux reproduction не подтвердил отказ.
+
+P1 автоматически не выполнялся. SQL/RTP optimization, UI/refactor/new features не добавлялись.
+
+### 13. Изменённые файлы текущего аудита
+
+- Исправления: `internal/infrastructure/ffmpeg/live_audio.go`, `internal/infrastructure/storage/s3/attachments.go`.
+- Регрессии: новый `internal/infrastructure/ffmpeg/live_audio_lifecycle_test.go`; `internal/infrastructure/storage/s3/lifecycle_test.go`; новый `tests/integration/p0_user_ws_lifecycle_test.go`; `tests/integration/realtime_test.go`, `tests/integration/realtime_recording_load_test.go`.
+- Security patch/build consistency: `go.mod`, `go.sum`, `.gitlab-ci.yml`, `Makefile`, `README.md`, `dockers/{api,worker,media-worker,product-worker,live-worker,minio}/Dockerfile`.
+- Отчёты: этот файл и `P0_BEFORE_AFTER.md`.
+
+Остальные dirty/staged файлы существовали до аудита и не включены в этот список. Коммит/публикация не выполнялись. Временные audit containers после проверки удалены; существующие сервисы не затронуты. Локальные ignored evidence сохранены для проверки.
+
+---
+
+## Исторический аудит — 6 октября 2026 (не текущие измерения)
+
 Дата: 6 октября 2026. Базовый commit: `afc33ee31f5140aad6b25059aa7aa0f9b4e511ec`. Область: задание `CODE_REVIEW_AND_OPTIMIZATION.md`, только P0. Все нагрузки выполнялись локально. Production не изменялся.
 
 ## 1. Результат

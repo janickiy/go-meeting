@@ -58,7 +58,7 @@ type Repository interface {
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Pending(context.Context) ([]domain.Notification, error)
 	Publishable(context.Context, string) (bool, error)
-	// Published фиксирует успешную публикацию уведомления, сохраняя возможность безопасного повторения после сбоя.
+	// Published отмечает обработку завершённой после публикации либо подавления доставки.
 	//
 	// @args
 	//   - аргумент 1 (context.Context): контекст отмены, дедлайна и времени жизни операции.
@@ -159,16 +159,12 @@ func (s *Service) Tick(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if !allowed {
-			if err = s.repo.Published(ctx, item.ID); err != nil {
+		if allowed {
+			event := realtime.Event("notification.created", "", map[string]any{"notification": item})
+			event.ID = item.ID // Повторные доставки одного события имеют стабильный идентификатор.
+			if err = s.bus.Publish(ctx, item.UserID, event); err != nil {
 				return err
 			}
-			continue
-		}
-		event := realtime.Event("notification.created", "", map[string]any{"notification": item})
-		event.ID = item.ID // Повторные доставки одного события имеют стабильный идентификатор.
-		if err = s.bus.Publish(ctx, item.UserID, event); err != nil {
-			return err
 		}
 		if err = s.repo.Published(ctx, item.ID); err != nil {
 			return err

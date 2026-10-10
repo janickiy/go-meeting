@@ -14,61 +14,6 @@ Meetrix включает веб-интерфейс, конференции, SFU,
 - [Launch audit и локальная репетиция](docs/operations/launch-readiness-report.md): фактические проверки и блокеры production.
 - [Production checklist](docs/PRODUCTION_LAUNCH_CHECKLIST.md), [шаблон release notes](docs/RELEASE_NOTES_TEMPLATE.md), [операционный runbook](docs/operations/README.md).
 
-Для staging/production используется immutable manifest и `scripts/release/`:
-образы не пересобираются на сервере, миграции выполняются явно. Команды build,
-restart и debug ниже относятся к **разработке**, не к production promotion.
-
-**Изменение безопасности:** прежний публичный recorder `/api/v1/records*`,
-`/api/records*` и debug-страницы записи закрыты (`410 Gone`, в том числе локально).
-Используйте авторизованный `/api/v1/conferences/{id}/recordings*`. Примеры старого
-браузерного recorder ниже сохранены как история и больше не выполняются;
-подробности совместимости и ранее выданных ссылок — в [индексе API](docs/API.md).
-
-## Развитие функциональности
-
-API отвечает за управление задачами записи: создает запись в PostgreSQL, публикует команды `record.start` и `record.stop` в локальный RabbitMQ проекта и возвращает состояние записи через HTTP. Непосредственный захват видеопотока, склейку итогового видео, генерацию preview и загрузку артефактов в MinIO выполняет отдельный `worker`.
-
-Этап 1 платформы конференций добавляет пользователей, email/password-аутентификацию,
-часовой JWT, конференции, membership участников и права владельца. Контракты,
-миграции, ограничения совместимости и примеры запросов: [Stage 1 API](docs/auth-conferences-api.md).
-Новый API требует `JWT_SECRET`; существующий recorder pipeline не изменён.
-
-Этап 2 добавляет WebSocket, отдельные сессии вкладок, Redis presence и WebRTC
-signaling между участниками. Протокол, настройки, тесты и ограничения:
-[Stage 2 Realtime](docs/realtime.md). SFU и передача аудио/видео на сервере
-в этот этап не входят.
-
-Этап 3 добавляет отдельный `media-worker` на Pion и серверную SFU-передачу Opus/VP8.
-После join камера и микрофон включаются по кнопке; RTP проходит через worker,
-а сигнализация — через защищённый API и существующий WebSocket.
-Архитектура, Docker/NAT, тесты и ограничения: [Stage 3 SFU](docs/media-sfu.md).
-Конференционная запись и screen sharing в этот этап не входят.
-
-Этап 4 добавляет независимые переключатели устройств, демонстрацию экрана,
-роли и модерацию, а также общую запись конференции. SFU отдаёт закодированные
-потоки отдельному recorder-worker; только recorder выполняет композицию,
-смешивание звука и FFmpeg. MP4 и превью доступны участникам по подписанным ссылкам.
-Архитектура, права, API, проверки и ограничения: [Stage 4 Recording](docs/conference-recording.md).
-
-Этап 7 добавляет отдельный `product-worker`: email/push, синхронизацию календаря,
-асинхронные расшифровки, итоги ИИ и поиск по встречам. Внешние каналы по умолчанию
-выключены; mock явно обозначает тестовые данные. Настройка, контракты провайдеров,
-права и retention: [Stage 7](docs/content-integrations.md).
-
-Этап 8 добавляет живые субтитры, режимы записи, семантический поиск и объективную
-аналитику встреч. Соответствующие функции включаются серверными флагами; наличие
-пункта в интерфейсе само по себе не означает доступность провайдера.
-
-Этап 9 развивает **Meet** на React + TypeScript + Vite: личный кабинет и расписание,
-проверка устройств перед входом, комната встречи, история с записью/расшифровкой,
-уведомления, поиск, настройки профиля и ограниченная административная сводка.
-Сервер отдаёт безопасные возможности через `GET /api/v1/capabilities`; изменение
-имени идёт через `PATCH /api/v1/auth/me`. Административное право хранится отдельно
-от ролей встреч и проверяется сервером на каждом запросе. Маршруты, запуск,
-проверки и ограничения: [Frontend](docs/frontend.md),
-[административный API](docs/operations/admin.md). Прежние
-[чеклист этапа 9](docs/operations/RELEASE_CHECKLIST.md) и
-[отчёт этапа 9](docs/operations/PRODUCT_UX_RELEASE_REPORT.md) — исторические документы.
 Для текущего выпуска используйте [production checklist](docs/PRODUCTION_LAUNCH_CHECKLIST.md);
 локальная сборка не подтверждает
 работу в production, разных браузерах или внешних TURN-сетях.
@@ -100,7 +45,6 @@ signaling между участниками. Протокол, настройк�
 ├── frontend/                 # Meetrix: React + TypeScript + Vite
 ├── scripts/                  # cron/helper scripts
 ├── docs/                     # документация и Postman collection
-├── tests/                    # unit-tests
 ├── dockers/                  # Dockerfile, configs и volume-данные контейнеров
 ├── docker-compose.yml
 ├── Makefile
@@ -153,7 +97,7 @@ Redis:      localhost:6380
 RabbitMQ:   localhost:5672 / http://localhost:15672
 MinIO API:  http://localhost:9000
 MinIO UI:   http://localhost:9001
-MinIO public links via HTTPS smoke origin: https://localhost:18482/recordings/...
+MinIO public links via HTTPS application origin: https://localhost:18482/recordings/...
 ```
 
 PostgreSQL:
@@ -233,7 +177,7 @@ Password:          go_recorder_pass
 Console:           http://localhost:9001
 ```
 
-Для удаленного HTTPS-окружения `MINIO_PUBLIC_ENDPOINT` должен указывать на тот же origin, где открывается smoke page, например `https://192.168.90.201:18482`. Nginx проксирует `/recordings/...` в MinIO, поэтому preview/final presigned links открываются без `localhost:9000` и без mixed content.
+Для удаленного HTTPS-окружения `MINIO_PUBLIC_ENDPOINT` должен указывать на тот же origin, где открывается интерфейс приложения, например `https://192.168.90.201:18482`. Nginx проксирует `/recordings/...` в MinIO, поэтому preview/final presigned links открываются без `localhost:9000` и без mixed content.
 
 RabbitMQ:
 
@@ -272,15 +216,6 @@ docker compose exec -T rabbitmq rabbitmq-diagnostics -q check_port_connectivity
 
 Старая очередь и ее сообщения автоматически не переносятся. Общий брокер других проектов останавливать или очищать не нужно.
 
-Проверка обмена командами с запущенным локальным брокером (для стандартных локальных настроек):
-
-```bash
-RABBITMQ_TEST_URL='amqp://go_recorder:go_recorder_pass@127.0.0.1:5672/%2F' \
-  go test -race -count=1 -run TestCommandRoundTrip ./internal/infrastructure/rabbitmq
-```
-
-Тест создает собственные exchange/queue и удаляет их после проверки; рабочую очередь записей не затрагивает. Без `RABBITMQ_TEST_URL` он пропускается. При других порте, учетных данных или vhost укажи соответствующий URL.
-
 Параметры контейнера: [RabbitMQ Docker Official Image](https://hub.docker.com/_/rabbitmq/).
 
 Recorder worker:
@@ -309,27 +244,6 @@ WEBRTC_NAT_IPS=203.0.113.10
 WEBRTC_NAT_IPS=192.168.1.35
 ```
 
-Firefox по умолчанию отбрасывает loopback ICE-кандидаты (`127.0.0.1`), поэтому
-при таком адресе SDP-обмен может пройти, а медиапоток так и не подключится.
-Это поведение описано в [Mozilla Bugzilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1973521).
-На macOS адрес Wi-Fi-интерфейса можно узнать командой `ipconfig getifaddr en0`.
-После изменения `.env` пересоздай worker: `docker compose up -d worker`.
-Саму страницу на этом компьютере оставь на `http://localhost:8085`: менять
-адрес страницы на незащищенный LAN HTTP не нужно.
-
-Docker пробрасывает ICE/RTP на порт `50000` worker-а. Основной транспорт — UDP,
-TCP используется как fallback. Если LAN-адрес изменился, обнови `WEBRTC_NAT_IPS`.
-
-При ошибке WebRTC worker закрывает ingest-сессию, сохраняет `failed`, снимает
-Redis-блокировку только этой записи и добавляет событие `record.ingest.failed`.
-Тестовая страница при статусе `failed` останавливает локальные media tracks.
-
-Прежний WebRTC smoke через публичный recorder заменён безопасной проверкой
-закрытого контракта: задайте `RECORDER_TEST_URL=http://127.0.0.1:8085` и выполните
-`go test -count=1 -v ./tests/integration -run TestRetiredRecordingAPILocal`.
-Проверка не создаёт данные и ожидает `410`; без URL она пропускается.
-Тесты действующей конференционной записи находятся отдельно в
-`tests/integration/composite_recording_test.go` и требуют своих явных настроек.
 
 ## Запуск
 
@@ -360,7 +274,8 @@ MINIO_PUBLIC_ENDPOINT=http://localhost:9000
 сертификатов, которые нужно сохранить). Доверие к локальному CA в систему автоматически не добавляется.
 
 Для проверки встречи откройте [локальный интерфейс Meetrix](http://localhost:5173).
-Прежняя `/debug/webrtc-smoke` закрыта и не предоставляет обход авторизации.
+Тестовая страница WebRTC smoke удалена. Старый адрес `/debug/webrtc-smoke`
+возвращает только `410 Gone` и не предоставляет обход авторизации.
 Для HTTPS-страницы нужно настроить доверие к локальному сертификату.
 
 Пересборка API и worker:
@@ -382,12 +297,6 @@ make restart
 они применяются при старте. В production Compose `AUTO_MIGRATE=false`: startup
 проверяет ledger, а DDL выполняет явная release migration job до deploy.
 Применённые SQL-файлы нельзя менять/переименовывать: проверяется SHA-256 байтов.
-Текущий порядок — [RELEASE_PROCESS](docs/RELEASE_PROCESS.md).
-Этап 9 добавляет `000021_admin_capability.up.sql`: поле `users.is_admin` с
-начальным значением `FALSE`. До deployment сохраните согласованный backup
-PostgreSQL и MinIO; для этой миграции нет автоматического down-скрипта. Назначение
-права администратора по проверенному UUID описано в
-[операционной инструкции](docs/operations/admin.md).
 
 Запуск миграций отдельной командой в development:
 
@@ -436,8 +345,8 @@ http://127.0.0.1:18080/api/v1/conferences/{id}/recordings
 не должны публиковаться через пользовательский proxy. Клиентский frontend
 использует только авторизованные маршруты конференционной записи.
 
-Оба прежних префикса `/api/v1/records*`, `/api/records*`, debug-список завершённых
-записей и WebRTC smoke закрыты без возможности включения через env. Существующие
+Оба прежних префикса `/api/v1/records*`, `/api/records*` и debug-список завершённых
+записей закрыты без возможности включения через env. Существующие
 данные не удаляются; прежний HTTP-контракт намеренно несовместим с текущим выпуском.
 
 ## Проверка
@@ -543,31 +452,24 @@ docker compose up -d --remove-orphans
 dockers/storage/data/records/{recordId}/
 ```
 
-## Тесты
+## Проверка сборки
+
+Автоматизированные тесты Go, frontend и e2e вместе с их стендами и зависимостями
+удалены. Сохраняются проверка сборки, статический анализ, сканирование уязвимостей
+и служебные проверки состояния при развёртывании.
 
 ```bash
-make test-run
+go build ./...
+go vet ./...
 ```
 
-Через Docker:
+Frontend:
 
 ```bash
-docker run --rm -v "$PWD:/src" -w /src golang:1.26.6-alpine3.23 go test ./...
+cd frontend
+npm ci
+npm run check
 ```
-
-Тесты находятся рядом с реализацией в `internal/`, в `tests/unit` и `tests/integration`.
-Обычный `go test ./...` не требует запущенных сервисов; внешние интеграционные проверки включаются переменными окружения.
-
-Проверка переходов статуса и количества SQL-запросов на локальной PostgreSQL:
-
-```bash
-RECORDER_TEST_POSTGRES_DSN='postgres://go_recorder:go_recorder_pass@127.0.0.1:5433/go_recorder?sslmode=disable' \
-  go test -race -count=1 -v ./internal/infrastructure/postgres
-```
-
-Для нестандартных локальных настроек укажи свои учётные данные и порт. Миграции должны быть применены.
-Тестовые строки создаются внутри транзакций и откатываются; существующие записи не меняются.
-Сквозной WebRTC-тест в `tests/integration` дополнительно проверяет повторную остановку готовой записи.
 
 Результаты ревизии кода и оставшиеся ограничения: [docs/code-review-2026-09-30.md](docs/code-review-2026-09-30.md).
 
@@ -701,7 +603,7 @@ make debug-stop
 4. Для API укажи `Host: localhost`, `Port: 2345`.
 5. Для worker укажи `Host: localhost`, `Port: 2346`.
 6. Поставь breakpoint в локальном файле проекта.
-7. Нажми Debug и вызови нужный HTTP endpoint или WebRTC smoke flow.
+7. Нажми Debug и вызови нужный HTTP endpoint.
 
 ## Postman
 

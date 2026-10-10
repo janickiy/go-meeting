@@ -47,9 +47,6 @@ type AssetStorage interface {
 	OpenPersonalAsset(context.Context, string) (io.ReadCloser, int64, string, error)
 	DeletePersonalAvatar(context.Context, string) error
 }
-type ConversationReader interface {
-	Get(context.Context, string, string) (domain.Conversation, error)
-}
 type AssetEvents interface {
 	PublishConversation(context.Context, string, string, any) error
 }
@@ -60,8 +57,8 @@ type AssetService struct {
 	uploads, streams chan struct{}
 }
 
-func NewAssetService(ctx context.Context, repo AssetRepository, storage AssetStorage, reader ConversationReader, events AssetEvents) (*AssetService, error) {
-	if repo == nil || storage == nil || reader == nil {
+func NewAssetService(ctx context.Context, repo AssetRepository, storage AssetStorage, events AssetEvents) (*AssetService, error) {
+	if repo == nil || storage == nil {
 		return nil, fmt.Errorf("personal assets dependencies are required")
 	}
 	check, cancel := context.WithTimeout(ctx, 5*time.Second)

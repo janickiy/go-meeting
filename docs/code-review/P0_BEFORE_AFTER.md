@@ -1,5 +1,147 @@
 # P0: доказательства и измерения до/после
 
+## Актуальные измерения — 10 октября 2026
+
+База: `a0781257debba3f911ee180067cc0fad5bb06204`; исходный Go1.26.6, финальный Go1.26.9. [Описание аудита и владельцев ресурсов](P0_RELIABILITY_AUDIT.md). Все новые evidence находятся в `tmp/p0-audit-20261010/`, сохраняются локально и не включены в Git. Раздел от6 октября внизу — **исторический**, его числа не переиспользованы как свежие.
+
+### 1. Каждое исправление: evidence → причина → результат
+
+| Issue / severity | Before / evidence | Root cause / minimal fix | After / regression | Риск |
+| --- | --- | --- | --- | --- |
+| P0-20261010-01 LiveAudio / High | child exit0/23, RTP channel открыт и пуст; оба вызова Decode висят >3s; stack показывает packet select и cmd.watchCtx | EOF завершал только reader, select не знал об этом. Добавлен outputDone broadcast; существующие Close/join/Wait остаются у owner | race×10:20 дочерних процессов, Decode72.187375–259.958583ms, PID reaped; exit0 успех,23 ошибка | Только ранний EOF; PCM callback сохраняет обязанность соблюдать context |
+| P0-20261010-02 attachment cleanup / High |12 AccessDenied cleanup +cancel/GC: G4→16, SDK0→12; pprof ListObjects.func1/chansend | early return оставлял channel producer; ListObjectsIter + конечный ctx.Err | Те же12 failures: G4→4, SDK0→0; success/precancel + S3/chat race×3 PASS | Partial deletion остаётся ошибкой, prefix/keep не изменены |
+| Security dependencies / отдельная группа | govulncheck11 symbol advisories, включая известные HTTP2 crash/CPU/memory DoS | Go patch1.26.9 и x/net0.60 + обязательные минимумы; одинаковые версии CI/сборки | scanner0 symbol/0 package; whole tests/race/build PASS | Все11 не объявляются воспроизведёнными application exploits; module-only OpenPGP advisory не используется |
+
+Before production functions воспроизведены с теми же новыми регрессиями через Go overlay; рабочие файлы не откатывались. Early-exit лог: `recording/live-early-exit-go1.26.9-before.log` / `...-after.log`. Storage: `recording/attachment-cleanup-before.log` / `...-after.log`, `recording/storage-before/` / `storage-after/`, `attachment-*-growth.txt`. Независимый review обеих правок не выявил блокирующих замечаний.
+
+### 2. WebSocket: одинаковые workload до и после dependency patch
+
+Реальные отдельные PostgreSQL/Redis, два API/Hub, реальные tickets и HTTP Upgrade.20 warmup +4×250 cycles, cleanup, cooldown300ms и2 GC на checkpoint. Memory/RSS ниже в **байтах**. Это разные test processes, а не production baseline. В WS production-код не менялся: сравнение проверяет отсутствие регрессии, а не доказывает ускорение.
+
+| Workload / phase | Goroutines до / после | Heap после GC до / после | FD до / после | RSS до / после |
+| --- | ---: | ---: | ---: | ---: |
+| Conference idle |14 /14|3220184 /3315392|11 /11|240877568 /177143808|
+| Conference warm |14 /14|3467384 /3511136|14 /13|242384896 /177389568|
+| Conference250 |14 /14|3571000 /3608360|14 /14|243548160 /177684480|
+| Conference500 |14 /14|3606608 /3623832|14 /14|243924992 /177930240|
+| Conference750 |14 /14|3636992 /3635000|14 /14|244039680 /177930240|
+| Conference1000 |14 /14|3642768 /3646816|14 /14|244154368 /177979392|
+| Account idle |16 /16|3150664 /3148576|13 /13|168411136 /168116224|
+| Account warm |22 /22|3291160 /3306440|18 /18|170786816 /170754048|
+| Account250 |22 /22|3495272 /3439216|20 /19|171917312 /172032000|
+| Account500 |22 /22|3523232 /3474952|20 /19|172392448 /172441600|
+| Account750 |22 /22|3576112 /3496376|20 /19|172589056 /172589056|
+| Account1000 |22 /22|3605648 /3570104|20 /20|172736512 /172703744|
+
+В каждом conference checkpoint: localWS0, connected SQL ParticipantSessions0, Redis namespace keys0. В каждом account checkpoint отдельно проверены handler reservations0, physical leases0, PubSub subscribers0. Поле `localWebSockets` общей snapshot helper относится к conference Hub; оно **не подменяет** отдельные assertions global account handler.
+
+Account warmup вводит6 HTTP keepalive goroutines двух тестовых серверов/клиента; они не принадлежат завершённым WS. FD pool доходит до20, не растёт на каждый socket. Небольшой монотонный рост heap в первых4раундах сам по себе не доказывает ни leak, ни плато; поэтому дополнительно выполнена длинная серия с более точным sampling — ниже. Большая разница RSS двух conference processes не заявляется экономией памяти от патча Go.
+
+Evidence: `realtime/profiles/`, `realtime/profiles-post/`, `realtime/findings.md`; первоначальные и финальные non-race stress logs сохранены отдельно. Warm→end goroutine diffs0; default heap sampling512KiB слишком груб для объяснения нескольких сотенKiB drift.1s CPU profiles0 samples означают только отсутствие наблюдаемого busy loop в этом окне.
+
+### 3. Дополнительная проверка плато WS
+
+Чтобы не объявлять первые4точки плато без доказательства, opt-in tests через временный overlay расширены до12×250 циклов в одном процессе, без изменения production или tracked test sources. `GODEBUG=memprofilerate=16384` повысил точность профиля. Первые20 циклов — прогрев.
+
+Conference поздние раунды7…12: heap3712712 /3724560 /3721872 /3726880 /3730704 /3729808 bytes; G14/FD14, все session/WS/Redis registries0. Это колебания около устойчивого уровня, не линейная память на каждый session.
+
+Account в первой длинной серии rounds7/8/9: heap3658320 /3655680 /3654632 bytes, G22/FD20, leases0; sampled retained delta round7→9 −32KiB. Профиль объясняет ранний рост в основном pgx connection/statement-cache (~98KiB), Redis pooled readers (~37KiB), runtime thread/stack (~49KiB), далее небольшими HTTP/runtime allocations. **Две account серии на macOS не завершились:** обе в round10/cycle225, после2495 успешных циклов с прогревом, получили TCP dial timeout к ephemeral localhost API listener до WebSocket handshake. Ticket POST до этого успешен, FD/leases/goroutines стабильны. Красные логи сохранены; это воспроизводимое ограничение длинного локального прогона, причина не установлена. Они не выдаются за успешные3000 циклов или за доказанную production утечку.
+
+Тот же account test/overlay на **Linux arm64:3020 циклов PASS,8.80s**. Во всех поздних checkpoints G22, FD23 (сround3), account reservations/leases/subscribers/Redis keys0. Heap rounds7…12:3461936 /3460032 /3463648 /3495632 /3503712 /3515680 bytes; небольшой long-tail drift не называется идеально flat heap. RSS **not measured** (snapshot `-1`): минимальный Linux image не поддерживает используемый вариант `ps`. Конференционный macOS long-run и Linux account run не смешиваются в одну memory series. Evidence: `realtime/ws-long.log`, `realtime/ws-long-user-repeat.log`, `realtime/ws-linux-user-long.log`, `realtime/profiles-linux/` и precise pprof diffs. macOS-only timeout остаётся открытой диагностической границей, его причина не приписывается ядру без доказательства.
+
+Linux sampled heap round7→12: net+32.65KiB (`runtime.malg`+48.71KiB, HTTP persistConn+16.05KiB, `UserHandler.run`−32.11KiB). Число goroutines неизменно, idle CPU1s profile0 samples. Не выявлен рост удерживаемой популяции WS; это не обещание zero heap drift навсегда. См. `realtime/linux-user-tail-heap-diff.txt`, `linux-user-goroutine-diff.txt`, `linux-user-idle-cpu.txt`.
+
+### 4. SFU / camera / microphone / screen
+
+100 real Pion/UDP lifecycle с чередованием2/3/5 participants, публикацией/получением audio+video; reconnect с новым peer каждый10-й цикл. Отдельно100 source churn с mic/camera retire/republish и screen AddTrack/RemoveTrack. Production SFU не менялся.
+
+| Метрика | До, Go1.26.6 | После, Go1.26.9 |
+| --- | ---: | ---: |
+| Idle G / FD |2 /6|2 /6|
+| Post100 G / FD |2 /6|2 /6|
+| Post100 heap после GC |1149848|1149664|
+| Post100 RSS |40386560|39895040|
+| Rooms / MediaPeers / tracks / subscriptions после leave |0 /0 /0 /0|0 /0 /0 /0|
+| Churn active G / FD |120 /26|120 /26|
+| Churn steady25s heap |10908976|10981480|
+| Churn steady30s heap |10915440|10968648|
+| Churn after-leave G / FD |2 /6|2 /6|
+| Churn after-leave heap / RSS |963952 /52805632|931272 /51281920|
+| Idle-after-load CPU seconds / wall seconds |0.002638 /2.027819|0.002306 /2.033615|
+
+Во всех пустых checkpoints manager.connections=0 и roomClosures=0. Heap активной комнаты растёт во время заполнения bounded NACK buffers, затем выходит на плато; после leave падает. RSS сохраняет страницы runtime и не означает retained peers. FD SFU измеряется с одинаковой временной pipe `lsof` observer. Raw FD между разными harness не складываются.
+
+Final lifecycle52.52s/churn50.18s PASS; race SFU/legacy/media-worker/FFmpeg PASS. Goroutine diff0, sampled heap runtime/test-observer без подтверждённых retained SFU nodes, короткий idle CPU profile0 samples. Mutex/block profile — накопленные concurrent waits за нагрузку, не latency запроса и не доказательство deadlock. Evidence: `media/review.md`, `media/lifecycle/`, `media/source-churn/`, `media/final/` и root `media-*.log`.
+
+### 5. FFmpeg и temp resources
+
+Изолированный Linux process/container, реальный FFmpeg6.1.2, deterministic lavfi workload, текущая Go1.26.9 test binary.2 GC +100ms cooldown; FD/RSS/children через Linux `/proc`.17 segment starts,14 success finalize,15 cancel/timeout,6 malformed/disk-full,6 live cancel. Это component lifecycle, не100 full-stack conferences.
+
+| Phase | Goroutines | Heap bytes после GC | RSS bytes | FD | FFmpeg children | Temp files / bytes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Warm |2|1436976|19795968|7|0|0 /0|
+| Round1 |2|1457240|17551360|7|0|0 /0|
+| Round2 |2|1473096|18235392|7|0|0 /0|
+| Round3 |2|1493976|18247680|7|0|0 /0|
+
+Исходный Go1.26.6: warm G2/FD7/heap1434008/RSS17907712; round3 G2/FD7/heap1488152/RSS17190912; children/temp0. Обе серии PASS, исходный process lifecycle был устойчив на этих сценариях; отдельно воспроизведённая ошибка тихого live EOF проверяется новым helper выше.
+
+Final warm→round3 heap +57000 bytes: короткий профилируемый прогон не доказывает абсолютно flat heap; sampled diff указывает runtime thread/timer machinery, не retained recording objects. Goroutine diff0. Отдельные FFmpeg idle CPU/mutex/block profiles **not measured**: есть heap/allocs/goroutine profiles и процессные счётчики, CPU full-stack не заменяет idleCPU.
+
+Evidence: `recording/real-ffmpeg.log`, `recording/real-ffmpeg-go1.26.9.log`, `recording/go1.26.9/`, `recording/*growth-go1.26.9.txt`. Успешные и принадлежащие тесту отменённые temp artifacts очищены. Failed durable chunks пользователя намеренно могут сохраняться для recovery — этот тест не даёт права их удалять.
+
+### 6. Полная запись / broker / storage
+
+`TestStageFourCompositeRecording` PASS15.57s; `TestRecordingRetentionObjectStorage` с versioning PASS0.23s. Реальный путь: temporary PG17/Redis8/Rabbit4.2.9/MinIO, SFU/Pion, host FFmpeg9.0.2.3 participants + screen layouts; H264/AAC640×360, ffprobe11.119479s,1008157bytes,2artifacts.44 video frames и11.25s mixed audio декодированы. Finalize485.758833ms; peakFFmpeg1; drops0; lease expiry2s; finish→auto-stop2.421s; egress409 изолирован от встречи.
+
+Combined CPU1.519316s, peakRSS178126848bytes (macOS units). Это одна acceptance-запись, не throughput benchmark. Repeated100 full-stack recordings **not measured** — повторная процессная нагрузка описана отдельно.
+
+Rabbit real-broker race PASS7.577s:3 reconnect ≈1.02/1.01/1.01s, blocked publish cancel≈0.10s, RPC≈0.11s, Close≈1.01s, drain/quarantine/handshake cancellation. Новых дублированных consumer/накопления не наблюдалось. S3 deletion fault повторяется12раз, before G4→16/heap883480→959024; after G4→4/heap883480→863712. Fault-only RSS/FD **not measured**, этот fixture оценивает SDK goroutine ownership.
+
+### 7. Сводка обязательных метрик и ограничений
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| Idle goroutines (conference WS / account WS / media) |14 /16 /2|14 /16 /2|
+| Post-WS goroutines (conference / account,1000) |14 /22|14 /22|
+| Post-media goroutines (100) |2|2|
+| Heap after GC (conference1000 / media100) |3642768 /1149848|3646816 /1149664|
+| Open FD (conference1000 / account1000 / media100) |14 /20 /6|14 /20 /6|
+| Active Rooms / MediaPeers после leave |0 /0|0 /0|
+| Active WS / connected ParticipantSessions |0 /0|0 /0|
+| FFmpeg after component stop |0|0|
+| Temp after component cleanup, files/bytes |0 /0|0 /0|
+| SDK goroutines retained после12attachmentfailures |12|0|
+| LiveAudio helper after child exit |Decode stuck>3s|Decode<260ms, PID reaped|
+| Race detector, whole repo |PASS|PASS|
+
+Production RSS/heap/FD/rooms/sessions/FFmpeg/temp **not measured under workload**: аудит не нагружал рабочую установку. Browser devices, TURN/WAN, многодневный soak и maximum capacity **not measured**. Нельзя переносить local loopback результаты на эти условия или складывать метрики разных процессов.
+
+### 8. Повторяемые команды и файлы
+
+Из корня репозитория, с новыми изолированными PostgreSQL/Redis и test-only connection variables из существующих integration fixtures:
+
+```sh
+go test -count=1 ./...
+go test -race -count=1 ./...
+go vet ./...
+go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+go test -race ./internal/infrastructure/ffmpeg -run '^TestLiveAudioReapsEarlyExitWithoutMorePackets$' -count=10
+go test -race ./internal/infrastructure/storage/s3 ./internal/usecase/chat -count=3
+RECORDER_P0_MEDIA_CYCLES=100 RECORDER_P0_PROFILE_DIR="$PWD/tmp/p0-repeat/media" go test -v ./internal/infrastructure/sfu -run '^TestP0Media(Lifecycle|SourceChurn)$' -count=1 -timeout=10m
+RECORDER_P0_WS_STRESS=true RECORDER_P0_PROFILE_DIR="$PWD/tmp/p0-repeat/ws" go test -v ./tests/integration -run '^TestP0(UserWSRepeatedLifecycle|WSRepeatedLifecycle)$' -count=1 -timeout=10m
+RECORDER_P0_FFMPEG_STRESS=true RECORDER_P0_EVIDENCE_DIR="$PWD/tmp/p0-repeat/ffmpeg" go test -v ./internal/infrastructure/ffmpeg -run '^TestP0RealFFmpegResourceCycles$' -count=1 -timeout=10m
+```
+
+Реальные имена test connection env и дополнительные integration prerequisites находятся в `tests/integration/realtime_test.go`, `tests/integration/composite_recording_test.go`, `tests/integration/recording_retention_test.go` и scope evidence reports. FFmpeg resource workload рассчитан на Linux `/proc`, запускается в отдельном контейнере с реальным FFmpeg. Без настройки test dependencies opt-in workload должен skip/fail, а не обращаться к рабочим данным. Для longer WS сохраняются overlay и log в `realtime/`; baseline и finalprofiles не перезаписываются.
+
+Все финальные стандартные gates PASS: `final-test.log`, `final-race.log`, `final-vet.log`, `final-staticcheck.log`, `final-frontend-lint.log`, `final-govulncheck.log`, `final-mod-verify.log`, `final-build*.log`. Reconnect fixture correction не скрывает data race: первоначальный отказ с presence_timeout сохранён и объяснён в audit §10. Финальный diff содержит только две production lifecycle правки, тесты, security patch/build consistency и эти отчёты; ранее существовавшие user edits не включены в выводы.
+
+---
+
+## Исторические измерения — 6 октября 2026 (не свежий прогон)
+
 База: `afc33ee31f5140aad6b25059aa7aa0f9b4e511ec`; 6 октября 2026. Контекст и описание исправлений: [P0_RELIABILITY_AUDIT.md](P0_RELIABILITY_AUDIT.md). Evidence root: `tmp/p0-reliability-20261006/evidence/` (локальные, не Git-tracked артефакты). Ниже числа относятся к конкретному workload/process, а не к общей production установке.
 
 ## 1. Сбои и результат минимальных исправлений

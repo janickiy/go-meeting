@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { errorMessage, statusLabels } from "../api";
 import type { ConferenceStatus } from "../types";
-import { PRODUCT_NAME } from "../brand";
+import { BRAND_ASSET_VERSION, PRODUCT_NAME } from "../brand";
 
 /**
  * Brand показывает предоставленный логотип MeetSpace и ведёт на указанную страницу.
@@ -35,7 +35,7 @@ export function Brand({ to = "/" }: { to?: string }) {
     >
       <span className="brand-mark">
         <img
-          src="/branding/meetspace-symbol-color.svg"
+          src={`/branding/meetspace-symbol-color.svg?v=${BRAND_ASSET_VERSION}`}
           width="32"
           height="36"
           alt=""
@@ -46,14 +46,14 @@ export function Brand({ to = "/" }: { to?: string }) {
           <>
             <img
               className="brand-logo-light"
-              src="/branding/meetspace-horizontal-light-no-tagline.svg"
+              src={`/branding/meetspace-horizontal-light-no-tagline.svg?v=${BRAND_ASSET_VERSION}`}
               width="900"
               height="230"
               alt=""
             />
             <img
               className="brand-logo-dark"
-              src="/branding/meetspace-horizontal-dark-no-tagline.svg"
+              src={`/branding/meetspace-horizontal-dark-no-tagline.svg?v=${BRAND_ASSET_VERSION}`}
               width="900"
               height="230"
               alt=""

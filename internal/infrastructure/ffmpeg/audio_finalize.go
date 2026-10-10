@@ -30,7 +30,8 @@ func (p *PostProcessor) FinalizeAudio(ctx context.Context, dir string) (Result, 
 	if _, err = runBounded(op, p.ffmpegPath, "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-f", "concat", "-safe", "0", "-i", list, "-map", "0:a:0", "-vn", "-c:a", "copy", "-movflags", "+faststart", final); err != nil {
 		return Result{}, err
 	}
-	if _, err = p.validateOutput(ctx, final, true, false); err != nil {
+	validated, err := p.validateOutput(ctx, final, true, false)
+	if err != nil {
 		return Result{}, err
 	}
 	stat, err := os.Stat(final)
@@ -45,9 +46,9 @@ func (p *PostProcessor) FinalizeAudio(ctx context.Context, dir string) (Result, 
 	if err != nil {
 		return Result{}, err
 	}
-	duration, err := p.durationSec(ctx, final)
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
+	duration := int(validated.Duration + 0.5)
 	return Result{FinalPath: final, FinalSizeBytes: stat.Size(), FinalChecksum: sum, DurationSec: duration, Segments: segments}, nil
 }

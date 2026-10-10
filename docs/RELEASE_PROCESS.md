@@ -1,6 +1,6 @@
 # Выпуск неизменяемых артефактов
 
-Цепочка выпуска: исходники → validate/test/security → сборка → integration →
+Цепочка выпуска: исходники → validate/security → сборка →
 scan/SBOM/package → staging → smoke/наблюдение → решение оператора → production →
 проверка либо откат. Реальный staging пока отсутствует; соответствующие evidence
 остаются неподтверждёнными. Локальные результаты не переводят их в `true`.
@@ -23,12 +23,15 @@ fingerprint с OCI labels, а staging/production требуют
 
 | Gate | Проверки |
 | --- | --- |
-| Validate | gofmt, vet, staticcheck, синтаксис release-скриптов |
-| Test | Go unit/race; frontend lint, TypeScript, unit, a11y, production build, CSP |
+| Validate | gofmt, vet, staticcheck, синтаксис release-скриптов; frontend lint, TypeScript, production build |
 | Security | govulncheck; npm audit, блокирующий high/critical |
-| Build / integration | Бинарники, PostgreSQL/Redis integration, Chromium и Firefox E2E с включённым privacy-тестом |
+| Build | Бинарники приложения |
 | Package тега | Docker build, SBOM и scan всех release-образов; high/critical блокируют пакет; публикация по digest |
-| Тяжёлые сценарии | SFU/load/soak manual или scheduled; media/recording/TURN smoke обязателен для соответствующих изменений независимо от общего CI |
+
+Автоматизированные тесты Go, frontend и e2e удалены по решению владельца проекта.
+CI больше не запускает unit/race, integration, a11y, browser или load/soak-сценарии.
+Это не отменяет ручную проверку изменённого функционала, служебные проверки
+состояния и версии при выпуске, сканирование безопасности и готовность отката.
 
 `release-package` требует отдельного Docker runner, registry credentials и
 проверенного `TRIVY_IMAGE=…@sha256:…`. Подключение этой инфраструктуры ещё должно
@@ -121,7 +124,7 @@ Ledger допускает более новые миграции, но не до
 ## Проверка и продвижение
 
 На staging выполнить подготовку baseline, write freeze/backup, migration,
-deploy нового пакета, smoke/E2E, forced relay/TURNS и запись с ffprobe/preview/
+deploy нового пакета, служебные и ручные проверки, forced relay/TURNS и запись с ffprobe/preview/
 MinIO, проверку dashboards, откат на прежний пакет и повторный deploy текущего.
 Сохранять результаты, времена, версии, ограничения и отказы. Процедура backup:
 [backup-restore.md](operations/backup-restore.md); команды deploy —

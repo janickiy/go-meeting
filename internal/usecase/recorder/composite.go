@@ -202,6 +202,7 @@ type CompositeService struct {
 	o         CompositeOptions
 	composer  *composite.Composer
 	processor *ffmpeg.PostProcessor
+	artifacts compositeArtifactPublisher
 	client    *http.Client
 	mu        sync.Mutex
 	ctx       context.Context
@@ -225,7 +226,11 @@ func NewCompositeService(o CompositeOptions) *CompositeService {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	transport.ResponseHeaderTimeout = 5 * time.Second
-	return &CompositeService{o: o, composer: composite.NewComposer(o.FFmpegPath, o.Config.Width, o.Config.Height, o.Config.FPS, o.Config.Concurrency), processor: ffmpeg.NewPostProcessor(o.FFmpegPath), client: &http.Client{Transport: transport, CheckRedirect: /* Вложенный обработчик выполняет выделенный шаг обработки в управлении задачами записи и её артефактами, используя состояние окружающей функции.
+	artifacts := compositeArtifactPublisher{repository: o.Repository, maxBytes: o.Config.MaxBytes}
+	if o.S3 != nil {
+		artifacts.storage = o.S3
+	}
+	return &CompositeService{o: o, composer: composite.NewComposer(o.FFmpegPath, o.Config.Width, o.Config.Height, o.Config.FPS, o.Config.Concurrency), processor: ffmpeg.NewPostProcessor(o.FFmpegPath), artifacts: artifacts, client: &http.Client{Transport: transport, CheckRedirect: /* Вложенный обработчик выполняет выделенный шаг обработки в управлении задачами записи и её артефактами, используя состояние окружающей функции.
 
 	@args
 	  - аргумент 1 (*http.Request): входящий HTTP-запрос.
@@ -472,56 +477,11 @@ func (s *CompositeService) run(ctx context.Context, record records.Record, token
 	if err := s.o.Repository.TransitionComposite(ctx, record.UUID, token, records.StatusUploading, nil); err != nil {
 		return err
 	}
-	if s.o.S3 == nil {
-		return fmt.Errorf("recording storage is unavailable")
-	}
-	// Неизменные ключи экземпляров защищают и хранилище: запоздалая загрузка прежнего владельца
-	// не может перезаписать уже опубликованный артефакт владельца действующей аренды.
-	base := filepath.ToSlash(filepath.Join("recordings", record.ConferenceID, record.UUID, "artifacts", token))
-	committed := false
-	defer func() {
-		if !committed {
-			cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			_ = s.o.S3.RemovePrefix(cleanup, base+"/")
-		}
-	}()
-	mime, fileType := "video/mp4", records.FileTypeFinalMP4
-	if audioOnly {
-		mime, fileType = "audio/mp4", records.FileTypeFinalAudio
-	}
-	finalUpload, err := s.o.S3.UploadFile(ctx, base+"/final.mp4", result.FinalPath, mime)
-	if err != nil {
-		return fmt.Errorf("upload final recording: %w", err)
-	}
-	final := records.RecordFile{FileType: fileType, Bucket: finalUpload.Bucket, ObjectKey: finalUpload.ObjectKey, FileName: "final.mp4", MimeType: mime, SizeBytes: &result.FinalSizeBytes, DurationSec: &result.DurationSec, ChecksumSHA256: &result.FinalChecksum, IsPrimary: true}
-	if origin, e := composite.TimelineOrigin(dir); e == nil && origin > 0 {
-		final.MetadataJSON, _ = json.Marshal(map[string]any{"timelineOriginNs": origin, "mode": record.Mode})
-	}
-	var preview *records.RecordFile
-	if !audioOnly {
-		previewUpload, err := s.o.S3.UploadFile(ctx, base+"/preview.jpg", result.PreviewPath, "image/jpeg")
-		if err != nil {
-			return fmt.Errorf("upload recording preview: %w", err)
-		}
-		preview = &records.RecordFile{FileType: records.FileTypePreviewJPG, Bucket: previewUpload.Bucket, ObjectKey: previewUpload.ObjectKey, FileName: "preview.jpg", MimeType: "image/jpeg", SizeBytes: &result.PreviewSizeBytes, ChecksumSHA256: &result.PreviewChecksum}
-	}
-	if record.Mode == records.ModeIndividualTracks {
-		archive, size, sum, err := composite.ArchiveTracks(ctx, dir, s.o.Config.MaxBytes)
-		if err != nil {
-			return err
-		}
-		defer os.Remove(archive)
-		upload, err := s.o.S3.UploadFile(ctx, base+"/tracks.zip", archive, "application/zip")
-		if err != nil {
-			return err
-		}
-		final.Related = []records.RecordFile{{FileType: records.FileTypeTracksArchive, Bucket: upload.Bucket, ObjectKey: upload.ObjectKey, FileName: "tracks.zip", MimeType: "application/zip", SizeBytes: &size, ChecksumSHA256: &sum}}
-	}
-	if err := s.o.Repository.SaveCompositeArtifacts(ctx, record.UUID, token, final, preview, segmentMetadata(result.Segments)); err != nil {
+	publication := s.artifacts.begin(compositeArtifactCommand{record: record, token: token, dir: dir, result: result})
+	defer publication.Close()
+	if err := publication.Publish(ctx); err != nil {
 		return err
 	}
-	committed = true
 	current, err = s.o.Repository.FindByUUID(ctx, record.UUID)
 	operations.Event("recording_ready")
 	operations.Event("recording_mode_" + record.Mode)

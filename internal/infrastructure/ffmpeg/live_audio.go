@@ -53,10 +53,12 @@ func (d LiveAudio) Decode(ctx context.Context, track media.EgressTrack, packets 
 		}
 	}()
 	readDone := make(chan error, 1)
+	outputDone := make(chan struct{})
 	go func() {
 		var result error
 		defer func() {
 			readDone <- result
+			close(outputDone)
 			if result != nil {
 				cancel()
 			}
@@ -101,6 +103,10 @@ loop:
 	for {
 		select {
 		case <-op.Done():
+			break loop
+		case <-outputDone:
+			// Декодер может завершиться на повреждённом входе, пока RTP-очередь
+			// остаётся открытой. Освобождаем слот и вызываем Wait без нового пакета.
 			break loop
 		case frame, ok := <-packets:
 			if !ok {

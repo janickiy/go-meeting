@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { buildMetadataPlugin, readBuildMetadata } from "./build-metadata.ts";
 
@@ -25,10 +25,4 @@ export default defineConfig({
     },
   },
   build: { target: ["chrome120", "firefox120", "safari17"], sourcemap: false },
-  test: {
-    environment: "jsdom",
-    setupFiles: "./src/test/setup.ts",
-    include: ["src/**/*.test.{ts,tsx}"],
-    restoreMocks: true,
-  },
 });

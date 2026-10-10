@@ -1,0 +1,15 @@
+MeetSpace homepage — «Хорошие идеи начинаются с разговора», concept v4.
+Mode: built-in image_gen, new image, opaque background.
+Asset: frontend/public/media/meetspace-conversation-v4.webp
+Dimensions: 1448 x 1086. WebP quality 87, no visual edits.
+Source: exec-036abd04-69c8-4e79-8f5a-7af276d5e8a9.png
+
+Final prompt:
+Use case: photorealistic-natural.
+Asset type: the hero video-call portrait for the MeetSpace meetings and chat web app.
+Primary request: one warm, modern, editorial photograph of a friendly female creative professional enjoying a conversation through her webcam.
+Scene/backdrop: airy contemporary home studio, a warm off-white wall, a soft-focus shelf with a few books and one green plant, soft afternoon window light.
+Subject: woman around 30 with shoulder-length naturally wavy chestnut hair, subtle freckles, a relaxed sage-green cotton shirt, small discreet silver earrings. Genuine gentle smile and direct gaze towards camera, as if listening to a colleague with an interesting idea.
+Composition/framing: landscape 4:3 image, eye-level medium close-up showing head, shoulders and upper torso. Her face is centered horizontally, eyes around 38% from the top, comfortable headroom. Hands below the frame. Camera feels like a polished but believable video call, not a staged stock photograph.
+Lighting/mood: inviting, thoughtful, calm energy, natural skin texture, realistic pores and fabric, subtle soft shadows, sophisticated muted greens and warm neutrals.
+Constraints: a single photographic scene filling the image edge to edge. NO interface elements, NO laptop or monitor, NO captions, NO typography, NO border, NO collage, NO watermark. This image will later be placed inside a real HTML/CSS video meeting illustration.

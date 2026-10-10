@@ -117,7 +117,9 @@ func (c *Client) CleanAttachmentObjects(ctx context.Context, prefix, keep string
 	if len(parts) != 3 || parts[0] != "attachments" || !attachmentID(parts[1]) || !attachmentID(parts[2]) || !strings.HasSuffix(prefix, "/") || (keep != "" && (!attachmentKey(keep) || !strings.HasPrefix(keep, prefix))) {
 		return fmt.Errorf("invalid attachment cleanup prefix")
 	}
-	for object := range c.minio.ListObjects(ctx, c.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+	// Синхронный итератор завершается вместе с вызывающим кодом: ошибка
+	// удаления не оставляет фоновый producer SDK на заполненном канале.
+	for object := range c.minio.ListObjectsIter(ctx, c.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
 		if object.Err != nil {
 			return object.Err
 		}
@@ -128,7 +130,7 @@ func (c *Client) CleanAttachmentObjects(ctx context.Context, prefix, keep string
 			return err
 		}
 	}
-	return nil
+	return ctx.Err()
 }
 
 // attachmentID проверяет канонический UUID для безопасного построения ключа объекта.

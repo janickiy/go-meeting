@@ -2,100 +2,122 @@ import { Link } from "react-router";
 import {
   ArrowRight,
   CirclePlay,
-  Link as LinkIcon,
   MessageCircle,
+  Video,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../auth";
 import { Brand } from "../components/ui";
 import { Copyright } from "../components/Copyright";
 import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
-import "./meetings-design.css";
+import { LandingScene } from "./LandingScene";
+import "./landing.css";
 
-/**
- * Landing показывает приветственную страницу MeetSpace и переходы к регистрации и входу.
- *
- *
- * @returns JSX-представление компонента для текущих свойств и состояния.
- */
+const features = [
+  {
+    Icon: Video,
+    title: "Встречайтесь",
+    text: "Одна ссылка — и вы рядом. Обсуждайте идеи и показывайте экран.",
+    tone: "violet",
+  },
+  {
+    Icon: MessageCircle,
+    title: "Общайтесь",
+    text: "Продолжайте разговор в личных и групповых чатах. Делитесь важным.",
+    tone: "green",
+  },
+  {
+    Icon: CirclePlay,
+    title: "Возвращайтесь к важному",
+    text: "Записи и материалы встреч под рукой, когда нужно освежить детали.",
+    tone: "peach",
+  },
+];
+
+/** Публичная главная: продуктовая иллюстрация не подключается к медиа или встречам. */
 export function Landing() {
   const { user } = useAuth();
   return (
-    <div className="landing landing-design-page">
-      <header className="landing-header">
+    <div className="meetspace-home">
+      <a className="skip-link" href="#home-main">
+        Перейти к содержимому
+      </a>
+      <header className="home-header home-container">
         <Brand />
-        <nav aria-label="Аккаунт">
+        <nav className="home-account-nav" aria-label="Аккаунт">
           {user ? (
-            <Link className="button button-primary" to="/app">
-              В приложение <ArrowRight size={17} />
+            <Link className="home-button" to="/app">
+              В приложение <ArrowRight size={18} aria-hidden="true" />
             </Link>
           ) : (
             <>
-              <Link className="plain-link" to="/login">
+              <Link className="home-login" to="/login">
                 Войти
               </Link>
-              <Link className="button button-primary" to="/register">
-                Создать аккаунт <ArrowRight size={17} aria-hidden="true" />
+              <Link className="home-button" to="/register">
+                Создать аккаунт <ArrowRight size={18} aria-hidden="true" />
               </Link>
             </>
           )}
         </nav>
       </header>
-      <main className="hero">
-        <div className="hero-copy">
-          <span className="eyebrow">{PRODUCT_NAME}</span>
-          <h1>{PRODUCT_TAGLINE}</h1>
-          <p className="hero-subtitle">{PRODUCT_DESCRIPTION}</p>
-          <Link
-            to={user ? "/app" : "/register"}
-            className="button button-primary hero-cta"
-          >
-            {user ? "Открыть мой кабинет" : "Начать встречаться"}
-            <ArrowRight size={18} />
-          </Link>
-          <span className="hero-note">
-            По приглашению можно войти без аккаунта.
-          </span>
-        </div>
-        <div className="hero-visual">
-          <img
-            src="/media/meet-laptop.png"
-            alt="Ноутбук с четырьмя участниками видеовстречи — иллюстрация"
-            width="1536"
-            height="1024"
-            fetchPriority="high"
-          />
-        </div>
+      <main id="home-main" className="home-main home-container" tabIndex={-1}>
+        <section
+          className="home-hero"
+          aria-labelledby="home-title"
+          aria-describedby="home-description"
+        >
+          <div className="home-hero-copy">
+            <p className="home-eyebrow">
+              <span aria-hidden="true" /> Пространство, которое объединяет
+            </p>
+            <h1 id="home-title">
+              Хорошие идеи начинаются <span>с разговора.</span>
+            </h1>
+            <p className="home-hero-description">{PRODUCT_TAGLINE}</p>
+            <p id="home-description" className="sr-only">
+              {PRODUCT_DESCRIPTION}
+            </p>
+            <Link
+              className="home-button home-hero-cta"
+              to={user ? "/app" : "/register"}
+            >
+              {user ? "Открыть мой кабинет" : "Начать встречаться"}
+              <ArrowRight size={20} aria-hidden="true" />
+            </Link>
+            <p className="home-guest-note">
+              <ShieldCheck size={16} aria-hidden="true" /> По приглашению можно
+              войти без аккаунта.
+            </p>
+          </div>
+          <LandingScene />
+        </section>
+        <section
+          id="features"
+          className="home-features"
+          aria-label={`Возможности ${PRODUCT_NAME}`}
+        >
+          {features.map(({ Icon, title, text, tone }) => (
+            <article
+              className={`home-feature home-feature--${tone}`}
+              key={title}
+            >
+              <span className="home-feature-icon">
+                <Icon size={23} aria-hidden="true" />
+              </span>
+              <div>
+                <h2>{title}</h2>
+                <p>{text}</p>
+              </div>
+            </article>
+          ))}
+        </section>
       </main>
-      <section
-        className="landing-design-features"
-        aria-label={`Возможности ${PRODUCT_NAME}`}
-      >
-        {[
-          {
-            Icon: LinkIcon,
-            title: "Просто присоединиться",
-            text: "Создайте встречу и поделитесь ссылкой.",
-          },
-          {
-            Icon: MessageCircle,
-            title: "Разговор продолжается",
-            text: "Личные и групповые чаты для рабочих вопросов.",
-          },
-          {
-            Icon: CirclePlay,
-            title: "Важное остаётся",
-            text: "Записи и материалы завершённых встреч.",
-          },
-        ].map(({ Icon, title, text }) => (
-          <article key={title}>
-            <Icon size={24} aria-hidden="true" />
-            <h2>{title}</h2>
-            <p>{text}</p>
-          </article>
-        ))}
-      </section>
-      <footer className="landing-footer">
-        <strong>{PRODUCT_NAME}</strong>
+      <footer className="home-footer home-container">
+        <span className="home-footer-brand">
+          <strong>{PRODUCT_NAME}</strong>
+          <span>Ближе, где бы вы ни были.</span>
+        </span>
         <Copyright />
       </footer>
     </div>

@@ -1032,7 +1032,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "description": "Debug endpoint, который возвращает завершенные записи с `preview.jpg` и ссылкой на `final.mp4` из MinIO. Используется WebRTC smoke test.",
+            "description": "Исторический debug endpoint. Текущий API отвечает 410 Gone и не выдаёт записи или подписанные ссылки.",
             "url": {
               "raw": "{{gatewayUrl}}/debug/records/completed?limit=50",
               "host": [

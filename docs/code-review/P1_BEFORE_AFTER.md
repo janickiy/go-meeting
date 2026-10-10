@@ -1,5 +1,171 @@
 # P1: измерения до и после
 
+## Повторный аудит — 10 октября 2026
+
+Текущий baseline: `a0781257debba3f911ee180067cc0fad5bb06204` плюс исходные P0/security/UI working-tree изменения. Go1.26.9, Apple M5 Pro18CPU/48GiB, macOS arm64; recording в Linux arm64 Docker VM10CPU. Результаты 6 октября ниже — **исторические**, не before для этой работы. Методика/контракты: [P1_PERFORMANCE_AUDIT.md](P1_PERFORMANCE_AUDIT.md).
+
+### 1. Обязательные метрики текущего прохода
+
+| Метрика | До | После / интерпретация |
+| --- | ---: | --- |
+| RTP egress allocs/op, payload160 | 0 без sinks; 1/176 B при1 или2 sinks | SFU не менялся; один marshal обслуживает оба sinks |
+| RTP egress allocs/op, payload1200 | 0 без sinks; 1/1280 B при1 или2 sinks | SFU не менялся |
+| RTP allocations/s, 10 peers | 227 511 mallocs/s; 27.144 MB/s | Current baseline, server+clients; server-only not measured |
+| RTP CPU, 10 peers / ~5s | 4.265745 CPU s | Код не менялся; не сравнивать с прежним host/Go |
+| Mutex wait/block, 10×2 | 225.66 ms aggregate mutex; 7551.96 aggregate goroutine-s block | Locks не менялись; 99.86% block — select wait, не CPU |
+| Individual lock hold/frequency | not measured: pprof не даёт распределение hold/acquire | Per-packet timestamps без hotspot не добавлялись |
+| Redis recovery | 105.888–109.492 ms, 5 faults | Код не менялся; CLIENT KILL собственной Pub/Sub при здоровом Redis, readiness + доставка |
+| Redis round trips | Missing500:1 batch/500 commands; Online1/20/100:1 batch/1 Lua command | Уже пакетный текущий код; не новая экономия500→1 |
+| Rabbit recovery | Publisher2.169–2.436 ms; consumer1.005–1.014 s | Без правок; consumer first observed delivery может быть redelivery |
+| Rabbit throughput | Serial median≈3983 confirmed commands/s | Без правок; не FFmpeg jobs/s |
+| DB pool wait32×5 | 917 waits / 1.455 aggregate waiter-s;166 ms wall | Pool не менялся; peak20/20, final10/0/10,0 errors |
+| SQL/recordings20 | 6 (recordings1 тоже6) | 6; batch уже присутствовал до P1 |
+| SQL/history | 6 | 6; backend не удалён вместе с меню |
+| SQL/personal unread20 | 2 | 2; меньше работы внутри первого SQL, а не round trips |
+| DB unread20 p95, fresh fixture | 30.076 ms | 16.464 ms (−45.3%),100 requests; ограничения ниже |
+| DB unread20 matched fresh-page bench | 25.74 ms median6 | 14.88 ms (−42.18%,p=.002); Go memory без значимого изменения |
+| DB recordings20 p95 | 4.693 ms | 4.007 ms; этот path не менялся, не заявляем gain |
+| Gin recordings20 p95 | 3.935 ms | 6.392 ms; unchanged path/host variability, не скрываем разброс |
+| Recording temp bytes | 7 986 655 B / 130 files | 7 928 689 B / 130 files; sampled peak, не доказанный gain |
+| Composite method finalization | 102.41 ms median6 | 83.70 ms (−18.27%,p=.002) |
+| Audio method finalization | 63.95 ms median6 | 52.41 ms (−18.05%,p=.002) |
+| End-to-end stop→ready,2 rooms | 411.60 / 410.44 ms | 412.66 / 410.59 ms; ускорение всего pipeline **не доказано** |
+| FFmpeg CPU | ≥0.40 CPU s, sampled | ≥0.39 CPU s; lower bounds, общий CPU saving не доказан |
+| Disk I/O wait | not measured | Shared Docker VM iowait нельзя отнести к одной записи этим sampler |
+
+### 2. Новая оптимизация: unread filter
+
+**Bottleneck:** correlated COUNT всех непрочитанных сообщений только для ответа «есть ли хотя бы одно». **Evidence:** first SQL EXPLAIN19.339 ms,1019 COUNT subplans,≈48 rows/loop. **Change:** EXISTS с тем же predicate, exact projected/total counts не тронуты. **Risk:** минимальная SQL-замена без schema/API/index/cache изменений; regression сверяет numeric projection, порядок, все cursor pages, clear/read/self/deleted/mute/hidden.
+
+Большой fresh-write fixture:1000groups×20members+19direct,50messages/chat,1019conversations;100requests после5warmups. SQL count2→2, B/op98 740→99 098: экономия Go memory не заявляется. p50 25.387→14.714ms (−42.0%), p95 30.076→16.464ms (−45.3%), p99 32.432→27.127ms (−16.4%). First SQL EXPLAIN19.339→8.306ms; total shared buffer hits58 654→5972 (−89.8%). Planner заменяет COUNT subplan на Hash Semi Join; дополнительных индексов нет.
+
+Visibility map существенно влияет на этот workload. При отдельном VACUUM ANALYZE до timing median6≈11.713→10.520ms (−10.2%), **p=.065: статистически значимое ускорение при95% не подтверждено**; B/op/allocs без значимого изменения. Исходный несогласованный набор с одним существенно более быстрым sample исключён из matched comparison, а не удалён. Изменение visibility map — возможная, но не доказанная причина этого разброса.
+
+Строго matched fresh-page benchmark: autovacuum выключен **только на собственной synthetic table в disposable DB до seeding**; оба варианта читают одинаковые недавно записанные, ещё не all-visible pages. Конкурентных записей в timed loop нет. Исходный COUNT подключён через Go overlay, working tree не откатывался. Чистые6samples по30операций после5warmups: **25.74ms ±13% → 14.88ms ±18%, −42.18%,p=.002**; B/op/allocs статистически без изменения. Предварительный run, пересёкшийся с functional FFmpeg проверкой, отдельно сохранён и повторён. Это обоснование узкой правки для свежих данных, не обещание42% ускорения всех чатов/базы.
+
+### 3. Новая оптимизация: финализация записи
+
+**Bottleneck:** один final.mp4 повторно запускает ffprobe для duration после validateOutput, который уже прочитал и проверил эту duration. **Evidence:** отдельный probe≈16.2ms и62alloc/op; negative control подтверждает два final-file probes. **Change:** reuse локальных validated metadata, без cache/file/codec изменений; audio сохраняет explicit ctx.Err после checksum. **Risk/regression:** одинаковое округление, invalid0/NaN/text отклоняются, legacy Finalize прежний, cancellation test с блокировкой checksum и negative control.
+
+Linux FFmpeg6.1.2, synthetic2s640×36010fps H264/AAC fixture до таймера,6×1s samples, Go allocs только parent (не RSS subprocess). Медиа одинаковое; baseline binary собран до правки, snapshots/overlay сохранены для последующей регрессии и воспроизведения без отката working tree. Benchstat:
+
+| Метод | Median ms до→после | B/op до→после | allocs/op до→после | Значимость времени |
+| --- | ---: | ---: | ---: | --- |
+| composite | 102.41→83.70 | 293.0→257.1 KiB | 367.5→306 | −18.27%,p=.002,n=6 |
+| audio | 63.95→52.41 | 210.9→175.6 KiB | 290.5→228 | −18.05%,p=.002,n=6 |
+| duration_probe control | 16.21→16.40 | ≈35.46 KiB, без изменения | 62→62 | p=.240, незначимо |
+
+Это ускорение **метода финализации на коротком fixture**, не18% ускорения конференции или полной записи. End-to-end stop→ready двух pipelines остался≈411ms: таймер включает команды, FFmpeg, upload/DB и polling. Container versions/source hashes и cleanup receipts: `recording/{baseline-isolated,after-isolated}`. Начальный `baseline-current` пересекался с другим workload, считается warmup и не используется.
+
+### 4. Current media baseline — без production-правок
+
+| Сценарий | Forwarded RTP/s | Process CPU s / ~5wall s | MB allocated/s | Mallocs/s | Mutex aggregate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| idle | 0 | 0.005523 | 0.000243 | 2.60 | 0.289ms |
+| 2 peers | 199.98 | 0.360794 | 1.051 | 7264.95 | 0.486ms |
+| 5 peers | 1999.51 | 1.232526 | 6.502 | 46506.28 | 11.79ms |
+| 10 peers | 9026.27 | 4.265745 | 27.144 | 227511.45 | 127.87ms |
+| 5×2 rooms | 3999.11 | 2.182794 | 12.942 | 92903.68 | 17.59ms |
+| 10×2 rooms | 14541.36 | 7.756383 | 45.266 | 593018.90 | 225.66ms |
+| 5+screen+taps | 2199.88 | 1.327878 | 7.580 | 52231.04 | 15.47ms |
+
+Matrix PASS184.853s; SFU/record/audio queue drops0, cleanup maps0/G3/FD6. При10×2 offeredideal18k/s не достигнут; энд-ту-энд sequence gaps не измерены. Включены клиенты и SFU, не только server. NACK retained copies нужны, application snapshot allocation0.38%/0.22% не оправдывает unsafe pooling. Screen taps в этой матрице не запускают real decoder/FFmpeg/STT.
+
+Egress microbenchmark6samples: payload160/sinks0/1/2=7.375/134.0/167.25ns; payload1200=7.484/227.7/260.35ns. Безsink0B/0alloc, с1/2sink176B/1alloc или1280B/1alloc. Profiles и raw logs: `media/baseline`, `media/benchmark-egress-final.log`; предварительный concurrent log исключён.
+
+### 5. DB/query matrix текущего функционала
+
+100samples/service; latency ms. Только unread20 code изменился. Различия других строк демонстрируют вариативность общего хоста, не эффект оптимизации. Точные SQL/plans/allocs: `data/{db-baseline,db-after}`.
+
+| Путь | SQL до→после | p50 до→после | p95 до→после | p99 до→после |
+| --- | ---: | ---: | ---: | ---: |
+| recordings HTTP20 | 6→6 | 3.562→4.682 | 3.935→6.392 | 5.012→9.385 |
+| recordings1 | 6→6 | 1.571→1.498 | 2.713→1.873 | 3.044→2.526 |
+| recordings20 | 6→6 | 2.878→3.013 | 4.693→4.007 | 7.566→13.270 |
+| meetings20 | 1→1 | 0.476→0.490 | 0.535→0.565 | 0.655→0.611 |
+| history | 6→6 | 2.050→1.927 | 3.163→3.080 | 4.085→3.299 |
+| participants20 | 4→4 | 0.972→0.855 | 1.106→1.054 | 2.033→1.183 |
+| conference chat20 | 8→8 | 2.072→2.007 | 2.966→3.416 | 4.016→3.614 |
+| notifications20 | 2→2 | 0.771→0.600 | 1.040→0.651 | 1.212→1.673 |
+| transcript20 | 5→5 | 1.154→1.089 | 1.477→1.312 | 2.401→2.375 |
+| summary | 4→4 | 0.846→0.829 | 1.108→0.922 | 1.994→1.657 |
+| analytics | 3→3 | 0.704→0.693 | 0.804→0.770 | 1.971→0.876 |
+| admin | 3→3 | 3.986→4.193 | 4.316→5.275 | 5.393→11.979 |
+| personal HTTP20 | 3→3 | 12.059→12.032 | 12.574→12.847 | 13.509→13.187 |
+| personal1 | 2→2 | 11.814→11.383 | 15.282→13.880 | 23.843→17.654 |
+| personal20 | 2→2 | 11.661→11.859 | 13.052→13.553 | 18.615→14.018 |
+| personal unread20 | 2→2 | 25.387→14.714 | 30.076→16.464 | 32.432→27.127 |
+| group chat1 | 10→10 | 2.941→2.806 | 8.337→4.003 | 18.257→4.224 |
+| group chat20 | 10→10 | 3.257→2.949 | 4.486→3.812 | 5.484→4.025 |
+| personal read state | 6→6 | 1.567→1.614 | 2.012→1.883 | 2.885→2.823 |
+| direct chat20 | 9→9 | 2.057→2.315 | 3.209→3.383 | 3.286→3.768 |
+| group members20 | 3→3 | 0.948→1.056 | 1.180→1.882 | 2.408→2.332 |
+
+### 6. Redis, Rabbit и recording resources
+
+Redis control benchmarks повторены6раз на реальных test keys: pipelineMissing500=1batch/500commands; accountOnline1/20/100=1batch/1command. Cold NOSCRIPT может добавить EVAL; client hook не считает Lua-internal calls/PubSub handshake. Сравнение старого sequential Get с уже имеющимся Missing — reference algorithm, не новая production-правка.
+
+Current Missing2/20/500 median0.180/0.187/0.961ms, accountOnline1/20/100=0.179/0.205/0.391ms. Reconciliation20scans/5s на500сессий:42batches/10023commands (включаяsetup),4 634 448 TotalAlloc bytes/51085allocations; synthetic Stale repository не измеряет SQL. CPUprofile10ms samples/5.08s не означает нулевого CPU. Counts/memory — per-window MemStats, не ошибочная разность cumulative profiles разных subtests.
+
+Rabbit baseline3samples serial median251.073µs/op, parallel247.607µs/op, confirms включены; publisher reconnect median2.190ms. Consumer9faults1.005–1.014s. QoS1, connection/channel reuse не менялись; долгий outage/multi-worker herd не измерялся. Повтор после правок записи служит regression, не Rabbit before/after optimization.
+
+Запись: две реальные параллельные pipelines с4→6peers, screen, FFmpeg/MinIO/PG/Rabbit, H264/AAC640×360, около11s каждый итоговый файл. Fixtures имеют отдельные Composer/Service; это не capacity-тест одного worker с default concurrency1. Обе decoded/recovered-closed-segment/auto-stop проверки PASS:44 decoded frames при проверке4fps и≈11.26s mixed audio. Recording drops0. KeepLocal=true удерживает источники до проверки/fixture cleanup.
+
+| Whole-process / sampled resource | До | После |
+| --- | ---: | ---: |
+| Wall | 16.028s | 16.041s |
+| Go parent CPU | 3.2716s | 3.5144s |
+| Все waited children CPU | 5.2662s | 5.3033s |
+| Parent peak RSS | 370160KiB | 361264KiB |
+| Total allocated bytes | 975950320 | 980753952 |
+| Heap after GC | 4223624B | 4245440B |
+| G before/afterGC | 3/7 | 3/7 |
+| Observed peak FFmpeg children | 2 | 2 |
+| Observed peak FD / last sample | 154/9 | 150/9 |
+| Sampled peak temp bytes/files | 7986655/130 | 7928689/130 |
+| Final sample temp bytes/files | 0/0 | 0/0 |
+| Parent logical rchar/wchar | 53062496/27366541 | 51827286/27143320 |
+| Parent `/proc` write_bytes | 10936708 | 10839811 |
+| Child input/output blocks | 0/11172 | 0/11067 |
+
+Один full-stack pair не доказывает экономию CPU/RSS/I/O. Самплер≈0.3s пропускает короткие subprocess: FFmpeg40/39ticks — lower bounds0.40/0.39s, не весь FFmpeg CPU. RUSAGE_CHILDREN включает helpers. read_bytes=0 означает warm cache, не отсутствие чтений; block counters не равны physical-storage traffic всей системы. Disk iowait/полные totals, длительный STT и server-only recording CPU **not measured**.
+
+В baseline alloc profile640MiB/67.67% — Argon2 создания fixture аккаунтов,≈38% sampled Go CPU также Argon2; security hashing не ослаблялся. G3→7 — snapshot инфраструктуры/профилировщика, не plateau/leak diagnosis. Независимый P0 lifecycle:17 starts,14 finalizations,15 cancel/timeouts,6 expected input/disk failures,6 live decoders; все3rounds G2/FD7/children0/temp0. P0 early decoder exit, S3 cleanup и STT input/limit cleanup проверки сохранены и проходят.
+
+Доказательства: `recording/final-focused-race.log`, `p0-final-regression.log`, `p0-regression/`, `recording-{before,after}-*-top.txt`. Full-stack cleanup receipts подтверждают неизменность прежних контейнеров и0 собственных container/network/volume leftovers. Standalone fixture containers были network-none/auto-remove; реальных записей не удалялось.
+
+### 7. Финальные проверки и доказательства
+
+Исходные и окончательные проверки выполнены раздельно, без test cache:
+
+| Gate | Baseline | После правок |
+| --- | --- | --- |
+| `go test -count=1 ./...` | PASS | PASS |
+| `go test -race -count=1 ./...` | PASS | PASS |
+| `go vet ./...` | PASS | PASS |
+| staticcheck v0.7.0 | PASS | PASS |
+| govulncheck v1.8.0 | PASS,0 called/imported findings | PASS,0 called/imported findings |
+| frontend `npm run lint` | PASS | PASS |
+| gofmt / release shell syntax / diff whitespace | PASS | PASS |
+
+Govulncheck сохраняет одну module-only advisory вне импортируемых/вызываемых пакетов; это не утверждение «все зависимости неуязвимы». Whole tests без внешних env пропускают opt-in нагрузки: ниже отдельно фиксируются их реальные запуски.
+
+Performance matrix, current full DB before/after, real Redis recovery, два full-stack recording runs, Rabbit confirms/reconnect и новые FFmpeg/count semantics regression PASS. Свежие account1020 + conference1020 WS lifecycle, Redis subscription kill и transient-prune recovery PASS (package20.124s). Recording P0 smoke и scoped race PASS, детали выше.
+
+SFU P0 race smoke PASS92.639s:25lifecycle+25source churn,2/3/5peers,stalled audio2rooms×2peers. После leave G2/FD6/maps0, heap≈1.13MB. Stalled tap даёт ожидаемые2overflow при0 SFU/recording drops. Четыре SDK EOF teardown warnings без assertion/race failures. Evidence: `media/regression-race.log`, `media/regression/`.
+
+DB/Redis scoped security race PASS:integration41.396s,Redis1.853s. Проверены unread DTO/query budget/cursor, recording batch1/20, clear/mute/hide, group revoke/projection locks, presenceTTL/leases. Browser/MinIO-only cases этого набора SKIP и не считаются пройденными; real MinIO recording охвачен отдельным full-stack. Evidence: `data/security-regression-race.log`, `ws-regression.log`, `ws-regression-profiles/`.
+
+Cleanup: own PG/Redis удалены после проверки отсутствия fixture DB и Redis keys; recording pods/networks/anonymous volumes удалены с проверкой labels/IDs. Receipt `data/existing-services-after-cleanup.json`:30 ранее существующих контейнеров running, их ID/name/StartedAt неизменны, оба data-audit IDs отсутствуют. Только синтетические данные аудита удалены; их можно воспроизвести harness. Пользовательские сервисы/записи не затронуты.
+
+Gate logs: `baseline-*.log`, `final-*.log` в evidence root. Новые production-правки проверены независимым вторым review: SQL predicate/DTO/cursor equivalent; FFmpeg validated metadata reuse/cancel/legacy behavior безопасны в прежнем контракте.
+
+Новые evidence находятся только в `tmp/p1-audit-20261010/`; никаких remote/deployment операций не выполнялось. Исторические оптимизации Redis batch, recordings batch/index и forced Flush ниже не пересчитываются в достижения этого прохода.
+
+---
+
+## Исторические измерения — 6 октября 2026 (не текущий baseline)
+
 Дата: 6 октября 2026. Baseline: `86bded31814db9eb748be0c04d7798a6b2212a85`. Методика, ownership, правки и риски: [P1_PERFORMANCE_AUDIT.md](P1_PERFORMANCE_AUDIT.md).
 
 Это локальные наблюдения разных процессов: их нельзя складывать. `not measured` означает отсутствие измерения, причина указана рядом. SFU и RabbitMQ не менялись; для них показан baseline. Для Redis сравниваются старый GET и новый Missing. Эффекты DB batch и индекса измерены отдельно. Парные записи используют одинаковый fixture и Go overlay исходного capture.go.

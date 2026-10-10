@@ -133,10 +133,13 @@ func (p *PostProcessor) finalize(ctx context.Context, recordDir string, composit
 	if concatErr != nil {
 		return Result{}, concatErr
 	}
+	var durationSec int
 	if composite {
-		if _, err := p.ValidateOutput(ctx, finalPath, true); err != nil {
+		validated, err := p.ValidateOutput(ctx, finalPath, true)
+		if err != nil {
 			return Result{}, err
 		}
+		durationSec = int(validated.Duration + 0.5)
 	}
 	if err := p.preview(ctx, finalPath, previewPath); err != nil {
 		return Result{}, err
@@ -162,7 +165,9 @@ func (p *PostProcessor) finalize(ctx context.Context, recordDir string, composit
 	if err != nil {
 		return Result{}, err
 	}
-	durationSec, _ := p.durationSec(ctx, finalPath)
+	if !composite {
+		durationSec, _ = p.durationSec(ctx, finalPath)
+	}
 
 	return Result{
 		FinalPath:        finalPath,

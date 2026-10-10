@@ -1,5 +1,131 @@
 # P3 — финальная чистка кода
 
+## Текущий проход — 2026-10-10
+
+Статус: **P3 завершён; baseline/after gates, runtime smoke и representative performance — PASS.** Baseline: HEAD `a0781257debba3f911ee180067cc0fad5bb06204` **плюс существовавшие P0/P1/P2/UI-правки**, не чистый checkout. Текущий [P2](P2_BEFORE_AFTER.md) завершён без открытых race/resource blockers. История 6 октября ниже сохранена отдельно и не выдаётся за свежие результаты. Evidence: `tmp/p3-cleanup-20261010/` (ignored). Рабочий Docker и удалённый сервер не обновлялись; следующий этап не начат.
+
+### 1. Executive summary / scope
+
+Небольшая чистка в существующих пакетах: понятные имена и менее вложенный цикл расчёта присутствия, один общий шаг подтверждения обработки уведомления, однократное вычисление длины поисковой строки, актуальные комментарии и документация личных чатов. Нет изменения архитектуры, интерфейса продукта, миграций, потоков/таймеров, Pion/FFmpeg lifecycle или media hot path. Новых production helpers/interfaces/packages/config flags не добавлено.
+
+Проверены naming/локальные conditions, comments/TODO/debug, зависимости и мелкий dead code. Карта P2 содержит 73 production packages; P3 не повторяет архитектурное разделение. Membership, physical session и media peer сохраняют разные роли; Conference в backend и «Встреча» в UI не переименовываются. Однозначные короткие локальные `ctx`, `err`, `i`, `n` сохранены. Безопасного основания для split больших lifecycle-файлов либо удаления compatibility/recovery кода не найдено.
+
+### 2. Naming changes
+
+В `analytics.Aggregate`: `cid→conferenceID`, `groups→intervalsByParticipant`, `ids→participantIDs`, `id→participantID`, `list→participantIntervals`, `v→interval`, `duration→participationMS`, `times→changeTimes`, `bucket→bucketMS`. Девять смысловых переименований явно различают конференцию, участников, интервалы и единицы измерения. Типы и порядок аргументов неизменны; комментарий аргумента согласован с новым именем. Публичные identifiers/types/events и пакеты не переименованы.
+
+### 3. Local simplifications
+
+Цикл merge сначала добавляет первый/непересекающийся интервал и продолжает обход; оставшийся guard только продлевает последний интервал. Соприкасающиеся границы объединяются, вложенный интервал не укорачивает внешний. Сортировка, обрезка границами встречи, отбрасывание пустых/обратных интервалов, порядок участников, неизменность входа и пустые JSON-массивы сохранены.
+
+| Метрика выбранной функции | До | После |
+|---|---:|---:|
+| Aggregate: LOC / AST branch nodes | 62 / 13 | 62 / 13 |
+| Вложенность условий внутри merge loop | 2 | 1 |
+| Notifications.Tick: LOC / AST branch nodes | 30 / 8 | 26 / 7 |
+| ActionService.Search: LOC / AST branch nodes | 10 / 2 | 11 / 2 |
+
+LOC — span объявления, branch nodes — if/for/range/case/comm включая closures, не cyclomatic complexity. Исходные значения — P2 after inventory для неизменённых тогда файлов; текущие — `inventory-after.json`. Уменьшение строк не является KPI: имя `queryLength` добавило строку, сделав проверку понятнее.
+
+### 4. Duplicate code removed
+
+- `Notifications.Tick`: два одинаковых `Published + error return` заменены одним после условной публикации. Подавленное уведомление по-прежнему отмечается обработанным без создания события; ошибка публикации не подтверждается, ошибки останавливают дальнейший обход. Generate→Pending→Publishable→Publish(если разрешено)→Published, стабильный event ID, recipient и payload сохранены.
+- `ActionService.Search`: `RuneCountInString` вызывается один раз, результат — `queryLength`. Trim, UTF-8 validation, 2–200 символов, limit1–50, текст ошибки, validation precedence и repository forwarding прежние. Для invalid UTF-8 это чистое вычисление также выполняется; публичный результат тот же. Generic helper не вводится.
+
+### 5. Dead code removed
+
+Новых доказанно неиспользуемых функций, файлов или private types для удаления не найдено. Staticcheck чистый; экспортируемый compatibility/debug/recovery код не удаляется по отсутствию прямого локального caller. Функций и файлов удалено **0**. Старые skipped/opt-in tests сохранены; новая проверка не маскируется удалением сценариев.
+
+### 6. Comments / TODO / debug cleanup
+
+Исправлены реальные неточности: `ratelimit.Result.ResetAt` — значение `time.Time`, не pointer; ноль не формирует `X-RateLimit-Reset`. `Notification.PublishedAt` означает завершение публикации **или подавления** доставки; `Repository.Published` описывает тот же контракт. `Cursor.At` — CreatedAt граничного уведомления, нулевое время недопустимо, а не «nil допустим». Неочевидный стабильный ID повторной доставки оставлен с WHY-комментарием.
+
+Production Go/TS/TSX scan не нашёл TODO/FIXME/HACK и `fmt.Print*`/`println`/console debug, требующих удаления. FFmpeg child-process test output и диагностические инструменты сохранены. Generated code не редактировался; масштабной косметической чистки комментариев не было.
+
+### 7. Test cleanup и batches
+
+Новые небольшие регрессионные тесты сначала прошли на прежнем production-коде, затем после изменений. Analytics: точные duration/timeline, non-nil empty collections, порядок участников и неизменность входа (3 table cases плюс прежние 2 теста). Notifications: 8 сценариев порядка вызовов/ошибок, suppression, стабильного envelope/payload; отдельный nil/empty pending. Search: 9 Unicode/limit/precedence cases и сохранение repository result/error. Старые assertions и skips не удалялись.
+
+| Batch | Действие | Проверка |
+|---|---|---|
+| A | Семантические локальные имена analytics | Unit/race до и после, checkpoint `analytics/A-naming.go.txt` |
+| B | Guard/continue в merge loop | Unit/race, точные boundary assertions, root diff review |
+| C | Неточные comments + Publish/ack wording | Relevant unit/race, source contract review |
+| D | Общий ack и queryLength | Unit/race до/после, независимый read-only diff review |
+| E | Новые явные tests и актуальная документация | Unit/race + сверка docs с routes/usecase/hooks |
+| F | Dependency/dead-code audit без принудительного удаления | Staticcheck, tidy-diff, manifests |
+
+Первая версия нового notification assertion ошибочно сравнивала `json.RawMessage` с Go map. Этот **дефект написанного теста** исправлен до production refactor: сравниваются сериализованные bytes. Исходный failed log сохранён, затем прежний production прошёл исправленные unit/race (`behavior-tests-before-corrected.log`, `behavior-tests-before-race.log`). Это не продуктовый bug fix.
+
+### 8. Docs consistency
+
+`docs/PERSONAL_MESSAGES.md` теперь описывает существующий `/conversations/{id}/peer-presence`, account/ACL boundary, лимит, 2s lookup, unknown→503, общий foreground polling для шапки/информации. Удалены ложные утверждения об отсутствии статуса в UI и локальном поиске: список фильтруется сервером, курсор привязан к фильтрам. Уточнены групповые аватары ссылкой на существующий `GROUP_CHATS.md`. Маршруты и UI ради документации не менялись.
+
+### 9. Dependencies
+
+Удалено/обновлено зависимостей **0**. `go mod tidy -diff` до и после завершился с exit0 без diff. Go module files, frontend manifest/lock и весь frontend побайтно сохранены относительно текущего baseline. Нет нового framework, generics или DI слоя.
+
+### 10. Public compatibility
+
+HTTP routes/status/error strings, JSON fields/tags/null-vs-array, WS/Rabbit event names/envelope, SQL schema, Redis keys и storage paths не менялись. Порядок side effects/ошибок подтверждён call-order тестами и diff review. Публичные сигнатуры по типам и порядку параметров сохранены; изменение имени аргумента Aggregate не меняет Go API. Границы P2, leases, locks, defer/cancel lifetime, таймауты и retries остались прежними. Нет скрытого product bug fix.
+
+### 11. Test / race / lint results
+
+Свежие baseline **и after**: `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, staticcheck v0.7.0, govulncheck v1.8.0, frontend Prettier lint и `go mod tidy -diff` — PASS. Gofmt/diff checks чистые. Govulncheck: 0 reachable и 0 imported-package vulnerabilities; 1 required-module advisory `GO-2026-5932` для неимпортируемого `golang.org/x/crypto/openpgp` — не заявляется «все зависимости без уязвимостей».
+
+Финальный runtime runner завершился с exit0; полный source manifest неизменен на всём интервале. Opt-in проверки запускались с настоящими отдельными зависимостями, не с пользовательскими данными:
+
+| Проверка | Результат |
+|---|---|
+| Account + conference WS lifecycle/recovery, по 1020 соединений | PASS 17.450s, восстановление после Redis disconnect и prune failure |
+| 100 одновременных WS reconnect, race | PASS 3.897s |
+| 23 key API/admission/membership/presence/unread/recording tests, race | PASS 42.422s |
+| 7 selected P3 integration tests: analytics, search, notification delivery/locks/dedup | PASS 7.144s, PostgreSQL/Redis |
+| SFU lifecycle + source churn (по 5 циклов), 2/3/5 peers, audio-tap isolation, race | PASS 60.201s |
+| Две реальные recording pipelines со screen/source changes | PASS 16.25s, FFmpeg/MinIO/PostgreSQL/Redis/Rabbit |
+
+В этих выбранных наборах нет skips/race warnings. Записи подтверждены декодированием video/audio: 2 комнаты, 2 восстановления closed segments, 2 auto-stop при завершении встречи (`after/recording-pod/recording/full-stack-checks.json`). Lifecycle cleanup: conference WS после прогрева G14/FD14, local sockets/session rows/Redis keys0 во всех завершённых раундах; SFU после source churn G2/FD6/rooms/peers/tracks/subscriptions0. Pion EOF diagnostics при teardown сохранены в сыром логе; assertions и race проверки успешны. Это короткие smoke, не универсальное доказательство отсутствия утечек на любой нагрузке.
+
+Все созданные тестовые контейнеры/сети/volumes удалены; 131 исходный контейнер (включая остановленные) сохранил ID/StartedAt/running state. Перед очисткой native fixtures — 0 тестовых БД и Redis keys; leftovers0. Receipts: `after/cleanup-final.json`, `after/recording-pod/recording/cleanup.json`. Default all-package tests не выдаются за полное opt-in покрытие; только перечисленные отдельные запуски подтверждают соответствующие сценарии.
+
+### 12. P1 performance preservation
+
+Свежие RTP baseline/after: `BenchmarkP1RecordPacket`, 6 variants ×6 samples, benchtime1s, Go1.26.9 darwin/arm64 на Apple M5 Pro/18 logical CPUs/48GiB. Команды одинаковы, прогоны последовательны, без других агентских тяжёлых задач. Shared host, не dedicated capacity lab. Benchstat: `egress-comparison.txt`.
+
+| Payload / sinks | До ns/op | После ns/op | p-value | B/op / allocs до = после |
+|---|---:|---:|---:|---:|
+| 160 / 0 | 7.539 | 7.387 | .009 | 0 / 0 |
+| 160 / 1 | 133.2 | 133.8 | .903 | 176 / 1 |
+| 160 / 2 | 165.8 | 164.4 | .331 | 176 / 1 |
+| 1200 / 0 | 7.662 | 7.401 | .002 | 0 / 0 |
+| 1200 / 1 | 225.0 | 229.0 | .132 | 1280 / 1 |
+| 1200 / 2 | 256.8 | 257.8 | .513 | 1280 / 1 |
+
+Значимых временных различий при активных sinks не найдено; B/op и allocs/op одинаковы во всех samples. Незначительное по абсолютной величине ускорение no-sink веток (0.15–0.26ns) статистически различимо, но **не приписывается P3**: SFU код не менялся. Существенной регрессии representative RTP workload не выявлено. Нет обещания общей производительности продукта, эквивалентности любой latency или ускорения от чистки. FFmpeg finalization benchmark и полный DB/Redis performance corpus повторно не выполнялись: их реализация не затронута; реальная запись и query-budget/ACL regressions прошли отдельно.
+
+### 13. Files changed in this P3 pass
+
+1. `internal/usecase/analytics/analytics.go`
+2. `internal/usecase/analytics/analytics_test.go`
+3. `internal/usecase/notifications/service.go`
+4. `internal/usecase/notifications/service_test.go` (новый)
+5. `internal/usecase/chat/actions.go`
+6. `internal/usecase/chat/actions_search_test.go` (новый)
+7. `internal/domain/notifications/notification.go`
+8. `internal/domain/ratelimit/result.go`
+9. `docs/PERSONAL_MESSAGES.md`
+10. `docs/code-review/P3_CLEANUP_REPORT.md`
+
+Итого 10 файлов, только 3 production файла с исполняемыми изменениями; 2 domain файла — comments only. Остальные существовавшие P0/P1/P2/UI изменения сохранены, не считаются результатом P3. Staged user file не тронут; автоматических commits/deploy нет. Evidence helpers остаются в ignored tmp.
+
+### 14. Deferred non-cosmetic issues
+
+Новых продуктовых дефектов в выбранном scope не выявлено. Сохраняется долг P2: Composer.Capture, mediaworker.command, integrations.Fanout, persistence JSON coupling в records, legacy/recovery compatibility и исключения error mapping. Они не переписываются ради меньшего LOC. Browser/device/WAN/TURN/long-soak и полный P1 DB/Redis corpus в P3 не входят; существующие query-budget/ACL tests повторяются. Следующий этап автоматически не начинается. Docker рабочего проекта и удалённый сервер не обновляются.
+
+---
+
+## Исторический проход — 2026-10-06
+
 Дата: 2026-10-06. Baseline: `4aecd7db0939c7efaeeab9d30e7a629a004f493c`.
 Предыдущие этапы: [P0](P0_RELIABILITY_AUDIT.md), [P1](P1_BEFORE_AFTER.md),
 [P2](P2_BEFORE_AFTER.md). Открытых P0 race/resource blockers в этих результатах нет.

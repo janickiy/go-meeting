@@ -75,7 +75,8 @@ func (r *PersonalRepository) GetOrCreate(ctx context.Context, user, target strin
 }
 
 // A bounded page uses one projection (including sender/member count/unread), not per-row calls.
-const personalUnreadSQL = `(SELECT count(*) FROM conversation_messages x WHERE x.conversation_id=c.id AND x.sequence>GREATEST(m.last_read_sequence,m.history_cleared_through) AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL)`
+const personalUnreadPredicate = `x.conversation_id=c.id AND x.sequence>GREATEST(m.last_read_sequence,m.history_cleared_through) AND x.sender_user_id<>m.user_id AND x.deleted_at IS NULL`
+const personalUnreadSQL = `(SELECT count(*) FROM conversation_messages x WHERE ` + personalUnreadPredicate + `)`
 const personalActivitySQL = `COALESCE(lm.created_at,c.created_at)`
 const personalProjection = `SELECT c.id,c.type,c.created_at,c.updated_at,lm.created_at AS last_message_at,lm.id AS last_message_id,
  ` + personalActivitySQL + ` AS activity_at,u.id AS peer_id,
@@ -163,7 +164,9 @@ func (r *PersonalRepository) ListFiltered(ctx context.Context, user, cursor stri
 		args = append(args, filter.Type)
 	}
 	if filter.UnreadOnly {
-		query += " AND " + personalUnreadSQL + ">0"
+		// Filtering needs only the first visible unread message, not a full count
+		// for every candidate conversation. Numeric projections stay unchanged.
+		query += " AND EXISTS(SELECT 1 FROM conversation_messages x WHERE " + personalUnreadPredicate + ")"
 	}
 	if filter.Search != "" {
 		escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(filter.Search)

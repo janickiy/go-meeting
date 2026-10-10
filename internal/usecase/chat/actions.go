@@ -168,7 +168,8 @@ func (s *ActionService) Leave(ctx context.Context, user, conference string) erro
 
 func (s *ActionService) Search(ctx context.Context, user, conference, query, cursor string, limit int) (chatdomain.MessagePage, error) {
 	query = strings.TrimSpace(query)
-	if !utf8.ValidString(query) || utf8.RuneCountInString(query) < 2 || utf8.RuneCountInString(query) > 200 {
+	queryLength := utf8.RuneCountInString(query)
+	if !utf8.ValidString(query) || queryLength < 2 || queryLength > 200 {
 		return chatdomain.MessagePage{}, apperrors.New(apperrors.ErrInvalidInput, "query must contain 2 to 200 characters")
 	}
 	if limit < 1 || limit > 50 {

@@ -12,3 +12,6 @@ export const PRODUCT_NAME =
 export const PRODUCT_TAGLINE =
   "Встречи, чаты и совместная работа в одном месте.";
 export const PRODUCT_DESCRIPTION = `${PRODUCT_NAME} — единое пространство для встреч и общения.`;
+
+/** Версия предоставленного набора SVG обновляет адреса изображений и сбрасывает старый кэш. */
+export const BRAND_ASSET_VERSION = "20261010-3";

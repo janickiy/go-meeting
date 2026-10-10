@@ -9,6 +9,12 @@ import (
 	"github.com/janickiy/go-recorder/internal/domain/apperrors"
 )
 
+// IsRejectedOrKicked identifies a revoked membership before rejoin or invitation.
+// Waiting, absent and unknown states are not revocation; admission checks remain separate.
+func (p Participant) IsRejectedOrKicked() bool {
+	return p.Status == Kicked || p.Status == Rejected || p.AdmissionState == AdmissionKicked || p.AdmissionState == AdmissionRejected
+}
+
 // IsAdmitted проверяет допуск участника; для старых адаптеров учитывает также ограничения состояния членства.
 //
 // @return:

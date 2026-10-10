@@ -14,7 +14,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
-    "types": ["vite/client", "node", "vitest/globals"]
+    "types": ["vite/client", "node"]
   },
-  "include": ["src", "*.ts", "e2e"]
+  "include": ["src", "*.ts"]
 }

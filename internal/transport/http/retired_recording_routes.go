@@ -19,6 +19,7 @@ func registerRetiredRecordingRoutes(router gin.IRouter) {
 		router.Any(prefix, retiredRecordingEndpoint)
 		router.Any(prefix+"/*path", retiredRecordingEndpoint)
 	}
+	// Страница WebRTC smoke удалена; прежний адрес остаётся закрытой заглушкой.
 	router.Any("/debug/webrtc-smoke", retiredRecordingEndpoint)
 }
 

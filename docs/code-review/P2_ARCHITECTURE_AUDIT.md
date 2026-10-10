@@ -1,5 +1,154 @@
 # P2 — Architecture audit
 
+## Текущий аудит — 2026-10-10 (до изменений)
+
+Запрос: `CODE_REVIEW_AND_OPTIMIZATION_P2.md`. HEAD `a0781257debba3f911ee180067cc0fad5bb06204`, поверх существующих незакоммиченных P0/P1/UI-изменений. Они сохранены; это не чистый HEAD benchmark. Старый аудит 6 октября ниже — исторический, его результаты не выдаются за новые.
+
+Свежие `go test -count=1 ./...`, `go test -race -count=1 ./...`, `go vet ./...`, staticcheck v0.7.0, govulncheck v1.8.0 и frontend lint — PASS до production edits. Критические WS/SFU/recording/API проверки и репрезентативные P1 измерения также завершены до production edits в собственных временных окружениях. Исходная версия этого аудита сохранена отдельно до первого изменения, SHA256 приведён в итоговом отчёте. Логи: `tmp/p2-audit-20261010/baseline-*.log`; исходный diff/status сохранены там же. Docker рабочего проекта и удалённый сервер не обновляются.
+
+### Методика и полный inventory
+
+`go run ./tools/architecture-audit` создаёт детерминированный AST inventory **73 production packages** под `internal/`: файлы, точные outbound imports, inbound imports из других `internal` packages, экспортируемые объявления функций/методов/типов, поля всех struct и методы interface, LOC/branch nodes/parameters каждой функции. Snapshot до изменений: `tmp/p2-audit-20261010/inventory-before.json`. Inbound не включает `cmd` и тесты; exported методы приватного типа также входят в список объявлений. Build tags здесь не фильтруются, это source inventory, не runtime graph. LOC — span объявления с внутренними комментариями; branches — AST if/for/range/case/comm, включая closures, **не cyclomatic complexity**.
+
+Ниже responsibility/API/lifecycle карта всех 73 пакетов; точные зависимости и объявления воспроизводятся утилитой (JSON), а не определяются по названию каталога. `D` — domain, `U` — usecase, `I` — infrastructure, `T` — transport, `A` — app.
+
+| Package (`internal/`) | Responsibility / основной API | Owned state и направление зависимостей |
+|---|---|---|
+| app | RunAPI/Worker/MediaWorker/LiveWorker/ProductWorker | Composition root; pools/clients/background shutdown; A→U/I/T/config |
+| app/auth | Login/Register/Refresh/Logout routes | Stateless transport; U/auth, HTTP mapping |
+| app/captions | Captions/read/control endpoints | Request lifetime; U/captions, conference ACL |
+| app/chat | Message/attachment endpoints | Request/stream lifetime; U/chat |
+| app/conferences | Meeting/invite/guest/moderation handlers | Request parsing; U/conferences, realtime/media contracts |
+| app/content | Generated content/search endpoints | Request lifetime; U/content/search |
+| app/engagement | Reactions endpoints | Request lifetime; D/realtime contracts |
+| app/folders | Folder endpoints | Request lifetime; U/folders |
+| app/httpresponse | Error/JSON response mapping | No mutable state; D/apperrors→HTTP |
+| app/integrations | Integration/preferences endpoints | Request lifetime; U/integrations |
+| app/notifications | Notification endpoints + SSE | SSE connection subscription/timer; U/notifications |
+| app/personal | Direct/group/assets/presence handlers | Request lifetime; repository + U/personal; presence orchestration candidate E |
+| app/platform | Platform capabilities | Stateless; U/platform |
+| app/recordings | Authorized recording start/stop/cards | Stateless; U/recordings |
+| app/records | Retired legacy recording handlers | No production cmd consumer; compatibility tests only, do not remove tombstones |
+| app/telemetry | Client telemetry ingress | Request validation; operations metrics |
+| buildinfo | Version/build response | Immutable build variables |
+| config | Typed loaders/env validation | Startup-only values; subsystem configs, no DI framework |
+| domain/analytics | Analytics DTO/contracts | Pure data; no process lifecycle |
+| domain/apperrors | Nine typed categories, Classify | Pure policy, wrapping/root cause preserved |
+| domain/captions | Caption/audio activity contracts | Pure values/activity predicate |
+| domain/chat | Message/attachment rules and DTOs | Pure validation and attachment state |
+| domain/conferences | Membership/role/admission/schedule rules | Persisted membership semantics, not WS lifetime |
+| domain/content | Generated content contracts | Content lifecycle values |
+| domain/folders | Folder validation/contracts | Pure values and ownership rules |
+| domain/integrations | Delivery/provider configuration values | Pure contracts |
+| domain/jobs | Durable job payload/state | Durable job identity/state, not worker timer |
+| domain/media | Media errors/policy/commands | Pure contract; depends on membership/realtime, not Pion/frontend |
+| domain/notifications | Notification preferences/events | Pure values |
+| domain/personal | Conversations/actions/presence contracts | Membership/projection values, not socket lifetime |
+| domain/platform | Capability DTOs | Pure values |
+| domain/ratelimit | Limiter contracts | No concrete storage |
+| domain/realtime | Envelopes/session interfaces | Connection vs membership distinction |
+| domain/records | Recording transitions/modes/files | Authoritative durable state; gorm datatypes coupling retained |
+| domain/search | Search DTO/contracts | Pure values |
+| domain/users | User/session/password contracts | Persisted account/session values |
+| infrastructure/composite | Capture/recover/archive compositor | Media chunk files, bounded capture readers; no conference ACL |
+| infrastructure/contentproviders | Content/AI adapters | External request resources; provider contracts retained |
+| infrastructure/ffmpeg | Finalize/decode/probe/process execution | Child processes/pipes; P0 reap/cancel and P1 probe reuse unchanged |
+| infrastructure/health | Health probes | Probe request lifetime |
+| infrastructure/liveproviders | Streaming STT adapters | Provider stream lifetime; U/captions contracts |
+| infrastructure/postgres | Operation-specific repositories | Transactions/leases/outbox atomicity; SQL guards intentionally repeated |
+| infrastructure/providers | Email/calendar/push adapters | External clients; narrow provider contracts retained |
+| infrastructure/rabbitmq | Durable worker command/job delivery | Channel/consumer lifecycle; delivery retry ownership |
+| infrastructure/redis | Presence/locks/limiter/registry/bus | Redis clients/keys/TTL; physical sessions separate from membership |
+| infrastructure/security | JWT/password/invite secrets | Crypto providers; no HTTP policy |
+| infrastructure/sfu | Room/MediaPeer/tracks/subscriptions | Pion PC/RTCP/queues/close; no new packet-path abstraction |
+| infrastructure/storage/local | Record path/segment storage | Local paths/files, caller-owned retention |
+| infrastructure/storage/s3 | Upload/list/sign/stream/delete | Client/object reader lifecycle; iterator cancellation from P0 retained |
+| infrastructure/webrtc | Legacy ingest manager/session | Pion + FFmpeg startup/stop ownership; production reachable |
+| infrastructure/worker | Legacy alternate worker adapter | Absent from production cmd graph; document, defer broad deletion |
+| operations | Metrics/health/profiling runtime | Process atomic collector; profiling cleanup; no broad singleton rewrite |
+| transport/http | Route/bootstrap/health/tombstone wiring | HTTP server lifecycle; retired records routes return 410 |
+| transport/http/middleware | Auth/CORS/request/rate guards | Request context; no domain→HTTP reverse dependency |
+| transport/mediaworker | Internal media command/egress API | Auth/lease + Pion engine boundary, stream lifetime |
+| transport/websocket | Account/conference WS protocol | Client reader/writer/timers/subscriptions; Hub owns membership lookup |
+| usecase/analytics | Analytics operations | Repository operation, no long-lived resources |
+| usecase/auth | Account/token/session operations | Token provider + repository, no HTTP |
+| usecase/captions | Control/service/worker | Worker audio stream lifecycle; domain activity predicate already extracted |
+| usecase/chat | Message/attachment operations | Atomic repo + events/storage, bounded upload/stream resources |
+| usecase/conferences | Meeting/control/invitation/guest operations | Reconciliation loop, repository atomicity, media enforcement after persist |
+| usecase/content | Content generation/workers | Job/provider/repository orchestration; no HTTP |
+| usecase/folders | Folder operations | Stateless repository facade |
+| usecase/integrations | Delivery preferences/providers | Job fanout/delivery; provider interfaces purposeful |
+| usecase/jobs | Durable job runner | Claim/retry/complete worker loop |
+| usecase/media | Controller + internal HTTP client | Transport interface; controller does not own Pion |
+| usecase/notifications | Notification operations | Stateless repository/event projection |
+| usecase/personal | Recipient events + asset lifecycle | Bounded streams/uploads/cleanup; unused constructor reader candidate F |
+| usecase/platform | Runtime feature capabilities | Immutable config projection |
+| usecase/realtime | Hub + presence/session operations | Physical WS sessions, heartbeat/queues; no media PC ownership |
+| usecase/recorder | Legacy + composite recording orchestration | Lease/capture/FFmpeg/storage/events; publication owner candidate C/D |
+| usecase/recordings | Recording Service + CommandDispatcher | API operations separate from durable delivery loop (already implemented) |
+| usecase/search | Search operations/embedding | Repository + provider request lifecycle |
+
+### Границы владения и связи
+
+`ConferenceParticipant` — durable membership/role/admission; `ParticipantSession` — одна физическая realtime connection; `MediaPeer` — один WebRTC peer; `Recording` — durable recording state + lease/capture/artifacts. Закрытие сокета не удаляет membership; отключение одного peer не должно закрывать другой. Recorder не решает conference ACL. Repository-методы, выражающие atomic operation, владеют SQL transaction; persist/commit предшествует событиям там, где это требуется.
+
+Доказанные точки улучшения: `app/personal.PeerPresence` содержит ACL→bounded presence lookup→fail-closed бизнес-операцию; `CompositeService.run` содержит самостоятельный lifecycle temporary artifacts/commit/rollback; одинаковый kicked/rejected predicate в conference join и invitation repo; `AssetService` требует, но не использует `ConversationReader`.
+
+Оставить осмысленные связи: `domain/records→gorm/datatypes` — отдельный compatibility долг; recorder→FFmpeg/composite/S3 — явное orchestration coupling, не устраняется фиктивным переносом файла; media-worker→Pion DTO — внутренняя engine boundary, не frontend leak. HTTPClient рядом с media Controller уже отделён интерфейсом. Domain→HTTP, handler→FFmpeg/Pion в выбранных business handlers не обнаружено.
+
+### Большие сервисы и функции: текущие числа
+
+| Область | Исходное состояние | Решение |
+|---|---|---|
+| recordings.Service / CommandDispatcher | 3 deps/4 public operations и отдельный delivery runner | Уже разделено; не повторять исторический refactor |
+| CompositeService | 11 options, orchestration + artifact publication | Один coherent publisher, не набор micro-services |
+| conferences.Service | 14 business methods + SetObserver, 9-method repository | Coherent facade; LOC недостаточно для split |
+| personal.Handler | 18 handlers, 18-method repo с group contract | Извлечь только самостоятельную peer-presence operation |
+| Composer.Capture | 326 LOC / 72 branch nodes / 5 params | Крупнейшая; сохранить recovery/hot-path, отдельный долг |
+| mediaworker.Handler.command | 276 / 58 / 3 | Отдельный долг, не менять в этом batch |
+| IntegrationRepository.Fanout | 151 / 36 / 3 | Atomic operation, отдельный provider/job regression нужен |
+| CompositeService.run | 115 / 26 / 3 | C/D: meaningful publication step с отдельным cleanup owner |
+| CompositeService.capture | 105 / 19 / 4 | Не дробить cancellation/egress lifecycle без отдельного исследования |
+
+### Дублирование, ошибки, cleanup, states/events
+
+Девять error categories (`Validation`, `Unauthenticated`, `Forbidden`, `NotFound`, `Conflict`, `RateLimited`, `Unavailable`, `Timeout`, `Internal`) и центральный `Classify` уже есть. A укрепляет transport contract tests, не создаёт ещё один mapper. Сохранить исключения: malformed presence UUID → 400 (обычная validation → 422); unknown media-worker error → 400 + `media_unavailable`, explicit unavailable → 503; WS error payload содержит `code`, без нового `message`; длинный replyTo отбрасывается. `%w`/Is/As сохраняют root cause, внутренние строки не выходят клиенту. Transport/worker boundary владеет диагностикой; новый publisher не логирует повторно исходную ошибку.
+
+Сводка остальных duplicate candidates: HTTP UUID parsing различает wire validation; pagination/cursors принадлежат endpoint contract; Redis keys и realtime envelopes уже имеют owner; Rabbit commands и WS events не одинаковые сущности; SQL membership checks внутри транзакций закрывают race и не заменяются предварительным ACL; signed URLs принадлежат storage/read operation; composite vs legacy FFmpeg/upload keys/retention различны; 5s defaults стоят на разных trust boundaries. Не объединять только по сходству строк.
+
+Composite publication владеет token-scoped prefix и ZIP, `SaveCompositeArtifacts` — fenced commit. До commit rollback только своего prefix, независимый background timeout 5s; cleanup failure не заменяет исходную ошибку. После commit запрещён rollback; ready/events/release/local-success removal остаются в orchestration. P0 MediaPeer/session cleanup уже idempotent: graceful stop и failure имеют намеренно разный порядок. Recording transitions и durable/realtime event contracts не меняются; новые state-machine/retry frameworks не нужны.
+
+### Config, DI, globals, repository и dead code
+
+Typed subsystem loaders уже централизуют env parsing; app — explicit composition root. `operations.current` — process metrics singleton с atomic access, нет доказанного выигрыша от массовой DI-замены. Provider interfaces Email/Calendar/STT/AI/Embedding сохраняются. Новый publisher получит максимум два узких контракта (upload/delete и fenced commit), без generic repository. Без добавочных retries: MinIO SDK request retries, recording outbox delivery и capture lease recovery — разные владельцы.
+
+Доказанный F: убрать неиспользуемый `reader` из `personal.NewAssetService`, сохранив committed snapshot без повторной authorization. `app/records` и `infrastructure/worker` отсутствуют в production `go list -deps ./cmd/...`, но удаление всей legacy подсистемы отложено: 410 compatibility tombstones должны остаться, `app/worker`/`usecase/recorder`/`infrastructure/webrtc` живые. Старые flags/debug assets требуют отдельной совместимости; не удаляются по одному rg-result.
+
+### План batches (зафиксирован до production edits)
+
+| Batch | Изменение | Проверка |
+|---|---|---|
+| A | Contract tests существующей taxonomy и HTTP/internal media/WS mapping | Focused tests/race + key API smoke; без изменения wire format |
+| B | Один domain predicate revoked membership для двух точных повторов | Cross-product statuses/admissions, join/invite integration/race |
+| C | Private composite artifact publisher: upload/metadata/fenced commit | All modes, fault matrix, real recording output/lease/storage |
+| D | Publication-owned token rollback + temporary ZIP cleanup (отдельная проверка C seam) | Cancellation/stale lease/cleanup failure/success/no foreign delete, race |
+| E | PeerPresence operation из HTTP в U/personal | ACL before presence, deadline, fail-closed, no-store/errors unchanged |
+| F | Удалить unused AssetService reader constructor dependency | Assets/group/browser targeted tests/race, no reauthorization |
+
+После каждого — relevant tests/race/integration и diff review; не коммитить автоматически. C/D могут быть единым production extraction с отдельными проверяемыми cleanup контрактами, а не двумя временно небезопасными реализациями. Before/after representative P1 (RTP/media scenarios, WS lifecycle, real recording/finalization; key DB API/unread) сравниваются на одной машине/нагрузке последовательно. Значимая регрессия блокирует принятие. P3 и deployment не входят в запрос.
+
+### Результаты реализации текущего плана
+
+A–F реализованы с отдельными unit/race/integration checkpoints; public HTTP/WS behavior не изменён. `CompositeService.run`: 115 LOC / 26 AST branch nodes → 70 / 16; publication — 47 / 10 и cleanup — 14 / 3. PeerPresence HTTP: 50 / 9 → 18 / 3; application operation — 30 / 7. Пакетов по-прежнему 73, public CompositeService methods — 6, существующие конкретные recorder adapters не скрыты за фиктивными переносами. Asset constructor arity 5→4 (с context), удалена только неиспользуемая зависимость.
+
+Дополнительно воспроизведён на before-F overlay и исправлен старый SQL matcher integration fixture; production SQL/ACL не менялись. Все pause/lock/snapshot assertions сохранены. Подробный текущий отчёт по 19 пунктам, исходные ошибки запуска, результаты повторов, ограничения и performance comparison: [P2_BEFORE_AFTER.md](P2_BEFORE_AFTER.md). Историческая часть ниже не является доказательством текущих проверок.
+
+Финальные full tests/race/vet/staticcheck/vulnerability scan/frontend lint и matched-after WS/SFU/API/recording gates завершены. Все четыре recording modes прошли реальную FFmpeg/MinIO acceptance проверку. Существенной измеренной регрессии нет, RTP allocations неизменны. Тестовые ресурсы очищены, существующие сервисы сохранены; deployment и P3 не выполнялись.
+
+---
+
+## Исторический аудит — 2026-10-06
+
 Дата: 2026-10-06. Baseline: `27594d8` (после P0/P1). Этот документ создан **до первого изменения production-кода P2**. Итоги и фактические изменения: [P2_BEFORE_AFTER.md](P2_BEFORE_AFTER.md).
 
 ## 1. Baseline и методика

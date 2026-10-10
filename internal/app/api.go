@@ -148,7 +148,7 @@ func RunAPI() error {
 	}
 	personalRepository := postgresinfra.NewPersonalRepository(db)
 	personalEvents := &personalusecase.Events{Members: personalRepository, Bus: notificationBus}
-	personalAssets, err := personalusecase.NewAssetService(context.Background(), postgresinfra.NewPersonalAssetRepository(db), s3Client, personalRepository, personalEvents)
+	personalAssets, err := personalusecase.NewAssetService(context.Background(), postgresinfra.NewPersonalAssetRepository(db), s3Client, personalEvents)
 	if err != nil {
 		return fmt.Errorf("personal assets initialization: %w", err)
 	}
