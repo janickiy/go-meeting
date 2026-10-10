@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 	"github.com/pion/stun/v3"
 )
 

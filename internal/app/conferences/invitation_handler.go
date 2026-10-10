@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	d "github.com/janickiy/go-recorder/internal/domain/conferences"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	d "github.com/janickiy/meet-space/internal/domain/conferences"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 type InvitationService interface {

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 type Bus interface {

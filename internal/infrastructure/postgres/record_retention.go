@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/domain/records"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

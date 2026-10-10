@@ -3,8 +3,8 @@ package recordsapp
 import (
 	"context"
 
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	workerinfra "github.com/janickiy/go-recorder/internal/infrastructure/worker"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	workerinfra "github.com/janickiy/meet-space/internal/infrastructure/worker"
 )
 
 // Service задаёт контракт зависимого компонента Service в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

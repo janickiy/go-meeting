@@ -3,9 +3,9 @@ package realtime
 import (
 	"context"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
-	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
+	domain "github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // Engagement проверяет допуск участника и публикует временные emoji-реакции.

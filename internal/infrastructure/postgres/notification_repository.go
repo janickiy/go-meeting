@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	domain "github.com/janickiy/go-recorder/internal/domain/notifications"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	domain "github.com/janickiy/meet-space/internal/domain/notifications"
 	"gorm.io/gorm"
 )
 

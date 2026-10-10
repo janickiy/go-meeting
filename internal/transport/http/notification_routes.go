@@ -2,7 +2,7 @@ package httptransport
 
 import (
 	"github.com/gin-gonic/gin"
-	notificationsapp "github.com/janickiy/go-recorder/internal/app/notifications"
+	notificationsapp "github.com/janickiy/meet-space/internal/app/notifications"
 )
 
 // RegisterNotificationRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.

@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/chat"
-	domain "github.com/janickiy/go-recorder/internal/domain/personal"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/chat"
+	domain "github.com/janickiy/meet-space/internal/domain/personal"
 )
 
 const MaxAvatarBytes int64 = 2 << 20

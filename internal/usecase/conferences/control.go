@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	domain "github.com/janickiy/go-recorder/internal/domain/conferences"
-	"github.com/janickiy/go-recorder/internal/domain/media"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	domain "github.com/janickiy/meet-space/internal/domain/conferences"
+	"github.com/janickiy/meet-space/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // ControlRepository задаёт контракт зависимого компонента ControlRepository в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

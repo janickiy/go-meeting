@@ -3,7 +3,7 @@ package postgres
 import (
 	"context"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
 )
 
 // LegacyConferenceAllowed ограничивает старые маршруты записи, чтобы они не управляли защищённой записью конференции.

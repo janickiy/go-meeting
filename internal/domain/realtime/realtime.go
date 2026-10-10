@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
 )
 
 // Session stores one physical WebSocket connection. Participant membership survives its closure.

@@ -16,18 +16,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/operations"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	ws "github.com/gorilla/websocket"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/config"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
-	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
-	usecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/config"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/ratelimit"
+	domain "github.com/janickiy/meet-space/internal/domain/realtime"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
+	usecase "github.com/janickiy/meet-space/internal/usecase/realtime"
 )
 
 // Verifier задаёт контракт зависимого компонента Verifier в присутствии участников и доставке realtime-событий; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

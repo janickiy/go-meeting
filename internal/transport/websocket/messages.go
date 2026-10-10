@@ -9,11 +9,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/config"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	mediadomain "github.com/janickiy/go-recorder/internal/domain/media"
-	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/config"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	mediadomain "github.com/janickiy/meet-space/internal/domain/media"
+	domain "github.com/janickiy/meet-space/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/operations"
 )
 
 // handleMessage owns protocol dispatch. false ends the reader; recoverable

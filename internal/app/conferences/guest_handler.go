@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
-	usecase "github.com/janickiy/go-recorder/internal/usecase/conferences"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
+	usecase "github.com/janickiy/meet-space/internal/usecase/conferences"
 )
 
 type GuestHandler struct {

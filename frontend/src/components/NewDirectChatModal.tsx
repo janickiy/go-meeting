@@ -7,6 +7,7 @@ import { useAuth } from "../auth";
 import { initials } from "../utils";
 import { Button, ErrorNotice, Modal } from "./ui";
 import { MessagingSkeleton } from "./MessagingSkeleton";
+import "./new-direct-chat-modal.css";
 
 /**
  * Находит зарегистрированного собеседника и открывает существующую либо новую личную переписку.

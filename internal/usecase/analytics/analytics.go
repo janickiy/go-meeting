@@ -3,9 +3,9 @@ package analytics
 
 import (
 	"context"
-	domain "github.com/janickiy/go-recorder/internal/domain/analytics"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
-	"github.com/janickiy/go-recorder/internal/operations"
+	domain "github.com/janickiy/meet-space/internal/domain/analytics"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
+	"github.com/janickiy/meet-space/internal/operations"
 	"sort"
 	"time"
 )

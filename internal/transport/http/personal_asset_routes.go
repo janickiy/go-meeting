@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	personalapp "github.com/janickiy/go-recorder/internal/app/personal"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	personalapp "github.com/janickiy/meet-space/internal/app/personal"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 func RegisterPersonalAssetRoutes(router gin.IRouter, h *personalapp.AssetHandler, auth, accountOnly gin.HandlerFunc, limiter middleware.Limiter) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
 	goredis "github.com/redis/go-redis/v9"
 )
 

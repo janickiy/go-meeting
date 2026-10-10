@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // MediaConfig задаёт настройки медиа-воркера, SFU, внутренней авторизации и распределённого владения.

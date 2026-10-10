@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
+	"github.com/janickiy/meet-space/internal/domain/ratelimit"
 	goredis "github.com/redis/go-redis/v9"
 )
 

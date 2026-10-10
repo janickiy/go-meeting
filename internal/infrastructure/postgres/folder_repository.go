@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/chat"
-	"github.com/janickiy/go-recorder/internal/domain/folders"
-	"github.com/janickiy/go-recorder/internal/domain/personal"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/chat"
+	"github.com/janickiy/meet-space/internal/domain/folders"
+	"github.com/janickiy/meet-space/internal/domain/personal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

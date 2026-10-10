@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/janickiy/go-recorder/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/media"
 )
 
 // Tile задаёт прямоугольную область одного источника в итоговом кадре.

@@ -1,7 +1,7 @@
 package postgres
 
 import (
-	domain "github.com/janickiy/go-recorder/internal/domain/content"
+	domain "github.com/janickiy/meet-space/internal/domain/content"
 	"gorm.io/gorm"
 )
 

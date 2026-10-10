@@ -16,9 +16,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	domain "github.com/janickiy/go-recorder/internal/domain/chat"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	domain "github.com/janickiy/meet-space/internal/domain/chat"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // Repository задаёт контракт зависимого компонента Repository в постоянном чате и приватных вложениях; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/chat"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
-	chatusecase "github.com/janickiy/go-recorder/internal/usecase/chat"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/chat"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
+	chatusecase "github.com/janickiy/meet-space/internal/usecase/chat"
 )
 
 // Handler связывает транспортный запрос с прикладным сценарием, проверкой входных данных и формированием ответа.

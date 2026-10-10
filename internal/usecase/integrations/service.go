@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	d "github.com/janickiy/go-recorder/internal/domain/integrations"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
-	n "github.com/janickiy/go-recorder/internal/domain/notifications"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	d "github.com/janickiy/meet-space/internal/domain/integrations"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
+	n "github.com/janickiy/meet-space/internal/domain/notifications"
 )
 
 // Options задаёт публичный URL интерфейса, общий таймаут провайдеров и конечный набор смещений UTC для напоминаний.

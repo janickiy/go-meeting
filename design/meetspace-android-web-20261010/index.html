@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#edf0f5" />
+    <title>MeetSpace — второй вариант · Web palette</title>
+    <link rel="icon" href="assets/brand-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="gallery.css" />
+  </head>
+  <body>
+    <header class="gallery-header">
+      <a
+        class="gallery-brand"
+        href="index.html"
+        aria-label="MeetSpace — главная страница макета"
+      >
+        <img src="assets/brand-mark.svg" width="34" height="34" alt="" />
+        <span>MeetSpace</span>
+      </a>
+      <div class="gallery-edition">
+        <span class="edition-line"></span>ANDROID · WEB PALETTE<span
+          class="edition-version"
+          >02 / 2026</span
+        >
+      </div>
+      <div class="header-actions">
+        <button
+          class="icon-button"
+          id="theme-toggle"
+          aria-label="Включить тёмную тему"
+          title="Переключить тему"
+        ></button>
+        <a
+          class="open-screen"
+          id="open-screen"
+          href="preview.html?screen=home"
+          target="_blank"
+          rel="noopener"
+          >Открыть экран <span aria-hidden="true">↗</span></a
+        >
+      </div>
+    </header>
+
+    <main class="gallery-main">
+      <section class="intro" aria-label="Текущий экран">
+        <div class="intro-copy">
+          <div class="eyebrow">
+            <span class="blue-dot"></span> ВАША КОМАНДА. ВАШЕ ПРОСТРАНСТВО.
+          </div>
+          <h1 id="screen-title">Хороший день начинается здесь.</h1>
+          <p id="screen-description">
+            Встречи, сообщения и записи — в одном спокойном рабочем
+            пространстве.
+          </p>
+        </div>
+        <div class="screen-picker">
+          <label for="screen-select"
+            >ЭКРАН <span id="screen-count">01 / 19</span></label
+          >
+          <div class="select-wrap">
+            <select
+              id="screen-select"
+              aria-label="Выбрать экран макета"
+            ></select>
+          </div>
+        </div>
+      </section>
+
+      <section class="gallery-controls" aria-label="Управление макетом">
+        <div class="screen-groups" role="group" aria-label="Группы экранов">
+          <button data-group="workspace" class="group-button active">
+            Рабочее пространство <span>8</span>
+          </button>
+          <button data-group="meeting" class="group-button">
+            Встреча <span>2</span>
+          </button>
+          <button data-group="onboarding" class="group-button">
+            Первый запуск <span>9</span>
+          </button>
+        </div>
+        <div class="view-controls">
+          <div class="device-tabs" role="group" aria-label="Устройства">
+            <button data-view="compare" class="active" aria-pressed="true">
+              Сравнение
+            </button>
+            <button data-view="phone" aria-pressed="false">Смартфон</button>
+            <button data-view="tablet" aria-pressed="false">Планшет</button>
+          </div>
+          <button
+            class="icon-button rotate-button"
+            id="rotate-tablet"
+            title="Повернуть планшет"
+            aria-label="Повернуть планшет"
+            aria-pressed="false"
+          ></button>
+        </div>
+      </section>
+
+      <nav
+        class="screen-tabs"
+        id="screen-tabs"
+        aria-label="Экраны прототипа"
+      ></nav>
+
+      <section
+        class="device-board"
+        id="device-board"
+        data-view="compare"
+        aria-label="Интерактивные макеты смартфона и планшета"
+      >
+        <figure class="device-item phone-item">
+          <figcaption>
+            <span class="device-name">Смартфон <small>ANDROID</small></span
+            ><span class="device-resolution" id="phone-resolution"
+              >390 × 844</span
+            >
+          </figcaption>
+          <div class="device-stage" id="phone-stage">
+            <div class="device-frame phone-frame" id="phone-frame">
+              <iframe
+                id="phone-preview"
+                src="preview.html?screen=home&theme=light"
+                title="Интерактивный макет MeetSpace для смартфона"
+                width="390"
+                height="844"
+              ></iframe>
+            </div>
+          </div>
+        </figure>
+        <figure class="device-item tablet-item">
+          <figcaption>
+            <span class="device-name">Планшет <small>ANDROID</small></span
+            ><span class="device-resolution" id="tablet-resolution"
+              >1194 × 834</span
+            >
+          </figcaption>
+          <div class="device-stage" id="tablet-stage">
+            <div class="device-frame tablet-frame" id="tablet-frame">
+              <iframe
+                id="tablet-preview"
+                src="preview.html?screen=home&theme=light"
+                title="Интерактивный макет MeetSpace для планшета"
+                width="1194"
+                height="834"
+              ></iframe>
+            </div>
+          </div>
+        </figure>
+      </section>
+
+      <div class="gallery-note">
+        <span class="note-symbol" aria-hidden="true">↗</span>
+        <p>
+          Попробуйте интерфейс: переходите между разделами, откройте встречу или
+          подключите своё пространство.
+        </p>
+        <span class="sync-label"><span></span>Экраны синхронизированы</span>
+      </div>
+    </main>
+    <footer class="gallery-footer">
+      <span
+        >MeetSpace <span class="footer-separator">/</span> Создано для
+        совместной работы.</span
+      ><a href="handoff.html" class="handoff-link">Спецификация дизайна ↗</a
+      ><span
+        >Интерактивный дизайн-прототип
+        <span class="footer-separator">·</span> Вымышленные данные</span
+      >
+      <a class="variant-link" href="http://127.0.0.1:8766/">Вариант 01 ↗</a>
+    </footer>
+    <script src="assets/icons.js"></script>
+    <script src="gallery.js"></script>
+  </body>
+</html>

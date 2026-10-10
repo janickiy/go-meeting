@@ -5,11 +5,11 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/chat"
-	"github.com/janickiy/go-recorder/internal/domain/folders"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/chat"
+	"github.com/janickiy/meet-space/internal/domain/folders"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 type Repository interface {

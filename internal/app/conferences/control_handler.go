@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 // ControlService задаёт контракт зависимого компонента ControlService в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

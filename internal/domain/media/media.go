@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // Ограничения сигнализации медиа задаются отдельно от настраиваемой ретрансляции этапа 2.

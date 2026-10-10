@@ -2,7 +2,7 @@ package httptransport
 
 import (
 	"github.com/gin-gonic/gin"
-	engagementapp "github.com/janickiy/go-recorder/internal/app/engagement"
+	engagementapp "github.com/janickiy/meet-space/internal/app/engagement"
 )
 
 // RegisterEngagementRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.

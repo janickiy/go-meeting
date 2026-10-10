@@ -6,10 +6,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	chatdomain "github.com/janickiy/go-recorder/internal/domain/chat"
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	chatdomain "github.com/janickiy/meet-space/internal/domain/chat"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 type ActionRepository interface {

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	d "github.com/janickiy/go-recorder/internal/domain/integrations"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
+	d "github.com/janickiy/meet-space/internal/domain/integrations"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
 )
 
 // OAuthConfig задаёт только доверенные серверные endpoints и минимальные scopes конкретного календарного адаптера.

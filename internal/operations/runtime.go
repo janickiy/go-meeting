@@ -16,8 +16,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/buildinfo"
-	"github.com/janickiy/go-recorder/internal/config"
+	"github.com/janickiy/meet-space/internal/buildinfo"
+	"github.com/janickiy/meet-space/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

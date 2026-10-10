@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/chat"
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/chat"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
 	"gorm.io/gorm"
 )
 

@@ -2,9 +2,9 @@ package httptransport
 
 import (
 	"github.com/gin-gonic/gin"
-	authapp "github.com/janickiy/go-recorder/internal/app/auth"
-	conferencesapp "github.com/janickiy/go-recorder/internal/app/conferences"
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
+	authapp "github.com/janickiy/meet-space/internal/app/auth"
+	conferencesapp "github.com/janickiy/meet-space/internal/app/conferences"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
 )
 
 // RegisterPlatformRoutes регистрирует HTTP-маршруты соответствующего сценария и подключает авторизацию и ограничения запросов.

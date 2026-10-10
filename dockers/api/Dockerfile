@@ -12,10 +12,10 @@ ARG BUILD_TIME=unknown
 ARG TARGETARCH
 RUN printf '%s' "$BUILD_VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$' \
     && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build \
-      -trimpath -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$BUILD_TIME" \
+      -trimpath -ldflags "-s -w -X github.com/janickiy/meet-space/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/meet-space/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/meet-space/internal/buildinfo.BuildTime=$BUILD_TIME" \
       -o /bin/go-recorder ./cmd/api \
     && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath \
-      -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$BUILD_TIME" \
+      -ldflags "-s -w -X github.com/janickiy/meet-space/internal/buildinfo.Version=$BUILD_VERSION -X github.com/janickiy/meet-space/internal/buildinfo.Commit=$BUILD_COMMIT -X github.com/janickiy/meet-space/internal/buildinfo.BuildTime=$BUILD_TIME" \
       -o /bin/recorder-migrate ./cmd/main \
     && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /bin/object-backup ./tools/object-backup \
     && CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /bin/release-smoke ./tools/release-smoke

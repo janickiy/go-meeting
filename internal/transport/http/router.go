@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/operations"
 )
 
 // APIV1Prefix задает основной префикс версионированного REST API.

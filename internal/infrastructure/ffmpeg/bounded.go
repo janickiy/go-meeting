@@ -2,7 +2,7 @@ package ffmpeg
 
 import (
 	"context"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/operations"
 	"os/exec"
 	"syscall"
 	"time"

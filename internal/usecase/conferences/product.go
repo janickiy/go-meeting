@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	domain "github.com/janickiy/go-recorder/internal/domain/conferences"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	domain "github.com/janickiy/meet-space/internal/domain/conferences"
 )
 
 // productRepository задаёт контракт зависимого компонента productRepository в жизненном цикле конференций и правах участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

@@ -2,7 +2,7 @@ package webrtc
 
 import (
 	"context"
-	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
+	"github.com/janickiy/meet-space/internal/infrastructure/ffmpeg"
 	"sync"
 	"time"
 )

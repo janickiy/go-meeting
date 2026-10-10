@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 // GroupDownloads replaces bearer-capability URLs for groups only. The returned

@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/media"
 )
 
 // MediaTickets выпускает и проверяет внутренние билеты, связанные с физическим медиа-соединением.

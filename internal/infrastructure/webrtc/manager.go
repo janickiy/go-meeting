@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/infrastructure/ffmpeg"
 	"github.com/pion/interceptor"
 	"github.com/pion/rtcp"
 	pionrtp "github.com/pion/rtp"

@@ -8,11 +8,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	d "github.com/janickiy/go-recorder/internal/domain/conferences"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
-	"github.com/janickiy/go-recorder/internal/domain/users"
-	u "github.com/janickiy/go-recorder/internal/usecase/integrations"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	d "github.com/janickiy/meet-space/internal/domain/conferences"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
+	"github.com/janickiy/meet-space/internal/domain/users"
+	u "github.com/janickiy/meet-space/internal/usecase/integrations"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

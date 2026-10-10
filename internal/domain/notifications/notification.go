@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
 )
 
 // Payload содержит только ссылки на ресурсы и состояние; уведомление не раскрывает чат, файлы и не выдаёт права доступа.

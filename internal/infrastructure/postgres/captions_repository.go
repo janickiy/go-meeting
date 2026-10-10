@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	domain "github.com/janickiy/go-recorder/internal/domain/captions"
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
-	live "github.com/janickiy/go-recorder/internal/usecase/captions"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	domain "github.com/janickiy/meet-space/internal/domain/captions"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
+	live "github.com/janickiy/meet-space/internal/usecase/captions"
 	"gorm.io/gorm"
 )
 

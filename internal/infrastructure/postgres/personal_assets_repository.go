@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/personal"
-	assets "github.com/janickiy/go-recorder/internal/usecase/personal"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/personal"
+	assets "github.com/janickiy/meet-space/internal/usecase/personal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

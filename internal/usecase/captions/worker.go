@@ -12,11 +12,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/config"
-	domain "github.com/janickiy/go-recorder/internal/domain/captions"
-	"github.com/janickiy/go-recorder/internal/domain/media"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/config"
+	domain "github.com/janickiy/meet-space/internal/domain/captions"
+	"github.com/janickiy/meet-space/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/operations"
 )
 
 // Worker запускает ограниченное число конференций и дорожек в отдельном от SFU и рекордера процессе.

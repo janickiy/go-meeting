@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/domain/records"
 	"github.com/minio/minio-go/v7"
 )
 

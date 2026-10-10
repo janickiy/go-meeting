@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/platform"
+	"github.com/janickiy/meet-space/internal/domain/platform"
 	"gorm.io/gorm"
 )
 

@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/operations"
 
-	"github.com/janickiy/go-recorder/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/media"
 )
 
 // Source описывает один устойчивый медиа-источник для общей композиции.

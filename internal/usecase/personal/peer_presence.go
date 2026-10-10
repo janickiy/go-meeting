@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/chat"
-	domain "github.com/janickiy/go-recorder/internal/domain/personal"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/chat"
+	domain "github.com/janickiy/meet-space/internal/domain/personal"
 )
 
 // ConversationReader returns the conversation projection authorized for the actor.

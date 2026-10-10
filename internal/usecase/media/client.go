@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/config"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	domain "github.com/janickiy/go-recorder/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/config"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	domain "github.com/janickiy/meet-space/internal/domain/media"
 )
 
 // HTTPClient выполняет внутренние медиа-вызовы; не передаёт секрет через редиректы и не раскрывает ответ с SDP в ошибке.

@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/janickiy/go-recorder/internal/app"
-	"github.com/janickiy/go-recorder/internal/buildinfo"
+	"github.com/janickiy/meet-space/internal/app"
+	"github.com/janickiy/meet-space/internal/buildinfo"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
+	domain "github.com/janickiy/meet-space/internal/domain/realtime"
 	goredis "github.com/redis/go-redis/v9"
 )
 

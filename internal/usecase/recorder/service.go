@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
-	localstorage "github.com/janickiy/go-recorder/internal/infrastructure/storage/local"
-	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
-	webrtcingest "github.com/janickiy/go-recorder/internal/infrastructure/webrtc"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/infrastructure/ffmpeg"
+	localstorage "github.com/janickiy/meet-space/internal/infrastructure/storage/local"
+	s3storage "github.com/janickiy/meet-space/internal/infrastructure/storage/s3"
+	webrtcingest "github.com/janickiy/meet-space/internal/infrastructure/webrtc"
 )
 
 // apiRepository задаёт контракт зависимого компонента apiRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

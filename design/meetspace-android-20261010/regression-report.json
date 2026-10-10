@@ -1,0 +1,37 @@
+{
+  "scope": "Prototype interactions only",
+  "checks": [
+    {
+      "name": "call chat survives toggles",
+      "pass": true
+    },
+    {
+      "name": "selected duration seek",
+      "pass": true
+    },
+    {
+      "name": "group text escaped",
+      "pass": true
+    },
+    {
+      "name": "profile email remains after save",
+      "pass": true
+    },
+    {
+      "name": "server selection reflected in profile",
+      "pass": true
+    },
+    {
+      "name": "scheduled date reflected in calendar",
+      "pass": true
+    },
+    {
+      "name": "gallery modal cleanup",
+      "pass": true
+    },
+    {
+      "name": "profile theme syncs gallery",
+      "pass": true
+    }
+  ]
+}

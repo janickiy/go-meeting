@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/domain/records"
 )
 
 // ingestFailureRepository задаёт контракт зависимого компонента ingestFailureRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

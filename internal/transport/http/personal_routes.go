@@ -2,9 +2,9 @@ package httptransport
 
 import (
 	"github.com/gin-gonic/gin"
-	chatapp "github.com/janickiy/go-recorder/internal/app/chat"
-	personalapp "github.com/janickiy/go-recorder/internal/app/personal"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	chatapp "github.com/janickiy/meet-space/internal/app/chat"
+	personalapp "github.com/janickiy/meet-space/internal/app/personal"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 	"time"
 )
 

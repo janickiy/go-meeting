@@ -2,7 +2,7 @@ package postgres
 
 import (
 	"context"
-	domain "github.com/janickiy/go-recorder/internal/domain/content"
+	domain "github.com/janickiy/meet-space/internal/domain/content"
 )
 
 // contentSearchSQL использует простой словесный индекс для русского и английского текста без семантического поиска.

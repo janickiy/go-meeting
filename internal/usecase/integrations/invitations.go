@@ -9,9 +9,9 @@ import (
 	texttemplate "text/template"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/conferences"
-	d "github.com/janickiy/go-recorder/internal/domain/integrations"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
+	"github.com/janickiy/meet-space/internal/domain/conferences"
+	d "github.com/janickiy/meet-space/internal/domain/integrations"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
 )
 
 type InvitationDelivery struct {

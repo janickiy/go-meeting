@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // PresenceTimeout ограничивает время отсутствия подтверждённой связи: после пяти

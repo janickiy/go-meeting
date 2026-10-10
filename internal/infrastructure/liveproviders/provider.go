@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/janickiy/go-recorder/internal/domain/captions"
+	"github.com/janickiy/meet-space/internal/domain/captions"
 )
 
 // Provider хранит только операторские настройки и не раскрывает endpoint/token клиенту.

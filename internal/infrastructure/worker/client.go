@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/operations"
 )
 
 const defaultTimeout = 10 * time.Minute

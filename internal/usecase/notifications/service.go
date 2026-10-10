@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	domain "github.com/janickiy/go-recorder/internal/domain/notifications"
-	realtime "github.com/janickiy/go-recorder/internal/domain/realtime"
+	domain "github.com/janickiy/meet-space/internal/domain/notifications"
+	realtime "github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // Repository задаёт контракт зависимого компонента Repository в личных уведомлениях и их фоновой доставке; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

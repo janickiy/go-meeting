@@ -14,17 +14,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/config"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	ffmpeginfra "github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
-	postgresinfra "github.com/janickiy/go-recorder/internal/infrastructure/postgres"
-	rabbitmqinfra "github.com/janickiy/go-recorder/internal/infrastructure/rabbitmq"
-	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
-	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
-	webrtcingest "github.com/janickiy/go-recorder/internal/infrastructure/webrtc"
-	"github.com/janickiy/go-recorder/internal/operations"
-	"github.com/janickiy/go-recorder/internal/usecase/recorder"
+	"github.com/janickiy/meet-space/internal/config"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	ffmpeginfra "github.com/janickiy/meet-space/internal/infrastructure/ffmpeg"
+	postgresinfra "github.com/janickiy/meet-space/internal/infrastructure/postgres"
+	rabbitmqinfra "github.com/janickiy/meet-space/internal/infrastructure/rabbitmq"
+	redisinfra "github.com/janickiy/meet-space/internal/infrastructure/redis"
+	s3storage "github.com/janickiy/meet-space/internal/infrastructure/storage/s3"
+	webrtcingest "github.com/janickiy/meet-space/internal/infrastructure/webrtc"
+	"github.com/janickiy/meet-space/internal/operations"
+	"github.com/janickiy/meet-space/internal/usecase/recorder"
 )
 
 // RunWorker запускает recorder-worker.

@@ -12,9 +12,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/config"
-	domain "github.com/janickiy/go-recorder/internal/domain/media"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/config"
+	domain "github.com/janickiy/meet-space/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 )
 
 // Registry задаёт контракт зависимого компонента Registry в защищённом управлении медиа-комнатой; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

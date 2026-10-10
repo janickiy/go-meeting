@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/janickiy/go-recorder/internal/app"
+	"github.com/janickiy/meet-space/internal/app"
 )
 
 // main запускает отдельный исполняемый файл recorder-worker.

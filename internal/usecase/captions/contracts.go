@@ -3,9 +3,9 @@ package captions
 
 import (
 	"context"
-	domain "github.com/janickiy/go-recorder/internal/domain/captions"
-	"github.com/janickiy/go-recorder/internal/domain/media"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
+	domain "github.com/janickiy/meet-space/internal/domain/captions"
+	"github.com/janickiy/meet-space/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
 	"io"
 	"time"
 )

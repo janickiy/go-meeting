@@ -85,7 +85,7 @@ go-build:
   stage: build
   script:
     - mkdir -p "$CI_PROJECT_DIR/release-artifacts/bin"
-    - 'for command in api worker media-worker product-worker live-worker main; do CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/janickiy/go-recorder/internal/buildinfo.Version=${CI_COMMIT_TAG:-v0.0.0-ci.${CI_PIPELINE_ID}} -X github.com/janickiy/go-recorder/internal/buildinfo.Commit=$CI_COMMIT_SHA -X github.com/janickiy/go-recorder/internal/buildinfo.BuildTime=$CI_PIPELINE_CREATED_AT" -o "$CI_PROJECT_DIR/release-artifacts/bin/$command" "./cmd/$command"; done'
+    - 'for command in api worker media-worker product-worker live-worker main; do CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/janickiy/meet-space/internal/buildinfo.Version=${CI_COMMIT_TAG:-v0.0.0-ci.${CI_PIPELINE_ID}} -X github.com/janickiy/meet-space/internal/buildinfo.Commit=$CI_COMMIT_SHA -X github.com/janickiy/meet-space/internal/buildinfo.BuildTime=$CI_PIPELINE_CREATED_AT" -o "$CI_PROJECT_DIR/release-artifacts/bin/$command" "./cmd/$command"; done'
   artifacts:
     paths: [release-artifacts/bin/]
     expire_in: 14 days

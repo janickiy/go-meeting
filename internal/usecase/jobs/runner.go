@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	domain "github.com/janickiy/go-recorder/internal/domain/jobs"
+	domain "github.com/janickiy/meet-space/internal/domain/jobs"
 )
 
 // Handler исполняет операцию; Fail сохраняет безопасный окончательный отказ связанной сущности.

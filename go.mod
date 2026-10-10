@@ -1,4 +1,4 @@
-module github.com/janickiy/go-recorder
+module github.com/janickiy/meet-space
 
 go 1.26.9
 

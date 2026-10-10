@@ -12,14 +12,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/config"
-	"github.com/janickiy/go-recorder/internal/domain/media"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
-	redisinfra "github.com/janickiy/go-recorder/internal/infrastructure/redis"
-	"github.com/janickiy/go-recorder/internal/infrastructure/security"
-	"github.com/janickiy/go-recorder/internal/infrastructure/sfu"
-	"github.com/janickiy/go-recorder/internal/operations"
-	"github.com/janickiy/go-recorder/internal/transport/mediaworker"
+	"github.com/janickiy/meet-space/internal/config"
+	"github.com/janickiy/meet-space/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
+	redisinfra "github.com/janickiy/meet-space/internal/infrastructure/redis"
+	"github.com/janickiy/meet-space/internal/infrastructure/security"
+	"github.com/janickiy/meet-space/internal/infrastructure/sfu"
+	"github.com/janickiy/meet-space/internal/operations"
+	"github.com/janickiy/meet-space/internal/transport/mediaworker"
 	"github.com/pion/webrtc/v4"
 )
 

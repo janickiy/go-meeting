@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	chatapp "github.com/janickiy/go-recorder/internal/app/chat"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	chatapp "github.com/janickiy/meet-space/internal/app/chat"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 func RegisterChatActionRoutes(router gin.IRouter, handler *chatapp.ActionHandler, auth gin.HandlerFunc, limiter httpmiddleware.Limiter) {

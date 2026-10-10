@@ -7,7 +7,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
 )
 
 // User сохраняет учётную запись и хеш пароля; публичное представление формируется отдельно.

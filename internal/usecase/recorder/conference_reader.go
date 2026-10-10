@@ -3,8 +3,8 @@ package recorder
 import (
 	"context"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/records"
 )
 
 // ReadComposite читает карточку общей записи после проверки доступа на уровне сценария конференции.

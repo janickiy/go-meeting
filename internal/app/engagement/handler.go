@@ -6,11 +6,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
-	usecase "github.com/janickiy/go-recorder/internal/usecase/realtime"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/ratelimit"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
+	usecase "github.com/janickiy/meet-space/internal/usecase/realtime"
 )
 
 // Limiter задаёт контракт зависимого компонента Limiter во временных реакциях участников; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

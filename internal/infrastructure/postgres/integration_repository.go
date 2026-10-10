@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	d "github.com/janickiy/go-recorder/internal/domain/integrations"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
-	u "github.com/janickiy/go-recorder/internal/usecase/integrations"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	d "github.com/janickiy/meet-space/internal/domain/integrations"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
+	u "github.com/janickiy/meet-space/internal/usecase/integrations"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/domain/records"
 )
 
 // Offer передаёт SDP-предложение браузера внутреннему воркеру.

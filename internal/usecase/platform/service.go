@@ -3,12 +3,12 @@ package platform
 
 import (
 	"context"
-	"github.com/janickiy/go-recorder/internal/buildinfo"
+	"github.com/janickiy/meet-space/internal/buildinfo"
 	"runtime/debug"
 
-	"github.com/janickiy/go-recorder/internal/config"
-	domain "github.com/janickiy/go-recorder/internal/domain/platform"
-	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/config"
+	domain "github.com/janickiy/meet-space/internal/domain/platform"
+	"github.com/janickiy/meet-space/internal/domain/records"
 )
 
 // ReleaseVersion задаётся при сборке релиза через -ldflags и не содержит секретов.

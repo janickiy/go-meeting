@@ -2,7 +2,7 @@ package composite
 
 import (
 	"fmt"
-	"github.com/janickiy/go-recorder/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/media"
 	"path/filepath"
 	"strconv"
 	"strings"

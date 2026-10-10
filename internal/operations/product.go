@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
 )
 
 // productKind допускает только категории, заданные исходным кодом, а не пользовательскими данными.

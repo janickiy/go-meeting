@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>MeetSpace Android — передача дизайна</title>
+    <link rel="stylesheet" href="handoff.css" />
+  </head>
+  <body>
+    <main>
+      <nav class="document-nav" aria-label="Документы проекта">
+        <a href="index.html">← Интерактивный макет</a>
+        <a href="qa-report.json">Отчёт проверки</a>
+      </nav>
+      <header>
+        <p class="eyebrow">MEETSPACE · ВАРИАНТ 02 · WEB PALETTE</p>
+        <h1>В стиле веб-версии.<br />На вашем устройстве.</h1>
+        <p class="lead">
+          Дизайн приложения для смартфона и планшета: встречи, общение и
+          подключение к собственному серверу.
+        </p>
+        <p class="meta">
+          10 октября 2026 · интерактивный HTML-прототип · интерфейс на русском
+        </p>
+      </header>
+
+      <section aria-labelledby="scope">
+        <h2 id="scope">Что передаём в разработку</h2>
+        <p>
+          Самостоятельный интерактивный дизайн-прототип с демонстрационными
+          данными, адаптивными компоновками и сценариями первого запуска. Он
+          помогает согласовать экраны, иерархию действий и состояния интерфейса.
+        </p>
+        <div class="note">
+          <strong>Граница результата.</strong> APK, нативные Android-компоненты,
+          подключение к API, WebRTC, SSH и удалённая установка в этот макет не
+          входят. Формы и переходы показывают будущий пользовательский опыт.
+          Вводить реальные пароли или ключи для просмотра не требуется.
+        </div>
+        <p>
+          Аудит ниже проверяет соответствие дизайна текущим исходникам. Он не
+          заменяет полный аудит приложения и инфраструктуры из приложенного
+          промпта. Результаты визуальных и интерактивных проверок сохраняются
+          отдельно в <a href="qa-report.json">qa-report.json</a>.
+        </p>
+      </section>
+
+      <section aria-labelledby="open">
+        <h2 id="open">Просмотр и проверка</h2>
+        <p>
+          <strong>Палитра веб-версии:</strong> верхняя полоса
+          <code>#28142e</code>, боковая панель <code>#3c2044</code>, основной
+          акцент <code>#6b3f78</code>, выделение <code>#ead9f0</code>, мягкая
+          поверхность <code>#f3f0f5</code>. Первый вариант доступен отдельно:
+          <a href="http://127.0.0.1:8766/">открыть вариант 01</a>.
+        </p>
+        <p>
+          Откройте <a href="index.html">галерею макетов</a>: сверху доступны 18
+          экранов, сравнение устройств, поворот планшета и переключение темы.
+          Кнопка «Открыть экран» показывает интерфейс в масштабе 1:1.
+        </p>
+        <p>Для повторного запуска локального просмотра:</p>
+        <pre
+          style="
+            overflow: auto;
+            padding: 18px;
+            background: #f0f3fa;
+            border-radius: 12px;
+          "
+        ><code>python3 /Users/aleksandranickij/htdocs/go-recorder/design/meetspace-android-web-20261010/serve.py</code></pre>
+        <p>
+          Затем откройте <a href="http://127.0.0.1:8767/">локальную галерею</a>.
+          Статические файлы, шрифты и иконки находятся в папке макета. Для
+          демовхода используйте пароль <code>demo</code>.
+        </p>
+        <p>
+          <a href="verify.mjs">verify.mjs</a> проверяет экраны в браузере
+          Playwright из зависимостей проекта. Он запускается командой
+          <code>node design/meetspace-android-web-20261010/verify.mjs</code> из
+          корня проекта при работающем локальном сервере.
+          <a href="qa-report.json">Результаты общей проверки</a> и
+          <a href="qa-report.json">проверки пользовательских сценариев</a>
+          относятся только к дизайн-прототипу.
+        </p>
+        <p>
+          Данные примера привязаны к 12 октября 2026 года. Планировщик в макете
+          позволяет добавить одну встречу на 5–25 октября; состояния хранятся до
+          перезагрузки страницы. Плеер показывает обложку и шкалу без
+          видеофайла. Проверка Android, сервера и реальных соединений не
+          выполнялась.
+        </p>
+      </section>
+
+      <section aria-labelledby="system">
+        <h2 id="system">Визуальная система</h2>
+        <p>
+          Второй вариант использует палитру текущего веб-приложения и
+          композиционные решения со скриншота пользователя: сливовые акценты,
+          тёмную боковую панель, белую рабочую поверхность и светлые сиреневые
+          состояния выбора. Широкая панель появляется от 1000 CSS px, компактная
+          — от 600 px. На телефоне основная навигация располагается внизу, а
+          записи, папки и настройки доступны через «Ещё». Источники:
+          <a href="../../frontend/src/brand.ts">brand.ts</a>,
+          <a href="../../frontend/src/tokens.css">tokens.css</a>,
+          <a href="../../frontend/public/branding/meetspace-symbol-color.svg"
+            >знак MeetSpace</a
+          >.
+        </p>
+        <div class="swatches" aria-label="Основная палитра">
+          <div>
+            <span style="--swatch: #6b3f78"></span><strong>Акцент</strong
+            ><code>#6b3f78</code>
+          </div>
+          <div>
+            <span style="--swatch: #f7f5f8"></span><strong>Фон</strong
+            ><code>#f7f5f8</code>
+          </div>
+          <div>
+            <span style="--swatch: #ffffff"></span><strong>Поверхность</strong
+            ><code>#ffffff</code>
+          </div>
+          <div>
+            <span style="--swatch: #242127"></span
+            ><strong>Основной текст</strong><code>#242127</code>
+          </div>
+        </div>
+        <div class="grid two">
+          <article>
+            <h3>Шрифт и ритм</h3>
+            <p>
+              Inter, локальные WOFF2 с кириллицей и латиницей; системный
+              sans-serif как запасной. Основной текст 14–16, вторичный 12–13,
+              заголовки 20–32 логических пикселя. Отступы кратны 4 и 8.
+            </p>
+          </article>
+          <article>
+            <h3>Доступность</h3>
+            <p>
+              Цель для нативной версии: активные области от 48 × 48 dp. Видимый
+              фокус клавиатуры, подписи у значимых действий, текстовое пояснение
+              ошибок. Запись, статус связи и ошибки различаются не только
+              цветом.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="adaptive">
+        <h2 id="adaptive">Адаптация по доступной ширине</h2>
+        <p>
+          В HTML используются логические CSS-пиксели. В Jetpack Compose
+          компоновку следует выбирать из <code>WindowSizeClass</code> текущего
+          окна; название устройства и его физическая диагональ не определяют
+          режим.
+        </p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Класс</th>
+                <th>Ширина окна</th>
+                <th>Поведение</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Compact</th>
+                <td>&lt; 600</td>
+                <td>
+                  Нижняя навигация. Список и содержимое открываются
+                  последовательно. Чат и участники встречи — отдельная панель
+                  поверх основного экрана.
+                </td>
+              </tr>
+              <tr>
+                <th>Medium</th>
+                <td>600–839</td>
+                <td>
+                  Вертикальная навигация. Компактные панели и сетки; разделение
+                  списка и деталей используется там, где остаётся достаточно
+                  места для чтения.
+                </td>
+              </tr>
+              <tr>
+                <th>Expanded</th>
+                <td>≥ 840</td>
+                <td>
+                  Постоянная вертикальная навигация, список и детали рядом.
+                  Видеосетка с боковым чатом или участниками. Формы имеют
+                  ограниченную ширину.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Поворот, разделённый экран и изменение размера окна пересчитывают
+          компоновку. Выбранный чат, введённая форма и состояние звонка при этом
+          должны сохраняться. В Compose размеры шрифтов задаются в
+          <code>sp</code>, отступов и областей касания — в <code>dp</code>.
+        </p>
+      </section>
+
+      <section aria-labelledby="screens">
+        <h2 id="screens">Карта экранов</h2>
+        <p>
+          Главная: четыре действия в сетке 2×2, приглашение по ссылке и недавние
+          чаты. От 780 px список чатов расположен слева, рядом с узкой
+          навигацией. На смартфоне чаты находятся ниже действий. Поиск и фильтры
+          работают локально; копируется демонстрационная ссылка.
+        </p>
+        <div class="grid two">
+          <article>
+            <h3>Рабочее пространство</h3>
+            <p>
+              <code>meetings</code> Встречи · <code>home</code> Главная ·
+              <code>messages</code> Список чатов · <code>thread</code> Переписка
+              · <code>calendar</code> Календарь · <code>recordings</code> Записи
+              · <code>recording</code> Плеер · <code>settings</code> Настройки.
+            </p>
+          </article>
+          <article>
+            <h3>Встреча</h3>
+            <p>
+              <code>prejoin</code> Проверка камеры и микрофона →
+              <code>call</code> Видеовстреча. Основные действия: микрофон,
+              камера, участники, чат и выход. На планшете контекст остаётся
+              рядом с видеосеткой.
+            </p>
+          </article>
+          <article>
+            <h3>Существующий сервер</h3>
+            <p>
+              <code>welcome</code> Выбор сценария →
+              <code>connect</code> HTTPS-адрес и проверка соединения →
+              <code>login</code> Вход → <code>home</code> Рабочее пространство.
+            </p>
+          </article>
+          <article>
+            <h3>Свой сервер</h3>
+            <p>
+              <code>deploy</code> SSH и домен →
+              <code>fingerprint</code> Проверка ключа хоста →
+              <code>preflight</code> Проверки и подтверждение →
+              <code>install</code> Этапы установки →
+              <code>complete</code> Переход ко входу.
+              <code>install-error</code> объясняет причину остановки и следующий
+              шаг.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="audit">
+        <h2 id="audit">Что подтверждено в репозитории</h2>
+        <p>
+          Статус «Есть в исходниках» означает наличие экранов и контрактов в
+          текущем checkout, а не выполненную проверку рабочего сервера.
+          Относительные ссылки ведут к файлам этого репозитория.
+        </p>
+        <div class="table-scroll">
+          <table class="audit">
+            <thead>
+              <tr>
+                <th>Возможность</th>
+                <th>Статус и решение для макета</th>
+                <th>Доказательство</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Вход, регистрация, сессии, профиль</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Формы входа и
+                  профиля опираются на существующие контракты.
+                </td>
+                <td>
+                  <a href="../../internal/transport/http/platform_routes.go"
+                    >Маршруты auth</a
+                  ><br /><a href="../../frontend/src/pages/AuthPages.tsx"
+                    >Экраны авторизации</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Встречи, расписание, календарь, история</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Создание, запуск,
+                  вход, завершение и календарь.
+                </td>
+                <td>
+                  <a href="../../internal/transport/http/platform_routes.go"
+                    >Маршруты встреч</a
+                  ><br /><a href="../../frontend/src/pages/CalendarPage.tsx"
+                    >Календарь</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Камера, микрофон, участники, допуск</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Нативный
+                  Android-медиаклиент ещё требует реализации.
+                </td>
+                <td>
+                  <a href="../../frontend/src/pages/PreJoinPage.tsx">Prejoin</a
+                  ><br /><a
+                    href="../../frontend/src/components/conference/ActiveConferenceRoom.tsx"
+                    >Комната встречи</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Демонстрация экрана</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Веб-клиент и SFU
+                  поддерживают экран. Для Android нужен MediaProjection и
+                  отдельная проверка жизненного цикла.
+                </td>
+                <td>
+                  <a href="../../frontend/src/media.ts">Клиент media.ts</a
+                  ><br /><a href="../../internal/infrastructure/sfu/policy.go"
+                    >Политика SFU</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Личные и групповые чаты, вложения</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Сообщения,
+                  редактирование, удаление и прочтение. Чат встречи также имеет
+                  поиск и закрепления.
+                </td>
+                <td>
+                  <a href="../../internal/transport/http/personal_routes.go"
+                    >Личные и группы</a
+                  ><br /><a href="../../internal/transport/http/chat_routes.go"
+                    >Сообщения и файлы</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Папки</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Организация
+                  встреч и переписок.
+                </td>
+                <td>
+                  <a href="../../internal/transport/http/folder_routes.go"
+                    >Маршруты папок</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Записи и скачивание</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Список, детали
+                  записи и файлы.
+                </td>
+                <td>
+                  <a
+                    href="../../internal/transport/http/conference_recording_routes.go"
+                    >Контракт записей</a
+                  ><br /><a
+                    href="../../frontend/src/pages/RecordingDetailPage.tsx"
+                    >Плеер и детали</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Уведомления, оформление, устройства</th>
+                <td>
+                  <span class="status">Есть в исходниках</span>Тема, масштаб
+                  текста, аудио, видео и профиль.
+                </td>
+                <td>
+                  <a href="../../frontend/src/pages/AccountPages.tsx"
+                    >Настройки</a
+                  ><br /><a
+                    href="../../internal/transport/http/notification_routes.go"
+                    >Уведомления</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Расшифровка, AI-итоги, субтитры, аналитика</th>
+                <td>
+                  <span class="status optional">Зависят от сервера</span
+                  >Показывать после проверки capabilities. Включение флага не
+                  заменяет готовность внешних интеграций.
+                </td>
+                <td>
+                  <a href="../../internal/usecase/platform/service.go"
+                    >Сбор возможностей</a
+                  ><br /><a
+                    href="../../internal/transport/http/content_routes.go"
+                    >Контент записи</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Проверка версии и возможностей</th>
+                <td>
+                  <span class="status optional">Два этапа</span
+                  ><code>/version</code> доступен до входа;
+                  <code>/api/v1/capabilities</code> требует авторизации.
+                </td>
+                <td>
+                  <a href="../../internal/operations/runtime.go">Версия</a
+                  ><br /><a
+                    href="../../internal/transport/http/platform_status_routes.go"
+                    >Capabilities</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th>Android-приложение, профили серверов, SSH-мастер</th>
+                <td>
+                  <span class="status concept">Предложение дизайна</span
+                  >Нативный проект и универсальный мобильный установщик в
+                  аудируемых исходниках не обнаружены.
+                </td>
+                <td>
+                  <a href="../../frontend/src/App.tsx"
+                    >Существующий веб-клиент</a
+                  ><br /><a href="../../scripts/release/init-meeting-host.sh"
+                    >Специализированный init-скрипт</a
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="installer">
+        <h2 id="installer">Установка: требования к будущей реализации</h2>
+        <p>
+          Мастер управляет отдельным Linux VPS по SSH. Экран Android не является
+          Docker-хостом. В репозитории уже есть Compose, операции выпуска,
+          миграции и резервирование; универсальную оркестрацию из приложения
+          предстоит реализовать.
+        </p>
+        <ol>
+          <li>
+            <strong>Соединение.</strong> Адрес, порт, пользователь; пароль или
+            файл ключа через системный выбор. Отдельная проверка отпечатка
+            хоста. Учётные данные по умолчанию не сохраняются.
+          </li>
+          <li>
+            <strong>Предварительная проверка.</strong> Поддерживаемая ОС и
+            архитектура, ресурсы, права, Docker, доступность портов и
+            существующая установка. Общая матрица минимальных требований пока не
+            подтверждена: сведения об одном Ubuntu/amd64-хосте не следует
+            превращать в обещание поддержки.
+          </li>
+          <li>
+            <strong>Домен и TLS.</strong> Пользователь задаёт домен и получает
+            инструкции DNS. Доверенный сертификат для произвольного IP не
+            обещается. Готовность HTTPS и медиасвязи проверяется отдельно.
+          </li>
+          <li>
+            <strong>Подтверждение.</strong> Версия выпуска и список изменений
+            показываются до установки. Повторная попытка не должна удалять
+            данные существующего сервера.
+          </li>
+          <li>
+            <strong>Прогресс и восстановление.</strong> Этап, текущее действие,
+            безопасный журнал, прерванное соединение и повторная попытка.
+            Результат «Готово» в продукте допустим только после реальных
+            проверок.
+          </li>
+        </ol>
+        <p class="source-line">
+          Источники:
+          <a href="../../docs/DEPLOYMENT.md">процедура развёртывания</a> ·
+          <a href="../../docker-compose.production.yml">production Compose</a> ·
+          <a href="../../scripts/release/release.sh">операции выпуска</a> ·
+          <a href="../../docs/operations/backup-restore.md">backup / restore</a
+          >.
+        </p>
+        <div class="note">
+          <strong>Сеть.</strong> Production Compose задаёт HTTPS 443, SFU 50010
+          UDP/TCP по умолчанию, TURN 3478 UDP/TCP, TURNS 5349 TCP и UDP relay
+          49160–49259 по умолчанию. Базы данных и административные интерфейсы
+          закрыты от публичного доступа или доступны через loopback. Значения
+          должны уточняться по конфигурации выбранного выпуска.
+        </div>
+      </section>
+
+      <section aria-labelledby="decisions">
+        <h2 id="decisions">Замечания при переносе в Compose</h2>
+        <ul>
+          <li>
+            Камера, микрофон, демонстрация экрана и фоновые состояния требуют
+            Android-разрешений и проверки на реальных устройствах.
+          </li>
+          <li>
+            Токены разных серверов должны быть изолированы. Смена сервера и
+            выход не должны переносить авторизацию между адресами.
+          </li>
+          <li>
+            Статусы «нет сети», «нет доступа», «пусто», «загрузка» и «ошибка»
+            сохраняют контекст и предлагают конкретное действие.
+          </li>
+          <li>
+            Кнопка поднятия руки не включена: в текущем исходном коде функция
+            удалена (<a
+              href="../../database/migrations/000022_remove_raised_hands.up.sql"
+              >миграция</a
+            >).
+          </li>
+          <li>
+            Часть документации хранит прежнее имя Meetrix и устаревшие сведения
+            о медиа. Название MeetSpace и наличие демонстрации экрана проверены
+            по актуальному коду.
+          </li>
+        </ul>
+      </section>
+      <footer>
+        <span>MeetSpace · Android design · 2026</span
+        ><a href="index.html">Открыть макет →</a>
+      </footer>
+    </main>
+  </body>
+</html>

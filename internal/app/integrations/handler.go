@@ -5,11 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	d "github.com/janickiy/go-recorder/internal/domain/integrations"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
-	u "github.com/janickiy/go-recorder/internal/usecase/integrations"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	d "github.com/janickiy/meet-space/internal/domain/integrations"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
+	u "github.com/janickiy/meet-space/internal/usecase/integrations"
 )
 
 // Handler предоставляет только пользовательские проекции интеграций; credentials никогда не сериализуются в API.

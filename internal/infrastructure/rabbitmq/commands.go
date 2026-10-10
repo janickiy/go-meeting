@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/operations"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 

@@ -1,6 +1,6 @@
 package conferences
 
-import "github.com/janickiy/go-recorder/internal/domain/apperrors"
+import "github.com/janickiy/meet-space/internal/domain/apperrors"
 
 // MediaState описывает заявленную активность микрофона, камеры и экрана участника.
 // @params

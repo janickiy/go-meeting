@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/media"
 	"github.com/pion/ice/v4"
 	"github.com/pion/sdp/v3"
 	pion "github.com/pion/webrtc/v4"

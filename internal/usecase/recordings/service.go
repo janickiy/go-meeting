@@ -3,9 +3,9 @@ package recordings
 import (
 	"context"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/realtime"
-	"github.com/janickiy/go-recorder/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/realtime"
+	"github.com/janickiy/meet-space/internal/domain/records"
 )
 
 // Repository is the atomic conference recording API boundary. Delivery of its

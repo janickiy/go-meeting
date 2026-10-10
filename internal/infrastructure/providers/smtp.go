@@ -20,8 +20,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	d "github.com/janickiy/go-recorder/internal/domain/integrations"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
+	d "github.com/janickiy/meet-space/internal/domain/integrations"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
 )
 
 // SMTPConfig задаёт доверенный сервер доставки. Открытый SMTP и отключение проверки сертификата недоступны.

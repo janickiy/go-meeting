@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	"github.com/janickiy/go-recorder/internal/infrastructure/composite"
-	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
-	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/infrastructure/composite"
+	"github.com/janickiy/meet-space/internal/infrastructure/ffmpeg"
+	s3storage "github.com/janickiy/meet-space/internal/infrastructure/storage/s3"
 )
 
 type compositeArtifactStorage interface {

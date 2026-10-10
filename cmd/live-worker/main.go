@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/janickiy/go-recorder/internal/app"
+	"github.com/janickiy/meet-space/internal/app"
 	"log/slog"
 	"os"
 )

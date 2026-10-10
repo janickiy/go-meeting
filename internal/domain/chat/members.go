@@ -1,6 +1,6 @@
 package chat
 
-import "github.com/janickiy/go-recorder/internal/domain/conferences"
+import "github.com/janickiy/meet-space/internal/domain/conferences"
 
 // MemberView keeps conference membership separate from confirmed live presence.
 type MemberView struct {

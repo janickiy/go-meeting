@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/media"
 )
 
 // serviceCommand обрабатывает доверенную команду модерации или закрытия медиа-комнаты.

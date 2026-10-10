@@ -13,12 +13,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/ratelimit"
-	domain "github.com/janickiy/go-recorder/internal/domain/realtime"
-	httpmiddleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
-	usecase "github.com/janickiy/go-recorder/internal/usecase/notifications"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/ratelimit"
+	domain "github.com/janickiy/meet-space/internal/domain/realtime"
+	httpmiddleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
+	usecase "github.com/janickiy/meet-space/internal/usecase/notifications"
 	goredis "github.com/redis/go-redis/v9"
 )
 

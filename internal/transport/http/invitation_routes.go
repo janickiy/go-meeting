@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	app "github.com/janickiy/go-recorder/internal/app/conferences"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	app "github.com/janickiy/meet-space/internal/app/conferences"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 func RegisterInvitationRoutes(router gin.IRouter, handler *app.InvitationHandler, auth gin.HandlerFunc, limiter middleware.Limiter) {

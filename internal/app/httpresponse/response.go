@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
 )
 
 // InternalErrorMessage is shared with legacy responses that retain their status.

@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/config"
-	content "github.com/janickiy/go-recorder/internal/domain/content"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
-	domain "github.com/janickiy/go-recorder/internal/domain/search"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/config"
+	content "github.com/janickiy/meet-space/internal/domain/content"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
+	domain "github.com/janickiy/meet-space/internal/domain/search"
+	"github.com/janickiy/meet-space/internal/operations"
 	"time"
 )
 

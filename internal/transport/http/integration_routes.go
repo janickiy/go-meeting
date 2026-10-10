@@ -2,8 +2,8 @@ package httptransport
 
 import (
 	"github.com/gin-gonic/gin"
-	app "github.com/janickiy/go-recorder/internal/app/integrations"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	app "github.com/janickiy/meet-space/internal/app/integrations"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 	"time"
 )
 

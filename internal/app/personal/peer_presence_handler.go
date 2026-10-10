@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/app/httpresponse"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/chat"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
-	personalusecase "github.com/janickiy/go-recorder/internal/usecase/personal"
+	"github.com/janickiy/meet-space/internal/app/httpresponse"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/chat"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
+	personalusecase "github.com/janickiy/meet-space/internal/usecase/personal"
 )
 
 // PeerPresence читает присутствие только собеседника доступного личного чата.

@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/infrastructure/sfu"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/infrastructure/sfu"
+	"github.com/janickiy/meet-space/internal/operations"
 )
 
 // hostname возвращает идентичность экземпляра для журналов, а не меток метрик.

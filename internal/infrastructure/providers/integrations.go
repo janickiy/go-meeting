@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	d "github.com/janickiy/go-recorder/internal/domain/integrations"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
+	d "github.com/janickiy/meet-space/internal/domain/integrations"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
 )
 
 // AdapterConfig задаёт режим доставки и доверенный endpoint серверного gateway; пользовательские URL не принимаются.

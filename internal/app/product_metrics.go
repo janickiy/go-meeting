@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	content "github.com/janickiy/go-recorder/internal/domain/content"
-	integrations "github.com/janickiy/go-recorder/internal/domain/integrations"
-	"github.com/janickiy/go-recorder/internal/operations"
+	content "github.com/janickiy/meet-space/internal/domain/content"
+	integrations "github.com/janickiy/meet-space/internal/domain/integrations"
+	"github.com/janickiy/meet-space/internal/operations"
 )
 
 // measuredEmail дополняет заменяемый адаптер счётчиком попыток, не копируя текст письма.

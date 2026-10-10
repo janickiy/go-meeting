@@ -270,14 +270,6 @@
   padding: 10px 16px max(14px, env(safe-area-inset-bottom));
   margin: 0;
 }
-.personal-user-results {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.personal-user-results .button {
-  justify-content: flex-start;
-}
 .personal-notice {
   position: fixed;
   right: 24px;
@@ -533,39 +525,6 @@
   margin-top: 36px;
   font-size: calc(12px * var(--text-scale));
 }
-.personal-user-results > button {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  min-height: 64px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  background: var(--surface);
-  text-align: left;
-  cursor: pointer;
-}
-.personal-user-results > button:hover {
-  background: var(--primary-soft);
-}
-.personal-user-results > button > span:nth-child(2) {
-  flex: 1;
-  display: grid;
-  gap: 4px;
-}
-.personal-user-results strong {
-  font-size: calc(14px * var(--text-scale));
-}
-.personal-user-results small {
-  font-size: calc(12px * var(--text-scale));
-  color: var(--muted);
-}
-.personal-search-empty {
-  text-align: center;
-  padding: 24px 0;
-  color: var(--muted);
-}
 .personal-user-id {
   padding: 12px;
   background: var(--surface-soft);
@@ -624,7 +583,6 @@
   line-height: 1.65;
   color: var(--muted);
 }
-.modal.new-direct-modal,
 .modal.personal-info-modal,
 .modal.personal-confirm-modal {
   width: min(560px, calc(100vw - 32px));
@@ -676,7 +634,6 @@
   .personal-thread .chat-compose-caption {
     display: none;
   }
-  .modal-backdrop .modal.new-direct-modal,
   .modal-backdrop .modal.personal-info-modal,
   .modal-backdrop .modal.group-modal,
   .modal-backdrop .modal.folder-candidate-modal,

@@ -18,13 +18,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/janickiy/go-recorder/internal/config"
-	"github.com/janickiy/go-recorder/internal/domain/media"
-	"github.com/janickiy/go-recorder/internal/domain/records"
-	"github.com/janickiy/go-recorder/internal/infrastructure/composite"
-	"github.com/janickiy/go-recorder/internal/infrastructure/ffmpeg"
-	s3storage "github.com/janickiy/go-recorder/internal/infrastructure/storage/s3"
-	"github.com/janickiy/go-recorder/internal/operations"
+	"github.com/janickiy/meet-space/internal/config"
+	"github.com/janickiy/meet-space/internal/domain/media"
+	"github.com/janickiy/meet-space/internal/domain/records"
+	"github.com/janickiy/meet-space/internal/infrastructure/composite"
+	"github.com/janickiy/meet-space/internal/infrastructure/ffmpeg"
+	s3storage "github.com/janickiy/meet-space/internal/infrastructure/storage/s3"
+	"github.com/janickiy/meet-space/internal/operations"
 )
 
 // CompositeRepository задаёт контракт зависимого компонента CompositeRepository в управлении задачами записи и её артефактами; позволяет заменять реализацию хранилища или транспорта без изменения вызывающего кода.

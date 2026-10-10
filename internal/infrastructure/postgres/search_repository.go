@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/janickiy/go-recorder/internal/config"
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	content "github.com/janickiy/go-recorder/internal/domain/content"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
-	domain "github.com/janickiy/go-recorder/internal/domain/search"
-	search "github.com/janickiy/go-recorder/internal/usecase/search"
+	"github.com/janickiy/meet-space/internal/config"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	content "github.com/janickiy/meet-space/internal/domain/content"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
+	domain "github.com/janickiy/meet-space/internal/domain/search"
+	search "github.com/janickiy/meet-space/internal/usecase/search"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

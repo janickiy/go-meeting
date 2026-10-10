@@ -3,8 +3,8 @@ package content
 
 import (
 	"context"
-	domain "github.com/janickiy/go-recorder/internal/domain/content"
-	"github.com/janickiy/go-recorder/internal/domain/jobs"
+	domain "github.com/janickiy/meet-space/internal/domain/content"
+	"github.com/janickiy/meet-space/internal/domain/jobs"
 	"time"
 )
 

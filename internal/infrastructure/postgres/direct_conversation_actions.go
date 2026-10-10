@@ -3,8 +3,8 @@ package postgres
 import (
 	"context"
 
-	"github.com/janickiy/go-recorder/internal/domain/apperrors"
-	"github.com/janickiy/go-recorder/internal/domain/personal"
+	"github.com/janickiy/meet-space/internal/domain/apperrors"
+	"github.com/janickiy/meet-space/internal/domain/personal"
 	"gorm.io/gorm"
 )
 

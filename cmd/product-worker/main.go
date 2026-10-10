@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/janickiy/go-recorder/internal/app"
+	"github.com/janickiy/meet-space/internal/app"
 )
 
 // main запускает только фоновые продуктовые задания; ошибки не раскрывают секреты конфигурации.

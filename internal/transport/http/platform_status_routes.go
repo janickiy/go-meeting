@@ -2,8 +2,8 @@ package httptransport
 
 import (
 	"github.com/gin-gonic/gin"
-	platformapp "github.com/janickiy/go-recorder/internal/app/platform"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	platformapp "github.com/janickiy/meet-space/internal/app/platform"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 // RegisterPlatformStatusRoutes открывает авторизованный просмотр возможностей и агрегаты только для администратора.

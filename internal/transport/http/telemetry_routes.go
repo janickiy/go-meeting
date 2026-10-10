@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/janickiy/go-recorder/internal/app/telemetry"
-	middleware "github.com/janickiy/go-recorder/internal/transport/http/middleware"
+	"github.com/janickiy/meet-space/internal/app/telemetry"
+	middleware "github.com/janickiy/meet-space/internal/transport/http/middleware"
 )
 
 // RegisterClientErrorRoutes ограничивает приём ошибок браузера на уровне IP и всего API.
