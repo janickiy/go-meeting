@@ -568,6 +568,9 @@ body {
   top: 12px;
   right: 12px;
 }
+.modal.notification-modal > h2 {
+  margin: 0 40px 20px;
+}
 .modal .field {
   margin-bottom: 20px;
 }

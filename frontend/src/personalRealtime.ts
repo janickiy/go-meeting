@@ -236,6 +236,7 @@ export function usePersonalRealtime(userId?: string) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
     const refresh = () => {
+      void client.invalidateQueries({ queryKey: ["notifications", userId] });
       void client.invalidateQueries({ queryKey: ["personal-list"] });
       void client.invalidateQueries({ queryKey: ["personal-summary"] });
       void client.invalidateQueries({ queryKey: ["personal-detail"] });

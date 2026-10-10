@@ -22,7 +22,16 @@ import { Button, ErrorNotice, Loading, Modal } from "./ui";
  * @returns string — вычисленное значение: "Запись встречи готова"; "Скоро начнётся встреча"; "Вас пригласили войти во встречу"; "Запрос на вход отклонён"; "Вы исключены из встречи"; "Обновление вашей конференции".
  */
 export function notificationLabel(item: Notification): string {
-  if (item.type === "chat.message") return "Новое сообщение в чате встречи";
+  if (item.type === "chat.message") {
+    const place = item.payload.conversationId
+      ? item.payload.conversationType === "group"
+        ? "в группе"
+        : "в личном чате"
+      : "в чате встречи";
+    return item.payload.isReply
+      ? `Ответ на ваше сообщение ${place}`
+      : `Новое сообщение ${place}`;
+  }
   if (item.type === "transcript.failed")
     return "Не удалось подготовить расшифровку";
   if (item.type === "summary.failed")
@@ -144,6 +153,7 @@ export function NotificationBell() {
       {open && (
         <Modal
           title="Уведомления"
+          className="notification-modal"
           onClose={
             /**
              * onClose обрабатывает соответствующее событие интерфейса и изменяет состояние текущего действия.
@@ -161,8 +171,8 @@ export function NotificationBell() {
             <>
               {!rows.length && !query.isError && (
                 <p className="empty-state compact-empty">
-                  Пока нет уведомлений. Здесь появятся приглашения и готовые
-                  записи.
+                  Пока нет уведомлений. Здесь появятся сообщения, ответы,
+                  приглашения и готовые записи.
                 </p>
               )}
               <div className="notification-list">
@@ -184,7 +194,8 @@ export function NotificationBell() {
                         <p className="field-hint">
                           {formatDate(item.createdAt)}
                         </p>
-                        {item.payload.conferenceId && (
+                        {(item.payload.conferenceId ||
+                          item.payload.conversationId) && (
                           <Link
                             to={notificationLink(item)}
                             onClick={
@@ -199,7 +210,11 @@ export function NotificationBell() {
                               }
                             }
                           >
-                            Открыть встречу
+                            {item.payload.conversationId
+                              ? "Открыть чат"
+                              : item.type === "chat.message"
+                                ? "Открыть комментарий"
+                                : "Открыть встречу"}
                           </Link>
                         )}
                       </div>

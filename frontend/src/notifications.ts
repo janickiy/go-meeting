@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
-import { playDeviceTone } from "./deviceSound";
-import { readDevicePreferences } from "./prejoinDevices";
+import { createNotificationSound } from "./notificationSound";
 
 /**
  * NotificationEvent ограничивает SSE-конверт событиями создания и прочтения уведомления.
@@ -21,7 +20,8 @@ export interface NotificationEvent {
     notification?: {
       type?: string;
       createdAt?: string;
-      payload?: { conferenceId?: string };
+      readAt?: string | null;
+      payload?: { conferenceId?: string; conversationId?: string };
     };
     id?: string;
   };
@@ -109,7 +109,7 @@ export function useNotificationStream(userId?: string) {
       let retry = 0;
       const seen = new Set<string>();
       const mountedAt = Date.now();
-      let stopTone: (() => void) | undefined;
+      const sound = createNotificationSound(userId);
       /**
        * connect открывает соединение, обрабатывает события и назначает повтор после временного отказа.
        *
@@ -147,18 +147,25 @@ export function useNotificationStream(userId?: string) {
                 const notice = event.data.notification;
                 if (
                   event.type === "notification.created" &&
-                  [
-                    "conference.invited",
-                    "conference.soon",
-                    "chat.message",
-                  ].includes(notice?.type || "") &&
+                  !notice?.readAt &&
                   Date.parse(notice?.createdAt || "") >= mountedAt - 5000
                 ) {
-                  stopTone?.();
-                  stopTone = playDeviceTone(
-                    readDevicePreferences(userId).notificationOutputId,
-                    () => {},
-                  );
+                  sound.notify(event.id);
+                }
+                if (typeof notice?.payload?.conversationId === "string") {
+                  void client.invalidateQueries({
+                    queryKey: ["personal-list", userId],
+                  });
+                  void client.invalidateQueries({
+                    queryKey: ["personal-summary", userId],
+                  });
+                  void client.invalidateQueries({
+                    queryKey: [
+                      "personal-chat",
+                      notice.payload.conversationId,
+                      userId,
+                    ],
+                  });
                 }
                 const conferenceId =
                   event.data.notification?.payload?.conferenceId;
@@ -230,7 +237,7 @@ export function useNotificationStream(userId?: string) {
        * @returns значение не возвращается; функция выполняет описанные действия и обновляет нужное состояние.
        */
       return () => {
-        stopTone?.();
+        sound.dispose();
         controller.abort();
         clearTimeout(timer);
       };

@@ -290,6 +290,17 @@ func (h *Handler) Events(c *gin.Context) {
 			if event.Type != "notification.created" && event.Type != "notification.read" {
 				continue
 			}
+			if event.Type == "notification.created" {
+				checkContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+				visible, err := h.service.Visible(checkContext, userID, event.ID)
+				cancel()
+				if err != nil {
+					return
+				}
+				if !visible {
+					continue
+				}
+			}
 			if !write("data: " + message.Payload + "\n\n") {
 				return
 			}

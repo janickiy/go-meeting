@@ -58,6 +58,7 @@ type Repository interface {
 	//   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 	Pending(context.Context) ([]domain.Notification, error)
 	Publishable(context.Context, string) (bool, error)
+	Visible(context.Context, string, string) (bool, error)
 	// Published отмечает обработку завершённой после публикации либо подавления доставки.
 	//
 	// @args
@@ -137,6 +138,11 @@ func (s *Service) Read(ctx context.Context, userID, id string) (domain.Notificat
 	event := realtime.Event("notification.read", "", map[string]any{"id": item.ID})
 	_ = s.bus.Publish(ctx, userID, event)
 	return item, nil
+}
+
+// Visible authorizes a queued notification again immediately before delivery.
+func (s *Service) Visible(ctx context.Context, userID, id string) (bool, error) {
+	return s.repo.Visible(ctx, userID, id)
 }
 
 // Tick выполняет один цикл создания и доставки уведомлений после фиксации постоянных данных.

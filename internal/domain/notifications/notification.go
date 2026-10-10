@@ -16,15 +16,18 @@ import (
 //   - ScheduledAt: однозначное запланированное время встречи.
 //   - AdmissionState: состояние ожидания, допуска, отклонения либо исключения.
 type Payload struct {
-	ConferenceID   string     `json:"conferenceId"`
-	InvitationID   string     `json:"invitationId,omitempty"`
-	RecordingID    string     `json:"recordingId,omitempty"`
-	MessageID      string     `json:"messageId,omitempty"`
-	ScheduledAt    *time.Time `json:"scheduledAt,omitempty"`
-	AdmissionState string     `json:"admissionState,omitempty"`
-	TranscriptID   string     `json:"transcriptId,omitempty"`
-	SummaryID      string     `json:"summaryId,omitempty"`
-	Generation     int64      `json:"generation,omitempty"`
+	ConferenceID     string     `json:"conferenceId"`
+	ConversationID   string     `json:"conversationId,omitempty"`
+	ConversationType string     `json:"conversationType,omitempty"`
+	IsReply          bool       `json:"isReply,omitempty"`
+	InvitationID     string     `json:"invitationId,omitempty"`
+	RecordingID      string     `json:"recordingId,omitempty"`
+	MessageID        string     `json:"messageId,omitempty"`
+	ScheduledAt      *time.Time `json:"scheduledAt,omitempty"`
+	AdmissionState   string     `json:"admissionState,omitempty"`
+	TranscriptID     string     `json:"transcriptId,omitempty"`
+	SummaryID        string     `json:"summaryId,omitempty"`
+	Generation       int64      `json:"generation,omitempty"`
 }
 
 // Notification сохраняет личное уведомление, ссылочную нагрузку, дедупликацию, прочтение и состояние доставки.

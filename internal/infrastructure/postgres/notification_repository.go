@@ -56,9 +56,7 @@ func (r *NotificationRepository) List(ctx context.Context, userID, cursor string
 		return page, err
 	}
 	q := r.db.WithContext(ctx).Where("user_id = ?", userID).
-		Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp
-			WHERE cp.user_id=notifications.user_id AND cp.conference_id::text=notifications.payload->>'conferenceId'
-			AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`)
+		Where(notificationVisibilitySQL("notifications"))
 	if c != nil {
 		q = q.Where("(created_at, id) < (?, ?::uuid)", c.At, c.ID)
 	}
@@ -71,9 +69,7 @@ func (r *NotificationRepository) List(ctx context.Context, userID, cursor string
 		page.NextCursor = &next
 	}
 	err = r.db.WithContext(ctx).Model(&domain.Notification{}).Where("user_id = ? AND read_at IS NULL", userID).
-		Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp
-			WHERE cp.user_id=notifications.user_id AND cp.conference_id::text=notifications.payload->>'conferenceId'
-			AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Count(&page.UnreadCount).Error
+		Where(notificationVisibilitySQL("notifications")).Count(&page.UnreadCount).Error
 	return page, err
 }
 
@@ -89,7 +85,7 @@ func (r *NotificationRepository) List(ctx context.Context, userID, cursor string
 //   - результат 2 (error): ошибка проверки или выполнения; nil означает успешное завершение.
 func (r *NotificationRepository) Read(ctx context.Context, userID, id string) (domain.Notification, error) {
 	var item domain.Notification
-	result := r.db.WithContext(ctx).Raw("UPDATE notifications SET read_at = COALESCE(read_at, now()) WHERE id = ? AND user_id = ? RETURNING *", id, userID).Scan(&item)
+	result := r.db.WithContext(ctx).Raw("UPDATE notifications SET read_at = COALESCE(read_at, now()) WHERE id = ? AND user_id = ? AND ("+notificationVisibilitySQL("notifications")+") RETURNING *", id, userID).Scan(&item)
 	if result.Error != nil {
 		return item, result.Error
 	}
@@ -237,6 +233,7 @@ func (r *NotificationRepository) generateChat(ctx context.Context) error {
 			q := tx.Table("conference_participants p").Joins("JOIN chat_messages m ON m.conference_id=p.conference_id AND m.id=? AND m.deleted_at IS NULL", job.MessageID).
 				Joins("JOIN users u ON u.id=p.user_id AND u.guest_conference_id IS NULL").
 				Where("p.conference_id=? AND p.user_id IS NOT NULL AND p.user_id<>m.sender_user_id AND p.admission_state='admitted' AND p.status IN ('joined','left')", job.ConferenceID).
+				Where("p.created_at<=m.created_at AND (p.admission_decided_at IS NULL OR p.admission_decided_at<=m.created_at)").
 				Where("NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))")
 			if job.CursorParticipantID != nil {
 				q = q.Where("p.id>?", *job.CursorParticipantID)
@@ -246,12 +243,14 @@ func (r *NotificationRepository) generateChat(ctx context.Context) error {
 			}
 			if len(ids) > 0 {
 				if err := tx.Exec(`INSERT INTO notifications(id,user_id,type,payload,dedup_key,created_at)
-					SELECT gen_random_uuid(),p.user_id,'chat.message',jsonb_build_object('conferenceId',m.conference_id,'messageId',m.id),
+					SELECT gen_random_uuid(),p.user_id,'chat.message',jsonb_build_object('conferenceId',m.conference_id,'messageId',m.id,
+					'isReply',COALESCE((SELECT reply.sender_user_id=p.user_id FROM chat_messages reply WHERE reply.id=m.reply_to_id AND reply.conference_id=m.conference_id AND reply.deleted_at IS NULL),FALSE)),
 					'chat:'||m.id::text,m.created_at
 					FROM chat_messages m JOIN conference_participants p ON p.conference_id=m.conference_id
 					JOIN users u ON u.id=p.user_id AND u.guest_conference_id IS NULL
 					WHERE m.id=? AND m.deleted_at IS NULL AND p.id IN ? AND p.user_id IS NOT NULL AND p.user_id<>m.sender_user_id
 					AND p.admission_state='admitted' AND p.status IN ('joined','left')
+					AND p.created_at<=m.created_at AND (p.admission_decided_at IS NULL OR p.admission_decided_at<=m.created_at)
 					AND NOT EXISTS(SELECT 1 FROM conference_chat_preferences cp WHERE cp.conference_id=p.conference_id AND cp.user_id=p.user_id AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))
 					ON CONFLICT(user_id,dedup_key) DO NOTHING`, job.MessageID, ids).Error; err != nil {
 					return err
@@ -280,14 +279,10 @@ func (r *NotificationRepository) generateChat(ctx context.Context) error {
 func (r *NotificationRepository) Pending(ctx context.Context) ([]domain.Notification, error) {
 	items := []domain.Notification{}
 	if err := r.db.WithContext(ctx).Exec(`UPDATE notifications n SET published_at=clock_timestamp()
-		WHERE published_at IS NULL AND EXISTS(SELECT 1 FROM conference_chat_preferences cp
-		WHERE cp.user_id=n.user_id AND cp.conference_id::text=n.payload->>'conferenceId'
-		AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Error; err != nil {
+		WHERE published_at IS NULL AND NOT (` + notificationVisibilitySQL("n") + `)`).Error; err != nil {
 		return nil, err
 	}
-	err := r.db.WithContext(ctx).Where("published_at IS NULL").Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp
-		WHERE cp.user_id=notifications.user_id AND cp.conference_id::text=notifications.payload->>'conferenceId'
-		AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Order("created_at,id").Limit(100).Find(&items).Error
+	err := r.db.WithContext(ctx).Where("published_at IS NULL").Where(notificationVisibilitySQL("notifications")).Order("created_at,id").Limit(100).Find(&items).Error
 	return items, err
 }
 
@@ -295,10 +290,17 @@ func (r *NotificationRepository) Pending(ctx context.Context) ([]domain.Notifica
 func (r *NotificationRepository) Publishable(ctx context.Context, id string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Table("notifications n").Where("n.id=? AND n.published_at IS NULL", id).
-		Where(`NOT EXISTS (SELECT 1 FROM conference_chat_preferences cp WHERE cp.user_id=n.user_id
-			AND cp.conference_id::text=n.payload->>'conferenceId'
-			AND (cp.left_at IS NOT NULL OR NOT cp.notifications_enabled))`).Count(&count).Error
+		Where(notificationVisibilitySQL("n")).Count(&count).Error
 	return count > 0, err
+}
+
+// Visible rechecks ownership, mute and current access at SSE delivery time;
+// PublishedAt may already be set by the producer when Redis is consumed.
+func (r *NotificationRepository) Visible(ctx context.Context, userID, id string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Table("notifications n").Where("n.id=? AND n.user_id=?", id, userID).
+		Where(notificationVisibilitySQL("n")).Count(&count).Error
+	return count == 1, err
 }
 
 // Published фиксирует успешную публикацию уведомления, сохраняя возможность безопасного повторения после сбоя.

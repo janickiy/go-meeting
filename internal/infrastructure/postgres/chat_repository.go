@@ -310,6 +310,9 @@ func (r *ChatRepository) Send(ctx context.Context, userID, conferenceID string, 
 				Updates(map[string]any{"hidden_at": nil, "updated_at": gorm.Expr("clock_timestamp()")}).Error; err != nil {
 				return err
 			}
+			if err := createConversationNotifications(tx, message.ID); err != nil {
+				return err
+			}
 		}
 		created = true
 		message, err = r.loadMessage(tx, conferenceID, message.ID, userID)

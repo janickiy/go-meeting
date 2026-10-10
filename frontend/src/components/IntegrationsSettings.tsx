@@ -9,6 +9,12 @@ import type {
 } from "../types";
 import { formatDate } from "../utils";
 import { Button, ErrorNotice, Loading } from "./ui";
+import { playDeviceTone } from "../deviceSound";
+import {
+  readDevicePreferences,
+  saveDevicePreferences,
+  subscribeDevicePreferences,
+} from "../prejoinDevices";
 
 const modes = {
   noop: "Не настроено",
@@ -202,6 +208,22 @@ function PreferencesForm({
   const { user } = useAuth();
   const client = useQueryClient();
   const [draft, setDraft] = useState(initial);
+  const [soundEnabled, setSoundEnabled] = useState(
+    () => readDevicePreferences(user?.id || "").notificationSounds,
+  );
+  const [previewing, setPreviewing] = useState(false);
+  const [soundError, setSoundError] = useState<Error | null>(null);
+  const stopPreview = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    const userId = user?.id || "";
+    const unsubscribe = subscribeDevicePreferences(userId, (value) =>
+      setSoundEnabled(value.notificationSounds),
+    );
+    return () => {
+      unsubscribe();
+      stopPreview.current?.();
+    };
+  }, [user?.id]);
   const save = useMutation({
     mutationFn: () => api.saveNotificationPreferences(draft),
     onSuccess: (data) =>
@@ -235,6 +257,63 @@ function PreferencesForm({
             </label>
           ),
         )}
+      </fieldset>
+      <fieldset className="preferences-fieldset">
+        <legend>Звук уведомлений</legend>
+        <label className="preference-option">
+          <input
+            type="checkbox"
+            checked={soundEnabled}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              setSoundEnabled(enabled);
+              setSoundError(null);
+              if (!enabled) stopPreview.current?.();
+              if (user?.id)
+                saveDevicePreferences(user.id, {
+                  ...readDevicePreferences(user.id),
+                  notificationSounds: enabled,
+                });
+            }}
+          />
+          <span className="preference-copy">
+            <span className="preference-title">Звуковой сигнал</span>
+            <span className="field-hint">
+              Новые сообщения, ответы и другие уведомления. Настройка
+              сохраняется в этом браузере.
+            </span>
+          </span>
+        </label>
+        <Button
+          variant="outline"
+          disabled={!soundEnabled || previewing}
+          onClick={() => {
+            stopPreview.current?.();
+            setSoundError(null);
+            setPreviewing(true);
+            stopPreview.current = playDeviceTone(
+              readDevicePreferences(user?.id || "").notificationOutputId,
+              (error) => {
+                setPreviewing(false);
+                if (error)
+                  setSoundError(
+                    new Error(
+                      "Не удалось воспроизвести звук. Проверьте громкость и выбранное устройство вывода.",
+                    ),
+                  );
+              },
+              0.35,
+            );
+          }}
+        >
+          {previewing ? "Воспроизводится…" : "Проверить звук"}
+        </Button>
+        <p className="field-hint">
+          Если браузер ограничивает воспроизведение, сначала нажмите любую
+          кнопку в приложении. В чатах с отключёнными уведомлениями сигнал не
+          звучит.
+        </p>
+        <ErrorNotice error={soundError} />
       </fieldset>
       <fieldset className="preferences-fieldset">
         <legend>Каналы доставки</legend>

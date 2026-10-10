@@ -44,11 +44,19 @@ export function searchResultLink(result: SearchResult): string {
  */
 export function notificationLink(notification: Notification): string {
   if (notification.type === "chat.message") {
+    if (notification.payload.conversationId) {
+      const params = new URLSearchParams();
+      if (notification.payload.messageId)
+        params.set("message", notification.payload.messageId);
+      return `/personal/${encodeURIComponent(notification.payload.conversationId)}${params.size ? `?${params}` : ""}`;
+    }
+    if (!notification.payload.conferenceId) return "/notifications";
     const params = new URLSearchParams({ chat: "1" });
     if (notification.payload.messageId)
       params.set("message", notification.payload.messageId);
     return `/meetings/${encodeURIComponent(notification.payload.conferenceId)}?${params}`;
   }
+  if (!notification.payload.conferenceId) return "/notifications";
   const link = searchResultLink({
     type:
       notification.type.includes("summary") || notification.payload.summaryId

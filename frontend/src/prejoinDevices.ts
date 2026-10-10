@@ -5,6 +5,7 @@ export interface DevicePreferences {
   microphoneEnabled: boolean;
   cameraEnabled: boolean;
   notificationOutputId: string;
+  notificationSounds: boolean;
   noiseSuppression: boolean;
   showSelf: boolean;
   hideParticipantVideo: boolean;
@@ -29,6 +30,7 @@ const emptyPreferences: DevicePreferences = {
   microphoneEnabled: true,
   cameraEnabled: true,
   notificationOutputId: "",
+  notificationSounds: true,
   noiseSuppression: true,
   showSelf: true,
   hideParticipantVideo: false,
@@ -54,6 +56,7 @@ export function readDevicePreferences(userId: string): DevicePreferences {
       microphoneEnabled: value.microphoneEnabled === true,
       cameraEnabled: value.cameraEnabled === true,
       notificationOutputId: safeId(value.notificationOutputId),
+      notificationSounds: value.notificationSounds !== false,
       noiseSuppression: value.noiseSuppression !== false,
       showSelf: value.showSelf !== false,
       hideParticipantVideo: value.hideParticipantVideo === true,

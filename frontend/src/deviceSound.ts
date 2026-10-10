@@ -4,8 +4,10 @@ import toneURL from "./assets/device-tone.wav";
 export function playDeviceTone(
   sinkId: string,
   done: (error?: unknown) => void,
+  volume = 1,
 ) {
   const audio = new Audio(toneURL);
+  audio.volume = Math.min(1, Math.max(0, volume));
   let stopped = false;
   const finish = (error?: unknown) => {
     if (stopped) return;

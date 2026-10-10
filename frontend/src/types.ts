@@ -504,6 +504,9 @@ export interface Notification {
   version: 1;
   payload: {
     conferenceId: string;
+    conversationId?: string;
+    conversationType?: "direct" | "group";
+    isReply?: boolean;
     messageId?: string;
     recordingId?: string;
     transcriptId?: string;

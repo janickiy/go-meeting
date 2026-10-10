@@ -44,7 +44,7 @@ export function NotificationsPage() {
       <section className="page-heading">
         <div>
           <h1>Уведомления</h1>
-          <p>Приглашения, напоминания и материалы встреч.</p>
+          <p>Сообщения и ответы в чатах, приглашения и материалы встреч.</p>
         </div>
         <span className="notifications-count" role="status">
           Непрочитанных: {unread}
@@ -61,8 +61,8 @@ export function NotificationsPage() {
                 <Bell size={32} aria-hidden="true" />
                 <h2>Пока тихо</h2>
                 <p>
-                  Пока нет уведомлений. Здесь появятся приглашения и новости о
-                  ваших встречах.
+                  Пока нет уведомлений. Здесь появятся сообщения и ответы в
+                  личных чатах, группах и комментариях встреч.
                 </p>
               </div>
             )}
@@ -89,14 +89,19 @@ export function NotificationsPage() {
                       {formatDate(item.createdAt)}
                     </time>
                     <div className="notification-page-actions">
-                      {item.payload.conferenceId && (
+                      {(item.payload.conferenceId ||
+                        item.payload.conversationId) && (
                         <Link
                           to={notificationLink(item)}
                           onClick={() => {
                             if (!item.readAt) read.mutate(item.id);
                           }}
                         >
-                          Открыть встречу{" "}
+                          {item.payload.conversationId
+                            ? "Открыть чат"
+                            : item.type === "chat.message"
+                              ? "Открыть комментарий"
+                              : "Открыть встречу"}{" "}
                           <ArrowUpRight size={15} aria-hidden="true" />
                         </Link>
                       )}
