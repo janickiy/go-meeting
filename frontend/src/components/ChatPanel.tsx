@@ -156,6 +156,7 @@ export function MessageThread({
   const initialScroll = useRef(false);
   const previousLatest = useRef<string | undefined>(undefined);
   const olderAnchor = useRef<{ height: number; top: number } | null>(null);
+  const readingAnchor = useRef<{ id: string; offset: number } | null>(null);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const newestVisible = useRef(false);
   const [readCandidate, setReadCandidate] = useState<string | null>(null);
@@ -200,6 +201,7 @@ export function MessageThread({
     if (accessDenied) onAccessDenied?.();
   }, [accessDenied, onAccessDenied]);
   const messages = accessDenied ? [] : mergeChatPages(query.data?.pages || []);
+  if (personal) messages.reverse();
   const confirmedPending =
     !!pending &&
     messages.some(
@@ -207,12 +209,18 @@ export function MessageThread({
         message.senderId === user?.id &&
         message.clientRequestId === pending.clientRequestId,
     );
-  const latest = messages.at(-1)?.id;
+  const latest = (personal ? messages.at(0) : messages.at(-1))?.id;
 
   /** Обновляет историю и счётчик непрочитанных сообщений после изменения на сервере. */
   const invalidate = () => {
     void client.invalidateQueries({ queryKey: [historyKey, scopeId] });
     void client.invalidateQueries({ queryKey: [readKey, scopeId] });
+    if (personal) {
+      void client.invalidateQueries({ queryKey: ["personal-list", user?.id] });
+      void client.invalidateQueries({
+        queryKey: ["personal-summary", user?.id],
+      });
+    }
   };
   const send = useMutation({
     mutationFn: (body: {
@@ -310,10 +318,28 @@ export function MessageThread({
     if (!open || !latest) return;
     const element = viewport.current;
     if (!element) return;
-    /** Проверяет, читает ли пользователь конец видимого списка, не прокручивая старую историю принудительно. */
+    /** Проверяет край с новыми сообщениями и сохраняет место чтения старой истории. */
     const observe = () => {
-      newestVisible.current =
-        element.scrollHeight - element.scrollTop - element.clientHeight < 40;
+      newestVisible.current = personal
+        ? element.scrollTop < 40
+        : element.scrollHeight - element.scrollTop - element.clientHeight < 40;
+      if (personal) {
+        const bounds = element.getBoundingClientRect();
+        const anchor = Array.from(
+          element.querySelectorAll<HTMLElement>(
+            'article[data-testid^="chat-message-"]',
+          ),
+        ).find((node) => {
+          const rect = node.getBoundingClientRect();
+          return rect.bottom > bounds.top && rect.top < bounds.bottom;
+        });
+        readingAnchor.current = anchor
+          ? {
+              id: anchor.dataset.testid!,
+              offset: anchor.getBoundingClientRect().top - bounds.top,
+            }
+          : null;
+      }
       setReadCandidate(
         document.visibilityState === "visible" &&
           newestVisible.current &&
@@ -323,10 +349,11 @@ export function MessageThread({
       );
     };
     if (olderAnchor.current && !query.isFetchingNextPage) {
-      element.scrollTop =
-        olderAnchor.current.top +
-        element.scrollHeight -
-        olderAnchor.current.height;
+      element.scrollTop = personal
+        ? olderAnchor.current.top
+        : olderAnchor.current.top +
+          element.scrollHeight -
+          olderAnchor.current.height;
       olderAnchor.current = null;
     } else if (!initialScroll.current && focused) {
       const target = Array.from(
@@ -335,10 +362,23 @@ export function MessageThread({
       target?.scrollIntoView?.({ block: "center" });
       target?.focus({ preventScroll: true });
     } else if (!initialScroll.current || newestVisible.current) {
-      element.scrollTop = element.scrollHeight;
+      element.scrollTop = personal ? 0 : element.scrollHeight;
       setHasNewMessages(false);
-    } else if (previousLatest.current && previousLatest.current !== latest)
+    } else if (previousLatest.current && previousLatest.current !== latest) {
+      if (personal && readingAnchor.current) {
+        const anchor = Array.from(
+          element.querySelectorAll<HTMLElement>(
+            'article[data-testid^="chat-message-"]',
+          ),
+        ).find((node) => node.dataset.testid === readingAnchor.current!.id);
+        if (anchor)
+          element.scrollTop +=
+            anchor.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
+            readingAnchor.current.offset;
+      }
       setHasNewMessages(true);
+    }
     previousLatest.current = latest;
     initialScroll.current = true;
     const observer =
@@ -362,7 +402,15 @@ export function MessageThread({
       document.removeEventListener("visibilitychange", observe);
       observer?.disconnect();
     };
-  }, [open, latest, messages.length, query.isFetchingNextPage, focused]);
+  }, [
+    open,
+    latest,
+    messages.length,
+    query.isFetchingNextPage,
+    focused,
+    personal,
+    pending?.clientRequestId,
+  ]);
 
   useEffect(() => {
     if (
@@ -392,7 +440,9 @@ export function MessageThread({
         markerRect.bottom > Math.min(window.innerHeight, listRect.bottom) ||
         markerRect.left < Math.max(0, listRect.left) ||
         markerRect.right > Math.min(window.innerWidth, listRect.right) ||
-        list.scrollHeight - list.scrollTop - list.clientHeight >= 40
+        (personal
+          ? list.scrollTop >= 40
+          : list.scrollHeight - list.scrollTop - list.clientHeight >= 40)
       )
         return;
       void transport
@@ -550,6 +600,66 @@ export function MessageThread({
 
   const unread =
     read.data?.item.unreadCount ?? query.data?.pages[0]?.unreadCount ?? 0;
+  const olderMessagesButton = query.hasNextPage && (
+    <Button
+      variant="outline"
+      busy={query.isFetchingNextPage}
+      onClick={() => {
+        const list = viewport.current;
+        if (list) {
+          olderAnchor.current = {
+            height: list.scrollHeight,
+            top: list.scrollTop,
+          };
+          newestVisible.current = false;
+        }
+        void query.fetchNextPage().catch(() => {
+          olderAnchor.current = null;
+        });
+      }}
+    >
+      Предыдущие сообщения
+    </Button>
+  );
+  const pendingMessage = pending && !confirmedPending && (
+    <article
+      className="chat-message chat-message-own chat-message-pending"
+      data-testid={`chat-pending-${pending.clientRequestId}`}
+    >
+      <span className="chat-message-avatar" aria-hidden="true">
+        {initials(user?.displayName || "Вы")}
+      </span>
+      <div className="chat-message-content">
+        <header>
+          <strong>{user?.displayName || "Вы"}</strong>
+          <span className="chat-message-self">вы</span>
+          <time dateTime={pending.createdAt}>
+            {chatTime(pending.createdAt)}
+          </time>
+        </header>
+        <div className="chat-message-bubble">
+          {pending.replyName && (
+            <blockquote>Ответ: {pending.replyName}</blockquote>
+          )}
+          {pending.text && <p className="chat-text">{pending.text}</p>}
+          {pending.attachments.map((file) => (
+            <div className="chat-attachment" key={file.id}>
+              <span>
+                <Paperclip size={15} />
+                {file.filename}
+                <small>{formatBytes(file.size)}</small>
+              </span>
+            </div>
+          ))}
+          <footer className="chat-message-meta">
+            <span role="status">
+              {pending.state === "sending" ? "Отправляется…" : "Не отправлено"}
+            </span>
+          </footer>
+        </div>
+      </div>
+    </article>
+  );
   if (accessDenied) return <ErrorNotice error={query.error || read.error} />;
   return (
     <section
@@ -603,27 +713,7 @@ export function MessageThread({
             aria-label={personal ? "Личные сообщения" : "Сообщения встречи"}
             aria-live="polite"
           >
-            {query.hasNextPage && (
-              <Button
-                variant="outline"
-                busy={query.isFetchingNextPage}
-                onClick={() => {
-                  const list = viewport.current;
-                  if (list) {
-                    olderAnchor.current = {
-                      height: list.scrollHeight,
-                      top: list.scrollTop,
-                    };
-                    newestVisible.current = false;
-                  }
-                  void query.fetchNextPage().catch(() => {
-                    olderAnchor.current = null;
-                  });
-                }}
-              >
-                Предыдущие сообщения
-              </Button>
-            )}
+            {!personal && olderMessagesButton}
             {!messages.length && !query.isError && (
               <div className="messaging-empty">
                 <MessageCircle aria-hidden="true" />
@@ -637,6 +727,7 @@ export function MessageThread({
                 </p>
               </div>
             )}
+            {personal && pendingMessage}
             {messages.map((message, index) => {
               const own = message.senderId === user?.id;
               const day = chatDayKey(message.createdAt);
@@ -649,6 +740,13 @@ export function MessageThread({
                         <span>{chatDayLabel(message.createdAt)}</span>
                       </div>
                     )}
+                  {personal && message.id === latest && (
+                    <span
+                      ref={lastMarker}
+                      className="chat-read-marker"
+                      aria-hidden="true"
+                    />
+                  )}
                   <article
                     className={`chat-message ${own ? "chat-message-own" : ""} ${message.id === focused ? "chat-message-focused" : ""}`}
                     data-testid={`chat-message-${message.id}`}
@@ -825,54 +923,16 @@ export function MessageThread({
                 </Fragment>
               );
             })}
-            {pending && !confirmedPending && (
-              <article
-                className="chat-message chat-message-own chat-message-pending"
-                data-testid={`chat-pending-${pending.clientRequestId}`}
-              >
-                <span className="chat-message-avatar" aria-hidden="true">
-                  {initials(user?.displayName || "Вы")}
-                </span>
-                <div className="chat-message-content">
-                  <header>
-                    <strong>{user?.displayName || "Вы"}</strong>
-                    <span className="chat-message-self">вы</span>
-                    <time dateTime={pending.createdAt}>
-                      {chatTime(pending.createdAt)}
-                    </time>
-                  </header>
-                  <div className="chat-message-bubble">
-                    {pending.replyName && (
-                      <blockquote>Ответ: {pending.replyName}</blockquote>
-                    )}
-                    {pending.text && (
-                      <p className="chat-text">{pending.text}</p>
-                    )}
-                    {pending.attachments.map((file) => (
-                      <div className="chat-attachment" key={file.id}>
-                        <span>
-                          <Paperclip size={15} />
-                          {file.filename}
-                          <small>{formatBytes(file.size)}</small>
-                        </span>
-                      </div>
-                    ))}
-                    <footer className="chat-message-meta">
-                      <span role="status">
-                        {pending.state === "sending"
-                          ? "Отправляется…"
-                          : "Не отправлено"}
-                      </span>
-                    </footer>
-                  </div>
-                </div>
-              </article>
+            {!personal && pendingMessage}
+            {personal ? (
+              olderMessagesButton
+            ) : (
+              <span
+                ref={lastMarker}
+                className="chat-read-marker"
+                aria-hidden="true"
+              />
             )}
-            <span
-              ref={lastMarker}
-              className="chat-read-marker"
-              aria-hidden="true"
-            />
           </div>
         )}
         {hasNewMessages && (
@@ -880,11 +940,11 @@ export function MessageThread({
             variant="outline"
             onClick={() => {
               const list = viewport.current;
-              if (list) list.scrollTop = list.scrollHeight;
+              if (list) list.scrollTop = personal ? 0 : list.scrollHeight;
               setHasNewMessages(false);
             }}
           >
-            Новые сообщения ↓
+            {personal ? "Новые сообщения ↑" : "Новые сообщения ↓"}
           </Button>
         )}
         <ErrorNotice error={downloadError || null} />

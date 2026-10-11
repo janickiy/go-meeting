@@ -174,6 +174,10 @@ export function PersonalPage() {
     new Map(
       (list.data?.pages.flatMap((p) => p.items) || []).map((c) => [c.id, c]),
     ).values(),
+  ).sort(
+    (left, right) =>
+      Date.parse(right.lastMessageAt || right.createdAt) -
+      Date.parse(left.lastMessageAt || left.createdAt),
   );
   const inaccessible =
     detail.error instanceof ApiError &&

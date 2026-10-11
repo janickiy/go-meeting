@@ -132,6 +132,7 @@ window.MS = {
         this.closeModal();
         this.state.screen = next;
         this.state.theme = theme;
+        this.state.themeMode = theme;
         this.render();
       }
     });

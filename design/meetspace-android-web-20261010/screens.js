@@ -8,27 +8,42 @@
     `<div class="avatars">${avatar("АК", "", "sm")}${avatar("МП", "mint", "sm")}${avatar("ДВ", "orange", "sm")}${avatar("+2", "blue", "sm")}</div>`;
   const navItems = [
     ["home", "Home", "Главная"],
-    ["meetings", "Video", "Встречи"],
-    ["messages", "MessageCircle", "Личные"],
-    ["calendar", "CalendarDays", "Календарь"],
-    ["recordings", "CirclePlay", "Записи"],
-    ["settings", "Settings", "Настройки"],
+    ["calls", "Video", "Звонки"],
+    ["messages", "MessagesSquare", "Чаты"],
+    ["settings", "UserRound", "Профиль"],
   ];
-  const nav = (active, compact = false) => {
-    const items = compact
-      ? [...navItems.slice(0, 4), ["more", "Ellipsis", "Ещё"]]
-      : navItems;
-    return items
+  const nav = (active) => {
+    const selected = ["messages", "thread"].includes(active)
+      ? "messages"
+      : active === "settings"
+        ? "settings"
+        : active === "home"
+          ? "home"
+          : "calls";
+    return navItems
       .map(
         ([id, icon, label]) =>
-          `<button class="nav-item ${active === id || (id === "more" && ["settings", "recordings"].includes(active)) ? "active" : ""}" ${id === "more" ? 'data-action="more"' : `data-go="${id}"`} ${active === id ? 'aria-current="page"' : ""}>${I(icon)}<span>${label}</span>${id === "messages" ? '<i class="nav-unread"></i>' : ""}</button>`,
+          `<button class="nav-item ${selected === id ? "active" : ""}" data-go="${id}" aria-label="${label}" ${selected === id ? 'aria-current="page"' : ""}>${id === "settings" ? '<span class="nav-profile-avatar" aria-hidden="true">АС<i></i></span>' : I(icon)}<span>${label}</span>${id === "messages" ? '<i class="nav-unread"></i>' : ""}</button>`,
       )
       .join("");
   };
   const status = () =>
     `<div class="statusbar"><span>9:41</span><div class="status-indicators">${I("Signal")}${I("Wifi")}<span class="battery" aria-label="Заряд батареи"></span></div></div>`;
-  const shell = (content, active = "home", extra = "") =>
-    `<div class="shell ${M.state.screen === "thread" ? "thread-shell" : M.state.screen === "home" ? "home-shell" : ""}">${status()}<div class="app-layout"><aside class="rail"><div class="rail-logo"><img class="rail-brand" src="assets/brand-mark.svg" alt=""/><strong>Meet<span>Space</span></strong></div><p class="rail-tagline">Встречи, чаты и совместная работа<br/><b>в одном месте.</b></p><div class="rail-section-label">Рабочее пространство</div><nav aria-label="Главная навигация">${nav(active)}<button class="nav-item folders-nav" data-action="folders">${I("Folder")}<span>Папки</span></button></nav><button class="profile-nav icon-button" data-go="settings" aria-label="Мой профиль">${avatar("АС", "blue")}<span class="rail-profile-name">Александр<small>alex@example.org</small></span></button></aside><div class="app-main"><header class="app-header"><div class="workspace-label"><img class="workspace-icon" src="assets/brand-mark.svg" alt=""/><div><h2 class="mobile-wordmark">MeetSpace</h2><h2 class="desktop-section-title">${M.screens[M.state.screen]?.title || "MeetSpace"}</h2><div class="workspace-sub"><i class="dot"></i> Пространство команды</div></div></div><div class="header-actions"><button class="icon-button bell" data-action="notifications" aria-label="Уведомления">${I("Bell")}</button><button class="header-profile" data-go="settings" aria-label="Мой профиль">${avatar("АС", "blue")}<span>Александр</span></button></div></header><main class="content ${extra}">${content}</main><nav class="bottom-nav" aria-label="Главная навигация">${nav(active, true)}</nav></div></div></div>`;
+  const shell = (content, active = "home", extra = "") => {
+    const screen = M.state.screen;
+    const title =
+      {
+        home: "Главная",
+        calls: "Звонки",
+        messages: "Чаты",
+        thread: "Чаты",
+        settings: "Профиль",
+      }[screen] ||
+      M.screens[screen]?.title ||
+      "MeetSpace";
+    const search = ["calls", "messages"].includes(screen);
+    return `<div class="shell tm-shell screen-${screen} ${screen === "thread" ? "thread-shell" : ""}">${status()}<div class="app-layout"><div class="app-main"><header class="app-header"><div class="tm-heading"><img src="assets/brand-mark.svg" class="tm-desktop-brand" alt="MeetSpace"/><h1>${E(title)}</h1></div><div class="header-actions">${search ? `<button class="icon-button" data-action="screenSearch" aria-label="${screen === "calls" ? "Поиск звонков" : "Поиск чатов"}" aria-expanded="${Boolean(M.state.searchOpen?.[screen])}">${I("Search")}</button>` : screen === "home" ? `<button class="icon-button" data-action="notifications" aria-label="Уведомления">${I("Bell")}</button>` : `<button class="icon-button" data-go="${active === "settings" ? "settings" : "calls"}" aria-label="Назад к ${active === "settings" ? "профилю" : "звонкам"}">${I("ArrowLeft")}</button>`}</div></header><div class="tm-screen-stage"><main class="content ${extra}">${content}</main>${search ? `<button class="tm-fab ${screen === "messages" ? "chat-fab" : ""}" data-action="${screen === "calls" ? "newMeeting" : "newChat"}" aria-label="${screen === "calls" ? "Новый звонок" : "Новый чат"}">${I("Plus")}</button>` : ""}</div><nav class="bottom-nav" aria-label="Главная навигация">${nav(active)}</nav></div></div></div>`;
+  };
   M.shell = shell;
   const serverAddress = () =>
     M.state.onboarding?.server || "https://meet.example.org";
@@ -61,6 +76,9 @@
   const contacts = [
     {
       id: "team",
+      kind: "group",
+      members: ["self", "maria", "anna", "max", "dmitry"],
+      owner: "anna",
       initials: "П",
       name: "Команда продукта",
       preview: "Мария: собрала всё в одном файле",
@@ -70,6 +88,7 @@
     },
     {
       id: "anna",
+      kind: "direct",
       initials: "АК",
       name: "Анна Кузнецова",
       preview: "Да, до встречи!",
@@ -79,6 +98,9 @@
     },
     {
       id: "dev",
+      kind: "group",
+      members: ["self", "dmitry", "anna", "max"],
+      owner: "max",
       initials: "Р",
       name: "Разработка",
       preview: "Дмитрий: обновление готово",
@@ -88,6 +110,7 @@
     },
     {
       id: "max",
+      kind: "direct",
       initials: "МП",
       name: "Максим Петров",
       preview: "Вы: Спасибо, посмотрю сегодня",
@@ -97,18 +120,51 @@
     },
     {
       id: "design",
+      kind: "group",
+      members: ["self", "anna", "maria"],
+      owner: "self",
       initials: "Д",
       name: "Дизайн-команда",
-      preview: "Новая версия макетов в папке",
+      preview: "Анна: новая версия макетов в папке",
       time: "Пт",
       tone: "",
       unread: 0,
     },
   ];
+  const memberDirectory = () => [
+    {
+      id: "self",
+      name: M.state.profileName || "Александр Соколов",
+      initials: "АС",
+      tone: "blue",
+    },
+    ...contacts.filter((c) => c.kind === "direct"),
+    { id: "maria", name: "Мария Полякова", initials: "МП", tone: "mint" },
+    { id: "dmitry", name: "Дмитрий Волков", initials: "ДВ", tone: "" },
+  ];
+  const member = (id) => memberDirectory().find((person) => person.id === id);
+  const groupCount = (c) => {
+    const n = c.members.length;
+    const word =
+      n % 100 >= 11 && n % 100 <= 14
+        ? "участников"
+        : n % 10 === 1
+          ? "участник"
+          : n % 10 >= 2 && n % 10 <= 4
+            ? "участника"
+            : "участников";
+    return `${n} ${word}`;
+  };
+  const chatAvatar = (c) =>
+    `<span class="chat-avatar ${c.kind === "group" ? "is-group" : ""}">${avatar(E(c.initials), c.tone)}${c.kind === "group" ? `<span class="group-avatar-badge" role="img" aria-label="Групповой чат">${I("Users")}</span>` : ""}</span>`;
+  const groupMeta = (c) =>
+    c.kind === "group"
+      ? `<span class="chat-group-meta">Группа · ${groupCount(c)}</span>`
+      : "";
   const meetingRow = (m) =>
     `<button class="agenda-row" data-action="meeting" data-title="${E(m.title)}" data-time="${m.time}" data-date="${m.date || "2026-10-12"}"><span class="agenda-time">${m.time}<small>${m.end}</small></span><span class="agenda-mark ${m.tone}"></span><span class="agenda-detail"><h3>${E(m.title)}</h3><p>${m.meta}</p></span>${I("ChevronRight")}</button>`;
   const homeConversation = (c) =>
-    `<button class="home-chat-row" data-action="chat" data-chat="${c.id}" data-search="${E(c.name.toLocaleLowerCase("ru"))}" data-personal="${["anna", "max"].includes(c.id)}" data-unread="${Boolean(c.unread)}">${avatar(E(c.initials), c.tone)}<span class="home-chat-copy"><strong>${E(c.name)}</strong><span>${E(c.preview)}</span></span><span class="home-chat-meta"><time>${c.time}</time>${c.unread ? `<span class="unread">${c.unread}</span>` : I("CheckCheck")}</span></button>`;
+    `<button class="home-chat-row" data-action="chat" data-chat="${c.id}" data-kind="${c.kind}" data-search="${E(c.name.toLocaleLowerCase("ru"))}" data-personal="${c.kind === "direct"}" data-unread="${Boolean(c.unread)}">${chatAvatar(c)}<span class="home-chat-copy"><strong>${E(c.name)}</strong>${groupMeta(c)}<span>${E(c.preview)}</span></span><span class="home-chat-meta"><time>${c.time}</time>${c.unread ? `<span class="unread">${c.unread}</span>` : I("CheckCheck")}</span></button>`;
   const homeAction = (action, icon, title, note) =>
     `<button class="home-action-card" data-action="${action}"><span class="home-action-icon">${I(icon)}</span><span class="home-action-title">${title}</span><span class="home-action-note">${note}</span>${I("ArrowUpRight")}</button>`;
   M.screens.home = {
@@ -190,21 +246,115 @@
       filterChats();
     },
   };
+  const callHistory = [
+    {
+      id: "review",
+      date: "9 октября",
+      title: "Продукт. Следующая глава",
+      duration: "45 мин",
+      time: "14:00",
+      tone: "blue",
+      record: 0,
+    },
+    {
+      id: "demo",
+      date: "8 октября",
+      title: "Демо новой версии",
+      duration: "1 ч",
+      time: "11:00",
+      tone: "mint",
+      record: 3,
+    },
+    {
+      id: "anna",
+      date: "8 октября",
+      title: "Анна Кузнецова",
+      duration: "12 мин",
+      time: "09:30",
+      tone: "orange",
+    },
+    {
+      id: "planning",
+      date: "7 октября",
+      title: "Планы команды",
+      duration: "32 мин",
+      time: "16:00",
+      tone: "",
+    },
+    {
+      id: "design",
+      date: "6 октября",
+      title: "Обсуждение дизайна",
+      duration: "25 мин",
+      time: "13:15",
+      tone: "blue",
+    },
+  ];
+  const callResults = () => {
+    const rows = callHistory.filter((c) =>
+      c.title
+        .toLocaleLowerCase("ru")
+        .includes((M.state.callQuery || "").trim().toLocaleLowerCase("ru")),
+    );
+    let previous = "";
+    return (
+      rows
+        .map((c) => {
+          const heading =
+            previous !== c.date ? `<h2 class="call-date">${c.date}</h2>` : "";
+          previous = c.date;
+          return `${heading}<button class="call-history-row" data-action="historyCall" data-call="${c.id}">${avatar(I("Video"), c.tone)}<span class="call-history-copy"><strong>${E(c.title)}</strong><span>${I("ArrowUpRight")}${c.duration}</span></span><time>${c.time}</time></button>`;
+        })
+        .join("") ||
+      '<div class="tm-empty">Звонки не найдены.<br/>Попробуйте другое название.</div>'
+    );
+  };
+  M.screens.calls = {
+    title: "Звонки",
+    group: "Рабочее пространство",
+    render: () =>
+      shell(
+        `<div class="calls-layout"><section class="calls-start" aria-label="Начать звонок"><div class="call-actions"><button class="call-action call-action-main" data-action="newMeeting">${I("Video")}<span>Новый звонок</span></button><button class="call-action" data-action="join">${I("UserRound")}<span>Подключиться</span></button><button class="call-action" data-action="schedule">${I("CalendarDays")}<span>Запланировать</span></button></div><div class="call-shortcuts"><button data-go="calendar">${I("CalendarDays")}Календарь${I("ChevronRight")}</button><button data-go="recordings">${I("CirclePlay")}Записи${I("ChevronRight")}</button></div>${M.state.created ? `<button class="call-upcoming" data-go="calendar">${I("CalendarDays")}<span><small>Запланировано · ${E(M.state.created.date)} · ${E(M.state.created.time)}</small><strong>${E(M.state.created.title)}</strong></span>${I("ChevronRight")}</button>` : ""}<div class="calls-tablet-note"><img src="assets/brand-mark.svg" alt=""/><h2>Разговор начинается здесь</h2><p>Созвонитесь с командой сейчас<br/>или выберите удобное время.</p><button class="button secondary" data-action="copyHomeInvite">${I("Link")}Пригласить по ссылке</button></div></section><section class="call-history" aria-label="История звонков"><div class="call-history-heading"><h2>Недавние звонки</h2><span>${callHistory.length}</span></div><label class="search-box tm-search" ${M.state.searchOpen?.calls ? "" : "hidden"}>${I("Search")}<input id="call-search" type="search" aria-label="Найти звонок" placeholder="Найти звонок" value="${E(M.state.callQuery || "")}"/></label><div id="call-results">${callResults()}</div></section></div>`,
+        "calls",
+        "calls-content",
+      ),
+    bind: () =>
+      document.getElementById("call-search")?.addEventListener("input", (e) => {
+        M.state.callQuery = e.target.value;
+        document.getElementById("call-results").innerHTML = callResults();
+      }),
+  };
   const conversationList = () =>
-    `<aside class="conversation-list"><div class="page-title"><h1>Чаты</h1><button class="icon-button soft" data-action="newChat" aria-label="Новая беседа">${I("SquarePen")}</button></div><label class="search-box">${I("Search")}<input id="chat-search" type="search" placeholder="Найти человека или чат" aria-label="Поиск чатов"/></label><div class="chips"><button class="chip ${M.state.filter === "all" ? "active" : ""}" data-filter="all">Все <small>5</small></button><button class="chip ${M.state.filter === "unread" ? "active" : ""}" data-filter="unread">Непрочитанные <small>2</small></button></div><div class="eyebrow">Закреплённые</div><div id="conversation-results">${contacts
-      .filter((c) => M.state.filter !== "unread" || c.unread)
+    `<aside class="conversation-list"><div class="chat-filters" role="group" aria-label="Фильтры чатов">${[
+      ["all", "Все"],
+      ["personal", "Личные"],
+      ["unread", "Новые"],
+    ]
+      .map(
+        ([id, label]) =>
+          `<button data-filter="${id}" aria-pressed="${M.state.filter === id}" class="${M.state.filter === id ? "active" : ""}">${label}${id === "unread" ? `<span>${contacts.filter((c) => c.unread).length}</span>` : ""}</button>`,
+      )
+      .join(
+        "",
+      )}<button data-action="folders">Папки ${I("ChevronDown")}</button></div><label class="search-box tm-search" ${M.state.searchOpen?.messages ? "" : "hidden"}>${I("Search")}<input id="chat-search" type="search" placeholder="Найти человека или чат" aria-label="Найти чат" value="${E(M.state.chatQuery || "")}"/></label>${!M.state.inviteDismissed ? `<div class="chat-invite-note"><button data-action="copyHomeInvite"><span><strong>Пригласите свою команду</strong><small>Общайтесь и встречайтесь в MeetSpace</small></span>${I("UserPlus")}</button><button class="dismiss-invite" data-action="dismissInvite" aria-label="Скрыть приглашение">${I("X")}</button></div>` : ""}<div id="conversation-results">${contacts
+      .filter((c) =>
+        M.state.filter === "personal"
+          ? c.kind === "direct"
+          : M.state.filter !== "unread" || c.unread,
+      )
       .map(
         (c) =>
-          `<button class="conversation ${M.state.chat === c.id ? "active" : ""}" data-action="chat" data-chat="${c.id}" data-search="${E(c.name.toLowerCase())}">${avatar(E(c.initials), c.tone)}<span class="message-text"><h3>${E(c.name)}</h3><p>${E(c.preview)}</p></span><span class="conversation-meta">${c.time}${c.unread ? `<span class="unread">${c.unread}</span>` : I("CheckCheck")}</span></button>`,
+          `<button class="conversation ${M.state.screen === "thread" && M.state.chat === c.id ? "active" : ""}" data-action="chat" data-chat="${c.id}" data-kind="${c.kind}" data-search="${E(c.name.toLocaleLowerCase("ru"))}">${chatAvatar(c)}<span class="message-text"><h3>${E(c.name)}</h3>${groupMeta(c)}<p>${E(c.preview)}</p></span><span class="conversation-meta">${c.time}${c.unread ? `<span class="unread">${c.unread}</span>` : I("CheckCheck")}</span></button>`,
       )
       .join(
         "",
       )}</div><p id="chat-empty" class="empty-state" hidden>Такого чата пока нет</p></aside>`;
   const thread = () => {
     const c = contacts.find((c) => c.id === M.state.chat) || contacts[0];
-    const isGroup =
-      ["team", "dev", "design"].includes(c.id) || c.id.startsWith("group");
-    return `<section class="thread"><header class="thread-header"><button class="icon-button phone-back" data-go="messages" aria-label="Назад к чатам">${I("ArrowLeft")}</button>${avatar(E(c.initials), c.tone)}<div><h3>${E(c.name)}</h3><p>${isGroup ? "5 участников · 3 в сети" : "В сети"}</p></div><span class="spacer"></span><button class="icon-button" data-go="prejoin" aria-label="Начать видеовстречу">${I("Video")}</button><button class="icon-button" data-action="chatInfo" aria-label="Информация о чате">${I("Ellipsis")}</button></header><div class="thread-banner">${I("Pin")}<span>Встречаемся в 10:00 · Дизайн-синхронизация</span></div><div class="thread-log" id="thread-log"><div class="chat-date">Сегодня, 12 октября</div><div class="chat-message">${avatar(isGroup ? "МП" : E(c.initials), "mint")}<div><div class="bubble"><h4>${isGroup ? "Мария Полякова" : E(c.name)}</h4>Доброе утро! Собрала материалы к встрече. Посмотрите, когда будет минутка.<div class="chat-file">${I("FileText")}<div><strong>Обзор продукта.pdf</strong><span>2,4 МБ · PDF</span></div><button class="icon-button" data-action="attachment" aria-label="Открыть файл">${I("ArrowDown")}</button></div><small>09:32</small></div><button class="chat-reaction" data-action="reaction" aria-label="Отметить сообщение полезным">${I("Check")}<span>${M.state.reacted ? "3" : "2"}</span></button></div></div><div class="chat-message mine"><div class="bubble">Спасибо! Посмотрю перед созвоном. Есть пара идей по навигации.<small>09:34 · ✓✓</small></div></div><div class="chat-message">${avatar("АК", "orange")}<div class="bubble"><h4>${isGroup ? "Анна Кузнецова" : E(c.name)}</h4>Отлично, давайте начнём с них. До встречи!<small>09:38</small></div></div>${M.state.messages
+    const isGroup = c.kind === "group";
+    const firstAuthor = isGroup ? member(c.members[1]) : c;
+    const secondAuthor = isGroup ? member(c.members[2] || c.members[1]) : c;
+    return `<section class="thread"><header class="thread-header"><button class="icon-button phone-back" data-go="messages" aria-label="Назад к чатам">${I("ArrowLeft")}</button>${chatAvatar(c)}<div><h3>${E(c.name)}</h3><p>${isGroup ? `Группа · ${groupCount(c)}` : "В сети"}</p></div><span class="spacer"></span><button class="icon-button" data-action="chatCall" aria-label="Начать видеовстречу">${I("Video")}</button><button class="icon-button" data-action="chatInfo" aria-label="Информация о чате">${I("Ellipsis")}</button></header>${c.created ? "" : `<div class="thread-banner">${I("Pin")}<span>Встречаемся в 10:00 · Дизайн-синхронизация</span></div>`}<div class="thread-log" id="thread-log">${c.created ? `<div class="chat-date">Вы создали группу</div>${M.state.messages.some((message) => message.chat === c.id) ? "" : `<div class="group-welcome">${chatAvatar(c)}<h3>${E(c.name)}</h3><p>${groupCount(c)} · Всё готово к общению.<br/>Напишите первое сообщение.</p></div>`}` : `<div class="chat-date">Сегодня, 12 октября</div><div class="chat-message">${avatar(E(firstAuthor.initials), firstAuthor.tone)}<div><div class="bubble"><h4>${E(firstAuthor.name)}</h4>Доброе утро! Собрала материалы к встрече. Посмотрите, когда будет минутка.<div class="chat-file">${I("FileText")}<div><strong>Обзор продукта.pdf</strong><span>2,4 МБ · PDF</span></div><button class="icon-button" data-action="attachment" aria-label="Открыть файл">${I("ArrowDown")}</button></div><small>09:32</small></div><button class="chat-reaction" data-action="reaction" aria-label="Отметить сообщение полезным">${I("Check")}<span>${M.state.reacted ? "3" : "2"}</span></button></div></div><div class="chat-message mine"><div class="bubble">Спасибо! Посмотрю перед созвоном. Есть пара идей по навигации.<small>09:34 · ✓✓</small></div></div><div class="chat-message">${avatar(E(secondAuthor.initials), secondAuthor.tone)}<div class="bubble"><h4>${E(secondAuthor.name)}</h4>Отлично, давайте начнём с них. До встречи!<small>09:38</small></div></div>`}${M.state.messages
       .filter((m) => m.chat === c.id)
       .map(
         (m) =>
@@ -222,8 +372,8 @@
           M.render();
         }),
     );
-    document.getElementById("chat-search")?.addEventListener("input", (e) => {
-      const query = e.target.value.toLowerCase().trim();
+    const filterChatRows = () => {
+      const query = (M.state.chatQuery || "").toLocaleLowerCase("ru").trim();
       let count = 0;
       document.querySelectorAll(".conversation").forEach((c) => {
         const show = c.dataset.search.includes(query);
@@ -232,13 +382,23 @@
         if (show) count++;
       });
       document.getElementById("chat-empty").hidden = count > 0;
+    };
+    document.getElementById("chat-search")?.addEventListener("input", (e) => {
+      M.state.chatQuery = e.target.value;
+      filterChatRows();
     });
+    filterChatRows();
     document.getElementById("message-form")?.addEventListener("submit", (e) => {
       e.preventDefault();
       const input = document.getElementById("message-input");
       const text = input.value.trim();
       if (!text) return;
       M.state.messages.push({ chat: M.state.chat, text });
+      const current = contacts.find((c) => c.id === M.state.chat);
+      if (current) {
+        current.preview = `Вы: ${text}`;
+        current.time = "Сейчас";
+      }
       M.render();
       document.getElementById("thread-log").scrollTop = 999999;
       document.getElementById("message-input").focus();
@@ -447,8 +607,8 @@
     group: "Встреча",
     render: () =>
       shell(
-        `<div class="prejoin-layout"><div class="camera-preview">${avatar("АС", "blue")}<p>${M.state.camera ? "Предпросмотр камеры в макете" : "Камера выключена"}</p><div class="camera-controls"><button class="icon-button ${M.state.mic ? "" : "off"}" data-action="mic" aria-label="${M.state.mic ? "Выключить" : "Включить"} микрофон" aria-pressed="${M.state.mic}">${I(M.state.mic ? "Mic" : "MicOff")}</button><button class="icon-button ${M.state.camera ? "" : "off"}" data-action="camera" aria-label="${M.state.camera ? "Выключить" : "Включить"} камеру" aria-pressed="${M.state.camera}">${I(M.state.camera ? "Video" : "VideoOff")}</button></div></div><div class="prejoin-info"><span class="badge blue">${I("Video")} Ваша следующая встреча</span><h1>${E(M.state.meetingTitle || "Дизайн-синхронизация")}</h1><p>${Number((M.state.meetingMeta?.date || "2026-10-12").slice(-2))} октября · ${E(M.state.meetingMeta?.time || "10:00")} — ${E(M.state.meetingMeta?.end || "10:45")}<br/>Организатор: ${E(M.state.meetingMeta?.owner || "Анна Кузнецова")}</p><label class="field">Ваше имя<input id="participant-name" value="${E(M.state.participantName || "Александр Соколов")}" autocomplete="name"/></label><div class="device-line">${I("Mic")}Встроенный микрофон <span class="spacer"></span><button class="icon-button" data-action="devices" aria-label="Настроить устройства">${I("Settings")}</button></div><button class="button primary" data-action="enterCall">Присоединиться ${I("ArrowRight")}</button><button class="button quiet" data-go="home">Вернуться на главную</button><p style="font-size:10px;text-align:center;margin-top:14px">Демоэкраны · камера и микрофон устройства не используются</p></div></div>`,
-        "home",
+        `<div class="prejoin-layout"><div class="camera-preview">${avatar("АС", "blue")}<p>${M.state.camera ? "Предпросмотр камеры в макете" : "Камера выключена"}</p><div class="camera-controls"><button class="icon-button ${M.state.mic ? "" : "off"}" data-action="mic" aria-label="${M.state.mic ? "Выключить" : "Включить"} микрофон" aria-pressed="${M.state.mic}">${I(M.state.mic ? "Mic" : "MicOff")}</button><button class="icon-button ${M.state.camera ? "" : "off"}" data-action="camera" aria-label="${M.state.camera ? "Выключить" : "Включить"} камеру" aria-pressed="${M.state.camera}">${I(M.state.camera ? "Video" : "VideoOff")}</button></div></div><div class="prejoin-info"><span class="badge blue">${I("Video")} Ваша следующая встреча</span><h1>${E(M.state.meetingTitle || "Дизайн-синхронизация")}</h1><p>${Number((M.state.meetingMeta?.date || "2026-10-12").slice(-2))} октября · ${E(M.state.meetingMeta?.time || "10:00")} — ${E(M.state.meetingMeta?.end || "10:45")}<br/>Организатор: ${E(M.state.meetingMeta?.owner || "Анна Кузнецова")}</p><label class="field">Ваше имя<input id="participant-name" value="${E(M.state.participantName || "Александр Соколов")}" autocomplete="name"/></label><div class="device-line">${I("Mic")}Встроенный микрофон <span class="spacer"></span><button class="icon-button" data-action="devices" aria-label="Настроить устройства">${I("Settings")}</button></div><button class="button primary" data-action="enterCall">Присоединиться ${I("ArrowRight")}</button><button class="button quiet" data-go="calls">Вернуться к звонкам</button><p style="font-size:10px;text-align:center;margin-top:14px">Демоэкраны · камера и микрофон устройства не используются</p></div></div>`,
+        "calls",
       ),
   };
   const callControl = (label, icon, action, cls = "") =>
@@ -476,70 +636,28 @@
         });
     },
   };
-  const settingsTabs = [
-    ["profile", "User", "Профиль"],
-    ["devices", "Mic", "Устройства"],
-    ["notifications", "Bell", "Уведомления"],
-    ["appearance", "Sun", "Оформление"],
-  ];
-  const settingToggle = (title, desc, checked = true) =>
-    `<label class="setting-row"><span><h3>${title}</h3><p>${desc}</p></span><input class="toggle" type="checkbox" ${checked ? "checked" : ""} aria-label="${title}"/></label>`;
-  const settingsContent = () => {
-    if (M.state.tab === "appearance")
-      return `<h2>Оформление</h2><p class="muted" style="margin-top:8px;font-size:12px">Подберите комфортную тему.</p><div class="setting-row"><span><h3>Тёмная тема</h3><p>Применяется ко всему пространству</p></span><input id="theme-toggle" type="checkbox" class="toggle" ${M.state.theme === "dark" ? "checked" : ""} aria-label="Тёмная тема"/></div><div class="setting-row"><span><h3>Размер текста</h3><p>Масштаб в прототипе</p></span><select id="text-size" aria-label="Размер текста"><option value="100">100%</option><option value="115">115%</option><option value="130">130%</option></select></div>`;
-    if (M.state.tab === "notifications")
-      return `<h2>Уведомления</h2>${settingToggle("Новые сообщения", "Личные и групповые беседы")}${settingToggle("Напоминания о встречах", "За 10 минут до начала")}${settingToggle("Звуки уведомлений", "Когда приложение открыто", false)}<p class="muted" style="margin-top:18px;font-size:11px">Параметры демонстрируются в текущем макете.</p>`;
-    if (M.state.tab === "devices")
-      return `<h2>Аудио и видео</h2><div class="stack" style="margin-top:24px"><label class="field">Микрофон<select><option>Встроенный микрофон</option><option>Гарнитура Bluetooth (пример)</option></select></label><label class="field">Динамики<select><option>Динамики устройства</option><option>Гарнитура Bluetooth (пример)</option></select></label>${settingToggle("Входить с выключенной камерой", "Можно включить перед встречей")}<button class="button secondary" data-go="prejoin">Открыть предпросмотр</button></div>`;
-    return `<div class="profile-block">${avatar("АС", "blue", "lg")}<div><h2>${E(M.state.profileName || "Александр Соколов")}</h2><p>Участник команды продукта</p></div></div><form class="stack" id="profile-form"><label class="field">Имя и фамилия<input name="name" value="${E(M.state.profileName || "Александр Соколов")}" required/></label><label class="field">Электронная почта<input type="email" name="email" value="${E(M.state.profileEmail || "alex@example.org")}" required/></label><button class="button primary">Сохранить изменения</button></form><div class="server-card"><div class="row">${I("Server")}<h3>Сервер команды</h3><span class="spacer"></span><i class="dot" style="color:var(--green)"></i></div><p>${E(serverAddress())}</p><button class="text-action" data-action="servers">Управлять подключением ${I("ArrowRight")}</button></div><button class="text-action" data-action="logout" style="color:var(--danger);margin-top:12px">Выйти из аккаунта</button>`;
-  };
+  const profileRow = (icon, label, action, value = "") =>
+    `<button class="profile-option" data-action="${action}">${I(icon)}<span>${label}</span>${value ? `<small>${E(value)}</small>` : ""}${I("ChevronRight")}</button>`;
   M.screens.settings = {
-    title: "Профиль и настройки",
+    title: "Профиль",
     group: "Рабочее пространство",
     render: () =>
       shell(
-        `<div class="page-title"><div><h1>Ваш профиль</h1><p>Пространство, в котором удобно вам.</p></div></div><div class="settings-layout"><nav class="settings-menu card" aria-label="Разделы настроек">${settingsTabs.map(([id, icon, name]) => `<button data-settings-tab="${id}" class="${M.state.tab === id ? "active" : ""}">${I(icon)}${name}</button>`).join("")}</nav><section class="settings-panel card">${settingsContent()}</section></div>`,
+        `<div class="profile-layout"><section class="profile-hero"><button class="profile-identity" data-action="editProfile" aria-label="Редактировать профиль"><span class="profile-portrait">${avatar("АС", "blue")}<i class="presence-dot ${M.state.presence === "Не беспокоить" ? "busy" : M.state.presence === "Нет на месте" ? "away" : ""}"></i></span><h1>${E(M.state.profileName || "Александр Соколов")}${I("ChevronRight")}</h1><span>${E(M.state.profileEmail || "alex@example.org")}</span></button><button class="profile-presence" data-action="presence">${E(M.state.presence || "В сети")}${I("ChevronDown")}</button><button class="profile-server-summary" data-action="servers">${I("Server")}<span><strong>Пространство команды</strong><small>${E(new URL(serverAddress()).host)}</small></span>${I("ChevronRight")}</button></section><div class="profile-groups"><section class="profile-group">${profileRow("Share2", "Поделиться контактом", "shareContact")}</section><section class="profile-group"><label class="profile-option">${I("Bell")}<span>Уведомления</span><input id="profile-notifications" class="toggle" type="checkbox" aria-label="Уведомления" ${M.state.notificationsEnabled !== false ? "checked" : ""}/></label>${profileRow("Folder", "Папки с чатами", "folders")}${profileRow("SunMoon", "Тема оформления", "appearance", M.state.themeMode === "system" ? "Системная" : M.state.theme === "dark" ? "Тёмная" : "Светлая")}${profileRow("Video", "Настройки звонков", "devices")}${profileRow("Server", "Подключение к серверу", "servers")}${profileRow("LockKeyhole", "Конфиденциальность", "privacy")}</section><section class="profile-group">${profileRow("LogOut", "Выйти из аккаунта", "logout")}</section><p class="profile-app-note">MeetSpace · Пространство вашей команды</p></div></div>`,
         "settings",
+        "profile-content",
       ),
-    bind: () => {
-      document.querySelectorAll("[data-settings-tab]").forEach(
-        (b) =>
-          (b.onclick = () => {
-            M.state.tab = b.dataset.settingsTab;
-            M.render();
-          }),
-      );
+    bind: () =>
       document
-        .getElementById("profile-form")
-        ?.addEventListener("submit", (e) => {
-          e.preventDefault();
-          M.state.profileName = new FormData(e.target).get("name");
-          M.state.profileEmail = new FormData(e.target).get("email");
-          M.render();
-          M.toast("Изменения сохранены в макете");
-        });
-      document
-        .getElementById("theme-toggle")
+        .getElementById("profile-notifications")
         ?.addEventListener("change", (e) => {
-          M.state.theme = e.target.checked ? "dark" : "light";
-          M.render();
-        });
-      document.getElementById("text-size")?.addEventListener("change", (e) => {
-        document.querySelector(".settings-panel").style.fontSize =
-          `${e.target.value}%`;
-        document
-          .querySelectorAll(
-            ".settings-panel h2,.settings-panel h3,.settings-panel p",
-          )
-          .forEach(
-            (el) =>
-              (el.style.fontSize =
-                (Number(e.target.value) / 100) *
-                  (el.tagName === "H2" ? 19 : el.tagName === "H3" ? 13 : 12) +
-                "px"),
+          M.state.notificationsEnabled = e.target.checked;
+          M.toast(
+            e.target.checked
+              ? "Уведомления включены в макете"
+              : "Уведомления выключены в макете",
           );
-      });
-    },
+        }),
   };
   const meetingForm = (scheduled) =>
     M.modal(
@@ -560,7 +678,7 @@
               meta: `${date === "2026-10-12" ? "Сегодня" : date} · Вы — организатор`,
               tone: "mint",
             };
-            M.go("home");
+            M.go(M.state.screen === "calls" ? "calls" : "home");
             M.toast("Встреча добавлена в демонстрационный список");
           } else M.go("prejoin");
         }),
@@ -627,53 +745,108 @@
       M.state.chat = b.dataset.chat;
       M.go("thread");
     },
-    chatInfo: () =>
+    chatInfo: () => {
+      const c = contacts.find((c) => c.id === M.state.chat) || contacts[0];
+      const isGroup = c.kind === "group";
       M.modal(
-        "О беседе",
-        `<div class="stack"><p>Команда продукта · 5 участников</p>${contacts
-          .slice(1, 4)
-          .map(
-            (c) =>
-              `<div class="row">${avatar(E(c.initials), c.tone)}<span>${E(c.name)}</span></div>`,
-          )
-          .join(
-            "",
-          )}<button class="button secondary" data-go="prejoin">${I("Video")}Начать встречу</button></div>`,
-      ),
+        isGroup ? "О группе" : "О контакте",
+        `<div class="stack"><div class="group-info-heading">${chatAvatar(c)}<div><h3>${E(c.name)}</h3><p>${isGroup ? `Группа · ${groupCount(c)}` : "Личная переписка"}</p></div></div>${
+          isGroup
+            ? `<h3 class="group-members-title">Участники</h3><div class="group-info-members">${c.members
+                .map((id) => {
+                  const person = member(id);
+                  return `<div class="group-info-member">${avatar(E(person.initials), person.tone)}<div><strong>${E(person.name)}</strong><small>${id === "self" ? "Вы" : ""}${id === c.owner ? `${id === "self" ? " · " : ""}Администратор` : ""}</small></div></div>`;
+                })
+                .join("")}</div>`
+            : ""
+        }<button class="button secondary" data-action="chatCall">${I("Video")}${isGroup ? "Позвонить группе" : "Позвонить"}</button></div>`,
+      );
+    },
+    chatCall: () => {
+      const c = contacts.find((c) => c.id === M.state.chat) || contacts[0];
+      M.state.meetingTitle =
+        c.kind === "group" ? `Звонок группы «${c.name}»` : c.name;
+      M.state.meetingMeta = null;
+      M.go("prejoin");
+    },
     newChat: () =>
       M.modal(
         "Новая беседа",
-        `<div class="stack"><p>Выберите коллегу для начала разговора.</p>${contacts
-          .filter((c) => ["anna", "max"].includes(c.id))
+        `<div class="stack"><button class="button secondary create-group-choice" data-action="newGroup">${I("Users")}Создать группу</button><p>Или начните личную переписку.</p>${contacts
+          .filter((c) => c.kind === "direct")
           .map(
             (c) =>
               `<button class="home-message" data-action="chat" data-chat="${c.id}">${avatar(E(c.initials), c.tone)}${E(c.name)}${I("ArrowRight")}</button>`,
           )
-          .join(
-            "",
-          )}<button class="button secondary" data-action="newGroup">${I("Users")}Создать группу</button></div>`,
+          .join("")}</div>`,
       ),
     newGroup: () =>
       M.modal(
         "Создать группу",
-        `<form id="group-form" class="stack"><label class="field">Название группы<input name="name" required placeholder="Команда проекта" maxlength="50"/></label><p>В демогруппу войдут Анна и Максим.</p><button class="button primary">Создать группу</button></form>`,
-        () =>
-          (document.getElementById("group-form").onsubmit = (e) => {
+        `<form id="group-form" class="stack"><label class="field">Название группы<input name="name" required placeholder="Например, Команда проекта" maxlength="50"/></label><fieldset class="group-member-picker"><legend>Участники</legend>${contacts
+          .filter((c) => c.kind === "direct")
+          .map(
+            (c) =>
+              `<label class="group-member-option">${avatar(E(c.initials), c.tone)}<span>${E(c.name)}</span><input type="checkbox" name="members" value="${c.id}" checked aria-label="Добавить ${E(c.name)}"/></label>`,
+          )
+          .join(
+            "",
+          )}</fieldset><p class="group-create-note">Вы будете администратором группы. Она появится во вкладке «Все».</p><p id="group-members-error" class="field-error" role="alert" hidden>Выберите хотя бы одного участника.</p><button class="button primary">Создать группу</button></form>`,
+        () => {
+          document.getElementById("group-form").onsubmit = (e) => {
             e.preventDefault();
-            const name = new FormData(e.target).get("name");
+            const data = new FormData(e.target),
+              name = String(data.get("name")).trim();
+            const input = e.target.elements.name;
+            input.setCustomValidity(name ? "" : "Введите название группы");
+            if (!input.reportValidity()) return;
+            const selected = data
+              .getAll("members")
+              .filter((id) =>
+                contacts.some((c) => c.id === id && c.kind === "direct"),
+              );
+            document.getElementById("group-members-error").hidden =
+              selected.length > 0;
+            if (!selected.length) return;
             const c = {
               id: "group" + contacts.length,
-              initials: name.slice(0, 1),
+              kind: "group",
+              members: ["self", ...selected],
+              owner: "self",
+              created: true,
+              initials: name.slice(0, 1).toLocaleUpperCase("ru"),
               name,
-              preview: "Группа создана",
-              time: "09:41",
+              preview: "Вы создали группу",
+              time: "Сейчас",
               tone: "blue",
               unread: 0,
             };
-            contacts.push(c);
+            contacts.unshift(c);
             M.state.chat = c.id;
+            M.state.filter = "all";
+            M.state.chatQuery = "";
+            M.state.homeFilter = "all";
+            M.state.homeQuery = "";
             M.go("thread");
-          }),
+          };
+          document.querySelector('#group-form input[name="name"]').oninput = (
+            e,
+          ) => e.target.setCustomValidity("");
+          document
+            .querySelectorAll('#group-form input[name="members"]')
+            .forEach(
+              (input) =>
+                (input.onchange = () => {
+                  if (
+                    document.querySelector(
+                      '#group-form input[name="members"]:checked',
+                    )
+                  )
+                    document.getElementById("group-members-error").hidden =
+                      true;
+                }),
+            );
+        },
       ),
     reaction: () => {
       M.state.reacted = !M.state.reacted;
@@ -801,7 +974,7 @@
     leaveCall: () =>
       M.modal(
         "Выйти из встречи?",
-        `<div class="stack"><p>Остальные участники смогут продолжить разговор.</p><button class="button danger" data-go="home">Выйти из встречи</button><button class="button secondary" data-close>Остаться</button></div>`,
+        `<div class="stack"><p>Остальные участники смогут продолжить разговор.</p><button class="button danger" data-go="calls">Выйти из встречи</button><button class="button secondary" data-close>Остаться</button></div>`,
       ),
     servers: () =>
       M.modal(
@@ -814,4 +987,123 @@
         `<div class="stack"><p>Сервер команды останется в списке подключений.</p><button class="button danger" data-go="login">Выйти</button><button class="button secondary" data-close>Остаться</button></div>`,
       ),
   };
+
+  Object.assign(M.actions, {
+    screenSearch: () => {
+      const screen = M.state.screen;
+      M.state.searchOpen ||= {};
+      M.state.searchOpen[screen] = !M.state.searchOpen[screen];
+      if (!M.state.searchOpen[screen])
+        M.state[screen === "calls" ? "callQuery" : "chatQuery"] = "";
+      M.render();
+      if (M.state.searchOpen[screen])
+        document
+          .getElementById(screen === "calls" ? "call-search" : "chat-search")
+          ?.focus();
+    },
+    dismissInvite: () => {
+      M.state.inviteDismissed = true;
+      M.render();
+    },
+    historyCall: (button) => {
+      const call = callHistory.find((c) => c.id === button.dataset.call);
+      if (!call) return;
+      M.modal(
+        E(call.title),
+        `<div class="stack"><p>${call.date} · ${call.time} · ${call.duration}</p><button class="button primary" id="repeat-call">${I("Video")}Позвонить снова</button>${call.record !== undefined ? '<button class="button secondary" id="history-record">Открыть запись</button>' : ""}</div>`,
+        () => {
+          document.getElementById("repeat-call").onclick = () => {
+            M.state.meetingTitle = call.title;
+            M.state.meetingMeta = null;
+            M.go("prejoin");
+          };
+          document
+            .getElementById("history-record")
+            ?.addEventListener("click", () => {
+              M.state.record = call.record;
+              M.go("recording");
+            });
+        },
+      );
+    },
+    editProfile: () =>
+      M.modal(
+        "Редактировать профиль",
+        `<form id="profile-form" class="stack"><label class="field">Имя и фамилия<input name="name" value="${E(M.state.profileName || "Александр Соколов")}" maxlength="60" required/></label><label class="field">Электронная почта<input type="email" name="email" value="${E(M.state.profileEmail || "alex@example.org")}" required/></label><button class="button primary">Сохранить изменения</button></form>`,
+        () => {
+          document.getElementById("profile-form").onsubmit = (e) => {
+            e.preventDefault();
+            const data = new FormData(e.target);
+            if (!String(data.get("name")).trim()) return;
+            M.state.profileName = String(data.get("name")).trim();
+            M.state.profileEmail = data.get("email");
+            M.closeModal();
+            M.render();
+            M.toast("Изменения сохранены в макете");
+          };
+        },
+      ),
+    presence: () =>
+      M.modal(
+        "Ваш статус",
+        `<div class="stack">${["В сети", "Не беспокоить", "Нет на месте"].map((label) => `<button class="button secondary" data-action="setPresence" data-presence="${label}" aria-pressed="${(M.state.presence || "В сети") === label}">${label}${(M.state.presence || "В сети") === label ? I("Check") : ""}</button>`).join("")}</div>`,
+      ),
+    setPresence: (b) => {
+      M.state.presence = b.dataset.presence;
+      M.closeModal();
+      M.render();
+    },
+    appearance: () =>
+      M.modal(
+        "Тема оформления",
+        `<div class="stack">${[
+          ["light", "Светлая"],
+          ["dark", "Тёмная"],
+          ["system", "Системная"],
+        ]
+          .map(
+            ([id, label]) =>
+              `<button class="button secondary" data-action="setTheme" data-theme-value="${id}" aria-pressed="${(M.state.themeMode === "system" ? "system" : M.state.theme) === id}">${I(id === "light" ? "Sun" : id === "dark" ? "Moon" : "Monitor")}${label}${(M.state.themeMode === "system" ? "system" : M.state.theme) === id ? I("Check") : ""}</button>`,
+          )
+          .join("")}</div>`,
+      ),
+    setTheme: (b) => {
+      M.state.themeMode = b.dataset.themeValue;
+      M.state.theme =
+        M.state.themeMode === "system"
+          ? matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+          : M.state.themeMode;
+      M.closeModal();
+      M.render();
+    },
+    shareContact: () =>
+      M.modal(
+        "Поделиться контактом",
+        `<div class="stack"><h3>${E(M.state.profileName || "Александр Соколов")}</h3><label class="field">Электронная почта<input id="contact-email" value="${E(M.state.profileEmail || "alex@example.org")}" readonly/></label><button class="button primary" data-action="copyContact">${I("Copy")}Скопировать почту</button></div>`,
+      ),
+    copyContact: async () => {
+      try {
+        await navigator.clipboard.writeText(
+          M.state.profileEmail || "alex@example.org",
+        );
+        M.toast("Почта скопирована");
+      } catch {
+        document.getElementById("contact-email")?.select();
+        M.toast("Выделите и скопируйте адрес");
+      }
+    },
+    privacy: () =>
+      M.modal(
+        "Конфиденциальность",
+        `<div class="stack"><p>Встречи, сообщения и записи находятся на сервере вашей команды.</p><div class="server-card"><strong>Сервер</strong><p>${E(serverAddress())}</p></div><p>Камерой и микрофоном можно управлять перед подключением и во время звонка.</p><button class="button secondary" data-action="devices">Настройки звонков</button></div>`,
+      ),
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    if (M.state.themeMode === "system") {
+      M.state.theme = e.matches ? "dark" : "light";
+      M.render();
+    }
+  });
 })();

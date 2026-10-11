@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MeetSpace — четыре вкладки · Вариант 01</title>
+    <link rel="icon" href="assets/brand-mark.svg" />
+    <link rel="stylesheet" href="app.css" />
+    <style>
+      :root {
+        --accent: #3668ed;
+      }
+      body {
+        background: #f3f4f8;
+        color: #202737;
+        padding: 32px 42px;
+      }
+      :root[data-theme="dark"] body {
+        background: #17171b;
+        color: #f3f3f6;
+      }
+      .overview-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 21px;
+        font-weight: 600;
+      }
+      .brand img {
+        width: 34px;
+        height: 34px;
+      }
+      .version {
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        color: #9595a2;
+        margin-left: 14px;
+      }
+      .tools {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .tools button,
+      .tools a {
+        padding: 10px 15px;
+        border-radius: 12px;
+        min-height: 42px;
+        font-size: 12px;
+        background: #e6e8ef;
+        color: #313745;
+      }
+      :root[data-theme="dark"] .tools button,
+      :root[data-theme="dark"] .tools a {
+        background: #2b2b31;
+        color: #c4c4cf;
+      }
+      .tools button[aria-pressed="true"] {
+        box-shadow: inset 0 0 0 1px #9796ae;
+      }
+      h1 {
+        font-size: 34px;
+        letter-spacing: -1px;
+      }
+      .overview-intro {
+        margin-bottom: 24px;
+      }
+      .overview-intro p {
+        font-size: 13px;
+        color: #9898a5;
+        margin-top: 8px;
+      }
+      .previews {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 24px;
+        max-width: 1740px;
+        margin: auto;
+      }
+      .preview-card {
+        min-width: 0;
+      }
+      .screen-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0 8px 12px;
+      }
+      .screen-label h2 {
+        font-size: 14px;
+        letter-spacing: 0;
+      }
+      .screen-label a {
+        color: #9898a5;
+        font-size: 20px;
+      }
+      .device {
+        border: 9px solid #363640;
+        border-radius: 35px;
+        overflow: hidden;
+        line-height: 0;
+        box-shadow: 0 12px 30px #0002;
+        background: #141416;
+      }
+      iframe {
+        border: 0;
+        width: 100%;
+        height: 844px;
+        display: block;
+      }
+      .preview-card > p {
+        font-size: 11px;
+        color: #9898a5;
+        margin: 12px 8px 0;
+      }
+      @media (max-width: 1450px) {
+        .previews {
+          grid-template-columns: repeat(2, minmax(0, 410px));
+          justify-content: center;
+          gap: 30px;
+        }
+      }
+      @media (max-width: 760px) {
+        body {
+          padding: 20px 14px;
+        }
+        .overview-header {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .version {
+          display: none;
+        }
+        h1 {
+          font-size: 27px;
+        }
+        .tools {
+          flex-wrap: wrap;
+        }
+        .previews {
+          grid-template-columns: minmax(0, 410px);
+        }
+        .device {
+          border-width: 7px;
+        }
+        iframe {
+          height: 844px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="overview-header">
+      <div class="brand">
+        <img src="assets/brand-mark.svg" alt="" />MeetSpace
+        <span class="version">ВАРИАНТ 01</span>
+      </div>
+      <div class="tools">
+        <button data-theme="light" aria-pressed="false">Светлая</button
+        ><button data-theme="dark" aria-pressed="true">Тёмная</button
+        ><a
+          id="gallery-link"
+          href="index.html?screen=calls&theme=dark&view=compare"
+          >Смартфон и планшет ↗</a
+        >
+      </div>
+    </header>
+    <section class="overview-intro">
+      <h1>Главная, звонки, чаты и профиль.</h1>
+      <p>Четыре вкладки внизу. Нажимайте на элементы — макет интерактивный.</p>
+    </section>
+    <main class="previews">
+      <section class="preview-card">
+        <div class="screen-label">
+          <h2>Главная</h2>
+          <a
+            href="preview.html?screen=home&theme=dark"
+            data-open="home"
+            target="_blank"
+            rel="noopener"
+            aria-label="Открыть экран Главная"
+            >↗</a
+          >
+        </div>
+        <div class="device">
+          <iframe
+            src="preview.html?screen=home&theme=dark"
+            data-screen="home"
+            title="Главная — интерактивный экран"
+            width="390"
+            height="844"
+          ></iframe>
+        </div>
+        <p>Быстрые действия и недавние чаты</p>
+      </section>
+      <section class="preview-card">
+        <div class="screen-label">
+          <h2>Звонки</h2>
+          <a
+            href="preview.html?screen=calls&theme=dark"
+            data-open="calls"
+            target="_blank"
+            rel="noopener"
+            aria-label="Открыть экран Звонки"
+            >↗</a
+          >
+        </div>
+        <div class="device">
+          <iframe
+            src="preview.html?screen=calls&theme=dark"
+            data-screen="calls"
+            title="Звонки — интерактивный экран"
+            width="390"
+            height="844"
+          ></iframe>
+        </div>
+        <p>Новый звонок и история по датам</p>
+      </section>
+      <section class="preview-card">
+        <div class="screen-label">
+          <h2>Чаты</h2>
+          <a
+            href="preview.html?screen=messages&theme=dark"
+            data-open="messages"
+            target="_blank"
+            rel="noopener"
+            aria-label="Открыть экран Чаты"
+            >↗</a
+          >
+        </div>
+        <div class="device">
+          <iframe
+            src="preview.html?screen=messages&theme=dark"
+            data-screen="messages"
+            title="Чаты — интерактивный экран"
+            width="390"
+            height="844"
+          ></iframe>
+        </div>
+        <p>Беседы, поиск и фильтры</p>
+      </section>
+      <section class="preview-card">
+        <div class="screen-label">
+          <h2>Профиль</h2>
+          <a
+            href="preview.html?screen=settings&theme=dark"
+            data-open="settings"
+            target="_blank"
+            rel="noopener"
+            aria-label="Открыть экран Профиль"
+            >↗</a
+          >
+        </div>
+        <div class="device">
+          <iframe
+            src="preview.html?screen=settings&theme=dark"
+            data-screen="settings"
+            title="Профиль — интерактивный экран"
+            width="390"
+            height="844"
+          ></iframe>
+        </div>
+        <p>Статус и настройки</p>
+      </section>
+    </main>
+    <script>
+      let theme =
+        new URLSearchParams(location.search).get("theme") === "light"
+          ? "light"
+          : "dark";
+      function applyTheme(initial = false) {
+        document.documentElement.dataset.theme = theme;
+        document.querySelectorAll("[data-theme]").forEach((button) => {
+          if (button.tagName === "BUTTON")
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.theme === theme),
+            );
+        });
+        for (const frame of document.querySelectorAll("iframe")) {
+          if (initial)
+            frame.src = `preview.html?screen=${frame.dataset.screen}&theme=${theme}`;
+          else
+            frame.contentWindow.postMessage(
+              {
+                type: "ms:screen",
+                screen:
+                  frame.contentDocument?.body?.dataset.screen ||
+                  frame.dataset.screen,
+                theme,
+              },
+              location.origin,
+            );
+        }
+        document
+          .querySelectorAll("[data-open]")
+          .forEach(
+            (link) =>
+              (link.href = `preview.html?screen=${link.dataset.open}&theme=${theme}`),
+          );
+        document.getElementById("gallery-link").href =
+          `index.html?screen=calls&theme=${theme}&view=compare`;
+        const url = new URL(location.href);
+        url.searchParams.set("theme", theme);
+        history.replaceState(null, "", url);
+      }
+      document.querySelectorAll("button[data-theme]").forEach(
+        (button) =>
+          (button.onclick = () => {
+            theme = button.dataset.theme;
+            applyTheme();
+          }),
+      );
+      applyTheme(true);
+    </script>
+  </body>
+</html>

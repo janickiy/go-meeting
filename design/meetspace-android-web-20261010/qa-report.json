@@ -1,20 +1,21 @@
 {
-  "generatedAt": "2026-10-10T19:18:18.252Z",
+  "generatedAt": "2026-10-11T01:13:37.477Z",
   "base": "http://127.0.0.1:8767",
   "matrix": [
     {
       "screen": "meetings",
       "theme": "light",
       "viewport": {
-        "width": 360,
-        "height": 800
+        "width": 390,
+        "height": 844
       },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -23,23 +24,6 @@
       "screen": "meetings",
       "theme": "light",
       "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "home",
-      "theme": "light",
-      "viewport": {
         "width": 360,
         "height": 800
       },
@@ -49,6 +33,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -66,6 +51,79 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "home",
+      "theme": "light",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "light",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "messages",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -83,23 +141,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "messages",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -117,6 +159,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -134,23 +177,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "calendar",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -168,6 +195,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calendar",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recordings",
+      "theme": "light",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -185,40 +249,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recordings",
-      "theme": "light",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -236,6 +267,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "prejoin",
+      "theme": "light",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -253,40 +321,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "prejoin",
-      "theme": "light",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "call",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -304,6 +339,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "call",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "light",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -321,40 +393,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "light",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "welcome",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -372,6 +411,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "welcome",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "connect",
+      "theme": "light",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -389,23 +465,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "connect",
-      "theme": "light",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -423,6 +483,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -440,6 +501,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -457,6 +519,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -474,6 +537,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -491,6 +555,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -508,6 +573,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -525,6 +591,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -542,6 +609,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -559,6 +627,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -576,6 +645,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -593,6 +663,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -610,23 +681,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install-error",
-      "theme": "light",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -644,6 +699,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install-error",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "meetings",
+      "theme": "dark",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -661,40 +753,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "meetings",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "home",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -712,1298 +771,61 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "messages",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "messages",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "thread",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "thread",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "calendar",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "calendar",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recordings",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recordings",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "prejoin",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "prejoin",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "call",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "call",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "welcome",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "welcome",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "connect",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "connect",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "login",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "login",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "deploy",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "deploy",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "fingerprint",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "fingerprint",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "preflight",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "preflight",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "complete",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "complete",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install-error",
-      "theme": "dark",
-      "viewport": {
-        "width": 390,
-        "height": 844
-      },
-      "width": 390,
-      "bodyWidth": 390,
-      "documentWidth": 390,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install-error",
-      "theme": "dark",
-      "viewport": {
-        "width": 360,
-        "height": 800
-      },
-      "width": 360,
-      "bodyWidth": 360,
-      "documentWidth": 360,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "meetings",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "meetings",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
     },
     {
       "screen": "home",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "home",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "messages",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "messages",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "thread",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "thread",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "calendar",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "calendar",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recordings",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recordings",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "prejoin",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "prejoin",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "call",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "call",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "welcome",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "welcome",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "connect",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "connect",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "login",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "login",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "deploy",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "deploy",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "fingerprint",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "fingerprint",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "preflight",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "preflight",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "complete",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "complete",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install-error",
-      "theme": "light",
-      "viewport": {
-        "width": 1194,
-        "height": 834
-      },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install-error",
-      "theme": "light",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "meetings",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 390,
+        "height": 844
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
     },
     {
-      "screen": "meetings",
+      "screen": "calls",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 360,
+        "height": 800
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
     },
     {
-      "screen": "home",
+      "screen": "calls",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 390,
+        "height": 844
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "home",
-      "theme": "dark",
-      "viewport": {
-        "width": 834,
-        "height": 1112
-      },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2012,15 +834,16 @@
       "screen": "messages",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2029,15 +852,16 @@
       "screen": "messages",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2046,15 +870,16 @@
       "screen": "thread",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2063,15 +888,16 @@
       "screen": "thread",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2080,15 +906,16 @@
       "screen": "calendar",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2097,15 +924,16 @@
       "screen": "calendar",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2114,15 +942,16 @@
       "screen": "recordings",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2131,15 +960,16 @@
       "screen": "recordings",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2148,15 +978,16 @@
       "screen": "recording",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2165,15 +996,16 @@
       "screen": "recording",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2182,15 +1014,16 @@
       "screen": "prejoin",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2199,15 +1032,16 @@
       "screen": "prejoin",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2216,15 +1050,16 @@
       "screen": "call",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2233,15 +1068,16 @@
       "screen": "call",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2250,15 +1086,16 @@
       "screen": "settings",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2267,15 +1104,16 @@
       "screen": "settings",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2284,15 +1122,16 @@
       "screen": "welcome",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2301,15 +1140,16 @@
       "screen": "welcome",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2318,15 +1158,16 @@
       "screen": "connect",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2335,15 +1176,16 @@
       "screen": "connect",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2352,15 +1194,16 @@
       "screen": "login",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2369,15 +1212,16 @@
       "screen": "login",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2386,15 +1230,16 @@
       "screen": "deploy",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 360,
+        "height": 800
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2403,15 +1248,16 @@
       "screen": "deploy",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 390,
+        "height": 844
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2420,15 +1266,16 @@
       "screen": "fingerprint",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 390,
+        "height": 844
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2437,15 +1284,16 @@
       "screen": "fingerprint",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 360,
+        "height": 800
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2454,15 +1302,16 @@
       "screen": "preflight",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 390,
+        "height": 844
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2471,15 +1320,16 @@
       "screen": "preflight",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 360,
+        "height": 800
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2488,15 +1338,16 @@
       "screen": "install",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 390,
+        "height": 844
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2505,15 +1356,16 @@
       "screen": "install",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 360,
+        "height": 800
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2522,15 +1374,16 @@
       "screen": "complete",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 390,
+        "height": 844
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2539,15 +1392,16 @@
       "screen": "complete",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 360,
+        "height": 800
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2556,15 +1410,16 @@
       "screen": "install-error",
       "theme": "dark",
       "viewport": {
-        "width": 1194,
-        "height": 834
+        "width": 390,
+        "height": 844
       },
-      "width": 1194,
-      "bodyWidth": 1194,
-      "documentWidth": 1194,
+      "width": 390,
+      "bodyWidth": 390,
+      "documentWidth": 390,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2573,15 +1428,16 @@
       "screen": "install-error",
       "theme": "dark",
       "viewport": {
-        "width": 834,
-        "height": 1112
+        "width": 360,
+        "height": 800
       },
-      "width": 834,
-      "bodyWidth": 834,
-      "documentWidth": 834,
+      "width": 360,
+      "bodyWidth": 360,
+      "documentWidth": 360,
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2590,6 +1446,1446 @@
       "screen": "meetings",
       "theme": "light",
       "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "meetings",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "home",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "home",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "messages",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "messages",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "thread",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "thread",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calendar",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calendar",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recordings",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recordings",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "prejoin",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "prejoin",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "call",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "call",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "welcome",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "welcome",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "connect",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "connect",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "login",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "login",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "deploy",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "deploy",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "fingerprint",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "fingerprint",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "preflight",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "preflight",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "complete",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install-error",
+      "theme": "light",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "complete",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "meetings",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install-error",
+      "theme": "light",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "home",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "meetings",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "home",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "messages",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "thread",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "messages",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calendar",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "thread",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recordings",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calendar",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recordings",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "prejoin",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "prejoin",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "call",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "call",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "welcome",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "connect",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "welcome",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "connect",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "login",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "deploy",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "login",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "fingerprint",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "deploy",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "preflight",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "fingerprint",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "preflight",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "complete",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "complete",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install-error",
+      "theme": "dark",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "width": 1194,
+      "bodyWidth": 1194,
+      "documentWidth": 1194,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install-error",
+      "theme": "dark",
+      "viewport": {
+        "width": 834,
+        "height": 1112
+      },
+      "width": 834,
+      "bodyWidth": 834,
+      "documentWidth": 834,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "meetings",
+      "theme": "light",
+      "viewport": {
         "width": 320,
         "height": 700
       },
@@ -2599,6 +2895,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2616,6 +2913,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2633,6 +2931,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2650,6 +2949,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2667,6 +3003,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2684,6 +3021,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2701,6 +3039,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2718,23 +3057,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "calendar",
-      "theme": "light",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2752,6 +3075,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calendar",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recordings",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2769,40 +3129,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recordings",
-      "theme": "light",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "light",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2820,6 +3147,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "prejoin",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2837,40 +3201,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "prejoin",
-      "theme": "light",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "call",
-      "theme": "light",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2888,6 +3219,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "call",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2905,40 +3273,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "light",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "welcome",
-      "theme": "light",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2956,6 +3291,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "welcome",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "connect",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -2973,40 +3345,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "connect",
-      "theme": "light",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "login",
-      "theme": "light",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3024,6 +3363,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "login",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "deploy",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3041,40 +3417,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "deploy",
-      "theme": "light",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "fingerprint",
-      "theme": "light",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3092,6 +3435,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "fingerprint",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "preflight",
+      "theme": "light",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3109,40 +3489,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "preflight",
-      "theme": "light",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install",
-      "theme": "light",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3160,12 +3507,13 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
     },
     {
-      "screen": "complete",
+      "screen": "install",
       "theme": "light",
       "viewport": {
         "width": 320,
@@ -3177,6 +3525,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3194,12 +3543,13 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
     },
     {
-      "screen": "install-error",
+      "screen": "complete",
       "theme": "light",
       "viewport": {
         "width": 320,
@@ -3211,6 +3561,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3228,6 +3579,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install-error",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "meetings",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3245,40 +3633,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "meetings",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "home",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3296,6 +3651,79 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "home",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calls",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "messages",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3313,40 +3741,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "messages",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "thread",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3364,23 +3759,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "calendar",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3398,6 +3777,79 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "thread",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recordings",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "calendar",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3415,74 +3867,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recordings",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "recording",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "prejoin",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3500,6 +3885,79 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "recording",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "call",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "prejoin",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3517,74 +3975,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "call",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "settings",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "welcome",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3602,6 +3993,61 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "settings",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "welcome",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "connect",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3619,40 +4065,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "connect",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "login",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3670,6 +4083,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "login",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "deploy",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3687,40 +4137,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "deploy",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "fingerprint",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3738,6 +4155,43 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "fingerprint",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "preflight",
+      "theme": "dark",
+      "viewport": {
+        "width": 600,
+        "height": 900
+      },
+      "width": 600,
+      "bodyWidth": 600,
+      "documentWidth": 600,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3755,40 +4209,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "preflight",
-      "theme": "dark",
-      "viewport": {
-        "width": 600,
-        "height": 900
-      },
-      "width": 600,
-      "bodyWidth": 600,
-      "documentWidth": 600,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
-      "errors": [],
-      "missing": [],
-      "pass": true
-    },
-    {
-      "screen": "install",
-      "theme": "dark",
-      "viewport": {
-        "width": 320,
-        "height": 700
-      },
-      "width": 320,
-      "bodyWidth": 320,
-      "documentWidth": 320,
-      "horizontalOverflow": false,
-      "brokenImages": [],
-      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3806,12 +4227,13 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
     },
     {
-      "screen": "complete",
+      "screen": "install",
       "theme": "dark",
       "viewport": {
         "width": 320,
@@ -3823,6 +4245,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3840,12 +4263,13 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
     },
     {
-      "screen": "install-error",
+      "screen": "complete",
       "theme": "dark",
       "viewport": {
         "width": 320,
@@ -3857,6 +4281,7 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3874,6 +4299,25 @@
       "horizontalOverflow": false,
       "brokenImages": [],
       "empty": false,
+      "navigationValid": true,
+      "errors": [],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "screen": "install-error",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 700
+      },
+      "width": 320,
+      "bodyWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "brokenImages": [],
+      "empty": false,
+      "navigationValid": true,
       "errors": [],
       "missing": [],
       "pass": true
@@ -3882,6 +4326,14 @@
   "flows": [
     {
       "name": "meetings-filters",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "pass": true
+    },
+    {
+      "name": "four-tabs-calls-profile",
       "viewport": {
         "width": 390,
         "height": 844
@@ -3906,6 +4358,14 @@
     },
     {
       "name": "messages",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "pass": true
+    },
+    {
+      "name": "groups-in-all-chats",
       "viewport": {
         "width": 390,
         "height": 844
@@ -3953,6 +4413,14 @@
       "pass": true
     },
     {
+      "name": "four-tabs-calls-profile",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "pass": true
+    },
+    {
       "name": "home-actions-and-chats",
       "viewport": {
         "width": 1194,
@@ -3970,6 +4438,14 @@
     },
     {
       "name": "messages",
+      "viewport": {
+        "width": 1194,
+        "height": 834
+      },
+      "pass": true
+    },
+    {
+      "name": "groups-in-all-chats",
       "viewport": {
         "width": 1194,
         "height": 834
@@ -4018,6 +4494,13 @@
     }
   ],
   "screenshots": [
+    "previews/calls-phone.png",
+    "previews/calls-phone-dark.png",
+    "previews/calls-tablet.png",
+    "previews/messages-phone-dark.png",
+    "previews/profile-phone-dark.png",
+    "previews/profile-tablet.png",
+    "previews/four-tabs.png",
     "previews/meetings-phone.png",
     "previews/meetings-tablet.png",
     "previews/home-phone.png",
@@ -4031,10 +4514,10 @@
   ],
   "issues": [],
   "summary": {
-    "matrixPass": 228,
-    "matrixTotal": 228,
-    "flowPass": 17,
-    "flowTotal": 17,
+    "matrixPass": 240,
+    "matrixTotal": 240,
+    "flowPass": 21,
+    "flowTotal": 21,
     "issueCount": 0
   }
 }

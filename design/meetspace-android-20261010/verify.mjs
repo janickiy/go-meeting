@@ -14,6 +14,7 @@ const base = process.env.MEETSPACE_QA_URL || "http://127.0.0.1:8766";
 const outDir = fileURLToPath(new URL(".", import.meta.url));
 const screens = [
   "home",
+  "calls",
   "messages",
   "thread",
   "calendar",
@@ -95,6 +96,12 @@ async function matrix(viewport) {
           .filter((img) => !img.complete || !img.naturalWidth)
           .map((img) => img.getAttribute("src")),
         empty: document.querySelector("#app").innerText.trim().length < 20,
+        navigationValid:
+          !document.querySelector(".tm-shell") ||
+          (document.querySelectorAll(".bottom-nav button").length === 4 &&
+            [...document.querySelectorAll(".bottom-nav button")]
+              .map((b) => b.getAttribute("aria-label"))
+              .join(",") === "Главная,Звонки,Чаты,Профиль"),
       }));
       const entry = {
         screen,
@@ -107,6 +114,7 @@ async function matrix(viewport) {
       entry.pass =
         !entry.horizontalOverflow &&
         !entry.empty &&
+        entry.navigationValid &&
         !errors.length &&
         !missing.length &&
         !measure.brokenImages.length &&
@@ -151,6 +159,110 @@ try {
     `Matrix: ${report.matrix.filter((x) => x.pass).length}/${report.matrix.length} passed`,
   );
   for (const viewport of [viewports[1], viewports[3]]) {
+    await flow("four-tabs-calls-profile", viewport, async (page) => {
+      await page.goto(url("home"));
+      const nav = page.locator(".bottom-nav");
+      assert.deepEqual(
+        await nav
+          .locator("button")
+          .evaluateAll((items) =>
+            items.map((item) => item.getAttribute("aria-label")),
+          ),
+        ["Главная", "Звонки", "Чаты", "Профиль"],
+      );
+      assert.equal(await page.locator(".home-action-card").count(), 4);
+      await nav.getByRole("button", { name: "Звонки", exact: true }).click();
+      await stateIs(page, "calls");
+      assert.equal(await page.locator(".call-action").count(), 3);
+      assert.equal(await page.locator(".call-history-row").count(), 5);
+      await page
+        .getByRole("button", { name: "Поиск звонков", exact: true })
+        .click();
+      await page.getByLabel("Найти звонок", { exact: true }).fill("Анна");
+      assert.equal(await page.locator(".call-history-row").count(), 1);
+      await page
+        .getByLabel("Найти звонок", { exact: true })
+        .fill("Нет такого звонка");
+      assert(await page.locator(".tm-empty").isVisible());
+      await page.getByLabel("Найти звонок", { exact: true }).fill("Продукт");
+      await page.locator(".call-history-row").click();
+      await page.locator("#history-record").click();
+      await stateIs(page, "recording");
+      await page.locator('.bottom-nav [data-go="calls"]').click();
+      await page
+        .getByRole("button", { name: "Поиск звонков", exact: true })
+        .click();
+      assert.equal(await page.locator(".call-history-row").count(), 5);
+      await page.locator('.call-action[data-action="schedule"]').click();
+      await page
+        .locator('#meeting-form input[name="title"]')
+        .fill("Новая встреча из звонков");
+      await page.locator("#meeting-form button").click();
+      await stateIs(page, "calls");
+      assert(
+        (await page.locator(".call-upcoming").innerText()).includes(
+          "Новая встреча из звонков",
+        ),
+      );
+      await page.locator('.bottom-nav [data-go="messages"]').click();
+      await page.locator('[data-filter="personal"]').click();
+      assert.equal(await page.locator(".conversation:visible").count(), 2);
+      await page.locator('[data-filter="unread"]').click();
+      assert.equal(await page.locator(".conversation:visible").count(), 2);
+      await page
+        .getByRole("button", { name: "Скрыть приглашение", exact: true })
+        .click();
+      assert.equal(await page.locator(".chat-invite-note").count(), 0);
+      await page.locator('.bottom-nav [data-go="settings"]').click();
+      await stateIs(page, "settings");
+      await page
+        .getByRole("button", { name: "Редактировать профиль", exact: true })
+        .click();
+      await page
+        .locator('#profile-form input[name="name"]')
+        .fill("Александр Тест");
+      await page.locator("#profile-form button").click();
+      assert(
+        (await page.locator(".profile-identity").innerText()).includes(
+          "Александр Тест",
+        ),
+      );
+      await page.locator('[data-action="presence"]').click();
+      await page.locator('[data-presence="Не беспокоить"]').click();
+      assert.equal(
+        await page.locator(".profile-presence").innerText(),
+        "Не беспокоить",
+      );
+      await page.getByLabel("Уведомления", { exact: true }).uncheck();
+      await page.locator('.bottom-nav [data-go="calls"]').click();
+      await page.locator('.bottom-nav [data-go="settings"]').click();
+      assert(
+        !(await page.getByLabel("Уведомления", { exact: true }).isChecked()),
+      );
+      await page.locator('[data-action="appearance"]').click();
+      await page.locator('[data-theme-value="dark"]').click();
+      assert.equal(
+        await page.locator("html").getAttribute("data-theme"),
+        "dark",
+      );
+      await page.locator('[data-action="shareContact"]').click();
+      await page
+        .context()
+        .grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.locator('[data-action="copyContact"]').click();
+      await page
+        .getByRole("status")
+        .getByText("Почта скопирована", { exact: true })
+        .waitFor();
+      assert.equal(
+        await page.evaluate(() => navigator.clipboard.readText()),
+        "alex@example.org",
+      );
+      await page.keyboard.press("Escape");
+      await page.locator('.bottom-nav [data-go="home"]').click();
+      await stateIs(page, "home");
+      assert.equal(await page.locator(".home-action-card").count(), 4);
+    });
     await flow("home-actions-and-chats", viewport, async (page) => {
       await page.goto(url("home"));
       await ready(page);
@@ -261,16 +373,21 @@ try {
       await page
         .getByRole("button", { name: "Выйти из встречи", exact: true })
         .click();
-      await stateIs(page, "home");
+      await stateIs(page, "calls");
     });
     await flow("messages", viewport, async (page) => {
       await page.goto(url("messages"));
       await ready(page);
-      await page.getByLabel("Поиск чатов").fill("Анна");
+      await page
+        .getByRole("button", { name: "Поиск чатов", exact: true })
+        .click();
+      await page.getByLabel("Найти чат", { exact: true }).fill("Анна");
       assert.equal(await page.locator(".conversation:visible").count(), 1);
-      await page.getByLabel("Поиск чатов").fill("Несуществующий чат");
+      await page
+        .getByLabel("Найти чат", { exact: true })
+        .fill("Несуществующий чат");
       assert(await page.locator("#chat-empty").isVisible());
-      await page.getByLabel("Поиск чатов").fill("Анна");
+      await page.getByLabel("Найти чат", { exact: true }).fill("Анна");
       await page.locator(".conversation:visible").click();
       await stateIs(page, "thread");
       await page
@@ -288,6 +405,143 @@ try {
       assert.equal(
         await page.getByLabel("Сообщение", { exact: true }).inputValue(),
         "",
+      );
+    });
+    await flow("groups-in-all-chats", viewport, async (page) => {
+      await page.goto(url("messages", "dark"));
+      await ready(page);
+      const rows = page.locator(".conversation:visible");
+      assert.equal(await rows.count(), 5);
+      assert.equal(await rows.locator(".group-avatar-badge").count(), 3);
+      assert.match(
+        await page.locator('.conversation[data-chat="team"]').innerText(),
+        /Группа · 5 участников/,
+      );
+      assert.match(
+        await page.locator('.conversation[data-chat="team"]').innerText(),
+        /Мария:/,
+      );
+      await page.locator('[data-filter="personal"]').click();
+      assert.equal(await rows.count(), 2);
+      assert.equal(
+        await page.locator('.conversation[data-kind="group"]').count(),
+        0,
+      );
+      await page.locator('[data-filter="unread"]').click();
+      assert.equal(await rows.count(), 2);
+      assert.equal(
+        await page.locator('.conversation[data-kind="group"]').count(),
+        1,
+      );
+      await page.locator('[data-filter="all"]').click();
+      await page.locator('.conversation[data-chat="dev"]').click();
+      assert.match(
+        await page.locator(".thread-header").innerText(),
+        /Группа · 4 участника/,
+      );
+      await page
+        .getByRole("button", { name: "Информация о чате", exact: true })
+        .click();
+      assert.equal(await page.locator(".group-info-member").count(), 4);
+      assert.match(
+        await page.locator(".modal").innerText(),
+        /Максим Петров\s+Администратор/,
+      );
+      await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+      const back = async () => {
+        if (viewport.width < 700)
+          await page
+            .getByRole("button", { name: "Назад к чатам", exact: true })
+            .click();
+        else await page.locator('.bottom-nav [data-go="messages"]').click();
+      };
+      await back();
+      await page.locator('.conversation[data-chat="anna"]').click();
+      await page
+        .getByRole("button", { name: "Информация о чате", exact: true })
+        .click();
+      assert.equal(
+        await page.locator("#modal-title").innerText(),
+        "О контакте",
+      );
+      assert.equal(await page.locator(".group-info-member").count(), 0);
+      await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+      await back();
+      await page.locator('[data-filter="personal"]').click();
+      await page
+        .getByRole("button", { name: "Новый чат", exact: true })
+        .click();
+      assert.equal(
+        await page.locator('.modal [data-action="newGroup"]').count(),
+        1,
+      );
+      await page
+        .getByRole("button", { name: "Создать группу", exact: true })
+        .click();
+      await page
+        .getByLabel("Название группы", { exact: true })
+        .fill("Проект <Альфа>");
+      await page.locator('input[name="members"][value="anna"]').uncheck();
+      await page.locator('input[name="members"][value="max"]').uncheck();
+      await page
+        .getByRole("button", { name: "Создать группу", exact: true })
+        .click();
+      assert(await page.locator("#group-members-error").isVisible());
+      await page.locator('input[name="members"][value="anna"]').check();
+      await page
+        .getByRole("button", { name: "Создать группу", exact: true })
+        .click();
+      await stateIs(page, "thread");
+      assert.equal(
+        await page.locator(".thread-header h3").innerText(),
+        "Проект <Альфа>",
+      );
+      assert.match(
+        await page.locator(".thread-header").innerText(),
+        /Группа · 2 участника/,
+      );
+      assert(await page.locator(".group-welcome").isVisible());
+      assert.equal(await page.locator(".thread-log .chat-message").count(), 0);
+      await page
+        .getByRole("button", { name: "Информация о чате", exact: true })
+        .click();
+      assert.equal(await page.locator(".group-info-member").count(), 2);
+      assert.match(
+        await page.locator(".group-info-member").first().innerText(),
+        /Вы · Администратор/,
+      );
+      await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+      await page
+        .getByLabel("Сообщение", { exact: true })
+        .fill("Привет, команда!");
+      await page
+        .getByRole("button", { name: "Отправить сообщение", exact: true })
+        .click();
+      assert.equal(await page.locator(".thread-log .chat-message").count(), 1);
+      assert.equal(await page.locator(".group-welcome").count(), 0);
+      await back();
+      assert.equal(
+        await page.locator('[data-filter="all"]').getAttribute("aria-pressed"),
+        "true",
+      );
+      assert.match(await rows.first().innerText(), /Проект <Альфа>/);
+      assert.match(await rows.first().innerText(), /Вы: Привет, команда!/);
+      assert.equal(await rows.count(), 6);
+      await page.locator('[data-filter="personal"]').click();
+      assert.equal(await rows.count(), 2);
+      assert.equal(
+        await page.locator('.conversation[data-kind="group"]').count(),
+        0,
+      );
+      await page.locator('[data-filter="all"]').click();
+      await rows.first().click();
+      await page
+        .getByRole("button", { name: "Начать видеовстречу", exact: true })
+        .click();
+      await stateIs(page, "prejoin");
+      assert.match(
+        await page.locator("#app").innerText(),
+        /Звонок группы «Проект <Альфа>»/,
       );
     });
     await flow("calendar", viewport, async (page) => {
@@ -431,12 +685,12 @@ try {
     await page.getByLabel("Выбрать экран макета").selectOption("settings");
     await page
       .frameLocator("#phone-preview")
-      .locator('[data-settings-tab="appearance"]')
+      .locator('[data-action="appearance"]')
       .click();
     await page
       .frameLocator("#phone-preview")
-      .getByLabel("Тёмная тема", { exact: true })
-      .uncheck();
+      .locator('[data-theme-value="light"]')
+      .click();
     await page.waitForFunction(
       () =>
         document.body.dataset.theme === "light" &&
@@ -456,6 +710,32 @@ try {
     );
   });
   const shots = [
+    { name: "calls-phone", screen: "calls", viewport: viewports[1] },
+    {
+      name: "calls-phone-dark",
+      screen: "calls",
+      viewport: viewports[1],
+      theme: "dark",
+    },
+    { name: "calls-tablet", screen: "calls", viewport: viewports[3] },
+    {
+      name: "messages-phone-dark",
+      screen: "messages",
+      viewport: viewports[1],
+      theme: "dark",
+    },
+    {
+      name: "profile-phone-dark",
+      screen: "settings",
+      viewport: viewports[1],
+      theme: "dark",
+    },
+    { name: "profile-tablet", screen: "settings", viewport: viewports[3] },
+    {
+      name: "four-tabs",
+      url: `${base}/four-tabs.html?theme=dark`,
+      viewport: { width: 1800, height: 1100 },
+    },
     { name: "home-phone", screen: "home", viewport: viewports[1] },
     { name: "home-tablet", screen: "home", viewport: viewports[3] },
     { name: "home-portrait", screen: "home", viewport: viewports[2] },
