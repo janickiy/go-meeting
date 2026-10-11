@@ -3,7 +3,7 @@ export function AuthTeamVisual() {
   return (
     <div className="auth-team-photo" aria-hidden="true">
       <img
-        src="/media/auth-videoconference-v3.webp"
+        src="/media/auth-videoconference-v4.webp"
         width="1536"
         height="1024"
         alt=""
