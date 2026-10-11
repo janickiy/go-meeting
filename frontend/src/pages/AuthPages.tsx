@@ -1,7 +1,14 @@
 import { useRef, useState } from "react";
 import type { SubmitEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, ArrowRight, Link as LinkIcon, Video } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Link as LinkIcon,
+  MessageSquare,
+  Play,
+  Video,
+} from "lucide-react";
 import { api, errorMessage } from "../api";
 import { useAuth } from "../auth";
 import {
@@ -12,9 +19,10 @@ import {
   SuccessMark,
 } from "../components/ui";
 import { passwordLength, safeNext, utf8Bytes } from "../utils";
-import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_TAGLINE } from "../brand";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME } from "../brand";
 import { Copyright } from "../components/Copyright";
-import "./meetings-design.css";
+import { AuthTeamVisual } from "../components/AuthTeamVisual";
+import "./auth-pages.css";
 
 /**
  * AuthPage показывает форму входа либо регистрации и обрабатывает проверку данных и ошибки API.
@@ -96,45 +104,63 @@ export function AuthPage({ register = false }: { register?: boolean }) {
     }
   }
   return (
-    <div className="auth-page auth-design-page">
-      <header className="auth-design-header">
+    <div className="auth-page auth-business-page">
+      <a className="skip-link" href="#auth-form">
+        Перейти к форме
+      </a>
+      <header className="auth-business-header">
         <Brand />
         <Link className="auth-back" to="/">
           <ArrowLeft size={16} aria-hidden="true" />
           На главную
         </Link>
       </header>
-      <main className="auth-design-layout">
-        <aside className="auth-scenery-caption" aria-label="О сервисе">
-          <span className="eyebrow">БЛИЖЕ К ВАЖНОМУ</span>
-          <h2>
-            Ближе
-            <br />
-            к команде.
-            <br />
-            <em>Ближе к идеям.</em>
-          </h2>
-          <p>{PRODUCT_TAGLINE}</p>
-          <div className="auth-design-story-note">
-            <span>
-              <Video size={22} aria-hidden="true" />
+      <main className="auth-business-layout">
+        <aside className="auth-business-story" aria-label="О сервисе">
+          <AuthTeamVisual />
+          <div className="auth-business-story-copy">
+            <span className="auth-story-kicker">
+              ДЕЛОВОЕ ОБЩЕНИЕ. ЕДИНОЕ ПРОСТРАНСТВО.
             </span>
-            <div>
-              <strong>Хорошая работа начинается с разговора.</strong>
-              <small>{PRODUCT_DESCRIPTION}</small>
-            </div>
+            <h2>
+              Рабочие встречи.
+              <br />
+              Настоящее общение.
+            </h2>
+            <p className="auth-story-description">
+              Обсуждайте проекты с коллегами, проводите видеовстречи и
+              продолжайте работу в командных чатах.
+            </p>
+            <ul className="auth-story-features">
+              <li>
+                <Video size={16} aria-hidden="true" /> Видеовстречи
+              </li>
+              <li>
+                <MessageSquare size={16} aria-hidden="true" /> Чаты команды
+              </li>
+              <li>
+                <Play size={16} aria-hidden="true" /> Записи и материалы
+              </li>
+            </ul>
           </div>
         </aside>
-        <div className={`auth-card ${register ? "register-card" : ""}`}>
+        <section
+          className={`auth-card ${register ? "register-card" : ""}`}
+          id="auth-form"
+          tabIndex={-1}
+          aria-labelledby="auth-heading-title"
+        >
           <p className="auth-tagline">
-            {register ? "НАЧНЁМ ЗНАКОМСТВО" : "С ВОЗВРАЩЕНИЕМ"}
+            {register ? "СОЗДАНИЕ УЧЁТНОЙ ЗАПИСИ" : "ВАШЕ РАБОЧЕЕ ПРОСТРАНСТВО"}
           </p>
           <div className="auth-heading">
-            <h1>{register ? "Создайте аккаунт" : `Вход в ${PRODUCT_NAME}`}</h1>
+            <h1 id="auth-heading-title">
+              {register ? "Создайте аккаунт" : `Вход в ${PRODUCT_NAME}`}
+            </h1>
             <p>
               {register
-                ? "Проводите встречи и продолжайте общение."
-                : "Ваши встречи и разговоры уже здесь."}
+                ? "Создайте аккаунт для встреч и общения с коллегами."
+                : "Войдите, чтобы продолжить работу с командой."}
             </p>
           </div>
           <ErrorNotice>
@@ -150,7 +176,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder="name@company.ru"
                 required
                 value={email}
                 onChange={
@@ -254,50 +280,11 @@ export function AuthPage({ register = false }: { register?: boolean }) {
               </>
             )}
           </p>
-          {register ? null : (
-            <>
-              <div className="divider">
-                <span>или</span>
-              </div>
-              <div
-                className="social-placeholders"
-                aria-label="Будущие способы входа"
-              >
-                <button
-                  type="button"
-                  className="social-placeholder"
-                  disabled
-                  aria-describedby="social-availability"
-                >
-                  <strong aria-hidden="true">G</strong>
-                  <span>Google</span>
-                  <small>Позже</small>
-                </button>
-                <button
-                  type="button"
-                  className="social-placeholder"
-                  disabled
-                  aria-describedby="social-availability"
-                >
-                  <strong aria-hidden="true">⊞</strong>
-                  <span>Microsoft</span>
-                  <small>Позже</small>
-                </button>
-              </div>
-              <p id="social-availability" className="social-availability-note">
-                Вход через Google и Microsoft пока недоступен.
-              </p>
-            </>
-          )}
           <div className="auth-invitation-note">
             <LinkIcon size={17} aria-hidden="true" />
-            <p>
-              Чтобы присоединиться по приглашению,
-              <br />
-              создавать аккаунт необязательно.
-            </p>
+            <p>Присоединиться к встрече по приглашению можно без аккаунта.</p>
           </div>
-        </div>
+        </section>
       </main>
       <footer className="auth-footer">
         <span>{PRODUCT_DESCRIPTION}</span>
@@ -317,24 +304,36 @@ export function RegistrationSuccess() {
   const [params] = useSearchParams();
   const next = safeNext(params.get("next"));
   return (
-    <div className="auth-page auth-design-page auth-design-success">
-      <Brand />
-      <div className="auth-card registration-success">
-        <SuccessMark />
-        <span className="eyebrow">ПРИЯТНО ПОЗНАКОМИТЬСЯ</span>
-        <h1>Вы в {PRODUCT_NAME}.</h1>
-        <p>
-          Аккаунт создан. Теперь можно собирать команду, встречаться и сохранять
-          важное.
-        </p>
-        <Link
-          className="button button-primary full-width"
-          to={user ? next : `/login?next=${encodeURIComponent(next)}`}
-        >
-          {user ? "Перейти в приложение" : "Войти в аккаунт"}
-          <ArrowRight size={17} />
+    <div className="auth-page auth-business-page auth-business-success">
+      <header className="auth-business-header">
+        <Brand />
+        <Link className="auth-back" to="/">
+          <ArrowLeft size={16} aria-hidden="true" /> На главную
         </Link>
-      </div>
+      </header>
+      <main className="auth-success-layout">
+        <div className="auth-card registration-success">
+          <SuccessMark />
+          <span className="auth-tagline">
+            ДОБРО ПОЖАЛОВАТЬ В {PRODUCT_NAME}
+          </span>
+          <h1>Аккаунт создан</h1>
+          <p>
+            Теперь можно планировать встречи и продолжать общение с командой в
+            чатах.
+          </p>
+          <Link
+            className="button button-primary full-width"
+            to={user ? next : `/login?next=${encodeURIComponent(next)}`}
+          >
+            {user ? "Перейти в приложение" : "Войти в аккаунт"}
+            <ArrowRight size={17} aria-hidden="true" />
+          </Link>
+        </div>
+      </main>
+      <footer className="auth-footer">
+        <Copyright />
+      </footer>
     </div>
   );
 }
